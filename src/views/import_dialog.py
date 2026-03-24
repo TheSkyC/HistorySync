@@ -35,6 +35,7 @@ from src.services.db_importer import (
 from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
+from src.utils.theme_manager import ThemeManager
 from src.viewmodels.import_viewmodel import ImportTask, ImportViewModel, TaskResult
 
 log = get_logger("view.import_dialog")
@@ -59,22 +60,122 @@ _COL_STATUS = 4
 _COL_REMOVE = 5
 
 _COLOR_PENDING = "#9aa3b8"
-_COLOR_OK = "#7ecf8e"
+_COLOR_OK = "#4caf6e"
 _COLOR_ERROR = "#e07070"
-_COLOR_RUNNING = "#f0c060"
+_COLOR_RUNNING = "#e0a030"
 
-_COMBO_STYLE = (
-    "QComboBox { background: #252a3a; color: #c8cfe0; border: 1px solid #3d4460; "
-    "border-radius: 3px; padding: 2px 6px; font-size: 12px; min-height: 24px; } "
-    "QComboBox::drop-down { border: none; width: 18px; } "
-    "QComboBox QAbstractItemView { background: #252a3a; color: #c8cfe0; "
-    "selection-background-color: #3d4460; border: 1px solid #3d4460; }"
-)
 
-_LINE_STYLE = (
-    "QLineEdit { background: #252a3a; color: #c8cfe0; border: 1px solid #3d4460; "
-    "border-radius: 3px; padding: 2px 6px; font-size: 12px; min-height: 24px; }"
-)
+# ── 主题色板 ──────────────────────────────────────────────────
+
+
+class _Palette:
+    """根据 ThemeManager 当前主题返回一组 UI 颜色。"""
+
+    def __init__(self, theme: str):
+        self._dark = theme == "dark"
+
+    @property
+    def bg_base(self) -> str:
+        return "#151929" if self._dark else "#f0f2f7"
+
+    @property
+    def bg_surface(self) -> str:
+        return "#1a1f2e" if self._dark else "#ffffff"
+
+    @property
+    def bg_surface2(self) -> str:
+        return "#1e2336" if self._dark else "#f5f7fa"
+
+    @property
+    def bg_input(self) -> str:
+        return "#252a3a" if self._dark else "#ffffff"
+
+    @property
+    def bg_progress(self) -> str:
+        return "#1e2230" if self._dark else "#eef1f7"
+
+    @property
+    def border(self) -> str:
+        return "#2d3348" if self._dark else "#d0d5e0"
+
+    @property
+    def border_input(self) -> str:
+        return "#3d4460" if self._dark else "#c0c7d8"
+
+    @property
+    def text_primary(self) -> str:
+        return "#e8eaf0" if self._dark else "#1a1f2e"
+
+    @property
+    def text_secondary(self) -> str:
+        return "#c8cfe0" if self._dark else "#3a4060"
+
+    @property
+    def text_muted(self) -> str:
+        return "#6a7490" if self._dark else "#7a84a0"
+
+    @property
+    def text_hint(self) -> str:
+        return "#3d4460" if self._dark else "#9098b0"
+
+    @property
+    def accent(self) -> str:
+        return "#5b9cf6" if self._dark else "#2563eb"
+
+    @property
+    def accent_hover(self) -> str:
+        return "#4a8be0" if self._dark else "#1d4ed8"
+
+    @property
+    def btn_secondary_hover(self) -> str:
+        return "#2d3450" if self._dark else "#e8ecf5"
+
+    @property
+    def rm_btn_hover_bg(self) -> str:
+        return "#3a1e1e" if self._dark else "#fce8e8"
+
+    def combo_style(self) -> str:
+        return (
+            f"QComboBox {{ background: {self.bg_input}; color: {self.text_secondary}; "
+            f"border: 1px solid {self.border_input}; "
+            f"border-radius: 3px; padding: 2px 6px; font-size: 12px; min-height: 24px; }} "
+            f"QComboBox::drop-down {{ border: none; width: 18px; }} "
+            f"QComboBox QAbstractItemView {{ background: {self.bg_input}; color: {self.text_secondary}; "
+            f"selection-background-color: {self.border_input}; border: 1px solid {self.border_input}; }}"
+        )
+
+    def line_style(self) -> str:
+        return (
+            f"QLineEdit {{ background: {self.bg_input}; color: {self.text_secondary}; "
+            f"border: 1px solid {self.border_input}; "
+            f"border-radius: 3px; padding: 2px 6px; font-size: 12px; min-height: 24px; }}"
+        )
+
+    def table_style(self) -> str:
+        return (
+            f"QTableWidget {{"
+            f"  background: {self.bg_surface};"
+            f"  alternate-background-color: {self.bg_surface2};"
+            f"  color: {self.text_secondary};"
+            f"  border: 1px solid {self.border};"
+            f"  border-radius: 6px;"
+            f"  font-size: 12px;"
+            f"}}"
+            f"QHeaderView::section {{"
+            f"  background: {self.bg_surface2};"
+            f"  color: {self.text_muted};"
+            f"  font-size: 11px;"
+            f"  font-weight: bold;"
+            f"  border: none;"
+            f"  border-bottom: 1px solid {self.border};"
+            f"  padding: 5px 8px;"
+            f"}}"
+            f"QTableWidget::item {{ padding: 0px; }}"
+        )
+
+
+def _get_palette() -> _Palette:
+    return _Palette(ThemeManager.instance().current)
 
 
 # ── 工具 ──────────────────────────────────────────────────────
@@ -89,9 +190,9 @@ def _cell_wrap(widget: QWidget) -> QWidget:
     return w
 
 
-def _make_combo(options, current_data=None) -> QComboBox:
+def _make_combo(options, current_data=None, palette: _Palette | None = None) -> QComboBox:
     combo = QComboBox()
-    combo.setStyleSheet(_COMBO_STYLE)
+    combo.setStyleSheet((palette or _get_palette()).combo_style())
     for label, data in options:
         combo.addItem(label, data)
     if current_data is not None:
@@ -129,57 +230,46 @@ class ImportDialog(QDialog):
         self._vm.import_finished.connect(self._on_import_finished)
         self._vm.import_error.connect(self._on_import_error)
 
+        # 监听主题切换，实时重绘
+        ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
+
         self._setup_ui()
 
     def _setup_ui(self):
+        p = _get_palette()
+
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
         # ── 顶部标题 ──
-        header = QFrame()
-        header.setStyleSheet("QFrame { background: #1a1f2e; border-bottom: 1px solid #2d3348; }")
-        header.setFixedHeight(56)
-        hl = QHBoxLayout(header)
+        self._header = QFrame()
+        self._header.setFixedHeight(56)
+        hl = QHBoxLayout(self._header)
         hl.setContentsMargins(20, 0, 20, 0)
-        title = QLabel(_("Import Browser History"))
-        title.setStyleSheet("font-size: 15px; font-weight: bold; color: #e8eaf0;")
-        sub = QLabel(_("  ·  Drag & drop files, or click  Add Files"))
-        sub.setStyleSheet("font-size: 11px; color: #3d4460;")
-        hl.addWidget(title)
-        hl.addWidget(sub)
+        self._title_lbl = QLabel(_("Import Browser History"))
+        self._sub_lbl = QLabel(_("  ·  Drag & drop files, or click  Add Files"))
+        hl.addWidget(self._title_lbl)
+        hl.addWidget(self._sub_lbl)
         hl.addStretch()
-        root.addWidget(header)
+        root.addWidget(self._header)
 
         # ── 内容区 ──
-        body = QWidget()
-        body.setStyleSheet("background: #151929;")
-        bl = QVBoxLayout(body)
+        self._body = QWidget()
+        bl = QVBoxLayout(self._body)
         bl.setContentsMargins(20, 14, 20, 14)
         bl.setSpacing(10)
 
-        # 格式提示
-        hint = QLabel(
+        self._hint_lbl = QLabel(
             _(
                 "Supported: Chrome/Edge/Brave History  ·  Firefox places.sqlite  "
                 "·  Safari History.db  ·  HistorySync history.db"
             )
         )
-        hint.setStyleSheet("color: #3d4460; font-size: 11px;")
-        bl.addWidget(hint)
+        bl.addWidget(self._hint_lbl)
 
-        # 文件表格
         self._table = QTableWidget(0, 6)
-        self._table.setHorizontalHeaderLabels(
-            [
-                _("File"),
-                _("Format"),
-                _("Browser"),
-                _("Profile"),
-                _("Status"),
-                "",
-            ]
-        )
+        self._table.setHorizontalHeaderLabels([_("File"), _("Format"), _("Browser"), _("Profile"), _("Status"), ""])
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(_COL_FILE, QHeaderView.Stretch)
         hh.setSectionResizeMode(_COL_FORMAT, QHeaderView.ResizeToContents)
@@ -193,110 +283,131 @@ class ImportDialog(QDialog):
         self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self._table.setAlternatingRowColors(True)
         self._table.setShowGrid(False)
-        self._table.setStyleSheet(
-            "QTableWidget {"
-            "  background: #1a1f2e;"
-            "  alternate-background-color: #1e2336;"
-            "  color: #c8cfe0;"
-            "  border: 1px solid #2d3348;"
-            "  border-radius: 6px;"
-            "  font-size: 12px;"
-            "}"
-            "QHeaderView::section {"
-            "  background: #1e2336;"
-            "  color: #6a7490;"
-            "  font-size: 11px;"
-            "  font-weight: bold;"
-            "  border: none;"
-            "  border-bottom: 1px solid #2d3348;"
-            "  padding: 5px 8px;"
-            "}"
-            "QTableWidget::item { padding: 0px; }"
-        )
         self._table.setMinimumHeight(200)
         bl.addWidget(self._table)
 
-        # 空状态
         self._empty_lbl = QLabel(_("No files yet.\n\nDrop files here, or click  Add Files  below."))
         self._empty_lbl.setAlignment(Qt.AlignCenter)
-        self._empty_lbl.setStyleSheet("color: #2d3450; font-size: 13px;")
         self._empty_lbl.setVisible(False)
         bl.addWidget(self._empty_lbl)
 
-        # 进度区
         self._progress_frame = QFrame()
-        self._progress_frame.setStyleSheet(
-            "QFrame { background: #1e2230; border: 1px solid #2d3348; border-radius: 6px; }"
-        )
         pfl = QVBoxLayout(self._progress_frame)
         pfl.setContentsMargins(14, 8, 14, 8)
         pfl.setSpacing(5)
         self._progress_lbl = QLabel("")
-        self._progress_lbl.setStyleSheet("color: #9aa3b8; font-size: 12px;")
         self._progress_bar = QProgressBar()
         self._progress_bar.setRange(0, 100)
         self._progress_bar.setFixedHeight(6)
         self._progress_bar.setTextVisible(False)
-        self._progress_bar.setStyleSheet(
-            "QProgressBar { background: #252a3a; border-radius: 3px; }"
-            "QProgressBar::chunk { background: #5b9cf6; border-radius: 3px; }"
-        )
         pfl.addWidget(self._progress_lbl)
         pfl.addWidget(self._progress_bar)
         self._progress_frame.setVisible(False)
         bl.addWidget(self._progress_frame)
 
-        root.addWidget(body, 1)
+        root.addWidget(self._body, 1)
 
-        # ── 底部分割线 ──
-        sep = QFrame()
-        sep.setFrameShape(QFrame.HLine)
-        sep.setStyleSheet("color: #2d3348;")
-        root.addWidget(sep)
+        self._sep = QFrame()
+        self._sep.setFrameShape(QFrame.HLine)
+        root.addWidget(self._sep)
 
-        # ── 底部操作 ──
-        foot = QWidget()
-        foot.setStyleSheet("background: #1a1f2e;")
-        fl = QHBoxLayout(foot)
+        self._foot = QWidget()
+        fl = QHBoxLayout(self._foot)
         fl.setContentsMargins(20, 10, 20, 10)
         fl.setSpacing(8)
 
         self._add_btn = QPushButton(_("Add Files…"))
         self._add_btn.setIcon(get_icon("plus"))
-        self._add_btn.setStyleSheet(
-            "QPushButton { background: #252a3a; color: #c8cfe0; border: 1px solid #3d4460; "
-            "border-radius: 5px; padding: 6px 14px; font-size: 12px; }"
-            "QPushButton:hover { background: #2d3450; }"
-        )
         self._add_btn.clicked.connect(self._browse_files)
         fl.addWidget(self._add_btn)
         fl.addStretch()
 
         self._cancel_btn = QPushButton(_("Cancel"))
         self._cancel_btn.setFixedWidth(90)
-        self._cancel_btn.setStyleSheet(
-            "QPushButton { background: transparent; color: #9aa3b8; border: 1px solid #3d4460; "
-            "border-radius: 5px; padding: 6px 12px; }"
-            "QPushButton:hover { background: #252a3a; }"
-        )
         self._cancel_btn.clicked.connect(self.reject)
 
         self._import_btn = QPushButton(_("Start Import"))
         self._import_btn.setIcon(get_icon("upload"))
         self._import_btn.setEnabled(False)
-        self._import_btn.setStyleSheet(
-            "QPushButton { background: #5b9cf6; color: white; font-weight: bold; "
-            "border-radius: 5px; padding: 6px 18px; font-size: 13px; }"
-            "QPushButton:hover { background: #4a8be0; }"
-            "QPushButton:disabled { background: #252a3a; color: #555; border: 1px solid #3d4460; }"
-        )
         self._import_btn.clicked.connect(self._start_import)
 
         fl.addWidget(self._cancel_btn)
         fl.addWidget(self._import_btn)
-        root.addWidget(foot)
+        root.addWidget(self._foot)
 
         self._refresh_empty_state()
+        self._apply_theme(p)
+
+    # ── 主题应用 ──────────────────────────────────────────────
+
+    def _apply_theme(self, p: _Palette):
+        self._header.setStyleSheet(f"QFrame {{ background: {p.bg_surface}; border-bottom: 1px solid {p.border}; }}")
+        self._title_lbl.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {p.text_primary};")
+        self._sub_lbl.setStyleSheet(f"font-size: 11px; color: {p.text_hint};")
+        self._body.setStyleSheet(f"background: {p.bg_base};")
+        self._hint_lbl.setStyleSheet(f"color: {p.text_hint}; font-size: 11px;")
+        self._table.setStyleSheet(p.table_style())
+        self._empty_lbl.setStyleSheet(f"color: {p.text_hint}; font-size: 13px;")
+        self._progress_frame.setStyleSheet(
+            f"QFrame {{ background: {p.bg_progress}; border: 1px solid {p.border}; border-radius: 6px; }}"
+        )
+        self._progress_lbl.setStyleSheet(f"color: {p.text_muted}; font-size: 12px;")
+        self._progress_bar.setStyleSheet(
+            f"QProgressBar {{ background: {p.bg_input}; border-radius: 3px; }}"
+            f"QProgressBar::chunk {{ background: {p.accent}; border-radius: 3px; }}"
+        )
+        self._sep.setStyleSheet(f"color: {p.border};")
+        self._foot.setStyleSheet(f"background: {p.bg_surface};")
+        self._add_btn.setStyleSheet(
+            f"QPushButton {{ background: {p.bg_input}; color: {p.text_secondary}; "
+            f"border: 1px solid {p.border_input}; "
+            f"border-radius: 5px; padding: 6px 14px; font-size: 12px; }}"
+            f"QPushButton:hover {{ background: {p.btn_secondary_hover}; }}"
+        )
+        self._cancel_btn.setStyleSheet(
+            f"QPushButton {{ background: transparent; color: {p.text_muted}; "
+            f"border: 1px solid {p.border_input}; "
+            f"border-radius: 5px; padding: 6px 12px; }}"
+            f"QPushButton:hover {{ background: {p.bg_input}; }}"
+        )
+        self._import_btn.setStyleSheet(
+            f"QPushButton {{ background: {p.accent}; color: white; font-weight: bold; "
+            f"border-radius: 5px; padding: 6px 18px; font-size: 13px; }}"
+            f"QPushButton:hover {{ background: {p.accent_hover}; }}"
+            f"QPushButton:disabled {{ background: {p.bg_input}; color: {p.text_hint}; "
+            f"border: 1px solid {p.border_input}; }}"
+        )
+        # 刷新已有行中的子控件样式
+        combo_style = p.combo_style()
+        line_style = p.line_style()
+        rm_style = (
+            f"QPushButton {{ background: transparent; color: {p.text_hint}; border: none; "
+            f"font-size: 13px; border-radius: 3px; }}"
+            f"QPushButton:hover {{ background: {p.rm_btn_hover_bg}; color: {_COLOR_ERROR}; }}"
+        )
+        for row in range(self._table.rowCount()):
+            for col in (_COL_FORMAT, _COL_BROWSER):
+                w = self._table.cellWidget(row, col)
+                if w:
+                    cb = w.findChild(QComboBox)
+                    if cb:
+                        cb.setStyleSheet(combo_style)
+            w = self._table.cellWidget(row, _COL_PROFILE)
+            if w:
+                le = w.findChild(QLineEdit)
+                if le:
+                    le.setStyleSheet(line_style)
+            w = self._table.cellWidget(row, _COL_REMOVE)
+            if w:
+                btn = w.findChild(QPushButton)
+                if btn:
+                    btn.setStyleSheet(rm_style)
+            item = self._table.item(row, _COL_FILE)
+            if item:
+                item.setForeground(QColor(p.text_secondary))
+
+    def _on_theme_changed(self, theme: str):
+        self._apply_theme(_Palette(theme))
 
     # ── 拖拽 ──────────────────────────────────────────────────
 
@@ -338,64 +449,55 @@ class ImportDialog(QDialog):
         return False
 
     def _append_row(self, path: Path):
+        p = _get_palette()
         row = self._table.rowCount()
         self._table.insertRow(row)
         self._table.setRowHeight(row, 36)
 
-        # 文件名列
         name_item = QTableWidgetItem(path.name)
         name_item.setToolTip(str(path))
         name_item.setData(Qt.UserRole, path)
-        name_item.setForeground(QColor("#c8cfe0"))
+        name_item.setForeground(QColor(p.text_secondary))
         self._table.setItem(row, _COL_FILE, name_item)
 
-        # 自动识别
         db_type = self._importer.detect_db_type(path)
 
-        # 格式 combo
-        type_opts = list(_DB_TYPE_LABELS.items())  # [(DbType, label), ...]
-        # 反转为 (label, DbType) 供 _make_combo，并在此处翻译标签
-        format_combo = _make_combo([(_(lbl), t) for t, lbl in type_opts], current_data=db_type)
+        type_opts = list(_DB_TYPE_LABELS.items())
+        format_combo = _make_combo([(_(lbl), t) for t, lbl in type_opts], current_data=db_type, palette=p)
         self._table.setCellWidget(row, _COL_FORMAT, _cell_wrap(format_combo))
 
-        # 浏览器 combo
-        browser_combo = self._make_browser_combo(db_type)
+        browser_combo = self._make_browser_combo(db_type, p)
         self._table.setCellWidget(row, _COL_BROWSER, _cell_wrap(browser_combo))
 
-        # 猜测 browser_type
         guessed_bt = self._importer.guess_browser_type_from_path(path)
         if guessed_bt:
             idx = browser_combo.findData(guessed_bt)
             if idx >= 0:
                 browser_combo.setCurrentIndex(idx)
 
-        # Profile 文本框
         profile_edit = QLineEdit()
         profile_edit.setPlaceholderText(_("e.g. Default"))
-        profile_edit.setStyleSheet(_LINE_STYLE)
+        profile_edit.setStyleSheet(p.line_style())
         guessed_pn = self._importer.guess_profile_name(path)
         if guessed_pn:
             profile_edit.setText(guessed_pn)
         self._table.setCellWidget(row, _COL_PROFILE, _cell_wrap(profile_edit))
 
-        # 状态标签
         init_color = _COLOR_ERROR if db_type == DbType.UNKNOWN else _COLOR_PENDING
         init_text = _("⚠ Unknown") if db_type == DbType.UNKNOWN else _("Ready")
         sl = _status_lbl(init_text, init_color)
         self._table.setCellWidget(row, _COL_STATUS, _cell_wrap(sl))
 
-        # 删除按钮
         rm_btn = QPushButton("✕")
         rm_btn.setFixedSize(24, 24)
         rm_btn.setStyleSheet(
-            "QPushButton { background: transparent; color: #3d4460; border: none; "
-            "font-size: 13px; border-radius: 3px; }"
-            "QPushButton:hover { background: #3a1e1e; color: #e07070; }"
+            f"QPushButton {{ background: transparent; color: {p.text_hint}; border: none; "
+            f"font-size: 13px; border-radius: 3px; }}"
+            f"QPushButton:hover {{ background: {p.rm_btn_hover_bg}; color: {_COLOR_ERROR}; }}"
         )
-        rm_btn.clicked.connect(lambda _chk, p=path: self._remove_row_by_path(p))
+        rm_btn.clicked.connect(lambda _chk, path=path: self._remove_row_by_path(path))
         self._table.setCellWidget(row, _COL_REMOVE, _cell_wrap(rm_btn))
 
-        # 联动：format_combo 变化 → 更新浏览器/profile/状态
         def _on_fmt_changed(_idx, fc=format_combo, bc=browser_combo, pe=profile_edit, s=sl):
             t = fc.currentData()
             bc.setVisible(t in (DbType.CHROMIUM, DbType.FIREFOX))
@@ -406,7 +508,6 @@ class ImportDialog(QDialog):
             else:
                 s.setText(_("Ready"))
                 s.setStyleSheet(f"color: {_COLOR_PENDING}; font-size: 12px; padding: 0 4px; background: transparent;")
-            # 切换浏览器选项列表
             if t == DbType.FIREFOX:
                 self._repopulate_combo(bc, [(name, bt) for bt, name in FIREFOX_BROWSER_OPTIONS])
             elif t == DbType.CHROMIUM:
@@ -425,12 +526,12 @@ class ImportDialog(QDialog):
             combo.addItem(label, data)
         combo.blockSignals(False)
 
-    def _make_browser_combo(self, db_type: DbType) -> QComboBox:
+    def _make_browser_combo(self, db_type: DbType, palette: _Palette | None = None) -> QComboBox:
         if db_type == DbType.FIREFOX:
             opts = [(name, bt) for bt, name in FIREFOX_BROWSER_OPTIONS]
         else:
             opts = [(name, bt) for bt, name in CHROMIUM_BROWSER_OPTIONS]
-        return _make_combo(opts)
+        return _make_combo(opts, palette=palette)
 
     def _remove_row_by_path(self, path: Path):
         for row in range(self._table.rowCount()):
