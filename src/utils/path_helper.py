@@ -75,8 +75,10 @@ def get_log_dir() -> Path:
 
 
 def get_icons_dir() -> Path:
-    """返回图标资源目录（不随路径 override 变化）。"""
-    return Path(__file__).parent.parent / "resources" / "icons"
+    import sys
+
+    base = Path(sys._MEIPASS) if hasattr(sys, "_MEIPASS") else Path(__file__).parent.parent
+    return base / "resources" / "icons"
 
 
 def get_home() -> Path:

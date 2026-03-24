@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import sys
 
 from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QApplication
@@ -19,7 +20,8 @@ THEME_SYSTEM = "system"
 
 _VALID_THEMES = {THEME_DARK, THEME_LIGHT, THEME_SYSTEM}
 
-_RES_DIR = Path(__file__).parent / ".." / "resources"
+_BASE = Path(sys._MEIPASS) if hasattr(sys, "_MEIPASS") else Path(__file__).parent.parent
+_RES_DIR = _BASE / "resources"
 
 
 def _detect_system_theme() -> str:
