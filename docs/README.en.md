@@ -43,13 +43,16 @@ You can download the latest version from the **[GitHub Releases](https://github.
 
 ## 📸 Screenshots
 *Data Dashboard*
+<img width="1053" height="757" alt="image" src="https://github.com/user-attachments/assets/4d08b181-a76c-43fa-bb5e-db4cdc0d9106" />
 
 *History Search & Management*
+<img width="1053" height="757" alt="image" src="https://github.com/user-attachments/assets/611262a7-c568-41bd-a06f-7bc7fc18d78d" />
 
 <details>
 <summary><b>► Click to view more screenshots</b></summary>
 
 *WebDAV Cloud Backup Settings*
+<img width="1053" height="757" alt="image" src="https://github.com/user-attachments/assets/ff1f6973-7dd4-4e29-bfe8-0e7138d39275" />
 
 </details>
 
@@ -116,10 +119,7 @@ The UI supports the following languages:
 *   **Deutsch** (`de_DE`)
 *   **Русский** (`ru_RU`)
 *   **Español** (`es_ES`)
-*   **Português** (`pt_BR`)
 *   **Italiano** (`it_IT`)
-*   **Polski** (`pl_PL`)
-*   **Türkçe** (`tr_TR`)
 
 ## 🤝 Contributing
 Contributions of any kind are welcome! If you have questions, suggestions, or find bugs, feel free to submit them via GitHub Issues.
