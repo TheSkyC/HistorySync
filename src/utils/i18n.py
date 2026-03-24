@@ -11,12 +11,13 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
 
+from src.utils.path_helper import get_locales_dir
+
 log = logging.getLogger(__name__)
 
 
 def _get_locales_dir() -> str:
-    """Return path to the bundled locales directory."""
-    return str(Path(__file__).parent.parent / "resources" / "locales")
+    return str(get_locales_dir())
 
 
 class LanguageManager(QObject):

@@ -81,6 +81,11 @@ def get_icons_dir() -> Path:
     return base / "resources" / "icons"
 
 
+def get_locales_dir() -> Path:
+    base = Path(sys._MEIPASS) if hasattr(sys, "_MEIPASS") else Path(__file__).parent.parent
+    return base / "resources" / "locales"
+
+
 def get_home() -> Path:
     return Path.home()
 

@@ -11,8 +11,9 @@ from PySide6.QtCore import QByteArray
 from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
-# icons 目录位于 src/resources/icons/
-_ICONS_DIR = Path(__file__).parent / ".." / "resources" / "icons"
+from src.utils.path_helper import get_icons_dir
+
+_ICONS_DIR = get_icons_dir()
 
 # 默认图标着色
 _DEFAULT_COLOR = "#a0a8b8"
