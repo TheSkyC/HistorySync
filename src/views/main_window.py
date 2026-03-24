@@ -1,0 +1,304 @@
+# Copyright (c) 2026, TheSkyC
+# SPDX-License-Identifier: Apache-2.0
+
+from __future__ import annotations
+
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
+from PySide6.QtWidgets import (
+    QApplication,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QStackedWidget,
+    QStatusBar,
+    QVBoxLayout,
+    QWidget,
+)
+
+from src.utils.constants import APP_NAME
+from src.utils.i18n import _
+from src.utils.icon_helper import get_app_icon
+from src.utils.logger import get_logger
+from src.utils.path_helper import get_log_dir
+from src.utils.theme_manager import ThemeManager
+from src.viewmodels.main_viewmodel import MainViewModel
+from src.viewmodels.settings_viewmodel import SettingsViewModel
+from src.views.dashboard_page import DashboardPage
+from src.views.history_page import HistoryPage
+from src.views.log_viewer_page import LogViewerPage
+from src.views.nav_widgets import NavButton, ThemeButton
+from src.views.settings_page import SettingsPage
+
+log = get_logger("view.main_window")
+
+PAGE_DASHBOARD = 0
+PAGE_HISTORY = 1
+PAGE_SETTINGS = 2
+PAGE_LOGS = 3
+
+
+class MainWindow(QMainWindow):
+    close_to_tray = Signal()
+
+    def __init__(self, main_vm: MainViewModel):
+        super().__init__()
+        self._vm = main_vm
+        self._settings_vm = SettingsViewModel(main_vm, parent=self)
+        self._history_initialized = False
+
+        if getattr(main_vm._config, "_fresh", False):
+            self.setWindowTitle(f"{APP_NAME}  {_('[Fresh Mode]')}")
+        else:
+            self.setWindowTitle(APP_NAME)
+        self.setMinimumSize(900, 600)
+        self.resize(main_vm._config.window_width, main_vm._config.window_height)
+        if main_vm._config.window_x >= 0 and main_vm._config.window_y >= 0:
+            self.move(main_vm._config.window_x, main_vm._config.window_y)
+
+        self._init_ui()
+        self._connect_vm()
+        self._setup_global_shortcuts()
+
+        self._theme_btn.set_theme(main_vm._config.theme)
+        QTimer.singleShot(200, self._vm.start)
+
+    # ── UI construction ───────────────────────────────────────
+
+    def _init_ui(self):
+        central = QWidget()
+        self.setCentralWidget(central)
+        main_layout = QHBoxLayout(central)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        main_layout.addWidget(self._build_sidebar())
+        main_layout.addWidget(self._build_page_stack(), 1)
+
+        self._status_bar = QStatusBar()
+        self._status_bar.setSizeGripEnabled(False)
+        self.setStatusBar(self._status_bar)
+        self._status_bar.showMessage(_("Ready"))
+
+        self._progress_label = QLabel("")
+        self._progress_label.setObjectName("muted")
+        self._status_bar.addPermanentWidget(self._progress_label)
+
+    def _build_sidebar(self) -> QWidget:
+        sidebar = QWidget()
+        sidebar.setObjectName("sidebar")
+        sidebar.setFixedWidth(56)
+        sb_layout = QVBoxLayout(sidebar)
+        sb_layout.setContentsMargins(0, 0, 0, 0)
+        sb_layout.setSpacing(0)
+        sb_layout.setAlignment(Qt.AlignTop)
+
+        # App logo
+        logo = QLabel()
+        logo.setObjectName("app_logo")
+        logo.setAlignment(Qt.AlignCenter)
+        logo.setFixedHeight(56)
+        app_icon = get_app_icon()
+        if not app_icon.isNull():
+            logo.setPixmap(app_icon.pixmap(28, 28))
+        else:
+            logo.setText("◈")
+            f = logo.font()
+            f.setPointSize(18)
+            logo.setFont(f)
+        logo.setStyleSheet("background: transparent;")
+        sb_layout.addWidget(logo)
+
+        # Nav buttons
+        self._nav_dashboard = NavButton("home", _("Overview"))
+        self._nav_history = NavButton("list", _("History"))
+        self._nav_settings = NavButton("settings", _("Settings"))
+        self._nav_logs = NavButton("file-text", _("Log Viewer"))
+        self._nav_buttons = [
+            self._nav_dashboard,
+            self._nav_history,
+            self._nav_settings,
+            self._nav_logs,
+        ]
+        for btn in self._nav_buttons:
+            sb_layout.addWidget(btn)
+
+        sb_layout.addStretch()
+
+        # Theme toggle
+        self._theme_btn = ThemeButton()
+        self._theme_btn.theme_cycle_requested.connect(self._on_theme_selected)
+        sb_layout.addWidget(self._theme_btn, alignment=Qt.AlignHCenter)
+        sb_layout.addSpacing(8)
+
+        return sidebar
+
+    def _build_page_stack(self) -> QStackedWidget:
+        self._stack = QStackedWidget()
+        self._stack.setObjectName("content_area")
+
+        self._page_dashboard = DashboardPage()
+        self._page_history = HistoryPage(self._vm.history_vm, self._vm._config)
+        self._page_settings = SettingsPage(self._settings_vm)
+        self._page_logs = LogViewerPage(get_log_dir())
+
+        self._stack.addWidget(self._page_dashboard)
+        self._stack.addWidget(self._page_history)
+        self._stack.addWidget(self._page_settings)
+        self._stack.addWidget(self._page_logs)
+
+        self._nav_dashboard.clicked.connect(lambda: self._switch_page(PAGE_DASHBOARD))
+        self._nav_history.clicked.connect(lambda: self._switch_page(PAGE_HISTORY))
+        self._nav_settings.clicked.connect(lambda: self._switch_page(PAGE_SETTINGS))
+        self._nav_logs.clicked.connect(lambda: self._switch_page(PAGE_LOGS))
+        self._switch_page(PAGE_DASHBOARD)
+
+        return self._stack
+
+    def _setup_global_shortcuts(self):
+        QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(self._vm.trigger_sync)
+        QShortcut(QKeySequence("Ctrl+1"), self).activated.connect(lambda: self._switch_page(PAGE_DASHBOARD))
+        QShortcut(QKeySequence("Ctrl+2"), self).activated.connect(lambda: self._switch_page(PAGE_HISTORY))
+        QShortcut(QKeySequence("Ctrl+3"), self).activated.connect(lambda: self._switch_page(PAGE_SETTINGS))
+        QShortcut(QKeySequence("Ctrl+4"), self).activated.connect(lambda: self._switch_page(PAGE_LOGS))
+        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self._focus_history_search)
+
+    def _connect_vm(self):
+        vm = self._vm
+        vm.sync_started.connect(self._on_sync_started)
+        vm.sync_finished.connect(self._on_sync_finished)
+        vm.sync_progress.connect(self._on_sync_progress)
+        vm.sync_error.connect(self._on_sync_error)
+        vm.stats_updated.connect(self._on_stats_updated)
+        vm.browser_status_changed.connect(self._page_dashboard.update_browser_statuses)
+        vm.records_deleted.connect(self._on_records_deleted)
+        vm.domain_blacklisted.connect(self._on_domain_blacklisted)
+        vm.backup_finished.connect(lambda ok, _msg: self._page_settings.notify_backup_happened(ok))
+
+        self._page_dashboard.sync_requested.connect(vm.trigger_sync)
+        self._page_dashboard.sync_browser_requested.connect(vm.trigger_sync_browser)
+        self._page_dashboard.view_history_requested.connect(self._on_view_browser_history)
+        self._page_settings.saved.connect(self._on_settings_saved)
+
+        self._page_history.delete_records_requested.connect(self._on_delete_records)
+        self._page_history.hide_records_requested.connect(self._on_hide_records)
+        self._page_history.blacklist_domain_requested.connect(self._on_blacklist_domain)
+
+        ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
+
+    # ── Theme ─────────────────────────────────────────────────
+
+    def _on_theme_selected(self, new_theme: str):
+        self._theme_btn.set_theme(new_theme)
+        ThemeManager.instance().apply(QApplication.instance(), new_theme)
+        self._vm._config.theme = new_theme
+        try:
+            self._vm._config.save()
+        except Exception as exc:
+            log.warning("Failed to save theme: %s", exc)
+
+    def _on_theme_changed(self, _resolved_theme: str):
+        for btn in self._nav_buttons:
+            btn.refresh_icon()
+        self._theme_btn.refresh_icon()
+
+    # ── Page switching ────────────────────────────────────────
+
+    def _switch_page(self, index: int):
+        for i, btn in enumerate(self._nav_buttons):
+            btn.setChecked(i == index)
+        self._stack.setCurrentIndex(index)
+        if index == PAGE_HISTORY and not self._history_initialized:
+            self._history_initialized = True
+            QTimer.singleShot(0, self._vm.history_vm.initialize)
+
+    def _focus_history_search(self):
+        self._switch_page(PAGE_HISTORY)
+        self._page_history._focus_search()
+
+    # ── VM signal handlers ────────────────────────────────────
+
+    def _on_sync_started(self):
+        self._page_dashboard.on_sync_started()
+        self._status_bar.showMessage(_("Syncing in background..."))
+        self._progress_label.setText("")
+
+    def _on_sync_progress(self, msg: str):
+        self._page_dashboard.on_sync_progress(msg)
+        self._progress_label.setText(msg)
+
+    def _on_sync_finished(self, new_count: int):
+        import time as _time
+
+        self._page_dashboard.on_sync_finished(new_count)
+        self._page_history.refresh()
+        self._status_bar.showMessage(_("Sync complete — {count} new records").format(count=new_count), 5000)
+        self._progress_label.setText("")
+        self._page_settings.notify_sync_happened(int(_time.time()))
+
+    def _on_sync_error(self, msg: str):
+        self._page_dashboard.on_sync_error(msg)
+        self._status_bar.showMessage(_("Sync failed: {error}").format(error=msg), 8000)
+        self._progress_label.setText("")
+
+    def _on_stats_updated(self, total: int, last_sync):
+        self._page_dashboard.update_stats(
+            total_count=total,
+            last_sync_time=last_sync,
+            webdav_status=self._vm.get_webdav_status(),
+        )
+
+    def _on_settings_saved(self):
+        self._status_bar.showMessage(_("Settings saved"), 3000)
+        self._vm.history_vm.set_hidden_ids(self._vm.get_hidden_ids())
+
+    def _on_view_browser_history(self, browser_type: str):
+        self._switch_page(PAGE_HISTORY)
+        self._page_history.filter_by_browser(browser_type)
+
+    def _on_delete_records(self, ids: list[int]):
+        n = self._vm.delete_records(ids)
+        self._status_bar.showMessage(_("Deleted {n} record(s)").format(n=n), 4000)
+
+    def _on_hide_records(self, ids: list[int]):
+        self._vm.hide_records(ids)
+        self._status_bar.showMessage(
+            _("Hidden {n} record(s). Unhide anytime in Settings → Privacy.").format(n=len(ids)), 5000
+        )
+
+    def _on_blacklist_domain(self, domain: str):
+        deleted = self._vm.blacklist_domain(domain)
+        self._status_bar.showMessage(
+            _("'{domain}' blacklisted — {n} record(s) deleted").format(domain=domain, n=deleted), 6000
+        )
+        self._page_settings.add_blacklist_domain(domain)
+
+    def _on_records_deleted(self, n: int):
+        log.info("Deleted %d records via privacy action", n)
+
+    def _on_domain_blacklisted(self, domain: str):
+        log.info("Domain blacklisted: %s", domain)
+
+    # ── Window events ─────────────────────────────────────────
+
+    def show_and_raise(self):
+        self.showNormal()
+        self.activateWindow()
+        self.raise_()
+
+    def closeEvent(self, event: QCloseEvent):
+        self._save_geometry()
+        event.ignore()
+        self.hide()
+        self.close_to_tray.emit()
+
+    def _save_geometry(self):
+        cfg = self._vm._config
+        cfg.window_width = self.width()
+        cfg.window_height = self.height()
+        cfg.window_x = self.x()
+        cfg.window_y = self.y()
+        try:
+            cfg.save()
+        except Exception:
+            pass

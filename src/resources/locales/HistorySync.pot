@@ -1,0 +1,1180 @@
+# Translations template for HistorySync.
+# Copyright (C) 2026 TheSkyC
+# This file is distributed under the same license as the HistorySync
+# project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: HistorySync 1.0.0\n"
+"Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
+"POT-Creation-Date: 2026-03-24 11:51+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: src/views/import_dialog.py:147
+msgid "  ·  Drag & drop files, or click  Add Files"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:107
+msgid " files"
+msgstr ""
+
+#: src/views/settings/scheduler_section.py:35
+#: src/views/settings/webdav_section.py:69
+msgid " hours"
+msgstr ""
+
+#: src/views/main_window.py:272
+#, python-brace-format
+msgid "'{domain}' blacklisted — {n} record(s) deleted"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:276
+msgid "(no backups found)"
+msgstr ""
+
+#: src/views/history_page.py:117
+msgid "0 total"
+msgstr ""
+
+#: src/viewmodels/settings_viewmodel.py:107
+msgid "A WebDAV task is already running."
+msgstr ""
+
+#: src/views/tray_icon.py:135
+#, python-brace-format
+msgid ""
+"A {op} is currently running.\n"
+"\n"
+"Quitting now may result in incomplete data or a corrupted backup.\n"
+"\n"
+"Do you want to quit anyway?"
+msgstr ""
+
+#: src/views/settings_page.py:101
+msgid "AUTO SYNC"
+msgstr ""
+
+#: src/views/history_page.py:409
+msgid "Actions"
+msgstr ""
+
+#: src/views/settings/custom_paths_section.py:67
+#: src/views/settings/privacy_section.py:67
+msgid "Add"
+msgstr ""
+
+#: src/views/import_dialog.py:264
+msgid "Add Files…"
+msgstr ""
+
+#: src/services/webdav_sync.py:172
+msgid "Adding favicon cache to backup..."
+msgstr ""
+
+#: src/views/history_page.py:146 src/views/history_page.py:312
+msgid "All Browsers"
+msgstr ""
+
+#: src/views/settings_page.py:369
+msgid "All records unhidden"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:62
+msgid "Auto backup to WebDAV after local extraction"
+msgstr ""
+
+#: src/views/log_viewer_page.py:129
+msgid "Auto-scroll"
+msgstr ""
+
+#: src/services/local_db.py:402
+msgid "Back-filling domain_id on history rows…"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:84
+msgid "Backs up the favicon database alongside history. Increases backup size."
+msgstr ""
+
+#: src/services/webdav_sync.py:289
+msgid "Backup archive missing history.db"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:141
+msgid "Backup to WebDAV"
+msgstr ""
+
+#: src/services/webdav_sync.py:330
+#, python-brace-format
+msgid "Bad zip archive: {error}"
+msgstr ""
+
+#: src/views/history_page.py:506
+msgid "Blacklist Domain"
+msgstr ""
+
+#: src/views/history_page.py:434
+#, python-brace-format
+msgid "Blacklist Domain: {domain}"
+msgstr ""
+
+#: src/views/settings/privacy_section.py:57
+msgid "Blacklisted Domains:"
+msgstr ""
+
+#: src/views/settings/privacy_section.py:47
+msgid ""
+"Blacklisted domains are never synced and all their records are deleted. "
+"Hidden records are excluded from the History view but kept in the "
+"database."
+msgstr ""
+
+#: src/views/settings/custom_paths_section.py:63
+msgid "Browse..."
+msgstr ""
+
+#: src/viewmodels/history_viewmodel.py:92 src/views/import_dialog.py:177
+msgid "Browser"
+msgstr ""
+
+#: src/views/dashboard_page.py:340
+msgid "Browser Detection Status"
+msgstr ""
+
+#: src/views/dashboard_page.py:286
+msgid "Browser History Sync Center"
+msgstr ""
+
+#: src/views/dashboard_page.py:307
+msgid "Browsers Detected"
+msgstr ""
+
+#: src/views/settings_page.py:105
+msgid "CUSTOM BROWSER PATHS"
+msgstr ""
+
+#: src/views/import_dialog.py:275
+msgid "Cancel"
+msgstr ""
+
+#: src/services/local_db.py:294
+msgid "Checkpointing WAL into main file…"
+msgstr ""
+
+#: src/services/webdav_sync.py:200
+msgid "Cleaning up old backups..."
+msgstr ""
+
+#: src/viewmodels/main_viewmodel.py:98
+msgid "Cleaning up..."
+msgstr ""
+
+#: src/views/log_viewer_page.py:153
+msgid "Clear View"
+msgstr ""
+
+#: src/views/import_dialog.py:530
+msgid "Close"
+msgstr ""
+
+#: src/services/webdav_sync.py:157
+msgid "Compressing and packaging backup..."
+msgstr ""
+
+#: src/views/settings_page.py:123
+msgid "Configure sync behavior and browser data sources"
+msgstr ""
+
+#: src/services/webdav_sync.py:145 src/services/webdav_sync.py:244
+msgid "Connecting to WebDAV server..."
+msgstr ""
+
+#: src/viewmodels/main_viewmodel.py:96
+msgid "Connecting..."
+msgstr ""
+
+#: src/services/webdav_sync.py:116
+msgid "Connection successful"
+msgstr ""
+
+#: src/views/history_page.py:390
+msgid "Copy"
+msgstr ""
+
+#: src/views/history_page.py:399
+#, python-brace-format
+msgid "Copy All URLs ({n})"
+msgstr ""
+
+#: src/views/dashboard_page.py:216
+msgid "Copy Browser Name"
+msgstr ""
+
+#: src/views/history_page.py:395
+msgid "Copy Title"
+msgstr ""
+
+#: src/views/history_page.py:396
+msgid "Copy Title + URL"
+msgstr ""
+
+#: src/views/history_page.py:394
+msgid "Copy URL"
+msgstr ""
+
+#: src/views/settings_page.py:107
+msgid "DATABASE MAINTENANCE"
+msgstr ""
+
+#: src/views/import_dialog.py:319
+msgid "Database Files (History *.sqlite *.db);;All Files (*)"
+msgstr ""
+
+#: src/views/settings/maintenance_section.py:60
+msgid "Database size"
+msgstr ""
+
+#: src/views/history_page.py:150
+msgid "Date:"
+msgstr ""
+
+#: src/views/settings/custom_paths_section.py:93
+msgid "Delete"
+msgstr ""
+
+#: src/views/log_viewer_page.py:361
+msgid "Delete Log Files"
+msgstr ""
+
+#: src/views/log_viewer_page.py:161
+msgid "Delete Logs"
+msgstr ""
+
+#: src/views/history_page.py:491
+msgid "Delete Records"
+msgstr ""
+
+#: src/views/history_page.py:415
+#, python-brace-format
+msgid "Delete Selected ({n} records)"
+msgstr ""
+
+#: src/views/history_page.py:419
+msgid "Delete This Record"
+msgstr ""
+
+#: src/views/history_page.py:492
+#, python-brace-format
+msgid "Delete {n} record(s)? This cannot be undone."
+msgstr ""
+
+#: src/views/log_viewer_page.py:377
+#, python-brace-format
+msgid "Deleted {n} log file(s)"
+msgstr ""
+
+#: src/views/main_window.py:261
+#, python-brace-format
+msgid "Deleted {n} record(s)"
+msgstr ""
+
+#: src/views/history_page.py:436
+msgid "Deletes all records from this domain and adds it to blacklist"
+msgstr ""
+
+#: src/views/settings_page.py:441
+msgid "Domain normalisation complete"
+msgstr ""
+
+#: src/services/local_db.py:413
+#, python-brace-format
+msgid "Domain normalisation complete — {n} rows updated."
+msgstr ""
+
+#: src/views/import_dialog.py:524
+#, python-brace-format
+msgid "Done — {ins} new records added, {skip} duplicates skipped."
+msgstr ""
+
+#: src/services/local_db.py:343
+msgid "Done."
+msgstr ""
+
+#: src/services/local_db.py:335
+#, python-brace-format
+msgid ""
+"Done.  {before:.1f} MB → {after:.1f} MB  (saved {saved:.0f} KB, "
+"{pct:.1f}%)"
+msgstr ""
+
+#: src/views/history_page.py:112
+msgid "Double-click any row to open the link in browser"
+msgstr ""
+
+#: src/services/webdav_sync.py:265
+#, python-brace-format
+msgid "Downloading {filename}..."
+msgstr ""
+
+#: src/views/settings/webdav_section.py:57
+msgid "Enable WebDAV Backup"
+msgstr ""
+
+#: src/views/settings/scheduler_section.py:27
+msgid "Enable scheduled auto-sync"
+msgstr ""
+
+#: src/views/settings_page.py:401
+msgid "Error"
+msgstr ""
+
+#: src/views/log_viewer_page.py:344 src/views/log_viewer_page.py:356
+msgid "Export"
+msgstr ""
+
+#: src/views/log_viewer_page.py:348
+msgid "Export Log"
+msgstr ""
+
+#: src/views/log_viewer_page.py:157
+msgid "Export..."
+msgstr ""
+
+#: src/views/settings/maintenance_section.py:91
+msgid ""
+"Extract and index domain names from all URLs.\n"
+"Speeds up domain-based queries and enables domain analytics."
+msgstr ""
+
+#: src/viewmodels/main_viewmodel.py:184
+msgid "Extracting browser history..."
+msgstr ""
+
+#: src/viewmodels/import_viewmodel.py:85
+msgid "Extracting…"
+msgstr ""
+
+#: src/services/local_db.py:360
+msgid "FTS index rebuild complete."
+msgstr ""
+
+#: src/views/settings_page.py:442
+msgid "FTS rebuild complete"
+msgstr ""
+
+#: src/views/import_dialog.py:175
+msgid "File"
+msgstr ""
+
+#: src/views/log_viewer_page.py:124
+msgid "Filter text..."
+msgstr ""
+
+#: src/views/import_dialog.py:176
+msgid "Format"
+msgstr ""
+
+#: src/services/webdav_sync.py:298
+#, python-brace-format
+msgid "Hash verification FAILED! Expected {exp}, got {act}"
+msgstr ""
+
+#: src/views/settings/privacy_section.py:81
+msgid "Hidden Records:"
+msgstr ""
+
+#: src/views/history_page.py:501
+#, python-brace-format
+msgid "Hidden {n} record(s). Manage in Settings → Privacy."
+msgstr ""
+
+#: src/views/main_window.py:266
+#, python-brace-format
+msgid "Hidden {n} record(s). Unhide anytime in Settings → Privacy."
+msgstr ""
+
+#: src/views/history_page.py:425
+#, python-brace-format
+msgid "Hide Selected ({n} records)"
+msgstr ""
+
+#: src/views/history_page.py:428
+msgid "Hide This Record"
+msgstr ""
+
+#: src/views/history_page.py:110 src/views/main_window.py:114
+msgid "History"
+msgstr ""
+
+#: src/views/settings/custom_paths_section.py:61
+msgid "History database file path..."
+msgstr ""
+
+#: src/main.py:354
+msgid ""
+"HistorySync has been minimized to the system tray and continues running "
+"in the background."
+msgstr ""
+
+#: src/views/settings_page.py:106
+msgid "IMPORT HISTORY DATABASE"
+msgstr ""
+
+#: src/views/settings/custom_paths_section.py:57
+msgid "Identifier (e.g. chrome_portable)"
+msgstr ""
+
+#: src/viewmodels/main_viewmodel.py:95
+msgid "Idle"
+msgstr ""
+
+#: src/views/settings/custom_paths_section.py:45
+msgid ""
+"If you use portable or non-standard browser installations, manually "
+"specify the History database path here."
+msgstr ""
+
+#: src/views/import_dialog.py:483
+msgid "Import"
+msgstr ""
+
+#: src/views/import_dialog.py:122 src/views/import_dialog.py:145
+msgid "Import Browser History"
+msgstr ""
+
+#: src/views/import_dialog.py:536
+msgid "Import Error"
+msgstr ""
+
+#: src/views/settings/import_section.py:40
+msgid "Import History File..."
+msgstr ""
+
+#: src/views/settings/import_section.py:30
+msgid ""
+"Import browser history from a standalone database file — for example, a "
+"manually backed-up Chrome History file, a Firefox places.sqlite, a Safari"
+" History.db, or an older HistorySync backup."
+msgstr ""
+
+#: src/views/settings_page.py:404
+#, python-brace-format
+msgid "Import complete: {n} new records added."
+msgstr ""
+
+#: src/views/settings/webdav_section.py:82
+msgid "Include favicon cache in backup"
+msgstr ""
+
+#: src/services/local_db.py:393
+msgid "Inserting new domain entries…"
+msgstr ""
+
+#: src/views/settings/language_section.py:27
+msgid "Interface language:"
+msgstr ""
+
+#: src/views/settings_page.py:100
+msgid "LANGUAGE"
+msgstr ""
+
+#: src/views/dashboard_page.py:308
+msgid "Last Sync"
+msgstr ""
+
+#: src/main.py:418
+#, python-brace-format
+msgid "Last sync: {count} new"
+msgstr ""
+
+#: src/views/settings/startup_section.py:28
+msgid "Launch at system startup (minimized to tray)"
+msgstr ""
+
+#: src/views/log_viewer_page.py:115
+msgid "Level:"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:123
+msgid "List Remote Backups"
+msgstr ""
+
+#: src/services/webdav_sync.py:251
+msgid "Listing remote backups..."
+msgstr ""
+
+#: src/views/log_viewer_page.py:350
+msgid "Log Files (*.log *.txt);;All Files (*)"
+msgstr ""
+
+#: src/views/log_viewer_page.py:95 src/views/main_window.py:116
+msgid "Log Viewer"
+msgstr ""
+
+#: src/views/log_viewer_page.py:356
+#, python-brace-format
+msgid ""
+"Log exported to:\n"
+"{}"
+msgstr ""
+
+#: src/views/log_viewer_page.py:230
+#, python-brace-format
+msgid "Log file not found: {}"
+msgstr ""
+
+#: src/views/log_viewer_page.py:237
+#, python-brace-format
+msgid "Log file: {}"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:116
+msgid "Max backups:"
+msgstr ""
+
+#: src/views/dashboard_page.py:308 src/views/dashboard_page.py:482
+msgid "Never"
+msgstr ""
+
+#: src/services/webdav_sync.py:259
+msgid "No backups found on server."
+msgstr ""
+
+#: src/views/dashboard_page.py:245
+msgid "No browsers detected"
+msgstr ""
+
+#: src/views/import_dialog.py:220
+msgid ""
+"No files yet.\n"
+"\n"
+"Drop files here, or click  Add Files  below."
+msgstr ""
+
+#: src/views/log_viewer_page.py:344
+msgid "No log file found."
+msgstr ""
+
+#: src/views/import_dialog.py:484
+msgid ""
+"No valid files to import.\n"
+"Mark at least one file with a known format."
+msgstr ""
+
+#: src/views/settings/maintenance_section.py:165
+msgid "None"
+msgstr ""
+
+#: src/views/settings/maintenance_section.py:87
+msgid "Normalize Domains"
+msgstr ""
+
+#: src/viewmodels/main_viewmodel.py:92 src/viewmodels/main_viewmodel.py:101
+#: src/views/dashboard_page.py:309
+msgid "Not enabled"
+msgstr ""
+
+#: src/views/history_page.py:384
+#, python-brace-format
+msgid "Open All Selected in Browser ({n})"
+msgstr ""
+
+#: src/views/dashboard_page.py:213
+msgid "Open Browser"
+msgstr ""
+
+#: src/views/tray_icon.py:75
+msgid "Open Main Window"
+msgstr ""
+
+#: src/views/history_page.py:380
+msgid "Open in Browser"
+msgstr ""
+
+#: src/views/settings_page.py:444
+msgid "Operation complete"
+msgstr ""
+
+#: src/views/tray_icon.py:133
+msgid "Operation in Progress"
+msgstr ""
+
+#: src/views/dashboard_page.py:284 src/views/main_window.py:113
+msgid "Overview"
+msgstr ""
+
+#: src/views/settings_page.py:104
+msgid "PRIVACY & BLACKLIST"
+msgstr ""
+
+#: src/viewmodels/history_viewmodel.py:87
+msgid "Page Title"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:114
+msgid "Password:"
+msgstr ""
+
+#: src/views/log_viewer_page.py:144 src/views/log_viewer_page.py:335
+msgid "Pause"
+msgstr ""
+
+#: src/views/settings_page.py:121
+msgid "Preferences"
+msgstr ""
+
+#: src/views/dashboard_page.py:324
+msgid "Preparing..."
+msgstr ""
+
+#: src/views/import_dialog.py:178
+msgid "Profile"
+msgstr ""
+
+#: src/views/tray_icon.py:90
+msgid "Quit HistorySync"
+msgstr ""
+
+#: src/viewmodels/main_viewmodel.py:209
+#, python-brace-format
+msgid "Reading {browser} history..."
+msgstr ""
+
+#: src/views/history_page.py:218 src/views/import_dialog.py:383
+#: src/views/import_dialog.py:407 src/views/main_window.py:81
+#: src/views/tray_icon.py:85
+msgid "Ready"
+msgstr ""
+
+#: src/views/log_viewer_page.py:97
+msgid "Real-time application log — auto-refreshes every 2 seconds"
+msgstr ""
+
+#: src/views/settings/maintenance_section.py:97
+msgid "Rebuild FTS Index"
+msgstr ""
+
+#: src/views/settings/maintenance_section.py:101
+msgid ""
+"Rebuild the full-text search index from scratch.\n"
+"Run this if search results seem incomplete or incorrect."
+msgstr ""
+
+#: src/services/local_db.py:357
+msgid "Rebuilding full-text search index…"
+msgstr ""
+
+#: src/views/settings/maintenance_section.py:81
+msgid ""
+"Reclaim wasted space, defragment pages, and update query planner "
+"statistics.\n"
+"Requires ~2× the current DB size as free disk space."
+msgstr ""
+
+#: src/views/settings/maintenance_section.py:62
+msgid "Records"
+msgstr ""
+
+#: src/views/log_viewer_page.py:149
+msgid "Reload"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:115
+msgid "Remote Path:"
+msgstr ""
+
+#: src/services/webdav_sync.py:255
+msgid "Remote directory not found."
+msgstr ""
+
+#: src/views/settings/privacy_section.py:105
+msgid "Remove"
+msgstr ""
+
+#: src/viewmodels/settings_viewmodel.py:51
+msgid "Replacing local database..."
+msgstr ""
+
+#: src/views/history_page.py:168
+msgid "Reset"
+msgstr ""
+
+#: src/views/settings/language_section.py:36
+msgid "Restart required to apply language changes."
+msgstr ""
+
+#: src/views/settings_page.py:312
+msgid "Restore Database"
+msgstr ""
+
+#: src/services/webdav_sync.py:347
+#, python-brace-format
+msgid "Restore failed: {error}"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:145
+msgid "Restore from WebDAV"
+msgstr ""
+
+#: src/services/webdav_sync.py:339
+#, python-brace-format
+msgid "Restored from {filename}"
+msgstr ""
+
+#: src/services/local_db.py:322
+msgid "Restoring WAL mode and updating statistics…"
+msgstr ""
+
+#: src/services/webdav_sync.py:312
+msgid "Restoring favicon cache..."
+msgstr ""
+
+#: src/views/log_viewer_page.py:77 src/views/log_viewer_page.py:331
+msgid "Resume"
+msgstr ""
+
+#: src/services/local_db.py:315
+msgid "Running VACUUM — rewriting database file…"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:259
+msgid "SHA-256 Hashes:"
+msgstr ""
+
+#: src/views/settings/custom_paths_section.py:110
+msgid "SQLite Database (History *.sqlite *.db);;All Files (*)"
+msgstr ""
+
+#: src/views/settings_page.py:102
+msgid "STARTUP"
+msgstr ""
+
+#: src/views/settings_page.py:128
+msgid "Save Settings"
+msgstr ""
+
+#: src/viewmodels/main_viewmodel.py:210
+#, python-brace-format
+msgid "Saving {browser} ({count} records)..."
+msgstr ""
+
+#: src/viewmodels/import_viewmodel.py:113
+#, python-brace-format
+msgid "Saving {n} records…"
+msgstr ""
+
+#: src/services/local_db.py:373
+msgid "Scanning for un-normalised URLs…"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:66
+msgid "Scheduled automatic backup every"
+msgstr ""
+
+#: src/views/history_page.py:137
+msgid "Search title or URL..."
+msgstr ""
+
+#: src/views/history_page.py:446
+#, python-brace-format
+msgid "Search: {domain}"
+msgstr ""
+
+#: src/views/import_dialog.py:317
+msgid "Select Browser History Database Files"
+msgstr ""
+
+#: src/views/settings/custom_paths_section.py:108
+msgid "Select History Database File"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:112
+msgid "Server URL:"
+msgstr ""
+
+#: src/views/main_window.py:115
+msgid "Settings"
+msgstr ""
+
+#: src/views/main_window.py:252
+msgid "Settings saved"
+msgstr ""
+
+#: src/views/import_dialog.py:284
+msgid "Start Import"
+msgstr ""
+
+#: src/views/import_dialog.py:494
+msgid "Starting import…"
+msgstr ""
+
+#: src/views/settings_page.py:325
+msgid "Starting..."
+msgstr ""
+
+#: src/views/import_dialog.py:179
+msgid "Status"
+msgstr ""
+
+#: src/views/import_dialog.py:164
+msgid ""
+"Supported: Chrome/Edge/Brave History  ·  Firefox places.sqlite  ·  Safari"
+" History.db  ·  HistorySync history.db"
+msgstr ""
+
+#: src/main.py:421
+msgid "Sync Complete"
+msgstr ""
+
+#: src/main.py:433
+msgid "Sync Failed"
+msgstr ""
+
+#: src/views/dashboard_page.py:291 src/views/dashboard_page.py:465
+#: src/views/dashboard_page.py:472 src/views/tray_icon.py:80
+#: src/views/tray_icon.py:110
+msgid "Sync Now"
+msgstr ""
+
+#: src/views/dashboard_page.py:205
+msgid "Sync This Browser"
+msgstr ""
+
+#: src/views/main_window.py:235
+#, python-brace-format
+msgid "Sync complete — {count} new records"
+msgstr ""
+
+#: src/views/dashboard_page.py:463
+#, python-brace-format
+msgid "Sync complete, {count} new records added"
+msgstr ""
+
+#: src/main.py:432 src/viewmodels/main_viewmodel.py:100
+msgid "Sync error"
+msgstr ""
+
+#: src/views/main_window.py:241
+#, python-brace-format
+msgid "Sync failed: {error}"
+msgstr ""
+
+#: src/views/dashboard_page.py:470
+#, python-brace-format
+msgid "Sync failed: {msg}"
+msgstr ""
+
+#: src/views/settings/scheduler_section.py:31
+msgid "Sync interval:"
+msgstr ""
+
+#: src/views/history_page.py:260
+msgid "Sync triggered..."
+msgstr ""
+
+#: src/viewmodels/main_viewmodel.py:99
+msgid "Synced"
+msgstr ""
+
+#: src/views/main_window.py:223
+msgid "Syncing in background..."
+msgstr ""
+
+#: src/views/tray_icon.py:107
+msgid "Syncing in progress..."
+msgstr ""
+
+#: src/views/dashboard_page.py:449 src/views/tray_icon.py:106
+msgid "Syncing..."
+msgstr ""
+
+#: src/views/settings/webdav_section.py:137
+msgid "Test Connection"
+msgstr ""
+
+#: src/views/settings_page.py:314
+msgid ""
+"This will overwrite your current local history database with the one from"
+" WebDAV. Are you sure you want to continue?"
+msgstr ""
+
+#: src/views/log_viewer_page.py:362
+msgid "This will permanently delete all log files. Continue?"
+msgstr ""
+
+#: src/views/history_page.py:507
+#, python-brace-format
+msgid ""
+"This will:\n"
+"• Delete ALL records from '{domain}'\n"
+"• Never sync this domain again\n"
+"\n"
+"Continue?"
+msgstr ""
+
+#: src/views/dashboard_page.py:306
+msgid "Total Local Records"
+msgstr ""
+
+#: src/viewmodels/history_viewmodel.py:87
+msgid "URL"
+msgstr ""
+
+#: src/views/settings/privacy_section.py:85
+msgid "Unhide All"
+msgstr ""
+
+#: src/views/settings/maintenance_section.py:63
+msgid "Unique domains"
+msgstr ""
+
+#: src/viewmodels/main_viewmodel.py:103
+msgid "Unknown"
+msgstr ""
+
+#: src/services/webdav_sync.py:216
+#, python-brace-format
+msgid "Upload failed: {error}"
+msgstr ""
+
+#: src/services/webdav_sync.py:206
+#, python-brace-format
+msgid "Upload successful: {filename} ({size} KB) — SHA-256 verified"
+msgstr ""
+
+#: src/services/webdav_sync.py:196
+#, python-brace-format
+msgid "Uploading backup ({size} KB)..."
+msgstr ""
+
+#: src/viewmodels/main_viewmodel.py:97
+msgid "Uploading..."
+msgstr ""
+
+#: src/views/settings/webdav_section.py:97
+#: src/views/settings/webdav_section.py:113
+msgid "Username:"
+msgstr ""
+
+#: src/views/settings/maintenance_section.py:76
+msgid "Vacuum && Optimize"
+msgstr ""
+
+#: src/views/settings_page.py:440
+msgid "Vacuum complete"
+msgstr ""
+
+#: src/views/settings/webdav_section.py:110
+msgid "Verify SSL certificate"
+msgstr ""
+
+#: src/services/webdav_sync.py:275
+msgid "Verifying backup integrity (SHA-256)..."
+msgstr ""
+
+#: src/views/dashboard_page.py:208
+msgid "View History"
+msgstr ""
+
+#: src/viewmodels/history_viewmodel.py:87
+msgid "Visit Time"
+msgstr ""
+
+#: src/views/settings_page.py:103
+msgid "WEBDAV CLOUD BACKUP"
+msgstr ""
+
+#: src/views/settings/maintenance_section.py:61
+msgid "Wasted space"
+msgstr ""
+
+#: src/views/dashboard_page.py:309
+msgid "WebDAV Status"
+msgstr ""
+
+#: src/services/webdav_sync.py:107
+msgid "WebDAV not configured"
+msgstr ""
+
+#: src/services/webdav_sync.py:135 src/services/webdav_sync.py:236
+msgid "WebDAV not configured or disabled"
+msgstr ""
+
+#: src/views/settings/startup_section.py:37
+msgid ""
+"When enabled, HistorySync will start in the background and begin "
+"collecting on system startup."
+msgstr ""
+
+#: src/views/main_window.py:51
+msgid "[Fresh Mode]"
+msgstr ""
+
+#: src/views/tray_icon.py:130
+msgid "backup"
+msgstr ""
+
+#: src/views/import_dialog.py:374
+msgid "e.g. Default"
+msgstr ""
+
+#: src/views/settings/privacy_section.py:66
+msgid "example.com"
+msgstr ""
+
+#: src/views/tray_icon.py:130
+msgid "sync"
+msgstr ""
+
+#: src/views/tray_icon.py:130
+msgid "sync and backup"
+msgstr ""
+
+#: src/services/webdav_sync.py:132 src/services/webdav_sync.py:233
+msgid "webdavclient3 is not installed."
+msgstr ""
+
+#: src/services/webdav_sync.py:105
+msgid "webdavclient3 is not installed. Run: pip install webdavclient3"
+msgstr ""
+
+#: src/viewmodels/main_viewmodel.py:211
+#, python-brace-format
+msgid "{browser} done — {count} new records"
+msgstr ""
+
+#: src/viewmodels/main_viewmodel.py:212
+#, python-brace-format
+msgid "{browser} extraction failed"
+msgstr ""
+
+#: src/main.py:422
+#, python-brace-format
+msgid "{count} new history records added"
+msgstr ""
+
+#: src/views/settings/countdown.py:33
+#, python-brace-format
+msgid "{d}d {h}h"
+msgstr ""
+
+#: src/views/settings/countdown.py:30
+#, python-brace-format
+msgid "{h}h {m}m"
+msgstr ""
+
+#: src/views/settings/countdown.py:26
+#, python-brace-format
+msgid "{m}m {s}s"
+msgstr ""
+
+#: src/viewmodels/settings_viewmodel.py:66
+#, python-brace-format
+msgid "{n} backup(s) found"
+msgstr ""
+
+#: src/views/log_viewer_page.py:321
+#, python-brace-format
+msgid "{n} lines displayed"
+msgstr ""
+
+#: src/views/settings/privacy_section.py:115
+#, python-brace-format
+msgid "{n} records hidden"
+msgstr ""
+
+#: src/views/history_page.py:285
+#, python-brace-format
+msgid "{n} rows selected"
+msgstr ""
+
+#: src/views/settings/countdown.py:23
+#, python-brace-format
+msgid "{s}s"
+msgstr ""
+
+#: src/viewmodels/history_viewmodel.py:336 src/views/history_page.py:306
+#, python-brace-format
+msgid "{total} records"
+msgstr ""
+
+#: src/main.py:362
+#, python-brace-format
+msgid "{total} records in total"
+msgstr ""
+
+#: src/views/settings_page.py:274
+#, python-brace-format
+msgid "⏰ Next backup in: {t}"
+msgstr ""
+
+#: src/views/settings_page.py:274
+msgid "⏰ Next backup: due soon"
+msgstr ""
+
+#: src/views/settings_page.py:263
+#, python-brace-format
+msgid "⏰ Next sync in: {t}"
+msgstr ""
+
+#: src/views/settings_page.py:263
+msgid "⏰ Next sync: due soon"
+msgstr ""
+
+#: src/views/import_dialog.py:504
+msgid "⏳ Importing…"
+msgstr ""
+
+#: src/views/settings_page.py:236
+msgid "⚠ Failed to configure startup"
+msgstr ""
+
+#: src/views/settings_page.py:233
+msgid "⚠ Failed to configure startup — check permissions"
+msgstr ""
+
+#: src/views/import_dialog.py:404
+msgid "⚠ Skip"
+msgstr ""
+
+#: src/views/import_dialog.py:383
+msgid "⚠ Unknown"
+msgstr ""
+
+#: src/services/local_db.py:300
+msgid "⚠ WAL checkpoint partially blocked by active readers; proceeding anyway…"
+msgstr ""
+
+#: src/services/webdav_sync.py:305
+#, python-brace-format
+msgid "✓ Hash verified: {hash}..."
+msgstr ""
+
+#: src/views/settings_page.py:409
+msgid "✓ Saved"
+msgstr ""
+
+#: src/views/settings_page.py:226
+msgid "✓ Startup disabled"
+msgstr ""
+
+#: src/views/settings_page.py:226
+msgid "✓ Startup enabled"
+msgstr ""
+
+#: src/views/settings_page.py:451
+msgid "✗ Maintenance failed — check log"
+msgstr ""
+
+#: src/views/settings_page.py:413
+#, python-brace-format
+msgid "✗ Save failed: {msg}"
+msgstr ""
+

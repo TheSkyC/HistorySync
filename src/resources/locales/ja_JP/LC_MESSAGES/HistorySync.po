@@ -1,0 +1,1212 @@
+# Japanese translations for HistorySync.
+# Copyright (C) 2026 TheSkyC
+# This file is distributed under the same license as the HistorySync
+# project.
+# Automatically generated, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: HistorySync 1.0.0\n"
+"Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
+"POT-Creation-Date: 2026-03-24 11:51+0000\n"
+"PO-Revision-Date: 2026-03-23 11:54+0000\n"
+"Last-Translator: Automatically generated\n"
+"Language: ja_JP\n"
+"Language-Team: none\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: src/views/import_dialog.py:147
+msgid "  ·  Drag & drop files, or click  Add Files"
+msgstr "  ·  ファイルをドラッグ＆ドロップ、または「ファイルを追加」をクリック"
+
+#: src/views/settings/webdav_section.py:107
+msgid " files"
+msgstr " 個"
+
+#: src/views/settings/scheduler_section.py:35
+#: src/views/settings/webdav_section.py:69
+msgid " hours"
+msgstr " 時間"
+
+#: src/views/main_window.py:272
+#, python-brace-format
+msgid "'{domain}' blacklisted — {n} record(s) deleted"
+msgstr "'{domain}' をブラックリストに追加 — {n} 件削除"
+
+#: src/views/settings/webdav_section.py:276
+msgid "(no backups found)"
+msgstr "(バックアップが見つかりません)"
+
+#: src/views/history_page.py:117
+msgid "0 total"
+msgstr "合計 0 件"
+
+#: src/viewmodels/settings_viewmodel.py:107
+msgid "A WebDAV task is already running."
+msgstr "WebDAV タスクがすでに実行中です。"
+
+#: src/views/tray_icon.py:135
+#, python-brace-format
+msgid ""
+"A {op} is currently running.\n"
+"\n"
+"Quitting now may result in incomplete data or a corrupted backup.\n"
+"\n"
+"Do you want to quit anyway?"
+msgstr ""
+"{op} が実行中です。\n"
+"\n"
+"今すぐ終了すると、データが不完全になったりバックアップが破損する可能性があります。\n"
+"\n"
+"それでも終了しますか？"
+
+#: src/views/settings_page.py:101
+msgid "AUTO SYNC"
+msgstr "自動同期"
+
+#: src/views/history_page.py:409
+msgid "Actions"
+msgstr "操作"
+
+#: src/views/settings/custom_paths_section.py:67
+#: src/views/settings/privacy_section.py:67
+msgid "Add"
+msgstr "追加"
+
+#: src/views/import_dialog.py:264
+msgid "Add Files…"
+msgstr "ファイルを追加…"
+
+#: src/services/webdav_sync.py:172
+msgid "Adding favicon cache to backup..."
+msgstr "ファビコンキャッシュをバックアップに追加中..."
+
+#: src/views/history_page.py:146 src/views/history_page.py:312
+msgid "All Browsers"
+msgstr "すべてのブラウザ"
+
+#: src/views/settings_page.py:369
+msgid "All records unhidden"
+msgstr "すべてのレコードを表示"
+
+#: src/views/settings/webdav_section.py:62
+msgid "Auto backup to WebDAV after local extraction"
+msgstr "ローカル抽出後に WebDAV へ自動バックアップ"
+
+#: src/views/log_viewer_page.py:129
+msgid "Auto-scroll"
+msgstr "自動スクロール"
+
+#: src/services/local_db.py:402
+msgid "Back-filling domain_id on history rows…"
+msgstr "履歴行の domain_id をバックフィル中…"
+
+#: src/views/settings/webdav_section.py:84
+msgid "Backs up the favicon database alongside history. Increases backup size."
+msgstr "履歴と一緒にファビコンデータベースもバックアップします。バックアップサイズが増加します。"
+
+#: src/services/webdav_sync.py:289
+msgid "Backup archive missing history.db"
+msgstr "バックアップアーカイブに history.db がありません"
+
+#: src/views/settings/webdav_section.py:141
+msgid "Backup to WebDAV"
+msgstr "WebDAV にバックアップ"
+
+#: src/services/webdav_sync.py:330
+#, python-brace-format
+msgid "Bad zip archive: {error}"
+msgstr "ZIP アーカイブが破損しています: {error}"
+
+#: src/views/history_page.py:506
+msgid "Blacklist Domain"
+msgstr "ドメインをブロック"
+
+#: src/views/history_page.py:434
+#, python-brace-format
+msgid "Blacklist Domain: {domain}"
+msgstr "ドメインをブロック: {domain}"
+
+#: src/views/settings/privacy_section.py:57
+msgid "Blacklisted Domains:"
+msgstr "ブロック済みドメイン:"
+
+#: src/views/settings/privacy_section.py:47
+msgid ""
+"Blacklisted domains are never synced and all their records are deleted. "
+"Hidden records are excluded from the History view but kept in the "
+"database."
+msgstr "ブロックされたドメインは同期されず、すべてのレコードが削除されます。非表示のレコードは履歴ビューから除外されますが、データベースに保持されます。"
+
+#: src/views/settings/custom_paths_section.py:63
+msgid "Browse..."
+msgstr "参照..."
+
+#: src/viewmodels/history_viewmodel.py:92 src/views/import_dialog.py:177
+msgid "Browser"
+msgstr "ブラウザ"
+
+#: src/views/dashboard_page.py:340
+msgid "Browser Detection Status"
+msgstr "ブラウザ検出ステータス"
+
+#: src/views/dashboard_page.py:286
+msgid "Browser History Sync Center"
+msgstr "ブラウザ履歴同期センター"
+
+#: src/views/dashboard_page.py:307
+msgid "Browsers Detected"
+msgstr "検出されたブラウザ"
+
+#: src/views/settings_page.py:105
+msgid "CUSTOM BROWSER PATHS"
+msgstr "カスタムブラウザパス"
+
+#: src/views/import_dialog.py:275
+msgid "Cancel"
+msgstr "キャンセル"
+
+#: src/services/local_db.py:294
+msgid "Checkpointing WAL into main file…"
+msgstr "WAL をメインファイルにチェックポイント中…"
+
+#: src/services/webdav_sync.py:200
+msgid "Cleaning up old backups..."
+msgstr "古いバックアップを削除中..."
+
+#: src/viewmodels/main_viewmodel.py:98
+msgid "Cleaning up..."
+msgstr "クリーンアップ中..."
+
+#: src/views/log_viewer_page.py:153
+msgid "Clear View"
+msgstr "ビューをクリア"
+
+#: src/views/import_dialog.py:530
+msgid "Close"
+msgstr "閉じる"
+
+#: src/services/webdav_sync.py:157
+msgid "Compressing and packaging backup..."
+msgstr "バックアップを圧縮・パッケージ中..."
+
+#: src/views/settings_page.py:123
+msgid "Configure sync behavior and browser data sources"
+msgstr "同期動作とブラウザデータソースを設定"
+
+#: src/services/webdav_sync.py:145 src/services/webdav_sync.py:244
+msgid "Connecting to WebDAV server..."
+msgstr "WebDAV サーバーに接続中..."
+
+#: src/viewmodels/main_viewmodel.py:96
+msgid "Connecting..."
+msgstr "接続中..."
+
+#: src/services/webdav_sync.py:116
+msgid "Connection successful"
+msgstr "接続成功"
+
+#: src/views/history_page.py:390
+msgid "Copy"
+msgstr "コピー"
+
+#: src/views/history_page.py:399
+#, python-brace-format
+msgid "Copy All URLs ({n})"
+msgstr "すべての URL をコピー ({n})"
+
+#: src/views/dashboard_page.py:216
+msgid "Copy Browser Name"
+msgstr "ブラウザ名をコピー"
+
+#: src/views/history_page.py:395
+msgid "Copy Title"
+msgstr "タイトルをコピー"
+
+#: src/views/history_page.py:396
+msgid "Copy Title + URL"
+msgstr "タイトル + URL をコピー"
+
+#: src/views/history_page.py:394
+msgid "Copy URL"
+msgstr "URL をコピー"
+
+#: src/views/settings_page.py:107
+msgid "DATABASE MAINTENANCE"
+msgstr "データベースメンテナンス"
+
+#: src/views/import_dialog.py:319
+msgid "Database Files (History *.sqlite *.db);;All Files (*)"
+msgstr "データベースファイル (History *.sqlite *.db);;すべてのファイル (*)"
+
+#: src/views/settings/maintenance_section.py:60
+msgid "Database size"
+msgstr "データベースサイズ"
+
+#: src/views/history_page.py:150
+msgid "Date:"
+msgstr "日付:"
+
+#: src/views/settings/custom_paths_section.py:93
+msgid "Delete"
+msgstr "削除"
+
+#: src/views/log_viewer_page.py:361
+msgid "Delete Log Files"
+msgstr "ログファイルを削除"
+
+#: src/views/log_viewer_page.py:161
+msgid "Delete Logs"
+msgstr "ログを削除"
+
+#: src/views/history_page.py:491
+msgid "Delete Records"
+msgstr "レコードを削除"
+
+#: src/views/history_page.py:415
+#, python-brace-format
+msgid "Delete Selected ({n} records)"
+msgstr "選択を削除 ({n} 件)"
+
+#: src/views/history_page.py:419
+msgid "Delete This Record"
+msgstr "このレコードを削除"
+
+#: src/views/history_page.py:492
+#, python-brace-format
+msgid "Delete {n} record(s)? This cannot be undone."
+msgstr "{n} 件のレコードを削除しますか？この操作は元に戻せません。"
+
+#: src/views/log_viewer_page.py:377
+#, python-brace-format
+msgid "Deleted {n} log file(s)"
+msgstr "{n} 件のログファイルを削除しました"
+
+#: src/views/main_window.py:261
+#, python-brace-format
+msgid "Deleted {n} record(s)"
+msgstr "{n} 件のレコードを削除しました"
+
+#: src/views/history_page.py:436
+msgid "Deletes all records from this domain and adds it to blacklist"
+msgstr "このドメインのすべてのレコードを削除し、ブロックリストに追加します"
+
+#: src/views/settings_page.py:441
+msgid "Domain normalisation complete"
+msgstr "ドメイン正規化完了"
+
+#: src/services/local_db.py:413
+#, python-brace-format
+msgid "Domain normalisation complete — {n} rows updated."
+msgstr "ドメイン正規化完了 — {n} 行更新しました。"
+
+#: src/views/import_dialog.py:524
+#, python-brace-format
+msgid "Done — {ins} new records added, {skip} duplicates skipped."
+msgstr "完了 — {ins} 件の新規レコードを追加、{skip} 件の重複をスキップ。"
+
+#: src/services/local_db.py:343
+msgid "Done."
+msgstr "完了。"
+
+#: src/services/local_db.py:335
+#, python-brace-format
+msgid ""
+"Done.  {before:.1f} MB → {after:.1f} MB  (saved {saved:.0f} KB, "
+"{pct:.1f}%)"
+msgstr "完了。  {before:.1f} MB → {after:.1f} MB  ({saved:.0f} KB 節約, {pct:.1f}%)"
+
+#: src/views/history_page.py:112
+msgid "Double-click any row to open the link in browser"
+msgstr "任意の行をダブルクリックするとブラウザでリンクを開きます"
+
+#: src/services/webdav_sync.py:265
+#, python-brace-format
+msgid "Downloading {filename}..."
+msgstr "{filename} をダウンロード中..."
+
+#: src/views/settings/webdav_section.py:57
+msgid "Enable WebDAV Backup"
+msgstr "WebDAV バックアップを有効化"
+
+#: src/views/settings/scheduler_section.py:27
+msgid "Enable scheduled auto-sync"
+msgstr "スケジュール自動同期を有効化"
+
+#: src/views/settings_page.py:401
+msgid "Error"
+msgstr "エラー"
+
+#: src/views/log_viewer_page.py:344 src/views/log_viewer_page.py:356
+msgid "Export"
+msgstr "エクスポート"
+
+#: src/views/log_viewer_page.py:348
+msgid "Export Log"
+msgstr "ログをエクスポート"
+
+#: src/views/log_viewer_page.py:157
+msgid "Export..."
+msgstr "エクスポート..."
+
+#: src/views/settings/maintenance_section.py:91
+msgid ""
+"Extract and index domain names from all URLs.\n"
+"Speeds up domain-based queries and enables domain analytics."
+msgstr ""
+"すべての URL からドメイン名を抽出してインデックス化します。\n"
+"ドメインベースのクエリを高速化し、ドメイン分析を有効化します。"
+
+#: src/viewmodels/main_viewmodel.py:184
+msgid "Extracting browser history..."
+msgstr "ブラウザ履歴を抽出中..."
+
+#: src/viewmodels/import_viewmodel.py:85
+msgid "Extracting…"
+msgstr "抽出中…"
+
+#: src/services/local_db.py:360
+msgid "FTS index rebuild complete."
+msgstr "FTS インデックス再構築が完了しました。"
+
+#: src/views/settings_page.py:442
+msgid "FTS rebuild complete"
+msgstr "FTS 再構築完了"
+
+#: src/views/import_dialog.py:175
+msgid "File"
+msgstr "ファイル"
+
+#: src/views/log_viewer_page.py:124
+msgid "Filter text..."
+msgstr "テキストをフィルタ..."
+
+#: src/views/import_dialog.py:176
+msgid "Format"
+msgstr "フォーマット"
+
+#: src/services/webdav_sync.py:298
+#, python-brace-format
+msgid "Hash verification FAILED! Expected {exp}, got {act}"
+msgstr "ハッシュ検証失敗！期待値: {exp}、実際値: {act}"
+
+#: src/views/settings/privacy_section.py:81
+msgid "Hidden Records:"
+msgstr "非表示のレコード:"
+
+#: src/views/history_page.py:501
+#, python-brace-format
+msgid "Hidden {n} record(s). Manage in Settings → Privacy."
+msgstr "{n} 件のレコードを非表示にしました。設定 → プライバシーで管理できます。"
+
+#: src/views/main_window.py:266
+#, python-brace-format
+msgid "Hidden {n} record(s). Unhide anytime in Settings → Privacy."
+msgstr "{n} 件のレコードを非表示にしました。設定 → プライバシーでいつでも表示できます。"
+
+#: src/views/history_page.py:425
+#, python-brace-format
+msgid "Hide Selected ({n} records)"
+msgstr "選択を非表示 ({n} 件)"
+
+#: src/views/history_page.py:428
+msgid "Hide This Record"
+msgstr "このレコードを非表示"
+
+#: src/views/history_page.py:110 src/views/main_window.py:114
+msgid "History"
+msgstr "履歴"
+
+#: src/views/settings/custom_paths_section.py:61
+msgid "History database file path..."
+msgstr "History データベースファイルのパス..."
+
+#: src/main.py:354
+msgid ""
+"HistorySync has been minimized to the system tray and continues running "
+"in the background."
+msgstr "HistorySync はシステムトレイに最小化されており、バックグラウンドで動作を続けています。"
+
+#: src/views/settings_page.py:106
+msgid "IMPORT HISTORY DATABASE"
+msgstr "履歴データベースのインポート"
+
+#: src/views/settings/custom_paths_section.py:57
+msgid "Identifier (e.g. chrome_portable)"
+msgstr "識別子（例: chrome_portable）"
+
+#: src/viewmodels/main_viewmodel.py:95
+msgid "Idle"
+msgstr "待機中"
+
+#: src/views/settings/custom_paths_section.py:45
+msgid ""
+"If you use portable or non-standard browser installations, manually "
+"specify the History database path here."
+msgstr "ポータブルまたは非標準のブラウザインストールを使用している場合は、ここで History データベースのパスを手動で指定してください。"
+
+#: src/views/import_dialog.py:483
+msgid "Import"
+msgstr "インポート"
+
+#: src/views/import_dialog.py:122 src/views/import_dialog.py:145
+msgid "Import Browser History"
+msgstr "ブラウザ履歴をインポート"
+
+#: src/views/import_dialog.py:536
+msgid "Import Error"
+msgstr "インポートエラー"
+
+#: src/views/settings/import_section.py:40
+msgid "Import History File..."
+msgstr "履歴ファイルをインポート..."
+
+#: src/views/settings/import_section.py:30
+msgid ""
+"Import browser history from a standalone database file — for example, a "
+"manually backed-up Chrome History file, a Firefox places.sqlite, a Safari"
+" History.db, or an older HistorySync backup."
+msgstr ""
+"スタンドアロンのデータベースファイルからブラウザ履歴をインポートします。例: 手動でバックアップした Chrome の History "
+"ファイル、Firefox の places.sqlite、Safari の History.db、または古い HistorySync "
+"バックアップ。"
+
+#: src/views/settings_page.py:404
+#, python-brace-format
+msgid "Import complete: {n} new records added."
+msgstr "インポート完了: {n} 件の新規レコードを追加しました。"
+
+#: src/views/settings/webdav_section.py:82
+msgid "Include favicon cache in backup"
+msgstr "バックアップにファビコンキャッシュを含める"
+
+#: src/services/local_db.py:393
+msgid "Inserting new domain entries…"
+msgstr "新しいドメインエントリを挿入中…"
+
+#: src/views/settings/language_section.py:27
+msgid "Interface language:"
+msgstr "インターフェース言語:"
+
+#: src/views/settings_page.py:100
+msgid "LANGUAGE"
+msgstr "言語"
+
+#: src/views/dashboard_page.py:308
+msgid "Last Sync"
+msgstr "最終同期"
+
+#: src/main.py:418
+#, python-brace-format
+msgid "Last sync: {count} new"
+msgstr "最終同期: {count} 件新規"
+
+#: src/views/settings/startup_section.py:28
+msgid "Launch at system startup (minimized to tray)"
+msgstr "システム起動時に起動（トレイに最小化）"
+
+#: src/views/log_viewer_page.py:115
+msgid "Level:"
+msgstr "レベル:"
+
+#: src/views/settings/webdav_section.py:123
+msgid "List Remote Backups"
+msgstr "リモートバックアップを一覧表示"
+
+#: src/services/webdav_sync.py:251
+msgid "Listing remote backups..."
+msgstr "リモートバックアップを一覧表示中..."
+
+#: src/views/log_viewer_page.py:350
+msgid "Log Files (*.log *.txt);;All Files (*)"
+msgstr "ログファイル (*.log *.txt);;すべてのファイル (*)"
+
+#: src/views/log_viewer_page.py:95 src/views/main_window.py:116
+msgid "Log Viewer"
+msgstr "ログビューア"
+
+#: src/views/log_viewer_page.py:356
+#, python-brace-format
+msgid ""
+"Log exported to:\n"
+"{}"
+msgstr ""
+"ログをエクスポートしました:\n"
+"{}"
+
+#: src/views/log_viewer_page.py:230
+#, python-brace-format
+msgid "Log file not found: {}"
+msgstr "ログファイルが見つかりません: {}"
+
+#: src/views/log_viewer_page.py:237
+#, python-brace-format
+msgid "Log file: {}"
+msgstr "ログファイル: {}"
+
+#: src/views/settings/webdav_section.py:116
+msgid "Max backups:"
+msgstr "最大バックアップ数:"
+
+#: src/views/dashboard_page.py:308 src/views/dashboard_page.py:482
+msgid "Never"
+msgstr "なし"
+
+#: src/services/webdav_sync.py:259
+msgid "No backups found on server."
+msgstr "サーバー上にバックアップが見つかりません。"
+
+#: src/views/dashboard_page.py:245
+msgid "No browsers detected"
+msgstr "ブラウザが検出されませんでした"
+
+#: src/views/import_dialog.py:220
+msgid ""
+"No files yet.\n"
+"\n"
+"Drop files here, or click  Add Files  below."
+msgstr ""
+"ファイルがありません。\n"
+"\n"
+"ここにファイルをドロップするか、下の  ファイルを追加  をクリックしてください。"
+
+#: src/views/log_viewer_page.py:344
+msgid "No log file found."
+msgstr "ログファイルが見つかりません。"
+
+#: src/views/import_dialog.py:484
+msgid ""
+"No valid files to import.\n"
+"Mark at least one file with a known format."
+msgstr ""
+"インポートできる有効なファイルがありません。\n"
+"既知のフォーマットでファイルを少なくとも1つマークしてください。"
+
+#: src/views/settings/maintenance_section.py:165
+msgid "None"
+msgstr "なし"
+
+#: src/views/settings/maintenance_section.py:87
+msgid "Normalize Domains"
+msgstr "ドメインを正規化"
+
+#: src/viewmodels/main_viewmodel.py:92 src/viewmodels/main_viewmodel.py:101
+#: src/views/dashboard_page.py:309
+msgid "Not enabled"
+msgstr "無効"
+
+#: src/views/history_page.py:384
+#, python-brace-format
+msgid "Open All Selected in Browser ({n})"
+msgstr "選択したすべてをブラウザで開く ({n})"
+
+#: src/views/dashboard_page.py:213
+msgid "Open Browser"
+msgstr "ブラウザを開く"
+
+#: src/views/tray_icon.py:75
+msgid "Open Main Window"
+msgstr "メインウィンドウを開く"
+
+#: src/views/history_page.py:380
+msgid "Open in Browser"
+msgstr "ブラウザで開く"
+
+#: src/views/settings_page.py:444
+msgid "Operation complete"
+msgstr "操作が完了しました"
+
+#: src/views/tray_icon.py:133
+msgid "Operation in Progress"
+msgstr "操作中"
+
+#: src/views/dashboard_page.py:284 src/views/main_window.py:113
+msgid "Overview"
+msgstr "概要"
+
+#: src/views/settings_page.py:104
+msgid "PRIVACY & BLACKLIST"
+msgstr "プライバシーとブロックリスト"
+
+#: src/viewmodels/history_viewmodel.py:87
+msgid "Page Title"
+msgstr "ページタイトル"
+
+#: src/views/settings/webdav_section.py:114
+msgid "Password:"
+msgstr "パスワード:"
+
+#: src/views/log_viewer_page.py:144 src/views/log_viewer_page.py:335
+msgid "Pause"
+msgstr "一時停止"
+
+#: src/views/settings_page.py:121
+msgid "Preferences"
+msgstr "設定"
+
+#: src/views/dashboard_page.py:324
+msgid "Preparing..."
+msgstr "準備中..."
+
+#: src/views/import_dialog.py:178
+msgid "Profile"
+msgstr "プロファイル"
+
+#: src/views/tray_icon.py:90
+msgid "Quit HistorySync"
+msgstr "HistorySync を終了"
+
+#: src/viewmodels/main_viewmodel.py:209
+#, python-brace-format
+msgid "Reading {browser} history..."
+msgstr "{browser} の履歴を読み込み中..."
+
+#: src/views/history_page.py:218 src/views/import_dialog.py:383
+#: src/views/import_dialog.py:407 src/views/main_window.py:81
+#: src/views/tray_icon.py:85
+msgid "Ready"
+msgstr "準備完了"
+
+#: src/views/log_viewer_page.py:97
+msgid "Real-time application log — auto-refreshes every 2 seconds"
+msgstr "リアルタイムアプリログ — 2 秒ごとに自動更新"
+
+#: src/views/settings/maintenance_section.py:97
+msgid "Rebuild FTS Index"
+msgstr "FTS インデックスを再構築"
+
+#: src/views/settings/maintenance_section.py:101
+msgid ""
+"Rebuild the full-text search index from scratch.\n"
+"Run this if search results seem incomplete or incorrect."
+msgstr ""
+"フルテキスト検索インデックスをゼロから再構築します。\n"
+"検索結果が不完全または不正確に見える場合はこれを実行してください。"
+
+#: src/services/local_db.py:357
+msgid "Rebuilding full-text search index…"
+msgstr "フルテキスト検索インデックスを再構築中…"
+
+#: src/views/settings/maintenance_section.py:81
+msgid ""
+"Reclaim wasted space, defragment pages, and update query planner "
+"statistics.\n"
+"Requires ~2× the current DB size as free disk space."
+msgstr ""
+"無駄なスペースを回収し、ページをデフラグし、クエリプランナーの統計を更新します。\n"
+"現在の DB サイズの約 2 倍の空きディスクスペースが必要です。"
+
+#: src/views/settings/maintenance_section.py:62
+msgid "Records"
+msgstr "レコード"
+
+#: src/views/log_viewer_page.py:149
+msgid "Reload"
+msgstr "再読み込み"
+
+#: src/views/settings/webdav_section.py:115
+msgid "Remote Path:"
+msgstr "リモートパス:"
+
+#: src/services/webdav_sync.py:255
+msgid "Remote directory not found."
+msgstr "リモートディレクトリが見つかりません。"
+
+#: src/views/settings/privacy_section.py:105
+msgid "Remove"
+msgstr "削除"
+
+#: src/viewmodels/settings_viewmodel.py:51
+msgid "Replacing local database..."
+msgstr "ローカルデータベースを置き換え中..."
+
+#: src/views/history_page.py:168
+msgid "Reset"
+msgstr "リセット"
+
+#: src/views/settings/language_section.py:36
+msgid "Restart required to apply language changes."
+msgstr "言語の変更を適用するには再起動が必要です。"
+
+#: src/views/settings_page.py:312
+msgid "Restore Database"
+msgstr "データベースを復元"
+
+#: src/services/webdav_sync.py:347
+#, python-brace-format
+msgid "Restore failed: {error}"
+msgstr "復元に失敗しました: {error}"
+
+#: src/views/settings/webdav_section.py:145
+msgid "Restore from WebDAV"
+msgstr "WebDAV から復元"
+
+#: src/services/webdav_sync.py:339
+#, python-brace-format
+msgid "Restored from {filename}"
+msgstr "{filename} から復元しました"
+
+#: src/services/local_db.py:322
+msgid "Restoring WAL mode and updating statistics…"
+msgstr "WAL モードを復元し統計を更新中…"
+
+#: src/services/webdav_sync.py:312
+msgid "Restoring favicon cache..."
+msgstr "ファビコンキャッシュを復元中..."
+
+#: src/views/log_viewer_page.py:77 src/views/log_viewer_page.py:331
+msgid "Resume"
+msgstr "再開"
+
+#: src/services/local_db.py:315
+msgid "Running VACUUM — rewriting database file…"
+msgstr "VACUUM を実行中 — データベースファイルを書き直し中…"
+
+#: src/views/settings/webdav_section.py:259
+msgid "SHA-256 Hashes:"
+msgstr "SHA-256 ハッシュ:"
+
+#: src/views/settings/custom_paths_section.py:110
+msgid "SQLite Database (History *.sqlite *.db);;All Files (*)"
+msgstr "SQLite データベース (History *.sqlite *.db);;すべてのファイル (*)"
+
+#: src/views/settings_page.py:102
+msgid "STARTUP"
+msgstr "スタートアップ"
+
+#: src/views/settings_page.py:128
+msgid "Save Settings"
+msgstr "設定を保存"
+
+#: src/viewmodels/main_viewmodel.py:210
+#, python-brace-format
+msgid "Saving {browser} ({count} records)..."
+msgstr "{browser} を保存中 ({count} 件)..."
+
+#: src/viewmodels/import_viewmodel.py:113
+#, python-brace-format
+msgid "Saving {n} records…"
+msgstr "{n} 件のレコードを保存中…"
+
+#: src/services/local_db.py:373
+msgid "Scanning for un-normalised URLs…"
+msgstr "未正規化 URL をスキャン中…"
+
+#: src/views/settings/webdav_section.py:66
+msgid "Scheduled automatic backup every"
+msgstr "定期自動バックアップ："
+
+#: src/views/history_page.py:137
+msgid "Search title or URL..."
+msgstr "タイトルまたは URL を検索..."
+
+#: src/views/history_page.py:446
+#, python-brace-format
+msgid "Search: {domain}"
+msgstr "検索: {domain}"
+
+#: src/views/import_dialog.py:317
+msgid "Select Browser History Database Files"
+msgstr "ブラウザ履歴データベースファイルを選択"
+
+#: src/views/settings/custom_paths_section.py:108
+msgid "Select History Database File"
+msgstr "History データベースファイルを選択"
+
+#: src/views/settings/webdav_section.py:112
+msgid "Server URL:"
+msgstr "サーバー URL:"
+
+#: src/views/main_window.py:115
+msgid "Settings"
+msgstr "設定"
+
+#: src/views/main_window.py:252
+msgid "Settings saved"
+msgstr "設定を保存しました"
+
+#: src/views/import_dialog.py:284
+msgid "Start Import"
+msgstr "インポートを開始"
+
+#: src/views/import_dialog.py:494
+msgid "Starting import…"
+msgstr "インポートを開始中…"
+
+#: src/views/settings_page.py:325
+msgid "Starting..."
+msgstr "開始中..."
+
+#: src/views/import_dialog.py:179
+msgid "Status"
+msgstr "ステータス"
+
+#: src/views/import_dialog.py:164
+msgid ""
+"Supported: Chrome/Edge/Brave History  ·  Firefox places.sqlite  ·  Safari"
+" History.db  ·  HistorySync history.db"
+msgstr ""
+"対応: Chrome/Edge/Brave History  ·  Firefox places.sqlite  ·  Safari "
+"History.db  ·  HistorySync history.db"
+
+#: src/main.py:421
+msgid "Sync Complete"
+msgstr "同期完了"
+
+#: src/main.py:433
+msgid "Sync Failed"
+msgstr "同期失敗"
+
+#: src/views/dashboard_page.py:291 src/views/dashboard_page.py:465
+#: src/views/dashboard_page.py:472 src/views/tray_icon.py:80
+#: src/views/tray_icon.py:110
+msgid "Sync Now"
+msgstr "今すぐ同期"
+
+#: src/views/dashboard_page.py:205
+msgid "Sync This Browser"
+msgstr "このブラウザを同期"
+
+#: src/views/main_window.py:235
+#, python-brace-format
+msgid "Sync complete — {count} new records"
+msgstr "同期完了 — {count} 件新規"
+
+#: src/views/dashboard_page.py:463
+#, python-brace-format
+msgid "Sync complete, {count} new records added"
+msgstr "同期完了、{count} 件の新規レコードを追加"
+
+#: src/main.py:432 src/viewmodels/main_viewmodel.py:100
+msgid "Sync error"
+msgstr "同期エラー"
+
+#: src/views/main_window.py:241
+#, python-brace-format
+msgid "Sync failed: {error}"
+msgstr "同期に失敗しました: {error}"
+
+#: src/views/dashboard_page.py:470
+#, python-brace-format
+msgid "Sync failed: {msg}"
+msgstr "同期に失敗しました: {msg}"
+
+#: src/views/settings/scheduler_section.py:31
+msgid "Sync interval:"
+msgstr "同期間隔:"
+
+#: src/views/history_page.py:260
+msgid "Sync triggered..."
+msgstr "同期がトリガーされました..."
+
+#: src/viewmodels/main_viewmodel.py:99
+msgid "Synced"
+msgstr "同期済み"
+
+#: src/views/main_window.py:223
+msgid "Syncing in background..."
+msgstr "バックグラウンドで同期中..."
+
+#: src/views/tray_icon.py:107
+msgid "Syncing in progress..."
+msgstr "同期中..."
+
+#: src/views/dashboard_page.py:449 src/views/tray_icon.py:106
+msgid "Syncing..."
+msgstr "同期中..."
+
+#: src/views/settings/webdav_section.py:137
+msgid "Test Connection"
+msgstr "接続テスト"
+
+#: src/views/settings_page.py:314
+msgid ""
+"This will overwrite your current local history database with the one from"
+" WebDAV. Are you sure you want to continue?"
+msgstr "現在のローカル履歴データベースを WebDAV のものに上書きします。続行してもよいですか？"
+
+#: src/views/log_viewer_page.py:362
+msgid "This will permanently delete all log files. Continue?"
+msgstr "すべてのログファイルが永久に削除されます。続行しますか？"
+
+#: src/views/history_page.py:507
+#, python-brace-format
+msgid ""
+"This will:\n"
+"• Delete ALL records from '{domain}'\n"
+"• Never sync this domain again\n"
+"\n"
+"Continue?"
+msgstr ""
+"この操作を実行します:\n"
+"• '{domain}' のすべてのレコードを削除\n"
+"• このドメインを今後同期しない\n"
+"\n"
+"続行しますか？"
+
+#: src/views/dashboard_page.py:306
+msgid "Total Local Records"
+msgstr "ローカルレコード総数"
+
+#: src/viewmodels/history_viewmodel.py:87
+msgid "URL"
+msgstr "URL"
+
+#: src/views/settings/privacy_section.py:85
+msgid "Unhide All"
+msgstr "すべて表示"
+
+#: src/views/settings/maintenance_section.py:63
+msgid "Unique domains"
+msgstr "ユニークドメイン"
+
+#: src/viewmodels/main_viewmodel.py:103
+msgid "Unknown"
+msgstr "不明"
+
+#: src/services/webdav_sync.py:216
+#, python-brace-format
+msgid "Upload failed: {error}"
+msgstr "アップロード失敗: {error}"
+
+#: src/services/webdav_sync.py:206
+#, python-brace-format
+msgid "Upload successful: {filename} ({size} KB) — SHA-256 verified"
+msgstr "アップロード成功: {filename} ({size} KB) — SHA-256 確認済み"
+
+#: src/services/webdav_sync.py:196
+#, python-brace-format
+msgid "Uploading backup ({size} KB)..."
+msgstr "バックアップをアップロード中 ({size} KB)..."
+
+#: src/viewmodels/main_viewmodel.py:97
+msgid "Uploading..."
+msgstr "アップロード中..."
+
+#: src/views/settings/webdav_section.py:97
+#: src/views/settings/webdav_section.py:113
+msgid "Username:"
+msgstr "ユーザー名:"
+
+#: src/views/settings/maintenance_section.py:76
+msgid "Vacuum && Optimize"
+msgstr "Vacuum && 最適化"
+
+#: src/views/settings_page.py:440
+msgid "Vacuum complete"
+msgstr "Vacuum 完了"
+
+#: src/views/settings/webdav_section.py:110
+msgid "Verify SSL certificate"
+msgstr "SSL 証明書を検証"
+
+#: src/services/webdav_sync.py:275
+msgid "Verifying backup integrity (SHA-256)..."
+msgstr "バックアップの整合性を確認中 (SHA-256)..."
+
+#: src/views/dashboard_page.py:208
+msgid "View History"
+msgstr "履歴を表示"
+
+#: src/viewmodels/history_viewmodel.py:87
+msgid "Visit Time"
+msgstr "訪問時刻"
+
+#: src/views/settings_page.py:103
+msgid "WEBDAV CLOUD BACKUP"
+msgstr "WebDAV クラウドバックアップ"
+
+#: src/views/settings/maintenance_section.py:61
+msgid "Wasted space"
+msgstr "無駄なスペース"
+
+#: src/views/dashboard_page.py:309
+msgid "WebDAV Status"
+msgstr "WebDAV ステータス"
+
+#: src/services/webdav_sync.py:107
+msgid "WebDAV not configured"
+msgstr "WebDAV が設定されていません"
+
+#: src/services/webdav_sync.py:135 src/services/webdav_sync.py:236
+msgid "WebDAV not configured or disabled"
+msgstr "WebDAV が設定されていないか無効です"
+
+#: src/views/settings/startup_section.py:37
+msgid ""
+"When enabled, HistorySync will start in the background and begin "
+"collecting on system startup."
+msgstr "有効にすると、HistorySync はバックグラウンドで起動し、システム起動時に収集を開始します。"
+
+#: src/views/main_window.py:51
+msgid "[Fresh Mode]"
+msgstr "[フレッシュモード]"
+
+#: src/views/tray_icon.py:130
+msgid "backup"
+msgstr "バックアップ"
+
+#: src/views/import_dialog.py:374
+msgid "e.g. Default"
+msgstr "例: Default"
+
+#: src/views/settings/privacy_section.py:66
+msgid "example.com"
+msgstr "example.com"
+
+#: src/views/tray_icon.py:130
+msgid "sync"
+msgstr "同期"
+
+#: src/views/tray_icon.py:130
+msgid "sync and backup"
+msgstr "同期とバックアップ"
+
+#: src/services/webdav_sync.py:132 src/services/webdav_sync.py:233
+msgid "webdavclient3 is not installed."
+msgstr "webdavclient3 がインストールされていません。"
+
+#: src/services/webdav_sync.py:105
+msgid "webdavclient3 is not installed. Run: pip install webdavclient3"
+msgstr "webdavclient3 がインストールされていません。実行: pip install webdavclient3"
+
+#: src/viewmodels/main_viewmodel.py:211
+#, python-brace-format
+msgid "{browser} done — {count} new records"
+msgstr "{browser} 完了 — {count} 件新規"
+
+#: src/viewmodels/main_viewmodel.py:212
+#, python-brace-format
+msgid "{browser} extraction failed"
+msgstr "{browser} の抽出に失敗しました"
+
+#: src/main.py:422
+#, python-brace-format
+msgid "{count} new history records added"
+msgstr "{count} 件の新規履歴レコードを追加"
+
+#: src/views/settings/countdown.py:33
+#, python-brace-format
+msgid "{d}d {h}h"
+msgstr "{d}日 {h}時間"
+
+#: src/views/settings/countdown.py:30
+#, python-brace-format
+msgid "{h}h {m}m"
+msgstr "{h}時間 {m}分"
+
+#: src/views/settings/countdown.py:26
+#, python-brace-format
+msgid "{m}m {s}s"
+msgstr "{m}分 {s}秒"
+
+#: src/viewmodels/settings_viewmodel.py:66
+#, python-brace-format
+msgid "{n} backup(s) found"
+msgstr "{n} 件のバックアップが見つかりました"
+
+#: src/views/log_viewer_page.py:321
+#, python-brace-format
+msgid "{n} lines displayed"
+msgstr "{n} 行表示"
+
+#: src/views/settings/privacy_section.py:115
+#, python-brace-format
+msgid "{n} records hidden"
+msgstr "{n} 件のレコードを非表示"
+
+#: src/views/history_page.py:285
+#, python-brace-format
+msgid "{n} rows selected"
+msgstr "{n} 行選択"
+
+#: src/views/settings/countdown.py:23
+#, python-brace-format
+msgid "{s}s"
+msgstr "{s}秒"
+
+#: src/viewmodels/history_viewmodel.py:336 src/views/history_page.py:306
+#, python-brace-format
+msgid "{total} records"
+msgstr "{total} 件"
+
+#: src/main.py:362
+#, python-brace-format
+msgid "{total} records in total"
+msgstr "合計 {total} 件"
+
+#: src/views/settings_page.py:274
+#, python-brace-format
+msgid "⏰ Next backup in: {t}"
+msgstr "⏰ 次のバックアップまで: {t}"
+
+#: src/views/settings_page.py:274
+msgid "⏰ Next backup: due soon"
+msgstr "⏰ 次のバックアップ: まもなく"
+
+#: src/views/settings_page.py:263
+#, python-brace-format
+msgid "⏰ Next sync in: {t}"
+msgstr "⏰ 次の同期まで: {t}"
+
+#: src/views/settings_page.py:263
+msgid "⏰ Next sync: due soon"
+msgstr "⏰ 次の同期: まもなく"
+
+#: src/views/import_dialog.py:504
+msgid "⏳ Importing…"
+msgstr "⏳ インポート中…"
+
+#: src/views/settings_page.py:236
+msgid "⚠ Failed to configure startup"
+msgstr "⚠ スタートアップの設定に失敗しました"
+
+#: src/views/settings_page.py:233
+msgid "⚠ Failed to configure startup — check permissions"
+msgstr "⚠ スタートアップの設定に失敗しました — 権限を確認してください"
+
+#: src/views/import_dialog.py:404
+msgid "⚠ Skip"
+msgstr "⚠ スキップ"
+
+#: src/views/import_dialog.py:383
+msgid "⚠ Unknown"
+msgstr "⚠ 不明"
+
+#: src/services/local_db.py:300
+msgid "⚠ WAL checkpoint partially blocked by active readers; proceeding anyway…"
+msgstr "⚠ WAL チェックポイントがアクティブなリーダーによって部分的にブロックされています。そのまま続行します…"
+
+#: src/services/webdav_sync.py:305
+#, python-brace-format
+msgid "✓ Hash verified: {hash}..."
+msgstr "✓ ハッシュ検証済み: {hash}..."
+
+#: src/views/settings_page.py:409
+msgid "✓ Saved"
+msgstr "✓ 保存済み"
+
+#: src/views/settings_page.py:226
+msgid "✓ Startup disabled"
+msgstr "✓ スタートアップ無効"
+
+#: src/views/settings_page.py:226
+msgid "✓ Startup enabled"
+msgstr "✓ スタートアップ有効"
+
+#: src/views/settings_page.py:451
+msgid "✗ Maintenance failed — check log"
+msgstr "✗ メンテナンス失敗 — ログを確認してください"
+
+#: src/views/settings_page.py:413
+#, python-brace-format
+msgid "✗ Save failed: {msg}"
+msgstr "✗ 保存に失敗しました: {msg}"
+
+#~ msgid "(run Normalize)"
+#~ msgstr "(run Normalize)"
+

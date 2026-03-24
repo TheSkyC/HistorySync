@@ -1,0 +1,348 @@
+name: Build and Release HistorySync
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+env:
+  APP_NAME: HistorySync
+  PYTHON_STANDALONE_VERSION: '3.12.12'
+  PYTHON_STANDALONE_RELEASE_TAG: '20251202'
+  PYTHON_BUILD_VERSION: '3.12'
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os_name }}-${{ matrix.arch_display }}
+    runs-on: ${{ matrix.os_image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_name: windows
+            os_image: windows-latest
+            arch_display: x64
+            python_arch: x86_64-pc-windows-msvc
+            asset_suffix: win-x64.zip
+          - os_name: linux
+            os_image: ubuntu-latest
+            arch_display: x64
+            python_arch: x86_64-unknown-linux-gnu
+            asset_suffix: linux-x64.tar.gz
+          - os_name: macos
+            os_image: macos-15
+            arch_display: universal
+            python_arch_arm64: aarch64-apple-darwin
+            python_arch_x64: x86_64-apple-darwin
+            asset_suffix: macos-universal.dmg
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python for Build
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_BUILD_VERSION }}
+
+    - name: Download Standalone Python (Minimal Runtime)
+      shell: bash
+      run: |
+        PYTHON_VERSION="${{ env.PYTHON_STANDALONE_VERSION }}"
+        RELEASE_TAG="${{ env.PYTHON_STANDALONE_RELEASE_TAG }}"
+
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          URL="https://github.com/indygreg/python-build-standalone/releases/download/$RELEASE_TAG/cpython-$PYTHON_VERSION+$RELEASE_TAG-${{ matrix.python_arch }}-install_only_stripped.tar.gz"
+          echo "Downloading MINIMAL Python from $URL"
+          curl -L $URL -o python-standalone.tar.gz
+          tar -xzf python-standalone.tar.gz
+          mv python python_minimal
+        elif [[ "${{ runner.os }}" == "Linux" ]]; then
+          URL="https://github.com/indygreg/python-build-standalone/releases/download/$RELEASE_TAG/cpython-$PYTHON_VERSION+$RELEASE_TAG-${{ matrix.python_arch }}-install_only_stripped.tar.gz"
+          echo "Downloading MINIMAL Python from $URL"
+          curl -L $URL | tar -xz
+          mv python python_minimal
+        elif [[ "${{ runner.os }}" == "macOS" ]]; then
+          URL_ARM="https://github.com/indygreg/python-build-standalone/releases/download/$RELEASE_TAG/cpython-$PYTHON_VERSION+$RELEASE_TAG-${{ matrix.python_arch_arm64 }}-install_only_stripped.tar.gz"
+          URL_X64="https://github.com/indygreg/python-build-standalone/releases/download/$RELEASE_TAG/cpython-$PYTHON_VERSION+$RELEASE_TAG-${{ matrix.python_arch_x64 }}-install_only_stripped.tar.gz"
+          echo "Downloading Python for ARM64..." && curl -L $URL_ARM | tar -xz && mv python python_minimal_arm64
+          echo "Downloading Python for x86_64..." && curl -L $URL_X64 | tar -xz && mv python python_minimal_x64
+        fi
+
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        if (Test-Path requirements.txt) {
+          pip install -r requirements.txt
+        }
+
+    - name: Install dependencies (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        fi
+
+    - name: Build with PyInstaller (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Write-Host "Building HistorySync for Windows..."
+
+        pyinstaller `
+          --name "${{ env.APP_NAME }}" `
+          --windowed `
+          --noupx `
+          --noconfirm `
+          --icon "src/resources/icons/app-icon.ico" `
+          --add-data "NOTICE;." `
+          --add-data "LICENSE;." `
+          --add-data "src/resources/locales;resources/locales" `
+          --add-data "src/resources/styles;resources/styles" `
+          --add-data "src/resources/icons;resources/icons" `
+          --hidden-import "PySide6.QtSvg" `
+          --hidden-import "PySide6.QtSvgWidgets" `
+          --hidden-import "webdav4" `
+          --hidden-import "webdav4.client" `
+          --exclude-module "Qt6Sql" `
+          --exclude-module "Qt6Test" `
+          --exclude-module "Qt6Xml" `
+          --exclude-module "Qt6Qml" `
+          --exclude-module "Qt6Quick" `
+          --exclude-module "Qt6WebEngineWidgets" `
+          --exclude-module "Qt6WebEngineCore" `
+          --exclude-module "Qt6WebChannel" `
+          --exclude-module "Qt6Positioning" `
+          --exclude-module "Qt6Sensors" `
+          --exclude-module "Qt6Nfc" `
+          --exclude-module "Qt6Bluetooth" `
+          --exclude-module "Qt6DataVisualization" `
+          --exclude-module "Qt6Multimedia" `
+          --exclude-module "tkinter" `
+          --exclude-module "unittest" `
+          --exclude-module "pdb" `
+          --exclude-module "doctest" `
+          --exclude-module "pydoc" `
+          --exclude-module "turtle" `
+          --exclude-module "test" `
+          --exclude-module "lib2to3" `
+          --exclude-module "scipy" `
+          --exclude-module "matplotlib" `
+          --exclude-module "IPython" `
+          --exclude-module "jupyter" `
+          --optimize 2 `
+          src/main.py
+
+    - name: Build with PyInstaller (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        echo "Building HistorySync for ${{ matrix.os_name }}..."
+
+        # macOS
+        if [[ "${{ runner.os }}" == "macOS" ]]; then
+          ICON_ARG="--icon src/resources/icons/app-icon.icns"
+        else
+          ICON_ARG="--icon src/resources/icons/app-icon.ico"
+        fi
+
+        pyinstaller \
+          --name "${{ env.APP_NAME }}" \
+          --windowed \
+          --noupx \
+          --noconfirm \
+          $ICON_ARG \
+          --add-data "NOTICE:." \
+          --add-data "LICENSE:." \
+          --add-data "src/resources/locales:resources/locales" \
+          --add-data "src/resources/styles:resources/styles" \
+          --add-data "src/resources/icons:resources/icons" \
+          --hidden-import "PySide6.QtSvg" \
+          --hidden-import "PySide6.QtSvgWidgets" \
+          --hidden-import "webdav4" \
+          --hidden-import "webdav4.client" \
+          --exclude-module "Qt6Sql" \
+          --exclude-module "Qt6Test" \
+          --exclude-module "Qt6Xml" \
+          --exclude-module "Qt6Qml" \
+          --exclude-module "Qt6Quick" \
+          --exclude-module "Qt6WebEngineWidgets" \
+          --exclude-module "Qt6WebEngineCore" \
+          --exclude-module "Qt6WebChannel" \
+          --exclude-module "Qt6Positioning" \
+          --exclude-module "Qt6Sensors" \
+          --exclude-module "Qt6Nfc" \
+          --exclude-module "Qt6Bluetooth" \
+          --exclude-module "Qt6DataVisualization" \
+          --exclude-module "Qt6Multimedia" \
+          --exclude-module "tkinter" \
+          --exclude-module "unittest" \
+          --exclude-module "pdb" \
+          --exclude-module "doctest" \
+          --exclude-module "pydoc" \
+          --exclude-module "turtle" \
+          --exclude-module "test" \
+          --exclude-module "lib2to3" \
+          --exclude-module "scipy" \
+          --exclude-module "matplotlib" \
+          --exclude-module "IPython" \
+          --exclude-module "jupyter" \
+          --optimize 2 \
+          src/main.py
+
+    - name: Cleanup Translation Source Files (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $distPath = "dist/${{ env.APP_NAME }}"
+        Write-Host "Removing .po and .pot files from $distPath..."
+        Get-ChildItem -Path $distPath -Include "*.po", "*.pot" -Recurse | Remove-Item -Force
+
+        $remaining = Get-ChildItem -Path $distPath -Include "*.po", "*.pot" -Recurse
+        if ($remaining) { Write-Error "Failed to clean up all source translation files." }
+
+    - name: Cleanup Translation Source Files (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        DIST_PATH="dist/${{ env.APP_NAME }}"
+        echo "Removing .po and .pot files from $DIST_PATH..."
+        find "$DIST_PATH" -type f \( -name "*.po" -o -name "*.pot" \) -delete
+
+        if find "$DIST_PATH" -type f \( -name "*.po" -o -name "*.pot" \) | grep -q .; then
+          echo "Error: Failed to clean up all source translation files."
+          exit 1
+        fi
+
+    - name: Bundle Python Runtime (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $distDir = "dist/${{ env.APP_NAME }}"
+        $runtimeSourceDir = "python_minimal"
+
+        Write-Host "Precisely replacing Windows Python runtime..."
+
+        $runtimeFiles = @(
+            "python.exe",
+            "pythonw.exe",
+            "python3.dll",
+            "python312.dll",
+            "vcruntime140.dll",
+            "vcruntime140_1.dll"
+        )
+
+        foreach ($file in $runtimeFiles) {
+            $sourceFile = Join-Path $runtimeSourceDir $file
+            if (Test-Path $sourceFile) {
+                Write-Host "Copying runtime file: $file"
+                Copy-Item -Path $sourceFile -Destination $distDir -Force
+            }
+        }
+
+    - name: Bundle Python Runtime (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        DIST_DIR="dist/${{ env.APP_NAME }}"
+        RUNTIME_SOURCE_DIR="python_minimal"
+        echo "Precisely replacing Linux Python runtime..."
+        cp "$RUNTIME_SOURCE_DIR/bin/python3" "$DIST_DIR/"
+        find "$RUNTIME_SOURCE_DIR/lib" -maxdepth 1 -name "*.so*" -exec cp {} "$DIST_DIR/lib/" \;
+
+    - name: Prepare Artifacts (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $sourceDir = "dist/${{ env.APP_NAME }}"
+        $destinationZip = "${{ env.APP_NAME }}-${{ matrix.asset_suffix }}"
+        if (Test-Path $destinationZip) {
+          Remove-Item $destinationZip
+        }
+        Push-Location $sourceDir
+        Compress-Archive -Path * -DestinationPath "../../$destinationZip"
+        Pop-Location
+
+    - name: Prepare Artifacts (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        tar -czvf ${{ env.APP_NAME }}-${{ matrix.asset_suffix }} -C dist/ ${{ env.APP_NAME }}
+
+    - name: Prepare Artifacts (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        # macOS Universal: lipo 合并 arm64 + x86_64 二进制
+        APP_BUNDLE_PATH="dist/${{ env.APP_NAME }}.app"
+        MAIN_BIN="$APP_BUNDLE_PATH/Contents/MacOS/${{ env.APP_NAME }}"
+
+        if [ -f "$MAIN_BIN" ]; then
+          echo "Attempting to create Universal binary with lipo..."
+          # 注意: PyInstaller 单次构建只针对当前架构；
+          # 要真正 universal 需要分别构建再 lipo 合并，此处留作扩展钩子。
+          echo "Single-arch build detected (current runner arch). Packaging as-is."
+        fi
+
+        if [ -d "$APP_BUNDLE_PATH" ]; then
+          echo "Waiting for file handles on $APP_BUNDLE_PATH to be released..."
+          MAX_WAIT_SECONDS=30
+          SECONDS_WAITED=0
+          while lsof +D "$APP_BUNDLE_PATH" >/dev/null 2>&1 && [ $SECONDS_WAITED -lt $MAX_WAIT_SECONDS ]; do
+            echo "Handles still busy, waiting 2 more seconds..."
+            sleep 2
+            SECONDS_WAITED=$((SECONDS_WAITED + 2))
+          done
+
+          if [ $SECONDS_WAITED -ge $MAX_WAIT_SECONDS ]; then
+            echo "Error: Timed out waiting for file handles to be released."
+            lsof +D "$APP_BUNDLE_PATH"
+            exit 1
+          fi
+
+          echo "File handles released. Creating DMG..."
+          hdiutil create \
+            -volname "${{ env.APP_NAME }}" \
+            -srcfolder "$APP_BUNDLE_PATH" \
+            -ov \
+            -format UDZO \
+            "${{ env.APP_NAME }}-${{ matrix.asset_suffix }}"
+        else
+          echo "Error: .app bundle not found in dist/ for macOS."
+          exit 1
+        fi
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.APP_NAME }}-${{ matrix.os_name }}-${{ matrix.arch_display }}
+        path: ${{ env.APP_NAME }}-${{ matrix.asset_suffix }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: List downloaded files
+      run: ls -R artifacts
+
+    - name: Create Release and Upload Assets
+      uses: softprops/action-gh-release@v2
+      with:
+        generate_release_notes: true
+        files: |
+          artifacts/*/*
