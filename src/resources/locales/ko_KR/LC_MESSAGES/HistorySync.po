@@ -3,13 +3,12 @@
 # This file is distributed under the same license as the HistorySync
 # project.
 # Automatically generated, 2026.
-#
 msgid ""
 msgstr ""
 "Project-Id-Version: HistorySync 1.0.0\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-03-24 11:51+0000\n"
-"PO-Revision-Date: 2026-03-23 11:54+0000\n"
+"POT-Creation-Date: 2026-03-24 13:12+0000\n"
+"PO-Revision-Date: 2026-03-24 13:09+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: ko_KR\n"
 "Language-Team: none\n"
@@ -174,6 +173,10 @@ msgstr "취소"
 msgid "Checkpointing WAL into main file…"
 msgstr "WAL을 메인 파일에 체크포인트 중…"
 
+#: src/views/import_dialog.py:46
+msgid "Chromium History"
+msgstr "Chromium History"
+
 #: src/services/webdav_sync.py:200
 msgid "Cleaning up old backups..."
 msgstr "오래된 백업을 정리하는 중..."
@@ -329,6 +332,10 @@ msgstr "행을 더블클릭하면 브라우저에서 링크가 열립니다"
 msgid "Downloading {filename}..."
 msgstr "{filename} 다운로드 중..."
 
+#: src/views/import_dialog.py:50
+msgid "Edge WebAssistDatabase"
+msgstr "Edge WebAssistDatabase"
+
 #: src/views/settings/webdav_section.py:57
 msgid "Enable WebDAV Backup"
 msgstr "WebDAV 백업 활성화"
@@ -385,6 +392,10 @@ msgstr "파일"
 msgid "Filter text..."
 msgstr "텍스트 필터..."
 
+#: src/views/import_dialog.py:47
+msgid "Firefox places.sqlite"
+msgstr "Firefox places.sqlite"
+
 #: src/views/import_dialog.py:176
 msgid "Format"
 msgstr "형식"
@@ -424,6 +435,10 @@ msgstr "기록"
 #: src/views/settings/custom_paths_section.py:61
 msgid "History database file path..."
 msgstr "히스토리 데이터베이스 파일 경로..."
+
+#: src/views/import_dialog.py:49
+msgid "HistorySync Backup"
+msgstr "HistorySync 백업"
 
 #: src/main.py:354
 msgid ""
@@ -551,6 +566,10 @@ msgstr "로그 파일: {}"
 msgid "Max backups:"
 msgstr "최대 백업 수:"
 
+#: src/views/dashboard_page.py:62 src/views/dashboard_page.py:70
+msgid "Needs sync"
+msgstr "동기화 필요"
+
 #: src/views/dashboard_page.py:308 src/views/dashboard_page.py:482
 msgid "Never"
 msgstr "없음"
@@ -597,6 +616,14 @@ msgstr "도메인 정규화"
 #: src/views/dashboard_page.py:309
 msgid "Not enabled"
 msgstr "활성화되지 않음"
+
+#: src/views/dashboard_page.py:65 src/views/dashboard_page.py:73
+msgid "Not found"
+msgstr "찾을 수 없음"
+
+#: src/views/dashboard_page.py:63 src/views/dashboard_page.py:71
+msgid "Not synced"
+msgstr "동기화되지 않음"
 
 #: src/views/history_page.py:384
 #, python-brace-format
@@ -777,6 +804,10 @@ msgstr "SQLite 데이터베이스 (History *.sqlite *.db);;모든 파일 (*)"
 msgid "STARTUP"
 msgstr "시작"
 
+#: src/views/import_dialog.py:48
+msgid "Safari History.db"
+msgstr "Safari History.db"
+
 #: src/views/settings_page.py:128
 msgid "Save Settings"
 msgstr "설정 저장"
@@ -914,6 +945,7 @@ msgstr "백그라운드에서 동기화 중..."
 msgid "Syncing in progress..."
 msgstr "동기화 진행 중..."
 
+#: src/views/dashboard_page.py:64 src/views/dashboard_page.py:72
 #: src/views/dashboard_page.py:449 src/views/tray_icon.py:106
 msgid "Syncing..."
 msgstr "동기화 중..."
@@ -921,6 +953,18 @@ msgstr "동기화 중..."
 #: src/views/settings/webdav_section.py:137
 msgid "Test Connection"
 msgstr "연결 테스트"
+
+#: src/views/nav_widgets.py:16
+msgid "Theme: Auto"
+msgstr "테마: 자동"
+
+#: src/views/nav_widgets.py:18 src/views/nav_widgets.py:70
+msgid "Theme: Dark"
+msgstr "테마: 다크"
+
+#: src/views/nav_widgets.py:17
+msgid "Theme: Light"
+msgstr "테마: 라이트"
 
 #: src/views/settings_page.py:314
 msgid ""
@@ -966,6 +1010,14 @@ msgstr "고유 도메인"
 #: src/viewmodels/main_viewmodel.py:103
 msgid "Unknown"
 msgstr "알 수 없음"
+
+#: src/views/import_dialog.py:51
+msgid "Unknown (Skip)"
+msgstr "알 수 없음 (건너뛰기)"
+
+#: src/views/dashboard_page.py:61 src/views/dashboard_page.py:69
+msgid "Up to date"
+msgstr "최신 상태"
 
 #: src/services/webdav_sync.py:216
 #, python-brace-format
@@ -1205,7 +1257,4 @@ msgstr "✗ 유지 관리 실패 — 로그를 확인하세요"
 #, python-brace-format
 msgid "✗ Save failed: {msg}"
 msgstr "✗ 저장 실패: {msg}"
-
-#~ msgid "(run Normalize)"
-#~ msgstr "(run Normalize)"
 

@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.utils.i18n import _
+from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_browser_pixmap, get_icon
 from src.utils.logger import get_logger
 from src.utils.theme_manager import ThemeManager
@@ -58,19 +58,19 @@ class StatCard(QFrame):
 # ── Status badge metadata ──────────────────────────────────────────────────────
 
 _STATUS_META_DARK: dict[str, tuple[str, str, str]] = {
-    "UP_TO_DATE": ("Up to date", "#3fb950", "#1a3a28"),
-    "NEEDS_SYNC": ("Needs sync", "#d29922", "#3a2e12"),
-    "NOT_SYNCED": ("Not synced", "#8b949e", "#252830"),
-    "SYNCING": ("Syncing...", "#58a6ff", "#152038"),
-    "NOT_FOUND": ("Not found", "#4a5068", "#1e2028"),
+    "UP_TO_DATE": (N_("Up to date"), "#3fb950", "#1a3a28"),
+    "NEEDS_SYNC": (N_("Needs sync"), "#d29922", "#3a2e12"),
+    "NOT_SYNCED": (N_("Not synced"), "#8b949e", "#252830"),
+    "SYNCING": (N_("Syncing..."), "#58a6ff", "#152038"),
+    "NOT_FOUND": (N_("Not found"), "#4a5068", "#1e2028"),
 }
 
 _STATUS_META_LIGHT: dict[str, tuple[str, str, str]] = {
-    "UP_TO_DATE": ("Up to date", "#16a34a", "#dcfce7"),
-    "NEEDS_SYNC": ("Needs sync", "#d97706", "#fef9c3"),
-    "NOT_SYNCED": ("Not synced", "#6b7280", "#f3f4f6"),
-    "SYNCING": ("Syncing...", "#2563eb", "#dbeafe"),
-    "NOT_FOUND": ("Not found", "#9ca3af", "#f3f4f6"),
+    "UP_TO_DATE": (N_("Up to date"), "#16a34a", "#dcfce7"),
+    "NEEDS_SYNC": (N_("Needs sync"), "#d97706", "#fef9c3"),
+    "NOT_SYNCED": (N_("Not synced"), "#6b7280", "#f3f4f6"),
+    "SYNCING": (N_("Syncing..."), "#2563eb", "#dbeafe"),
+    "NOT_FOUND": (N_("Not found"), "#9ca3af", "#f3f4f6"),
 }
 
 
@@ -290,7 +290,8 @@ class DashboardPage(QWidget):
 
         self._sync_btn = QPushButton(_("Sync Now"))
         self._sync_btn.setObjectName("primary_btn")
-        self._sync_btn.setFixedSize(110, 36)
+        self._sync_btn.setMinimumWidth(120)
+        self._sync_btn.setFixedHeight(36)
         self._sync_btn.setIcon(get_icon("refresh"))
         self._sync_btn.clicked.connect(self.sync_requested)
 

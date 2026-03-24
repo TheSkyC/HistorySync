@@ -3,13 +3,12 @@
 # This file is distributed under the same license as the HistorySync
 # project.
 # Automatically generated, 2026.
-#
 msgid ""
 msgstr ""
 "Project-Id-Version: HistorySync 1.0.0\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-03-24 11:51+0000\n"
-"PO-Revision-Date: 2026-03-23 11:54+0000\n"
+"POT-Creation-Date: 2026-03-24 13:12+0000\n"
+"PO-Revision-Date: 2026-03-24 13:05+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: de_DE\n"
 "Language-Team: none\n"
@@ -180,6 +179,10 @@ msgstr "Abbrechen"
 msgid "Checkpointing WAL into main file…"
 msgstr "WAL wird in Hauptdatei übertragen…"
 
+#: src/views/import_dialog.py:46
+msgid "Chromium History"
+msgstr "Chromium History"
+
 #: src/services/webdav_sync.py:200
 msgid "Cleaning up old backups..."
 msgstr "Alte Sicherungen werden bereinigt..."
@@ -337,6 +340,10 @@ msgstr "Doppelklicken Sie auf eine Zeile, um den Link im Browser zu öffnen"
 msgid "Downloading {filename}..."
 msgstr "{filename} wird heruntergeladen..."
 
+#: src/views/import_dialog.py:50
+msgid "Edge WebAssistDatabase"
+msgstr "Edge WebAssistDatabase"
+
 #: src/views/settings/webdav_section.py:57
 msgid "Enable WebDAV Backup"
 msgstr "WebDAV-Sicherung aktivieren"
@@ -393,6 +400,10 @@ msgstr "Datei"
 msgid "Filter text..."
 msgstr "Text filtern..."
 
+#: src/views/import_dialog.py:47
+msgid "Firefox places.sqlite"
+msgstr "Firefox places.sqlite"
+
 #: src/views/import_dialog.py:176
 msgid "Format"
 msgstr "Format"
@@ -436,6 +447,10 @@ msgstr "Verlauf"
 #: src/views/settings/custom_paths_section.py:61
 msgid "History database file path..."
 msgstr "Pfad zur Verlaufsdatenbank..."
+
+#: src/views/import_dialog.py:49
+msgid "HistorySync Backup"
+msgstr "HistorySync-Backup"
 
 #: src/main.py:354
 msgid ""
@@ -568,6 +583,10 @@ msgstr "Protokolldatei: {}"
 msgid "Max backups:"
 msgstr "Max. Sicherungen:"
 
+#: src/views/dashboard_page.py:62 src/views/dashboard_page.py:70
+msgid "Needs sync"
+msgstr "Synchronisierung erforderlich"
+
 #: src/views/dashboard_page.py:308 src/views/dashboard_page.py:482
 msgid "Never"
 msgstr "Nie"
@@ -614,6 +633,14 @@ msgstr "Domains normalisieren"
 #: src/views/dashboard_page.py:309
 msgid "Not enabled"
 msgstr "Nicht aktiviert"
+
+#: src/views/dashboard_page.py:65 src/views/dashboard_page.py:73
+msgid "Not found"
+msgstr "Nicht gefunden"
+
+#: src/views/dashboard_page.py:63 src/views/dashboard_page.py:71
+msgid "Not synced"
+msgstr "Nicht synchronisiert"
 
 #: src/views/history_page.py:384
 #, python-brace-format
@@ -796,6 +823,10 @@ msgstr "SQLite-Datenbank (History *.sqlite *.db);;Alle Dateien (*)"
 msgid "STARTUP"
 msgstr "AUTOSTART"
 
+#: src/views/import_dialog.py:48
+msgid "Safari History.db"
+msgstr "Safari History.db"
+
 #: src/views/settings_page.py:128
 msgid "Save Settings"
 msgstr "Einstellungen speichern"
@@ -933,6 +964,7 @@ msgstr "Synchronisierung im Hintergrund..."
 msgid "Syncing in progress..."
 msgstr "Synchronisierung läuft..."
 
+#: src/views/dashboard_page.py:64 src/views/dashboard_page.py:72
 #: src/views/dashboard_page.py:449 src/views/tray_icon.py:106
 msgid "Syncing..."
 msgstr "Wird synchronisiert..."
@@ -940,6 +972,18 @@ msgstr "Wird synchronisiert..."
 #: src/views/settings/webdav_section.py:137
 msgid "Test Connection"
 msgstr "Verbindung testen"
+
+#: src/views/nav_widgets.py:16
+msgid "Theme: Auto"
+msgstr "Design: Automatisch"
+
+#: src/views/nav_widgets.py:18 src/views/nav_widgets.py:70
+msgid "Theme: Dark"
+msgstr "Design: Dunkel"
+
+#: src/views/nav_widgets.py:17
+msgid "Theme: Light"
+msgstr "Design: Hell"
 
 #: src/views/settings_page.py:314
 msgid ""
@@ -987,6 +1031,14 @@ msgstr "Eindeutige Domains"
 #: src/viewmodels/main_viewmodel.py:103
 msgid "Unknown"
 msgstr "Unbekannt"
+
+#: src/views/import_dialog.py:51
+msgid "Unknown (Skip)"
+msgstr "Unbekannt (Überspringen)"
+
+#: src/views/dashboard_page.py:61 src/views/dashboard_page.py:69
+msgid "Up to date"
+msgstr "Aktuell"
 
 #: src/services/webdav_sync.py:216
 #, python-brace-format
@@ -1230,7 +1282,4 @@ msgstr "✗ Wartung fehlgeschlagen — Protokoll prüfen"
 #, python-brace-format
 msgid "✗ Save failed: {msg}"
 msgstr "✗ Speichern fehlgeschlagen: {msg}"
-
-#~ msgid "(run Normalize)"
-#~ msgstr "(run Normalize)"
 

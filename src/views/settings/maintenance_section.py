@@ -132,7 +132,7 @@ class MaintenanceSection(QWidget):
     def _stat_widget(label: str) -> tuple[QLabel, QWidget]:
         """Return (value_label, container_widget) — a small stat column."""
         w = QWidget()
-        w.setFixedWidth(130)
+        w.setMinimumWidth(130)
         w.setAttribute(Qt.WA_NoSystemBackground, True)
         w.setAutoFillBackground(False)
         v = QVBoxLayout(w)

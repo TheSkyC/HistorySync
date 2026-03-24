@@ -3,13 +3,12 @@
 # This file is distributed under the same license as the HistorySync
 # project.
 # Automatically generated, 2026.
-#
 msgid ""
 msgstr ""
 "Project-Id-Version: HistorySync 1.0.0\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-03-24 11:51+0000\n"
-"PO-Revision-Date: 2026-03-23 11:54+0000\n"
+"POT-Creation-Date: 2026-03-24 13:12+0000\n"
+"PO-Revision-Date: 2026-03-24 13:09+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: ja_JP\n"
 "Language-Team: none\n"
@@ -174,6 +173,10 @@ msgstr "キャンセル"
 msgid "Checkpointing WAL into main file…"
 msgstr "WAL をメインファイルにチェックポイント中…"
 
+#: src/views/import_dialog.py:46
+msgid "Chromium History"
+msgstr "Chromium History"
+
 #: src/services/webdav_sync.py:200
 msgid "Cleaning up old backups..."
 msgstr "古いバックアップを削除中..."
@@ -329,6 +332,10 @@ msgstr "任意の行をダブルクリックするとブラウザでリンクを
 msgid "Downloading {filename}..."
 msgstr "{filename} をダウンロード中..."
 
+#: src/views/import_dialog.py:50
+msgid "Edge WebAssistDatabase"
+msgstr "Edge WebAssistDatabase"
+
 #: src/views/settings/webdav_section.py:57
 msgid "Enable WebDAV Backup"
 msgstr "WebDAV バックアップを有効化"
@@ -385,6 +392,10 @@ msgstr "ファイル"
 msgid "Filter text..."
 msgstr "テキストをフィルタ..."
 
+#: src/views/import_dialog.py:47
+msgid "Firefox places.sqlite"
+msgstr "Firefox places.sqlite"
+
 #: src/views/import_dialog.py:176
 msgid "Format"
 msgstr "フォーマット"
@@ -424,6 +435,10 @@ msgstr "履歴"
 #: src/views/settings/custom_paths_section.py:61
 msgid "History database file path..."
 msgstr "History データベースファイルのパス..."
+
+#: src/views/import_dialog.py:49
+msgid "HistorySync Backup"
+msgstr "HistorySync バックアップ"
 
 #: src/main.py:354
 msgid ""
@@ -552,6 +567,10 @@ msgstr "ログファイル: {}"
 msgid "Max backups:"
 msgstr "最大バックアップ数:"
 
+#: src/views/dashboard_page.py:62 src/views/dashboard_page.py:70
+msgid "Needs sync"
+msgstr "同期が必要"
+
 #: src/views/dashboard_page.py:308 src/views/dashboard_page.py:482
 msgid "Never"
 msgstr "なし"
@@ -598,6 +617,14 @@ msgstr "ドメインを正規化"
 #: src/views/dashboard_page.py:309
 msgid "Not enabled"
 msgstr "無効"
+
+#: src/views/dashboard_page.py:65 src/views/dashboard_page.py:73
+msgid "Not found"
+msgstr "見つかりません"
+
+#: src/views/dashboard_page.py:63 src/views/dashboard_page.py:71
+msgid "Not synced"
+msgstr "未同期"
 
 #: src/views/history_page.py:384
 #, python-brace-format
@@ -778,6 +805,10 @@ msgstr "SQLite データベース (History *.sqlite *.db);;すべてのファイ
 msgid "STARTUP"
 msgstr "スタートアップ"
 
+#: src/views/import_dialog.py:48
+msgid "Safari History.db"
+msgstr "Safari History.db"
+
 #: src/views/settings_page.py:128
 msgid "Save Settings"
 msgstr "設定を保存"
@@ -915,6 +946,7 @@ msgstr "バックグラウンドで同期中..."
 msgid "Syncing in progress..."
 msgstr "同期中..."
 
+#: src/views/dashboard_page.py:64 src/views/dashboard_page.py:72
 #: src/views/dashboard_page.py:449 src/views/tray_icon.py:106
 msgid "Syncing..."
 msgstr "同期中..."
@@ -922,6 +954,18 @@ msgstr "同期中..."
 #: src/views/settings/webdav_section.py:137
 msgid "Test Connection"
 msgstr "接続テスト"
+
+#: src/views/nav_widgets.py:16
+msgid "Theme: Auto"
+msgstr "テーマ: 自動"
+
+#: src/views/nav_widgets.py:18 src/views/nav_widgets.py:70
+msgid "Theme: Dark"
+msgstr "テーマ: ダーク"
+
+#: src/views/nav_widgets.py:17
+msgid "Theme: Light"
+msgstr "テーマ: ライト"
 
 #: src/views/settings_page.py:314
 msgid ""
@@ -967,6 +1011,14 @@ msgstr "ユニークドメイン"
 #: src/viewmodels/main_viewmodel.py:103
 msgid "Unknown"
 msgstr "不明"
+
+#: src/views/import_dialog.py:51
+msgid "Unknown (Skip)"
+msgstr "不明 (スキップ)"
+
+#: src/views/dashboard_page.py:61 src/views/dashboard_page.py:69
+msgid "Up to date"
+msgstr "最新"
 
 #: src/services/webdav_sync.py:216
 #, python-brace-format
@@ -1206,7 +1258,4 @@ msgstr "✗ メンテナンス失敗 — ログを確認してください"
 #, python-brace-format
 msgid "✗ Save failed: {msg}"
 msgstr "✗ 保存に失敗しました: {msg}"
-
-#~ msgid "(run Normalize)"
-#~ msgstr "(run Normalize)"
 

@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: HistorySync 1.0.0\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-03-24 11:51+0000\n"
+"POT-Creation-Date: 2026-03-24 13:12+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -168,6 +168,10 @@ msgstr ""
 msgid "Checkpointing WAL into main file…"
 msgstr ""
 
+#: src/views/import_dialog.py:46
+msgid "Chromium History"
+msgstr ""
+
 #: src/services/webdav_sync.py:200
 msgid "Cleaning up old backups..."
 msgstr ""
@@ -323,6 +327,10 @@ msgstr ""
 msgid "Downloading {filename}..."
 msgstr ""
 
+#: src/views/import_dialog.py:50
+msgid "Edge WebAssistDatabase"
+msgstr ""
+
 #: src/views/settings/webdav_section.py:57
 msgid "Enable WebDAV Backup"
 msgstr ""
@@ -377,6 +385,10 @@ msgstr ""
 msgid "Filter text..."
 msgstr ""
 
+#: src/views/import_dialog.py:47
+msgid "Firefox places.sqlite"
+msgstr ""
+
 #: src/views/import_dialog.py:176
 msgid "Format"
 msgstr ""
@@ -415,6 +427,10 @@ msgstr ""
 
 #: src/views/settings/custom_paths_section.py:61
 msgid "History database file path..."
+msgstr ""
+
+#: src/views/import_dialog.py:49
+msgid "HistorySync Backup"
 msgstr ""
 
 #: src/main.py:354
@@ -539,6 +555,10 @@ msgstr ""
 msgid "Max backups:"
 msgstr ""
 
+#: src/views/dashboard_page.py:62 src/views/dashboard_page.py:70
+msgid "Needs sync"
+msgstr ""
+
 #: src/views/dashboard_page.py:308 src/views/dashboard_page.py:482
 msgid "Never"
 msgstr ""
@@ -579,6 +599,14 @@ msgstr ""
 #: src/viewmodels/main_viewmodel.py:92 src/viewmodels/main_viewmodel.py:101
 #: src/views/dashboard_page.py:309
 msgid "Not enabled"
+msgstr ""
+
+#: src/views/dashboard_page.py:65 src/views/dashboard_page.py:73
+msgid "Not found"
+msgstr ""
+
+#: src/views/dashboard_page.py:63 src/views/dashboard_page.py:71
+msgid "Not synced"
 msgstr ""
 
 #: src/views/history_page.py:384
@@ -756,6 +784,10 @@ msgstr ""
 msgid "STARTUP"
 msgstr ""
 
+#: src/views/import_dialog.py:48
+msgid "Safari History.db"
+msgstr ""
+
 #: src/views/settings_page.py:128
 msgid "Save Settings"
 msgstr ""
@@ -891,12 +923,25 @@ msgstr ""
 msgid "Syncing in progress..."
 msgstr ""
 
+#: src/views/dashboard_page.py:64 src/views/dashboard_page.py:72
 #: src/views/dashboard_page.py:449 src/views/tray_icon.py:106
 msgid "Syncing..."
 msgstr ""
 
 #: src/views/settings/webdav_section.py:137
 msgid "Test Connection"
+msgstr ""
+
+#: src/views/nav_widgets.py:16
+msgid "Theme: Auto"
+msgstr ""
+
+#: src/views/nav_widgets.py:18 src/views/nav_widgets.py:70
+msgid "Theme: Dark"
+msgstr ""
+
+#: src/views/nav_widgets.py:17
+msgid "Theme: Light"
 msgstr ""
 
 #: src/views/settings_page.py:314
@@ -937,6 +982,14 @@ msgstr ""
 
 #: src/viewmodels/main_viewmodel.py:103
 msgid "Unknown"
+msgstr ""
+
+#: src/views/import_dialog.py:51
+msgid "Unknown (Skip)"
+msgstr ""
+
+#: src/views/dashboard_page.py:61 src/views/dashboard_page.py:69
+msgid "Up to date"
 msgstr ""
 
 #: src/services/webdav_sync.py:216

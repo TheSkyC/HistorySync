@@ -127,7 +127,8 @@ class SettingsPage(QWidget):
 
         self._save_btn = QPushButton(_("Save Settings"))
         self._save_btn.setObjectName("primary_btn")
-        self._save_btn.setFixedSize(120, 36)
+        self._save_btn.setMinimumWidth(120)
+        self._save_btn.setFixedHeight(36)
         self._save_btn.setIcon(get_icon("database"))
         self._save_btn.clicked.connect(self._save)
 

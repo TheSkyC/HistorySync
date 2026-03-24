@@ -105,7 +105,7 @@ class WebDavSection(QWidget):
         self._max_backups_spin = QSpinBox()
         self._max_backups_spin.setRange(1, 100)
         self._max_backups_spin.setSuffix(_(" files"))
-        self._max_backups_spin.setFixedWidth(90)
+        self._max_backups_spin.setMinimumWidth(90)
 
         self._verify_ssl_cb = QCheckBox(_("Verify SSL certificate"))
 

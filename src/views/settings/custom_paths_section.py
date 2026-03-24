@@ -55,7 +55,7 @@ class CustomPathsSection(QWidget):
 
         self._type_input = QLineEdit()
         self._type_input.setPlaceholderText(_("Identifier (e.g. chrome_portable)"))
-        self._type_input.setFixedWidth(180)
+        self._type_input.setMinimumWidth(180)
 
         self._path_input = QLineEdit()
         self._path_input.setPlaceholderText(_("History database file path..."))

@@ -5,8 +5,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: HistorySync 1.0\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-03-23 15:33+0000\n"
-"PO-Revision-Date: 2026-03-23 15:40+0000\n"
+"POT-Creation-Date: 2026-03-24 13:12+0000\n"
+"PO-Revision-Date: 2026-03-24 13:02+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
 "Language-Team: zh_CN\n"
@@ -171,6 +171,10 @@ msgstr "取消"
 msgid "Checkpointing WAL into main file…"
 msgstr "正在将 WAL 数据同步至主数据库…"
 
+#: src/views/import_dialog.py:46
+msgid "Chromium History"
+msgstr "Chromium History"
+
 #: src/services/webdav_sync.py:200
 msgid "Cleaning up old backups..."
 msgstr "正在清理旧备份..."
@@ -326,6 +330,10 @@ msgstr "双击任意行在浏览器中打开该链接"
 msgid "Downloading {filename}..."
 msgstr "正在下载 {filename}..."
 
+#: src/views/import_dialog.py:50
+msgid "Edge WebAssistDatabase"
+msgstr "Edge WebAssistDatabase"
+
 #: src/views/settings/webdav_section.py:57
 msgid "Enable WebDAV Backup"
 msgstr "启用 WebDAV 备份"
@@ -382,6 +390,10 @@ msgstr "文件"
 msgid "Filter text..."
 msgstr "过滤文本..."
 
+#: src/views/import_dialog.py:47
+msgid "Firefox places.sqlite"
+msgstr "Firefox places.sqlite"
+
 #: src/views/import_dialog.py:176
 msgid "Format"
 msgstr "格式"
@@ -421,6 +433,10 @@ msgstr "历史记录"
 #: src/views/settings/custom_paths_section.py:61
 msgid "History database file path..."
 msgstr "History 数据库文件路径..."
+
+#: src/views/import_dialog.py:49
+msgid "HistorySync Backup"
+msgstr "HistorySync 备份文件"
 
 #: src/main.py:354
 msgid ""
@@ -548,6 +564,10 @@ msgstr "日志文件：{}"
 msgid "Max backups:"
 msgstr "最多保留备份："
 
+#: src/views/dashboard_page.py:62 src/views/dashboard_page.py:70
+msgid "Needs sync"
+msgstr "待同步"
+
 #: src/views/dashboard_page.py:308 src/views/dashboard_page.py:482
 msgid "Never"
 msgstr "从未"
@@ -594,6 +614,14 @@ msgstr "域名规范化"
 #: src/views/dashboard_page.py:309
 msgid "Not enabled"
 msgstr "未启用"
+
+#: src/views/dashboard_page.py:65 src/views/dashboard_page.py:73
+msgid "Not found"
+msgstr "未检测到"
+
+#: src/views/dashboard_page.py:63 src/views/dashboard_page.py:71
+msgid "Not synced"
+msgstr "未同步"
 
 #: src/views/history_page.py:384
 #, python-brace-format
@@ -774,6 +802,10 @@ msgstr "SQLite 数据库 (History *.sqlite *.db);;所有文件 (*)"
 msgid "STARTUP"
 msgstr "开机自启"
 
+#: src/views/import_dialog.py:48
+msgid "Safari History.db"
+msgstr "Safari History.db"
+
 #: src/views/settings_page.py:128
 msgid "Save Settings"
 msgstr "保存设置"
@@ -911,6 +943,7 @@ msgstr "正在同步..."
 msgid "Syncing in progress..."
 msgstr "正在同步..."
 
+#: src/views/dashboard_page.py:64 src/views/dashboard_page.py:72
 #: src/views/dashboard_page.py:449 src/views/tray_icon.py:106
 msgid "Syncing..."
 msgstr "同步中..."
@@ -918,6 +951,18 @@ msgstr "同步中..."
 #: src/views/settings/webdav_section.py:137
 msgid "Test Connection"
 msgstr "测试连接"
+
+#: src/views/nav_widgets.py:16
+msgid "Theme: Auto"
+msgstr "主题：跟随系统"
+
+#: src/views/nav_widgets.py:18 src/views/nav_widgets.py:70
+msgid "Theme: Dark"
+msgstr "主题：模式"
+
+#: src/views/nav_widgets.py:17
+msgid "Theme: Light"
+msgstr "主题：浅色模式"
 
 #: src/views/settings_page.py:314
 msgid ""
@@ -963,6 +1008,14 @@ msgstr "唯一域名"
 #: src/viewmodels/main_viewmodel.py:103
 msgid "Unknown"
 msgstr "未知"
+
+#: src/views/import_dialog.py:51
+msgid "Unknown (Skip)"
+msgstr "未知（跳过）"
+
+#: src/views/dashboard_page.py:61 src/views/dashboard_page.py:69
+msgid "Up to date"
+msgstr "已同步"
 
 #: src/services/webdav_sync.py:216
 #, python-brace-format
@@ -1202,7 +1255,4 @@ msgstr "✗ 维护失败 — 检查日志"
 #, python-brace-format
 msgid "✗ Save failed: {msg}"
 msgstr "✗ 保存失败：{msg}"
-
-#~ msgid "(run Normalize)"
-#~ msgstr "(run Normalize)"
 
