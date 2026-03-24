@@ -55,6 +55,34 @@ def extract_domain(url: str) -> str:
         return ""
 
 
+def extract_root_domain(domain: str) -> str:
+    """
+    从完整域名中提取根域名（注册域名），用于 favicon 回退查找。
+    例如：tieba.baidu.com -> baidu.com，www.zhihu.com -> zhihu.com
+    使用简单的"倒数两段"策略，对常见的二级 ccTLD（co.uk、com.cn 等）
+    进行特殊处理以取三段。
+    """
+    if not domain:
+        return ""
+    parts = domain.split(".")
+    if len(parts) <= 2:
+        return domain
+    _SECOND_LEVEL_TLDS = {
+        "com",
+        "net",
+        "org",
+        "edu",
+        "gov",
+        "co",
+        "ac",
+        "or",
+        "ne",
+    }
+    if len(parts) >= 3 and parts[-2] in _SECOND_LEVEL_TLDS and len(parts[-1]) == 2:
+        return ".".join(parts[-3:])
+    return ".".join(parts[-2:])
+
+
 def _normalize_data(raw: bytes | str | memoryview | None) -> bytes:
     """
     将 SQLite 返回的 BLOB 值统一转为 bytes。

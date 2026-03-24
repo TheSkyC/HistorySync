@@ -15,6 +15,7 @@ from src.models.app_config import AppConfig
 from src.services.extractors.favicon_extractor import (
     BaseFaviconExtractor,
     extract_domain,
+    extract_root_domain,
 )
 from src.services.favicon_cache import FaviconCache, FaviconRecord
 from src.services.favicon_extractor_manager import FaviconExtractorManager
@@ -299,6 +300,21 @@ class FaviconManager(QObject):
                     self._lru.put(cache_key, pixmap)
                     return pixmap
 
+            # 子域名未命中时，尝试根域名回退（如 tieba.baidu.com -> baidu.com）
+            root = extract_root_domain(domain)
+            if root and root != domain:
+                root_key = (root, size)
+                pixmap = self._lru.get(root_key)
+                if pixmap is None:
+                    root_record = self._cache.get(root)
+                    if root_record:
+                        pixmap = self._render_record(root_record, size)
+                        if pixmap and not pixmap.isNull():
+                            self._lru.put(root_key, pixmap)
+                if pixmap and not pixmap.isNull():
+                    self._lru.put(cache_key, pixmap)
+                    return pixmap
+
         letter = (domain[0] if domain else (url[0] if url else "?")).upper()
         pixmap = self._letter_pixmap(letter, size, seed=domain or url)
         self._lru.put(cache_key, pixmap)
@@ -324,7 +340,15 @@ class FaviconManager(QObject):
         if not domain_to_url:
             return
 
-        db_records = self._cache.get_many(true_domains) if true_domains else {}
+        # 同时查询所有涉及的根域名，供回退使用
+        root_domains: set[str] = set()
+        for d in true_domains:
+            root = extract_root_domain(d)
+            if root and root != d:
+                root_domains.add(root)
+
+        all_lookup = true_domains | root_domains
+        db_records = self._cache.get_many(all_lookup) if all_lookup else {}
 
         for domain_or_url, _url in domain_to_url.items():
             cache_key = (domain_or_url, size)
@@ -337,6 +361,16 @@ class FaviconManager(QObject):
                 if pixmap and not pixmap.isNull():
                     self._lru.put(cache_key, pixmap)
                     continue
+
+            # 子域名未命中，尝试根域名
+            root = extract_root_domain(domain_or_url)
+            if root and root != domain_or_url:
+                root_rec = db_records.get(root)
+                if root_rec:
+                    pixmap = self._render_record(root_rec, size)
+                    if pixmap and not pixmap.isNull():
+                        self._lru.put(cache_key, pixmap)
+                        continue
 
             letter = (domain_or_url[0] if domain_or_url else "?").upper()
             pixmap = self._letter_pixmap(letter, size, seed=domain_or_url)
