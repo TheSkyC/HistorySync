@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+import os
 import subprocess
-import sys
+import webbrowser
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QCursor
@@ -97,6 +98,60 @@ class BrowserCard(QFrame):
     sync_browser_requested = Signal(str)
     open_browser_requested = Signal(str)
     view_history_requested = Signal(str)
+
+    # Windows browser registry paths and common install locations
+    _WINDOWS_BROWSERS: dict[str, list[str]] = {
+        "chrome": [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe",
+        ],
+        "chromium": [
+            r"C:\Program Files\Chromium\Application\chrome.exe",
+            r"C:\Program Files (x86)\Chromium\Application\chrome.exe",
+        ],
+        "edge": [
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            r"%PROGRAMFILES(X86)%\Microsoft\Edge\Application\msedge.exe",
+        ],
+        "brave": [
+            r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+            r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
+            r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe",
+        ],
+        "vivaldi": [
+            r"C:\Program Files\Vivaldi\Application\vivaldi.exe",
+            r"C:\Program Files (x86)\Vivaldi\Application\vivaldi.exe",
+            r"%LOCALAPPDATA%\Vivaldi\Application\vivaldi.exe",
+        ],
+        "opera": [
+            r"C:\Program Files\Opera\launcher.exe",
+            r"C:\Program Files (x86)\Opera\launcher.exe",
+            r"%LOCALAPPDATA%\Programs\Opera\launcher.exe",
+        ],
+        "opera_gx": [
+            r"C:\Program Files\Opera GX\launcher.exe",
+            r"C:\Program Files (x86)\Opera GX\launcher.exe",
+            r"%LOCALAPPDATA%\Programs\Opera GX\launcher.exe",
+        ],
+        "firefox": [
+            r"C:\Program Files\Mozilla Firefox\firefox.exe",
+            r"C:\Program Files (x86)\Mozilla Firefox\firefox.exe",
+        ],
+        "librewolf": [
+            r"C:\Program Files\LibreWolf\librewolf.exe",
+            r"C:\Program Files (x86)\LibreWolf\librewolf.exe",
+        ],
+        "waterfox": [
+            r"C:\Program Files\Waterfox\waterfox.exe",
+            r"C:\Program Files (x86)\Waterfox\waterfox.exe",
+        ],
+        "tor_browser": [
+            r"C:\Program Files\Tor Browser\Browser\firefox.exe",
+            r"%USERPROFILE%\Desktop\Tor Browser\Browser\firefox.exe",
+        ],
+    }
 
     _LAUNCH_HINTS: dict[str, list[str]] = {
         "chrome": ["google-chrome", "chrome", "chromium-browser", "chromium"],
@@ -414,34 +469,116 @@ class DashboardPage(QWidget):
         self.view_history_requested.emit(browser_type)
 
     def _on_open_browser(self, browser_type: str):
-        hints = BrowserCard._LAUNCH_HINTS.get(browser_type, [browser_type])
-        if sys.platform == "darwin":
+        """Launch the specified browser with improved Windows support"""
+        import platform
+
+        system = platform.system().lower()
+
+        # Windows platform: Use multiple strategies for robustness
+        if system == "windows":
+            # Try method 1: Direct paths from known install locations
+            if browser_type in BrowserCard._WINDOWS_BROWSERS:
+                for path in BrowserCard._WINDOWS_BROWSERS[browser_type]:
+                    expanded_path = os.path.expandvars(path)
+                    if os.path.exists(expanded_path):
+                        try:
+                            os.startfile(expanded_path)
+                            log.info("Launched %s using direct path: %s", browser_type, expanded_path)
+                            return
+                        except Exception as e:
+                            log.debug("Failed to launch with path %s: %s", expanded_path, e)
+
+            # Try method 2: Windows Registry lookup via webbrowser module
+            browser_names_map = {
+                "chrome": "chrome",
+                "chromium": "chromium",
+                "edge": "microsoft-edge",
+                "firefox": "firefox",
+                "opera": "opera",
+                "brave": "brave",
+                "vivaldi": "vivaldi",
+            }
+
+            if browser_type in browser_names_map:
+                try:
+                    # Try to get specific browser controller
+                    browser_name = browser_names_map[browser_type]
+                    controller = webbrowser.get(browser_name)
+                    controller.open("about:blank")
+                    log.info("Launched %s using webbrowser module", browser_type)
+                    return
+                except Exception as e:
+                    log.debug("Failed with webbrowser.get(%s): %s", browser_type, e)
+
+            # Try method 3: Use start command with common executable names
+            win_commands = {
+                "chrome": ["chrome", "Chrome"],
+                "edge": ["msedge", "MicrosoftEdge", "edge"],
+                "firefox": ["firefox", "Firefox"],
+                "brave": ["brave", "Brave"],
+                "opera": ["opera", "Opera"],
+                "vivaldi": ["vivaldi", "Vivaldi"],
+                "chromium": ["chromium", "chrome"],
+            }
+
+            commands = win_commands.get(browser_type, [browser_type])
+            for cmd in commands:
+                try:
+                    # Try with start command (uses Windows PATH and App Paths registry)
+                    subprocess.run(["cmd", "/c", "start", "", cmd], check=False, capture_output=True)
+                    log.info("Launched %s using start command with: %s", browser_type, cmd)
+                    return
+                except Exception as e:
+                    log.debug("Failed with start command %s: %s", cmd, e)
+
+        # macOS platform logic
+        elif system == "darwin":
             name_map = {
                 "chrome": "Google Chrome",
                 "chromium": "Chromium",
                 "edge": "Microsoft Edge",
                 "brave": "Brave Browser",
-                "firefox": "Firefox",
-                "safari": "Safari",
+                "vivaldi": "Vivaldi",
+                "opera": "Opera",
+                "opera_gx": "Opera GX",
                 "arc": "Arc",
+                "firefox": "Firefox",
+                "librewolf": "LibreWolf",
+                "waterfox": "Waterfox",
+                "safari": "Safari",
+                "tor_browser": "Tor Browser",
             }
             app_name = name_map.get(browser_type)
             if app_name:
                 try:
                     subprocess.Popen(["open", "-a", app_name])
+                    log.info("Launched %s via macOS 'open -a'", browser_type)
                     return
-                except Exception:
-                    pass
-        for cmd in hints:
-            try:
-                subprocess.Popen([cmd])
-                return
-            except FileNotFoundError:
-                continue
-            except Exception as e:
-                log.warning("Failed to launch %s: %s", cmd, e)
-                return
-        log.warning("Could not find executable for browser: %s", browser_type)
+                except Exception as e:
+                    log.warning("Failed to launch %s with 'open -a': %s", browser_type, e)
+
+        # Linux platform logic
+        else:
+            hints = BrowserCard._LAUNCH_HINTS.get(browser_type, [browser_type])
+            for cmd in hints:
+                try:
+                    subprocess.Popen([cmd])
+                    log.info("Launched %s with command: %s", browser_type, cmd)
+                    return
+                except FileNotFoundError:
+                    continue
+                except Exception as e:
+                    log.warning("Failed to launch %s with %s: %s", browser_type, cmd, e)
+                    break
+
+        # Global failure handler
+        display_name = (
+            self._browser_cards[browser_type]._display_name
+            if browser_type in self._browser_cards
+            else browser_type.title()
+        )
+        msg = _("Could not launch {browser}. Please make sure it is installed.").format(browser=display_name)
+        log.error(msg)
 
     # ── Sync progress UI ──────────────────────────────────────
 
