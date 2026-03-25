@@ -259,7 +259,13 @@ class FaviconManager(QObject):
     def _on_worker_finished(self, updated_domains: set) -> None:
         self._is_running = False
         if updated_domains:
-            self._lru.invalidate_domains(updated_domains)
+            extra: set[str] = set()
+            for key in list(self._lru._cache):
+                cached_domain = key[0]
+                root = extract_root_domain(cached_domain)
+                if root != cached_domain and root in updated_domains:
+                    extra.add(cached_domain)
+            self._lru.invalidate_domains(updated_domains | extra)
             self.favicons_updated.emit(updated_domains)
 
     # ── 配置热更新 ────────────────────────────────────────────
