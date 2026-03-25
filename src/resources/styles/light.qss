@@ -230,6 +230,15 @@ QLineEdit#search_box:focus {
     border-color: #2563eb;
 }
 
+QLineEdit#search_box[regex="true"] {
+    border-color: #d97706;
+    background-color: #fffbf0;
+}
+
+QLineEdit#search_box[regex="true"]:focus {
+    border-color: #b45309;
+}
+
 /* ── 下拉框 ────────────────────────────────────────── */
 QComboBox {
     background-color: #ffffff;

@@ -7,6 +7,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import shutil
 import sqlite3
 import threading
@@ -24,12 +25,12 @@ class DbStats:
     """Snapshot of database size and content metrics."""
 
     file_size_bytes: int  # actual file size on disk
-    page_count: int       # total SQLite pages allocated
+    page_count: int  # total SQLite pages allocated
     free_page_count: int  # unused (fragmented) pages
-    page_size: int        # bytes per page
-    record_count: int     # rows in history table
-    domain_count: int     # distinct domains (after normalization)
-    fts_size_bytes: int   # estimated size of FTS index
+    page_size: int  # bytes per page
+    record_count: int  # rows in history table
+    domain_count: int  # distinct domains (after normalization)
+    fts_size_bytes: int  # estimated size of FTS index
 
     @property
     def wasted_bytes(self) -> int:
@@ -43,7 +44,6 @@ class DbStats:
 
 
 class LocalDatabase:
-
     def __init__(self, db_path: Path):
         self.db_path = db_path
         self._lock = threading.RLock()
@@ -67,8 +67,8 @@ class LocalDatabase:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.execute("PRAGMA foreign_keys=ON")
-            conn.execute("PRAGMA cache_size=-32768")   # 32 MB page cache
-            conn.execute("PRAGMA mmap_size=268435456") # 256 MB memory-mapped I/O
+            conn.execute("PRAGMA cache_size=-32768")  # 32 MB page cache
+            conn.execute("PRAGMA mmap_size=268435456")  # 256 MB memory-mapped I/O
             conn.execute("PRAGMA temp_store=MEMORY")
             conn.commit()
             self._pconn = conn
@@ -506,9 +506,7 @@ class LocalDatabase:
 
             # 3. Snapshot the current max history id so we can sync FTS for
             #    only the newly inserted rows afterwards.
-            max_id_before: int = conn.execute(
-                "SELECT COALESCE(MAX(id), 0) FROM history"
-            ).fetchone()[0]
+            max_id_before: int = conn.execute("SELECT COALESCE(MAX(id), 0) FROM history").fetchone()[0]
 
             # 4. Temporarily drop FTS triggers so the per-row FTS overhead is
             #    avoided during a bulk insert; we do a single targeted sync at
@@ -572,8 +570,7 @@ class LocalDatabase:
             #    window.  Using an id watermark is reliable and avoids any
             #    FTS shadow-table internals.
             conn.execute(
-                "INSERT INTO history_fts(rowid, url, title) "
-                "SELECT id, url, title FROM history WHERE id > ?",
+                "INSERT INTO history_fts(rowid, url, title) SELECT id, url, title FROM history WHERE id > ?",
                 (max_id_before,),
             )
 
@@ -647,10 +644,56 @@ class LocalDatabase:
         limit: int = 200,
         offset: int = 0,
         excluded_ids: set[int] | None = None,
+        # Extended search params
+        domain_ids: list[int] | None = None,
+        excludes: list[str] | None = None,
+        title_only: bool = False,
+        url_only: bool = False,
+        use_regex: bool = False,
+        _force_like: bool = False,  # Internal use for FTS fallback
     ) -> list[HistoryRecord]:
         excl = excluded_ids or set()
+
+        # Regex search: fetches a larger set then filters in Python
+        if use_regex and keyword:
+            try:
+                prog = re.compile(keyword, re.IGNORECASE)
+            except Exception as exc:
+                log.warning("Invalid regex '%s': %s", keyword, exc)
+                return []
+
+            raw_limit = 5000
+            candidates = self.get_records(
+                keyword="",  # No FTS
+                browser_type=browser_type,
+                date_from=date_from,
+                date_to=date_to,
+                limit=raw_limit,
+                offset=0,  # Always start from beginning; slice by offset below
+                excluded_ids=excl,
+                domain_ids=domain_ids,
+                excludes=excludes,
+                title_only=title_only,
+                url_only=url_only,
+                use_regex=False,
+            )
+
+            results = []
+            for r in candidates:
+                if title_only:
+                    match = prog.search(r.title or "")
+                elif url_only:
+                    match = prog.search(r.url)
+                else:
+                    match = prog.search(r.title or "") or prog.search(r.url)
+
+                if match:
+                    results.append(r)
+
+            return results[offset : offset + limit]
+
         if keyword:
-            use_fts = len(keyword.replace(" ", "")) >= 3
+            use_fts = len(keyword.replace(" ", "")) >= 3 and not _force_like
             if use_fts:
                 sql = """
                     SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
@@ -659,16 +702,39 @@ class LocalDatabase:
                     JOIN history_fts fts ON h.id = fts.rowid
                     WHERE history_fts MATCH ?
                 """
-                params: list = [_build_fts_query(keyword)]
+                fts_keyword = keyword
+                if title_only:
+                    fts_keyword = f"title:{keyword}"
+                elif url_only:
+                    fts_keyword = f"url:{keyword}"
+                params: list = [_build_fts_query(fts_keyword)]
             else:
                 like_pat = f"%{keyword}%"
-                sql = """
-                    SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
-                           h.browser_type, h.profile_name, h.metadata
-                    FROM history h
-                    WHERE (h.url LIKE ? OR h.title LIKE ?)
-                """
-                params = [like_pat, like_pat]
+                if title_only:
+                    sql = """
+                        SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
+                               h.browser_type, h.profile_name, h.metadata
+                        FROM history h
+                        WHERE h.title LIKE ?
+                    """
+                    params = [like_pat]
+                elif url_only:
+                    sql = """
+                        SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
+                               h.browser_type, h.profile_name, h.metadata
+                        FROM history h
+                        WHERE h.url LIKE ?
+                    """
+                    params = [like_pat]
+                else:
+                    sql = """
+                        SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
+                               h.browser_type, h.profile_name, h.metadata
+                        FROM history h
+                        WHERE (h.url LIKE ? OR h.title LIKE ?)
+                    """
+                    params = [like_pat, like_pat]
+
             extra: list[str] = []
             if browser_type:
                 extra.append("h.browser_type = ?")
@@ -679,6 +745,15 @@ class LocalDatabase:
             if date_to is not None:
                 extra.append("h.visit_time <= ?")
                 params.append(date_to)
+            if domain_ids:
+                placeholders = ",".join("?" * len(domain_ids))
+                extra.append(f"h.domain_id IN ({placeholders})")
+                params.extend(domain_ids)
+            if excludes:
+                for ex in excludes:
+                    extra.append("h.url NOT LIKE ? AND h.title NOT LIKE ?")
+                    params.extend([f"%{ex}%", f"%{ex}%"])
+
             if extra:
                 sql += " AND " + " AND ".join(extra)
             sql += " ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
@@ -690,7 +765,26 @@ class LocalDatabase:
                         " ORDER BY h.visit_time DESC LIMIT ? OFFSET ?",
                         f" AND {self._excl_clause('h.')} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?",
                     )
-                rows = conn.execute(sql, params).fetchall()
+                try:
+                    rows = conn.execute(sql, params).fetchall()
+                except sqlite3.OperationalError as exc:
+                    if "fts5" in str(exc).lower() and not _force_like:
+                        return self.get_records(
+                            keyword=keyword,
+                            browser_type=browser_type,
+                            date_from=date_from,
+                            date_to=date_to,
+                            limit=limit,
+                            offset=offset,
+                            excluded_ids=excl,
+                            domain_ids=domain_ids,
+                            excludes=excludes,
+                            title_only=title_only,
+                            url_only=url_only,
+                            use_regex=False,
+                            _force_like=True,
+                        )
+                    raise
         else:
             conditions: list[str] = []
             params = []
@@ -703,6 +797,15 @@ class LocalDatabase:
             if date_to is not None:
                 conditions.append("visit_time <= ?")
                 params.append(date_to)
+            if domain_ids:
+                placeholders = ",".join("?" * len(domain_ids))
+                conditions.append(f"domain_id IN ({placeholders})")
+                params.extend(domain_ids)
+            if excludes:
+                for ex in excludes:
+                    conditions.append("url NOT LIKE ? AND title NOT LIKE ?")
+                    params.extend([f"%{ex}%", f"%{ex}%"])
+
             sql = "SELECT id, url, title, visit_time, visit_count, browser_type, profile_name, metadata FROM history"
             with self._conn() as conn:
                 self._populate_excl_table(conn, excl)
@@ -722,24 +825,85 @@ class LocalDatabase:
         date_from: int | None = None,
         date_to: int | None = None,
         excluded_ids: set[int] | None = None,
+        # Extended search params
+        domain_ids: list[int] | None = None,
+        excludes: list[str] | None = None,
+        title_only: bool = False,
+        url_only: bool = False,
+        use_regex: bool = False,
+        _force_like: bool = False,  # Internal use for FTS fallback
     ) -> int:
         excl = excluded_ids or set()
+
+        # Regex count: filter the candidate pool and return real match count
+        if use_regex and keyword:
+            try:
+                prog = re.compile(keyword, re.IGNORECASE)
+            except Exception:
+                return 0
+
+            candidates = self.get_records(
+                keyword="",
+                browser_type=browser_type,
+                date_from=date_from,
+                date_to=date_to,
+                limit=5000,
+                offset=0,
+                excluded_ids=excl,
+                domain_ids=domain_ids,
+                excludes=excludes,
+                title_only=title_only,
+                url_only=url_only,
+                use_regex=False,
+            )
+
+            count = 0
+            for r in candidates:
+                if title_only:
+                    match = prog.search(r.title or "")
+                elif url_only:
+                    match = prog.search(r.url)
+                else:
+                    match = prog.search(r.title or "") or prog.search(r.url)
+                if match:
+                    count += 1
+            return count
+
         if keyword:
-            use_fts = len(keyword.replace(" ", "")) >= 3
+            use_fts = len(keyword.replace(" ", "")) >= 3 and not _force_like
             if use_fts:
                 sql = """
                     SELECT COUNT(*) FROM history h
                     JOIN history_fts fts ON h.id = fts.rowid
                     WHERE history_fts MATCH ?
                 """
-                params: list = [_build_fts_query(keyword)]
+                fts_keyword = keyword
+                if title_only:
+                    fts_keyword = f"title:{keyword}"
+                elif url_only:
+                    fts_keyword = f"url:{keyword}"
+                params: list = [_build_fts_query(fts_keyword)]
             else:
                 like_pat = f"%{keyword}%"
-                sql = """
-                    SELECT COUNT(*) FROM history h
-                    WHERE (h.url LIKE ? OR h.title LIKE ?)
-                """
-                params = [like_pat, like_pat]
+                if title_only:
+                    sql = """
+                        SELECT COUNT(*) FROM history h
+                        WHERE h.title LIKE ?
+                    """
+                    params = [like_pat]
+                elif url_only:
+                    sql = """
+                        SELECT COUNT(*) FROM history h
+                        WHERE h.url LIKE ?
+                    """
+                    params = [like_pat]
+                else:
+                    sql = """
+                        SELECT COUNT(*) FROM history h
+                        WHERE (h.url LIKE ? OR h.title LIKE ?)
+                    """
+                    params = [like_pat, like_pat]
+
             extra: list[str] = []
             if browser_type:
                 extra.append("h.browser_type = ?")
@@ -750,13 +914,40 @@ class LocalDatabase:
             if date_to is not None:
                 extra.append("h.visit_time <= ?")
                 params.append(date_to)
+            if domain_ids:
+                placeholders = ",".join("?" * len(domain_ids))
+                extra.append(f"h.domain_id IN ({placeholders})")
+                params.extend(domain_ids)
+            if excludes:
+                for ex in excludes:
+                    extra.append("h.url NOT LIKE ? AND h.title NOT LIKE ?")
+                    params.extend([f"%{ex}%", f"%{ex}%"])
+
             if extra:
                 sql += " AND " + " AND ".join(extra)
             with self._conn() as conn:
                 self._populate_excl_table(conn, excl)
                 if excl:
                     sql += f" AND {self._excl_clause('h.')}"
-                row = conn.execute(sql, params).fetchone()
+                try:
+                    row = conn.execute(sql, params).fetchone()
+                except sqlite3.OperationalError as exc:
+                    if "fts5" in str(exc).lower() and not _force_like:
+                        # Fallback to LIKE if FTS fails
+                        return self.get_filtered_count(
+                            keyword=keyword,
+                            browser_type=browser_type,
+                            date_from=date_from,
+                            date_to=date_to,
+                            excluded_ids=excl,
+                            domain_ids=domain_ids,
+                            excludes=excludes,
+                            title_only=title_only,
+                            url_only=url_only,
+                            use_regex=False,
+                            _force_like=True,
+                        )
+                    raise
                 return row[0] if row else 0
         else:
             conditions: list[str] = []
@@ -770,6 +961,15 @@ class LocalDatabase:
             if date_to is not None:
                 conditions.append("visit_time <= ?")
                 params.append(date_to)
+            if domain_ids:
+                placeholders = ",".join("?" * len(domain_ids))
+                conditions.append(f"domain_id IN ({placeholders})")
+                params.extend(domain_ids)
+            if excludes:
+                for ex in excludes:
+                    conditions.append("url NOT LIKE ? AND title NOT LIKE ?")
+                    params.extend([f"%{ex}%", f"%{ex}%"])
+
             sql = "SELECT COUNT(*) FROM history"
             with self._conn() as conn:
                 self._populate_excl_table(conn, excl)
@@ -859,9 +1059,7 @@ class LocalDatabase:
             if not ids:
                 return 0
             placeholders = ",".join("?" * len(ids))
-            row = conn.execute(
-                f"SELECT COUNT(*) FROM history WHERE domain_id IN ({placeholders})", ids
-            ).fetchone()
+            row = conn.execute(f"SELECT COUNT(*) FROM history WHERE domain_id IN ({placeholders})", ids).fetchone()
             return row[0] if row else 0
 
     def get_records_by_ids(self, ids: list[int]) -> list[HistoryRecord]:
@@ -895,6 +1093,7 @@ class LocalDatabase:
 def _is_fts_special(keyword: str) -> bool:
     """Return True if the keyword contains FTS5 special characters or operators."""
     import re
+
     return bool(re.search(r'[()"\*]|(?<!\w)(AND|OR|NOT)(?!\w)', keyword))
 
 

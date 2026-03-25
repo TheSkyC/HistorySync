@@ -60,6 +60,13 @@ class HistoryTableModel(QAbstractTableModel):
         self._date_to: int | None = None
         self._hidden_ids: set[int] = set()
 
+        # Extended search params
+        self._domain_ids: list[int] | None = None
+        self._excludes: list[str] | None = None
+        self._title_only: bool = False
+        self._url_only: bool = False
+        self._use_regex: bool = False
+
         # 虚拟化状态
         self._total_count = 0
         self._page_cache: dict[int, list[HistoryRecord]] = {}
@@ -154,11 +161,24 @@ class HistoryTableModel(QAbstractTableModel):
         browser_type: str = "",
         date_from: int | None = None,
         date_to: int | None = None,
+        # Extended search params
+        domain_ids: list[int] | None = None,
+        excludes: list[str] | None = None,
+        title_only: bool = False,
+        url_only: bool = False,
+        use_regex: bool = False,
     ):
         self._keyword = keyword
         self._browser_type = browser_type
         self._date_from = date_from
         self._date_to = date_to
+        # Extended search params
+        self._domain_ids = domain_ids
+        self._excludes = excludes
+        self._title_only = title_only
+        self._url_only = url_only
+        self._use_regex = use_regex
+
         self.reload()
 
     def reload(self):
@@ -172,6 +192,11 @@ class HistoryTableModel(QAbstractTableModel):
             date_from=self._date_from,
             date_to=self._date_to,
             excluded_ids=self._hidden_ids,
+            domain_ids=self._domain_ids,
+            excludes=self._excludes,
+            title_only=self._title_only,
+            url_only=self._url_only,
+            use_regex=self._use_regex,
         )
 
         self.beginResetModel()
@@ -254,6 +279,11 @@ class HistoryTableModel(QAbstractTableModel):
             limit=CACHE_PAGE_SIZE,
             offset=offset,
             excluded_ids=self._hidden_ids,
+            domain_ids=self._domain_ids,
+            excludes=self._excludes,
+            title_only=self._title_only,
+            url_only=self._url_only,
+            use_regex=self._use_regex,
         )
 
         self._page_cache[page_index] = records
@@ -330,8 +360,30 @@ class HistoryViewModel(QObject):
         self._refresh_browser_list()
         self.model_ready.emit()
 
-    def search(self, keyword: str, browser_type: str, date_from: int | None, date_to: int | None):
-        self.table_model.set_filter(keyword, browser_type, date_from, date_to)
+    def search(
+        self,
+        keyword: str,
+        browser_type: str,
+        date_from: int | None,
+        date_to: int | None,
+        # Extended search params
+        domain_ids: list[int] | None = None,
+        excludes: list[str] | None = None,
+        title_only: bool = False,
+        url_only: bool = False,
+        use_regex: bool = False,
+    ):
+        self.table_model.set_filter(
+            keyword,
+            browser_type,
+            date_from,
+            date_to,
+            domain_ids=domain_ids,
+            excludes=excludes,
+            title_only=title_only,
+            url_only=url_only,
+            use_regex=use_regex,
+        )
         count = self.table_model.total_count
         self.status_message.emit(_("{total} records").format(total=f"{count:,}"))
 

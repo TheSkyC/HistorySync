@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 from src.utils.i18n import _
 from src.utils.icon_helper import get_browser_icon, get_icon
 from src.utils.logger import get_logger
+from src.utils.search_parser import parse_query
 from src.utils.theme_manager import ThemeManager
 from src.viewmodels.history_viewmodel import HistoryViewModel
 
@@ -78,6 +79,59 @@ class _IconHeaderView(QHeaderView):
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         painter.drawPixmap(target, px)
         painter.restore()
+
+
+class SearchLineEdit(QLineEdit):
+    """Custom search box with regex toggle and help icons."""
+
+    regex_toggled = Signal(bool)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._use_regex = False
+        self.setClearButtonEnabled(True)
+        self.setPlaceholderText(_("Search title or URL..."))
+
+        # Regex action
+        self._regex_act = self.addAction(get_icon("regex"), QLineEdit.TrailingPosition)
+        self._regex_act.setCheckable(True)
+        self._regex_act.setToolTip(_("Regex Mode"))
+        self._regex_act.toggled.connect(self._toggle_regex)
+
+        # Help action
+        self._help_act = self.addAction(get_icon("help-circle"), QLineEdit.TrailingPosition)
+        self._help_act.setToolTip(_("Search Syntax Help"))
+        self._help_act.triggered.connect(self._show_help)
+
+    def _toggle_regex(self, checked: bool):
+        self._use_regex = checked
+        if checked:
+            self.setPlaceholderText(_("Regex: e.g. github\\.com.*release"))
+            self.setProperty("regex", True)
+        else:
+            self.setPlaceholderText(_("Search title or URL..."))
+            self.setProperty("regex", False)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.regex_toggled.emit(checked)
+
+    def _show_help(self):
+        msg = _(
+            "<b>Advanced Search Syntax:</b><br><br>"
+            "• <code>domain:example.com</code> - Filter by domain<br>"
+            "• <code>after:2023-01-01</code> - Visit after date<br>"
+            "• <code>before:2023-12-31</code> - Visit before date<br>"
+            "• <code>-keyword</code> - Exclude term<br>"
+            "• <code>title:keyword</code> - Search only titles<br>"
+            "• <code>url:keyword</code> - Search only URLs<br>"
+            "• <code>browser:chrome</code> - Filter by browser type<br><br>"
+            "<i>Tip: You can combine these tokens with regular text.</i>"
+        )
+        QMessageBox.information(self, _("Search Help"), msg)
+
+    @property
+    def use_regex(self) -> bool:
+        return self._use_regex
 
 
 class HistoryPage(QWidget):
@@ -132,11 +186,10 @@ class HistoryPage(QWidget):
 
         row1 = QHBoxLayout()
         row1.setSpacing(0)
-        self._search = QLineEdit()
+        self._search = SearchLineEdit()
         self._search.setObjectName("search_box")
-        self._search.setPlaceholderText(_("Search title or URL..."))
-        self._search.setClearButtonEnabled(True)
         self._search.textChanged.connect(lambda _: self._debounce.start(_DEBOUNCE_MS))
+        self._search.regex_toggled.connect(self._do_search)
         row1.addWidget(self._search)
 
         row2 = QHBoxLayout()
@@ -281,7 +334,7 @@ class HistoryPage(QWidget):
     def _on_selection_changed(self):
         rows = self._get_selected_rows()
         n = len(rows)
-        if n > 1:
+        if n > 0:
             self._selection_label.setText(_("{n} rows selected").format(n=n))
         else:
             self._selection_label.setText("")
@@ -289,14 +342,52 @@ class HistoryPage(QWidget):
     # ── Event handlers ────────────────────────────────────────
 
     def _do_search(self):
-        keyword = self._search.text().strip()
-        browser = self._browser_combo.currentData() or ""
-        date_from = _qdate_to_unix(self._date_from.date(), is_start=True)
-        date_to = _qdate_to_unix(self._date_to.date(), is_start=False)
-        self._vm.search(keyword, browser, date_from, date_to)
+        raw_text = self._search.text().strip()
+        use_regex = self._search.use_regex
+
+        # Use DSL parser to extract special tokens
+        query = parse_query(raw_text)
+
+        # Merge DSL results with UI controls
+        # UI controls (combo, date) are used if the token is NOT present in the DSL string
+        browser = query.browser or self._browser_combo.currentData() or ""
+
+        # Dates: prioritize DSL tokens
+        if query.after:
+            date_from = int(datetime(query.after.year, query.after.month, query.after.day, 0, 0, 0).timestamp())
+        else:
+            date_from = _qdate_to_unix(self._date_from.date(), is_start=True)
+
+        if query.before:
+            date_to = int(datetime(query.before.year, query.before.month, query.before.day, 23, 59, 59).timestamp())
+        else:
+            date_to = _qdate_to_unix(self._date_to.date(), is_start=False)
+
+        # Resolve domain ids if domains are present
+        domain_ids = []
+        if query.domains:
+            from src.services.local_db import LocalDatabase
+
+            with self._vm._db._lock:
+                conn = self._vm._db._ensure_conn()
+                for d in query.domains:
+                    domain_ids.extend(LocalDatabase._domain_ids_for(conn, d))
+
+        self._vm.search(
+            query.keyword,
+            browser,
+            date_from,
+            date_to,
+            domain_ids=list(set(domain_ids)) if domain_ids else None,
+            excludes=query.excludes,
+            title_only=query.title_only,
+            url_only=query.url_only,
+            use_regex=use_regex,
+        )
 
     def _reset_filters(self):
         self._search.clear()
+        self._search._regex_act.setChecked(False)
         self._browser_combo.setCurrentIndex(0)
         self._date_from.setDate(QDate(2020, 1, 1))
         self._date_to.setDate(QDate.currentDate())
