@@ -9,8 +9,11 @@ import subprocess
 import webbrowser
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QCursor
+from PySide6.QtGui import QColor, QCursor, QPainter, QPixmap
 from PySide6.QtWidgets import (
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -18,6 +21,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -29,6 +33,19 @@ from src.utils.logger import get_logger
 from src.utils.theme_manager import ThemeManager
 
 log = get_logger("view.dashboard")
+
+
+def _make_dot_pixmap(color: str, size: int = 10) -> QPixmap:
+    """Create a solid circle QPixmap for status indicators."""
+    px = QPixmap(size, size)
+    px.fill(QColor(0, 0, 0, 0))
+    painter = QPainter(px)
+    painter.setRenderHint(QPainter.Antialiasing)
+    painter.setBrush(QColor(color))
+    painter.setPen(Qt.NoPen)
+    painter.drawEllipse(0, 0, size, size)
+    painter.end()
+    return px
 
 
 class StatCard(QFrame):
@@ -98,6 +115,7 @@ class BrowserCard(QFrame):
     sync_browser_requested = Signal(str)
     open_browser_requested = Signal(str)
     view_history_requested = Signal(str)
+    sync_toggle_requested = Signal(str, bool)  # (browser_type, enabled)
 
     # Windows browser registry paths and common install locations
     _WINDOWS_BROWSERS: dict[str, list[str]] = {
@@ -174,6 +192,7 @@ class BrowserCard(QFrame):
         self._browser_type = browser_type
         self._display_name = display_name
         self._status_name = "NOT_FOUND"
+        self._sync_enabled = True  # 该浏览器是否启用同步
 
         self.setObjectName("browser_card")
         self.setFixedWidth(168)
@@ -233,15 +252,29 @@ class BrowserCard(QFrame):
         self._apply_status()
 
     def _apply_status(self):
-        dot_color, bg_color = _status_colors(self._status_name)
-        self._badge.setText(f"● {_status_label(self._status_name)}")
-        self._badge.setStyleSheet(
-            f"color: {dot_color};"
-            f"background-color: {bg_color};"
-            f"border-radius: 8px;"
-            f"font-size: 11px;"
-            f"padding: 2px 8px 2px 6px;"
-        )
+        if not self._sync_enabled:
+            # 浏览器同步已禁用，显示灰色覆盖提示
+            is_light = ThemeManager.instance().current == "light"
+            dot_color = "#9ca3af" if is_light else "#6b7280"
+            bg_color = "#f3f4f6" if is_light else "#1e2028"
+            self._badge.setText("● " + _("Sync disabled"))
+            self._badge.setStyleSheet(
+                f"color: {dot_color};"
+                f"background-color: {bg_color};"
+                f"border-radius: 8px;"
+                f"font-size: 11px;"
+                f"padding: 2px 8px 2px 6px;"
+            )
+        else:
+            dot_color, bg_color = _status_colors(self._status_name)
+            self._badge.setText(f"● {_status_label(self._status_name)}")
+            self._badge.setStyleSheet(
+                f"color: {dot_color};"
+                f"background-color: {bg_color};"
+                f"border-radius: 8px;"
+                f"font-size: 11px;"
+                f"padding: 2px 8px 2px 6px;"
+            )
 
     def update_status(self, status_name: str):
         if self._status_name == status_name:
@@ -259,9 +292,20 @@ class BrowserCard(QFrame):
 
         sync_action = menu.addAction(get_icon("refresh", 14), _("Sync This Browser"))
         sync_action.triggered.connect(lambda: self.sync_browser_requested.emit(self._browser_type))
+        sync_action.setEnabled(self._sync_enabled)
 
         view_history_action = menu.addAction(get_icon("list", 14), _("View History"))
         view_history_action.triggered.connect(lambda: self.view_history_requested.emit(self._browser_type))
+
+        menu.addSeparator()
+
+        # 启用/禁用该浏览器的同步
+        if self._sync_enabled:
+            toggle_action = menu.addAction(get_icon("pause", 14), _("Disable Sync for This Browser"))
+            toggle_action.triggered.connect(lambda: self._on_toggle_sync(False))
+        else:
+            toggle_action = menu.addAction(get_icon("play", 14), _("Enable Sync for This Browser"))
+            toggle_action.triggered.connect(lambda: self._on_toggle_sync(True))
 
         menu.addSeparator()
 
@@ -272,6 +316,16 @@ class BrowserCard(QFrame):
         copy_action.triggered.connect(self._copy_name)
 
         menu.exec(QCursor.pos())
+
+    def _on_toggle_sync(self, enabled: bool):
+        self._sync_enabled = enabled
+        self._apply_status()
+        self.sync_toggle_requested.emit(self._browser_type, enabled)
+
+    def set_sync_enabled(self, enabled: bool):
+        """由外部调用以同步浏览器启用状态。"""
+        self._sync_enabled = enabled
+        self._apply_status()
 
     def _copy_name(self):
         from PySide6.QtWidgets import QApplication
@@ -293,17 +347,205 @@ class _EmptyState(QWidget):
         layout.setContentsMargins(0, 16, 0, 8)
         layout.setAlignment(Qt.AlignCenter)
 
-        icon_lbl = QLabel("🔍")
+        icon_lbl = QLabel()
+        icon_lbl.setFixedSize(32, 32)
         icon_lbl.setAlignment(Qt.AlignCenter)
-        icon_lbl.setStyleSheet("font-size: 28px; background: transparent;")
+        icon_lbl.setStyleSheet("background: transparent;")
+        px = get_icon("search", 28).pixmap(28, 28)
+        if not px.isNull():
+            icon_lbl.setPixmap(px)
 
         text_lbl = QLabel(_("No browsers detected"))
         text_lbl.setObjectName("muted")
         text_lbl.setAlignment(Qt.AlignCenter)
 
-        layout.addWidget(icon_lbl)
+        layout.addWidget(icon_lbl, 0, Qt.AlignCenter)
         layout.addSpacing(6)
         layout.addWidget(text_lbl)
+
+
+# ── Browser settings dialog ────────────────────────────────────────────────────
+
+
+class BrowserSettingsDialog(QDialog):
+    """浏览器同步设置对话框：启用/禁用各浏览器，支持重新检测。"""
+
+    browser_sync_changed = Signal(str, bool)   # (browser_type, enabled)
+    redetect_requested = Signal()
+
+    def __init__(self, disabled_browsers: set[str], parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(_("Browser Sync Settings"))
+        self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        self.setMinimumWidth(360)
+        self.setMinimumHeight(300)
+        self.resize(420, 520)
+        self._disabled_browsers = set(disabled_browsers)
+        self._checkboxes: dict[str, QCheckBox] = {}
+        self._dots: dict[str, QLabel] = {}
+        self._build_ui()
+
+    def _build_ui(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(20, 16, 20, 16)
+        root.setSpacing(12)
+
+        # Title row
+        title_row = QHBoxLayout()
+        title_lbl = QLabel(_("Browser Sync Selection"))
+        title_lbl.setStyleSheet("font-size: 14px; font-weight: 700;")
+        title_row.addWidget(title_lbl)
+        title_row.addStretch()
+        root.addLayout(title_row)
+
+        desc = QLabel(_("Enable or disable history sync for each browser.\nDisabled browsers will not be scanned during sync."))
+        desc.setWordWrap(True)
+        desc.setStyleSheet("font-size: 12px; color: #888;")
+        root.addWidget(desc)
+
+        # Select-all / none buttons
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+        btn_all = QPushButton(_("Select All"))
+        btn_all.setFixedHeight(30)
+        btn_none = QPushButton(_("Deselect All"))
+        btn_none.setFixedHeight(30)
+        btn_all.clicked.connect(self._on_select_all)
+        btn_none.clicked.connect(self._on_deselect_all)
+        btn_row.addWidget(btn_all)
+        btn_row.addWidget(btn_none)
+        btn_row.addStretch()
+        root.addLayout(btn_row)
+
+        # Scroll area with browser checkboxes
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setMinimumHeight(120)
+        scroll.setMaximumHeight(280)
+
+        inner = QWidget()
+        cb_layout = QVBoxLayout(inner)
+        cb_layout.setSpacing(6)
+        cb_layout.setContentsMargins(4, 4, 4, 4)
+
+        from src.services.browser_defs import BUILTIN_BROWSERS
+
+        # Pre-detect which browsers have history available
+        detected = {bdef.browser_type for bdef in BUILTIN_BROWSERS if bdef.is_history_available()}
+
+        # Sort: detected first, then undetected
+        sorted_browsers = sorted(
+            BUILTIN_BROWSERS, key=lambda b: (0 if b.browser_type in detected else 1, b.display_name)
+        )
+
+        for bdef in sorted_browsers:
+            is_detected = bdef.browser_type in detected
+            row = QHBoxLayout()
+            row.setSpacing(8)
+            # Browser icon
+            icon_lbl = QLabel()
+            icon_lbl.setFixedSize(20, 20)
+            icon_lbl.setAlignment(Qt.AlignCenter)
+            px = get_browser_pixmap(bdef.browser_type, 20)
+            if not px.isNull():
+                icon_lbl.setPixmap(px)
+            else:
+                icon_lbl.setText(bdef.display_name[:1].upper())
+
+            cb = QCheckBox(bdef.display_name)
+            cb.setChecked(bdef.browser_type not in self._disabled_browsers)
+            cb.setStyleSheet("font-size: 13px;")
+            self._checkboxes[bdef.browser_type] = cb
+
+            # Status dot: green=detected+enabled, yellow=detected+disabled, red=not detected
+            dot = QLabel()
+            dot.setFixedSize(10, 10)
+            if is_detected:
+                if bdef.browser_type not in self._disabled_browsers:
+                    dot.setPixmap(_make_dot_pixmap("#34a853", 10))
+                    dot.setToolTip(_("Detected — sync enabled"))
+                else:
+                    dot.setPixmap(_make_dot_pixmap("#d29922", 10))
+                    dot.setToolTip(_("Detected — sync disabled"))
+            else:
+                dot.setPixmap(_make_dot_pixmap("#e05252", 10))
+                dot.setToolTip(_("Not detected"))
+            self._dots[bdef.browser_type] = dot
+
+            # Update dot when checkbox changes
+            bt = bdef.browser_type
+            cb.toggled.connect(lambda checked, b=bt: self._on_cb_toggled(b, checked))
+
+            row.addWidget(icon_lbl)
+            row.addWidget(cb, 1)
+            row.addWidget(dot)
+            cb_layout.addLayout(row)
+
+        scroll.setWidget(inner)
+        root.addWidget(scroll, 1)
+
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("color: #333;")
+        root.addWidget(sep)
+
+        # Re-detect button
+        redetect_btn = QPushButton(_("Re-detect Browsers Now"))
+        redetect_btn.setIcon(get_icon("search", 16))
+        redetect_btn.setFixedHeight(32)
+        redetect_btn.clicked.connect(self._on_redetect)
+        root.addWidget(redetect_btn)
+
+        # OK / Cancel
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.accepted.connect(self._on_accept)
+        btns.rejected.connect(self.reject)
+        root.addWidget(btns)
+
+    def _on_cb_toggled(self, browser_type: str, checked: bool) -> None:
+        """Update the status dot when a checkbox is toggled."""
+        dot = self._dots.get(browser_type)
+        if dot is None:
+            return
+        # We need to know if it was detected; re-check from what we stored
+        from src.services.browser_defs import BUILTIN_BROWSERS
+        bdef = next((b for b in BUILTIN_BROWSERS if b.browser_type == browser_type), None)
+        is_detected = bdef.is_history_available() if bdef else False
+        if is_detected:
+            if checked:
+                dot.setPixmap(_make_dot_pixmap("#34a853", 10))
+                dot.setToolTip(_("Detected — sync enabled"))
+            else:
+                dot.setPixmap(_make_dot_pixmap("#d29922", 10))
+                dot.setToolTip(_("Detected — sync disabled"))
+        else:
+            dot.setPixmap(_make_dot_pixmap("#e05252", 10))
+            dot.setToolTip(_("Not detected"))
+
+    def _on_select_all(self):
+        for cb in self._checkboxes.values():
+            cb.setChecked(True)
+
+    def _on_deselect_all(self):
+        for cb in self._checkboxes.values():
+            cb.setChecked(False)
+
+    def _on_redetect(self):
+        self.redetect_requested.emit()
+
+    def _on_accept(self):
+        # Emit changes for each browser whose state differs from original
+        for bt, cb in self._checkboxes.items():
+            enabled = cb.isChecked()
+            was_disabled = bt in self._disabled_browsers
+            if enabled == was_disabled:   # state changed
+                self.browser_sync_changed.emit(bt, enabled)
+        self.accept()
+
+    def get_disabled_browsers(self) -> list[str]:
+        return [bt for bt, cb in self._checkboxes.items() if not cb.isChecked()]
 
 
 # ── Dashboard page ─────────────────────────────────────────────────────────────
@@ -313,6 +555,8 @@ class DashboardPage(QWidget):
     sync_requested = Signal()
     sync_browser_requested = Signal(str)
     view_history_requested = Signal(str)
+    browser_sync_toggle_requested = Signal(str, bool)  # (browser_type, enabled)
+    redetect_browsers_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -322,6 +566,7 @@ class DashboardPage(QWidget):
         self._progress_timer.timeout.connect(self._tick_progress)
         self._progress_value = 0
         self._browser_cards: dict[str, BrowserCard] = {}
+        self._disabled_browsers: set[str] = set()
 
     def _init_ui(self):
         root = QVBoxLayout(self)
@@ -393,9 +638,28 @@ class DashboardPage(QWidget):
         d_layout.setContentsMargins(20, 16, 20, 16)
         d_layout.setSpacing(0)
 
+        # Section header row with settings button
+        section_header_row = QHBoxLayout()
+        section_header_row.setContentsMargins(0, 0, 0, 0)
         section_header = QLabel(_("Browser Detection Status"))
         section_header.setObjectName("stat_label")
-        d_layout.addWidget(section_header)
+        section_header_row.addWidget(section_header)
+        section_header_row.addStretch()
+
+        self._browser_settings_btn = QPushButton()
+        self._browser_settings_btn.setIcon(get_icon("settings", 16))
+        self._browser_settings_btn.setFixedSize(28, 28)
+        self._browser_settings_btn.setToolTip(_("Browser Sync Settings & Re-detect"))
+        self._browser_settings_btn.setObjectName("icon_btn")
+        self._browser_settings_btn.setStyleSheet(
+            "QPushButton { border: none; border-radius: 6px; background: transparent; }"
+            "QPushButton:hover { background: rgba(128,128,128,0.15); }"
+            "QPushButton:pressed { background: rgba(128,128,128,0.25); }"
+        )
+        self._browser_settings_btn.clicked.connect(self._on_browser_settings)
+        section_header_row.addWidget(self._browser_settings_btn)
+
+        d_layout.addLayout(section_header_row)
         d_layout.addSpacing(14)
 
         self._cards_container = QWidget()
@@ -421,7 +685,10 @@ class DashboardPage(QWidget):
         self._card_sync.set_value(_fmt_time(last_sync_time))
         self._card_webdav.set_value(webdav_status)
 
-    def update_browser_statuses(self, statuses: dict, display_names: dict):
+    def update_browser_statuses(self, statuses: dict, display_names: dict, disabled_browsers: list | None = None):
+        if disabled_browsers is not None:
+            self._disabled_browsers = set(disabled_browsers)
+
         detected = {bt: s for bt, s in statuses.items() if s != "NOT_FOUND"}
         self._card_browsers.set_value(str(len(detected)))
 
@@ -440,8 +707,11 @@ class DashboardPage(QWidget):
                 card.sync_browser_requested.connect(self._on_sync_browser)
                 card.open_browser_requested.connect(self._on_open_browser)
                 card.view_history_requested.connect(self._on_view_history)
+                card.sync_toggle_requested.connect(self.browser_sync_toggle_requested)
                 self._browser_cards[bt] = card
-            self._browser_cards[bt].update_status(status_name)
+            card = self._browser_cards[bt]
+            card.set_sync_enabled(bt not in self._disabled_browsers)
+            card.update_status(status_name)
 
         self._relayout_cards()
 
@@ -461,6 +731,29 @@ class DashboardPage(QWidget):
             self._cards_grid.addWidget(card, row, col)
 
     # ── Per-browser actions ────────────────────────────────────
+
+    def _on_browser_settings(self):
+        """打开浏览器同步设置对话框。"""
+        dlg = BrowserSettingsDialog(self._disabled_browsers, parent=self)
+        dlg.browser_sync_changed.connect(self._on_browser_sync_changed_from_dialog)
+        dlg.redetect_requested.connect(self.redetect_browsers_requested)
+        if dlg.exec() == QDialog.Accepted:
+            # 批量应用所有更改
+            new_disabled = set(dlg.get_disabled_browsers())
+            # 对每个状态发生变化的浏览器发出信号
+            all_browsers = set(self._browser_cards.keys()) | new_disabled | self._disabled_browsers
+            for bt in all_browsers:
+                was_disabled = bt in self._disabled_browsers
+                is_disabled = bt in new_disabled
+                if was_disabled != is_disabled:
+                    self.browser_sync_toggle_requested.emit(bt, not is_disabled)
+                    if bt in self._browser_cards:
+                        self._browser_cards[bt].set_sync_enabled(not is_disabled)
+            self._disabled_browsers = new_disabled
+
+    def _on_browser_sync_changed_from_dialog(self, browser_type: str, enabled: bool):
+        """对话框内实时点击重新检测时的回调（不等 OK）。"""
+        pass  # 仅在 OK 时批量提交，此处留空
 
     def _on_sync_browser(self, browser_type: str):
         self.sync_browser_requested.emit(browser_type)

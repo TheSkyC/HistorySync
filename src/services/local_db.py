@@ -13,7 +13,6 @@ import threading
 import time
 
 from src.models.history_record import BackupStats, HistoryRecord
-from src.utils.constants import DB_BATCH_SIZE
 from src.utils.i18n import _
 from src.utils.logger import get_logger
 
@@ -68,6 +67,9 @@ class LocalDatabase:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.execute("PRAGMA foreign_keys=ON")
+            conn.execute("PRAGMA cache_size=-32768")   # 32 MB page cache
+            conn.execute("PRAGMA mmap_size=268435456") # 256 MB memory-mapped I/O
+            conn.execute("PRAGMA temp_store=MEMORY")
             conn.commit()
             self._pconn = conn
         return self._pconn
@@ -449,33 +451,101 @@ class LocalDatabase:
             except Exception:
                 return None
 
-        sql = """
-            INSERT OR IGNORE INTO history
-                (url, title, visit_time, visit_count, browser_type, profile_name, metadata, domain_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?,
-                (SELECT id FROM domains WHERE host = _extract_host(?)))
-        """
-        with self._conn() as conn:
-            conn.create_function("_extract_host", 1, _extract_host)
+        # Pre-compute host for every record once in Python (avoids per-row UDF round-trip)
+        rec_hosts = [_extract_host(r.url) for r in records]
 
-            hosts = {_extract_host(r.url) for r in records if r.url}
-            hosts.discard(None)
+        with self._conn() as conn:
+            # 1. Bulk-insert any new domains
+            hosts = {h for h in rec_hosts if h}
             if hosts:
                 conn.executemany(
                     "INSERT OR IGNORE INTO domains(host) VALUES(?)",
                     ((h,) for h in hosts),
                 )
 
+            # 2. Fetch the full host→id map in one query so we never need a
+            #    per-row subquery back into SQLite from Python.
+            host_to_id: dict[str, int] = {}
+            if hosts:
+                placeholders = ",".join("?" * len(hosts))
+                rows = conn.execute(
+                    f"SELECT host, id FROM domains WHERE host IN ({placeholders})",
+                    list(hosts),
+                ).fetchall()
+                host_to_id = {row[0]: row[1] for row in rows}
+
+            # 3. Snapshot the current max history id so we can sync FTS for
+            #    only the newly inserted rows afterwards.
+            max_id_before: int = conn.execute(
+                "SELECT COALESCE(MAX(id), 0) FROM history"
+            ).fetchone()[0]
+
+            # 4. Temporarily drop FTS triggers so the per-row FTS overhead is
+            #    avoided during a bulk insert; we do a single targeted sync at
+            #    the end instead.  executescript issues an implicit COMMIT
+            #    first, which is intentional — it persists domains before DDL.
+            conn.executescript("""
+                DROP TRIGGER IF EXISTS history_ai;
+                DROP TRIGGER IF EXISTS history_ad;
+                DROP TRIGGER IF EXISTS history_au;
+            """)
+
+            # 5. Bulk insert history records using plain positional params
+            #    (no subquery, no UDF call per row).
+            sql = """
+                INSERT OR IGNORE INTO history
+                    (url, title, visit_time, visit_count,
+                     browser_type, profile_name, metadata, domain_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """
             inserted = 0
-            for i in range(0, len(records), DB_BATCH_SIZE):
-                batch = records[i : i + DB_BATCH_SIZE]
+            _BULK = 2000  # larger batches amortise per-executemany overhead
+            for i in range(0, len(records), _BULK):
+                batch = records[i : i + _BULK]
                 params = [
-                    (r.url, r.title, r.visit_time, r.visit_count, r.browser_type, r.profile_name, r.metadata, r.url)
-                    for r in batch
+                    (
+                        r.url,
+                        r.title,
+                        r.visit_time,
+                        r.visit_count,
+                        r.browser_type,
+                        r.profile_name,
+                        r.metadata,
+                        host_to_id.get(rec_hosts[i + j]),
+                    )
+                    for j, r in enumerate(batch)
                 ]
                 cursor = conn.executemany(sql, params)
                 if cursor.rowcount >= 0:
                     inserted += cursor.rowcount
+
+            # 6. Commit the history inserts, then restore FTS triggers.
+            conn.commit()
+            conn.executescript("""
+                CREATE TRIGGER IF NOT EXISTS history_ai AFTER INSERT ON history BEGIN
+                    INSERT INTO history_fts(rowid, url, title)
+                        VALUES (new.id, new.url, new.title);
+                END;
+                CREATE TRIGGER IF NOT EXISTS history_ad AFTER DELETE ON history BEGIN
+                    INSERT INTO history_fts(history_fts, rowid, url, title)
+                        VALUES('delete', old.id, old.url, old.title);
+                END;
+                CREATE TRIGGER IF NOT EXISTS history_au AFTER UPDATE ON history BEGIN
+                    INSERT INTO history_fts(history_fts, rowid, url, title)
+                        VALUES('delete', old.id, old.url, old.title);
+                    INSERT INTO history_fts(rowid, url, title)
+                        VALUES (new.id, new.url, new.title);
+                END;
+            """)
+
+            # 7. Batch-sync FTS for every row inserted during the trigger-free
+            #    window.  Using an id watermark is reliable and avoids any
+            #    FTS shadow-table internals.
+            conn.execute(
+                "INSERT INTO history_fts(rowid, url, title) "
+                "SELECT id, url, title FROM history WHERE id > ?",
+                (max_id_before,),
+            )
 
         log.info("Upserted %d / %d records", inserted, len(records))
         return inserted

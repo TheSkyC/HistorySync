@@ -140,7 +140,8 @@ def _load_browser_pixmap_raw(path: Path, size: int) -> QPixmap:
     if px.isNull():
         return QPixmap()
     if px.width() != size or px.height() != size:
-        px = px.scaled(size, size, aspectRatioMode=1, transformMode=1)
+        from PySide6.QtCore import Qt
+        px = px.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
     return px
 
 

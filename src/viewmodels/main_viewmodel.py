@@ -64,7 +64,11 @@ class MainViewModel(QObject):
         self.history_vm = HistoryViewModel(self._db, self._favicon_manager, parent=self)
 
     def start(self) -> None:
-        self._scheduler.start(self._config.scheduler)
+        self._scheduler.start(
+            self._config.scheduler,
+            last_sync_ts=self._config.last_sync_ts,
+            last_backup_ts=self._config.last_backup_ts,
+        )
         self.history_vm.set_hidden_ids(self._db.get_hidden_ids())
         self._monitor.start()
         self._emit_stats()
@@ -80,6 +84,45 @@ class MainViewModel(QObject):
 
     def trigger_backup(self) -> None:
         self._scheduler.trigger_backup_now()
+
+    def set_auto_sync_enabled(self, enabled: bool) -> None:
+        """启用或暂停自动同步（持久化到 config）。"""
+        self._config.scheduler.auto_sync_enabled = enabled
+        self._scheduler.set_auto_sync_enabled(enabled)
+        try:
+            self._config.save()
+        except Exception as exc:
+            log.warning("Failed to save sync enabled state: %s", exc)
+        log.info("Auto sync set to: %s", enabled)
+
+    def toggle_browser_sync(self, browser_type: str, enabled: bool) -> None:
+        """启用或禁用某个浏览器的同步（修改 disabled_browsers 列表）。"""
+        disabled = list(self._config.extractor.disabled_browsers)
+        if enabled:
+            if browser_type in disabled:
+                disabled.remove(browser_type)
+        elif browser_type not in disabled:
+            disabled.append(browser_type)
+        self._config.extractor.disabled_browsers = disabled
+        self._em.update_config(disabled, blacklisted_domains=self._config.privacy.blacklisted_domains)
+        try:
+            self._config.save()
+        except Exception as exc:
+            log.warning("Failed to save browser sync state: %s", exc)
+        log.info("Browser '%s' sync set to: %s", browser_type, "enabled" if enabled else "disabled")
+
+    def reload_extractor_config(self) -> None:
+        """向导完成后重新应用 extractor 配置（disabled_browsers 等）。"""
+        self._em.update_config(
+            self._config.extractor.disabled_browsers,
+            blacklisted_domains=self._config.privacy.blacklisted_domains,
+        )
+        log.info("Extractor config reloaded after wizard")
+
+    def force_redetect_browsers(self) -> None:
+        """强制立即重新检测浏览器（由仪表板设置对话框触发）。"""
+        self._monitor.force_check()
+        log.info("Browser re-detection triggered by user")
 
     def get_total_count(self) -> int:
         return self._db.get_total_count()
@@ -152,7 +195,11 @@ class MainViewModel(QObject):
     def save_config(self, config: AppConfig) -> None:
         self._config = config
         config.save()
-        self._scheduler.configure(config.scheduler)
+        self._scheduler.configure(
+            config.scheduler,
+            last_sync_ts=config.last_sync_ts,
+            last_backup_ts=config.last_backup_ts,
+        )
         self._webdav.update_config(config.webdav)
         self._em.update_config(
             config.extractor.disabled_browsers,

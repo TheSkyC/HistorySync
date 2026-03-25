@@ -104,7 +104,6 @@ class TrayIcon(QObject):
         if syncing:
             self._sync_action.setEnabled(False)
             self._sync_action.setText(_("Syncing..."))
-            self._status_action.setText("⟳ " + _("Syncing in progress..."))
         else:
             self._sync_action.setEnabled(True)
             self._sync_action.setText(_("Sync Now"))

@@ -170,13 +170,15 @@ class MainWindow(QMainWindow):
         vm.sync_progress.connect(self._on_sync_progress)
         vm.sync_error.connect(self._on_sync_error)
         vm.stats_updated.connect(self._on_stats_updated)
-        vm.browser_status_changed.connect(self._page_dashboard.update_browser_statuses)
+        vm.browser_status_changed.connect(self._on_browser_status_changed)
         vm.records_deleted.connect(self._on_records_deleted)
         vm.domain_blacklisted.connect(self._on_domain_blacklisted)
         vm.backup_finished.connect(lambda ok, _msg: self._page_settings.notify_backup_happened(ok))
 
         self._page_dashboard.sync_requested.connect(vm.trigger_sync)
         self._page_dashboard.sync_browser_requested.connect(vm.trigger_sync_browser)
+        self._page_dashboard.browser_sync_toggle_requested.connect(vm.toggle_browser_sync)
+        self._page_dashboard.redetect_browsers_requested.connect(vm.force_redetect_browsers)
         self._page_dashboard.view_history_requested.connect(self._on_view_browser_history)
         self._page_settings.saved.connect(self._on_settings_saved)
 
@@ -246,6 +248,13 @@ class MainWindow(QMainWindow):
             total_count=total,
             last_sync_time=last_sync,
             webdav_status=self._vm.get_webdav_status(),
+        )
+
+    def _on_browser_status_changed(self, statuses: dict, display_names: dict):
+        self._page_dashboard.update_browser_statuses(
+            statuses,
+            display_names,
+            disabled_browsers=self._vm._config.extractor.disabled_browsers,
         )
 
     def _on_settings_saved(self):

@@ -8,13 +8,14 @@ env/
 *.db
 *.db-wal
 *.db-shm
-config.json
+CLAUDE.md
 
 *.log
 logs/
 
 .vscode/
 .idea/
+.claude/
 *.swp
 
 dist/

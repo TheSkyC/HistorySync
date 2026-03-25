@@ -85,6 +85,8 @@ class AppConfig:
     theme: str = "dark"  # "dark" | "light" | "system"
     last_backup_ts: int = 0
     last_sync_ts: int = 0
+    master_password_hash: str = ""   # bcrypt hash; empty = no password set
+    first_run_completed: bool = False
 
     # ── 运行时标志（不持久化）─────────────────────────────────────────────────
     # fresh 模式
@@ -146,6 +148,8 @@ class AppConfig:
             "theme": self.theme,
             "last_backup_ts": self.last_backup_ts,
             "last_sync_ts": self.last_sync_ts,
+            "master_password_hash": self.master_password_hash,
+            "first_run_completed": self.first_run_completed,
         }
 
     @classmethod
@@ -186,6 +190,8 @@ class AppConfig:
             "theme",
             "last_backup_ts",
             "last_sync_ts",
+            "master_password_hash",
+            "first_run_completed",
         ):
             if key in d:
                 setattr(cfg, key, d[key])

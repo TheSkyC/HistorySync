@@ -35,6 +35,7 @@ from src.views.settings.language_section import LanguageSection
 from src.views.settings.maintenance_section import MaintenanceSection
 from src.views.settings.privacy_section import PrivacySection
 from src.views.settings.scheduler_section import SchedulerSection
+from src.views.settings.security_section import SecuritySection
 from src.views.settings.startup_section import StartupSection
 from src.views.settings.webdav_section import WebDavSection
 
@@ -93,6 +94,7 @@ class SettingsPage(QWidget):
         self._sec_startup = StartupSection()
         self._sec_webdav = WebDavSection()
         self._sec_privacy = PrivacySection()
+        self._sec_security = SecuritySection()
         self._sec_paths = CustomPathsSection()
         self._sec_import = ImportSection()
         self._sec_maint = MaintenanceSection()
@@ -102,6 +104,7 @@ class SettingsPage(QWidget):
         self._add_card(_("STARTUP"), self._sec_startup)
         self._add_card(_("WEBDAV CLOUD BACKUP"), self._sec_webdav)
         self._add_card(_("PRIVACY & BLACKLIST"), self._sec_privacy)
+        self._add_card(_("SECURITY"), self._sec_security)
         self._add_card(_("CUSTOM BROWSER PATHS"), self._sec_paths)
         self._add_card(_("IMPORT HISTORY DATABASE"), self._sec_import)
         self._add_card(_("DATABASE MAINTENANCE"), self._sec_maint)
@@ -203,12 +206,22 @@ class SettingsPage(QWidget):
         self._sec_maint.rebuild_fts_requested.connect(lambda: self._run_maintenance("rebuild_fts"))
         self._refresh_db_stats()
 
+        # Security
+        self._sec_security.load(cfg.master_password_hash)
+        self._sec_security.password_changed.connect(self._on_master_password_changed)
+        self._sec_security.lock_session_requested.connect(self._on_session_locked)
+
         self._compute_next_times()
         self._update_countdowns()
 
     def _save(self):
-        self.setFocus()
+        # ── 主密码保护 ────────────────────────────────────────
+        from src.views.master_password_dialog import require_master_password
         cfg = self._vm.get_config()
+        if not require_master_password(cfg.master_password_hash, self):
+            return
+
+        self.setFocus()
 
         cfg.scheduler.auto_sync_enabled = self._sec_scheduler.get_auto_sync_enabled()
         cfg.scheduler.sync_interval_hours = self._sec_scheduler.get_interval_hours()
@@ -341,10 +354,39 @@ class SettingsPage(QWidget):
     def _on_language_change_done(self, _lang_code: str):
         self._sec_language.show_restart_note()
 
+    # ── Security handlers ─────────────────────────────────────
+
+    def _on_master_password_changed(self, new_hash: str):
+        cfg = self._vm.get_config()
+        cfg.master_password_hash = new_hash
+        try:
+            cfg.save()
+        except Exception as exc:
+            log.warning("Failed to save master password hash: %s", exc)
+        self._set_status(
+            _("Master password updated") if new_hash else _("Master password removed"),
+            "success",
+        )
+
+    def reload_security(self) -> None:
+        """Re-load the security section from the live config.
+
+        Call this after any out-of-band change to master_password_hash
+        (e.g. the first-run wizard) so the UI reflects the new state.
+        """
+        cfg = self._vm.get_config()
+        self._sec_security.load(cfg.master_password_hash)
+
+    def _on_session_locked(self):
+        self._set_status(_("Session locked"), "muted")
+
     # ── Privacy handlers ──────────────────────────────────────
 
     def _on_add_blacklist_domain(self, domain: str):
+        from src.views.master_password_dialog import require_master_password
         cfg = self._vm.get_config()
+        if not require_master_password(cfg.master_password_hash, self):
+            return
         if domain not in cfg.privacy.blacklisted_domains:
             cfg.privacy.blacklisted_domains.append(domain)
             self._vm.save(cfg)
@@ -357,13 +399,20 @@ class SettingsPage(QWidget):
         self._sec_privacy.refresh_blacklist(cfg.privacy.blacklisted_domains)
 
     def _on_remove_blacklist_domain(self, domain: str):
+        from src.views.master_password_dialog import require_master_password
         cfg = self._vm.get_config()
+        if not require_master_password(cfg.master_password_hash, self):
+            return
         if domain in cfg.privacy.blacklisted_domains:
             cfg.privacy.blacklisted_domains.remove(domain)
         self._vm.save(cfg)
         self._sec_privacy.refresh_blacklist(cfg.privacy.blacklisted_domains)
 
     def _on_clear_hidden(self):
+        from src.views.master_password_dialog import require_master_password
+        cfg = self._vm.get_config()
+        if not require_master_password(cfg.master_password_hash, self):
+            return
         self._vm._main_vm._db.clear_hidden_records()
         self._vm._main_vm.history_vm.set_hidden_ids(set())
         self._sec_privacy.refresh_hidden_count(0)

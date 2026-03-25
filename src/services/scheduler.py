@@ -140,16 +140,21 @@ class Scheduler(QObject):
 
         self._favicon_cache_dir = get_app_data_dir() / FAVICON_CACHE_DIR_NAME
 
-    def configure(self, config: SchedulerConfig) -> None:
-        """Apply (or re-apply) scheduler configuration."""
+    def configure(self, config: SchedulerConfig, last_sync_ts: int = 0, last_backup_ts: int = 0) -> None:
+        """Apply (or re-apply) scheduler configuration.
+
+        Parameters
+        ----------
+        config         : scheduler-specific settings
+        last_sync_ts   : epoch seconds of the last successful sync (0 = never)
+        last_backup_ts : epoch seconds of the last successful backup (0 = never)
+        """
         # Sync timer
         self._sync_timer.stop()
         if config.auto_sync_enabled and config.sync_interval_hours > 0:
             interval_ms = config.sync_interval_hours * 3600 * 1000
-            first_ms = self._calc_first_interval_ms(
-                interval_ms,
-                self._get_last_sync_ts(config),
-            )
+            sync_ts = last_sync_ts if last_sync_ts > 0 else None
+            first_ms = self._calc_first_interval_ms(interval_ms, sync_ts)
             if first_ms <= 0:
                 self._sync_timer.setInterval(interval_ms)
                 from PySide6.QtCore import QTimer as _QTimer
@@ -172,10 +177,8 @@ class Scheduler(QObject):
         self._backup_timer.stop()
         if config.auto_backup_enabled and config.auto_backup_interval_hours > 0:
             backup_interval_ms = config.auto_backup_interval_hours * 3600 * 1000
-            first_backup_ms = self._calc_first_interval_ms(
-                backup_interval_ms,
-                self._get_last_backup_ts(config),
-            )
+            backup_ts = last_backup_ts if last_backup_ts > 0 else None
+            first_backup_ms = self._calc_first_interval_ms(backup_interval_ms, backup_ts)
             if first_backup_ms <= 0:
                 self._backup_timer.setInterval(backup_interval_ms)
                 from PySide6.QtCore import QTimer as _QTimer
@@ -197,19 +200,12 @@ class Scheduler(QObject):
 
     def _calc_first_interval_ms(self, interval_ms: int, last_ts: int | None) -> int:
         if last_ts is None:
-            return 0  # Never ran — fire immediately
+            # Never ran — wait one full interval before the first auto-sync.
+            # This avoids an unwanted immediate sync on first launch while the
+            # user is still going through the setup wizard.
+            return interval_ms
         elapsed_ms = int((time.time() - last_ts) * 1000)
         return interval_ms - elapsed_ms
-
-    def _get_last_backup_ts(self, config: SchedulerConfig) -> int | None:
-        try:
-            from src.models.app_config import AppConfig
-
-            cfg = AppConfig.load()
-            return cfg.last_backup_ts if cfg.last_backup_ts > 0 else None
-        except Exception as exc:
-            log.warning("Could not read last_backup_ts: %s", exc)
-            return None
 
     @Slot()
     def _start_repeating_sync_timer(self) -> None:
@@ -225,25 +221,24 @@ class Scheduler(QObject):
         if not self._backup_timer.isActive():
             self._backup_timer.start()
 
-    def start(self, config: SchedulerConfig) -> None:
-        self.configure(config)
+    def start(self, config: SchedulerConfig, last_sync_ts: int = 0, last_backup_ts: int = 0) -> None:
+        self.configure(config, last_sync_ts=last_sync_ts, last_backup_ts=last_backup_ts)
         log.info("Scheduler started")
-
-    def _get_last_sync_ts(self, config: SchedulerConfig) -> int | None:
-        """Read the persisted last-sync timestamp from AppConfig."""
-        try:
-            from src.models.app_config import AppConfig
-
-            cfg = AppConfig.load()
-            return cfg.last_sync_ts if cfg.last_sync_ts > 0 else None
-        except Exception as exc:
-            log.warning("Could not read last_sync_ts for catch-up check: %s", exc)
-            return None
 
     def stop(self) -> None:
         self._sync_timer.stop()
         self._backup_timer.stop()
         log.info("Scheduler stopped")
+
+    def set_auto_sync_enabled(self, enabled: bool) -> None:
+        """Pause or resume the auto-sync timer without touching the backup timer."""
+        if enabled:
+            if not self._sync_timer.isActive():
+                self._sync_timer.start()
+                log.info("Auto sync resumed")
+        else:
+            self._sync_timer.stop()
+            log.info("Auto sync paused")
 
     def trigger_now(self) -> None:
         if self._running:
