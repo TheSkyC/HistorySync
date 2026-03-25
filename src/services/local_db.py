@@ -345,6 +345,36 @@ class LocalDatabase:
             _cb(_("Done."))
         return size_before, size_after
 
+    def export_without_fts(self, dest: Path) -> None:
+        """Export a copy of the database with FTS tables/triggers stripped.
+
+        The exported file is a valid SQLite database containing all user data
+        (history, domains, backup_stats, hidden_records) but *without* the
+        history_fts virtual table or its shadow tables/triggers.  This makes
+        it much smaller for upload to WebDAV.  The caller is responsible for
+        deleting *dest* when done.
+        """
+        with self._lock:
+            # VACUUM INTO creates a defragmented, WAL-free copy.
+            src_conn = sqlite3.connect(str(self.db_path), timeout=30)
+            try:
+                src_conn.execute(f"VACUUM INTO '{dest}'")
+            finally:
+                src_conn.close()
+
+        # Open the copy and drop the FTS virtual table (this also removes all
+        # shadow tables: _data, _idx, _content, _docsize, _config) and triggers.
+        dst_conn = sqlite3.connect(str(dest), timeout=30)
+        try:
+            dst_conn.isolation_level = None  # autocommit for DDL
+            dst_conn.execute("DROP TABLE IF EXISTS history_fts")
+            dst_conn.execute("DROP TRIGGER IF EXISTS history_ai")
+            dst_conn.execute("DROP TRIGGER IF EXISTS history_ad")
+            dst_conn.execute("DROP TRIGGER IF EXISTS history_au")
+            dst_conn.execute("VACUUM")
+        finally:
+            dst_conn.close()
+
     def rebuild_fts_index(
         self,
         progress_cb: Callable[[str], None] | None = None,

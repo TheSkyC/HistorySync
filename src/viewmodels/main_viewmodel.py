@@ -44,6 +44,7 @@ class MainViewModel(QObject):
         db_path = config.get_db_path()
         self._db = LocalDatabase(db_path)
         self._webdav = WebDavSyncService(config.webdav, db_path)
+        self._webdav.set_local_db(self._db)
         self._em = ExtractorManager(
             self._db,
             disabled_browsers=config.extractor.disabled_browsers,

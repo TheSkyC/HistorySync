@@ -82,6 +82,7 @@ class WebDavSyncService:
         self._db_path = db_path
         self._status = SyncStatus.IDLE
         self._last_result: SyncResult | None = None
+        self._local_db: "LocalDatabase | None" = None  # set by caller for FTS ops
 
     @property
     def status(self) -> SyncStatus:
@@ -97,6 +98,10 @@ class WebDavSyncService:
     def update_config(self, config: WebDavConfig) -> None:
         self._config = config
         self._status = SyncStatus.IDLE
+
+    def set_local_db(self, db: "LocalDatabase") -> None:
+        """Provide a LocalDatabase reference so sync/restore can manage FTS."""
+        self._local_db = db
 
     # ── Connection test ───────────────────────────────────────
 
@@ -145,6 +150,7 @@ class WebDavSyncService:
         _cb(_("Connecting to WebDAV server..."))
 
         tmp_zip_path: str | None = None
+        tmp_clean_db_path: str | None = None
         try:
             client = self._make_client()
             remote_dir = self._normalise_path(self._config.remote_path)
@@ -152,6 +158,26 @@ class WebDavSyncService:
                 client.mkdir(remote_dir)
 
             self._status = SyncStatus.UPLOADING
+
+            # ── Export FTS-free copy of the DB ─────────────
+            _cb(_("Preparing database for upload (stripping FTS index)..."))
+            fd_clean, tmp_clean_db_path = tempfile.mkstemp(suffix="_clean.db")
+            os.close(fd_clean)
+            clean_db_path = Path(tmp_clean_db_path)
+            if self._local_db is not None:
+                self._local_db.export_without_fts(clean_db_path)
+            else:
+                import shutil as _shutil
+                _shutil.copy2(self._db_path, clean_db_path)
+
+            original_size = self._db_path.stat().st_size
+            clean_size = clean_db_path.stat().st_size
+            log.info(
+                "FTS stripped: %.1f MB → %.1f MB (saved %.1f MB)",
+                original_size / 1024 / 1024,
+                clean_size / 1024 / 1024,
+                (original_size - clean_size) / 1024 / 1024,
+            )
 
             # ── Build zip archive with hash manifest ──────────
             _cb(_("Compressing and packaging backup..."))
@@ -161,9 +187,9 @@ class WebDavSyncService:
             hash_manifest: dict[str, str] = {}
 
             with zipfile.ZipFile(tmp_zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
-                # Add main DB
-                db_hash = _sha256_file(self._db_path)
-                zf.write(self._db_path, arcname=DB_FILENAME)
+                # Add FTS-free DB (stored as DB_FILENAME for restore compatibility)
+                db_hash = _sha256_file(clean_db_path)
+                zf.write(clean_db_path, arcname=DB_FILENAME)
                 hash_manifest[DB_FILENAME] = db_hash
                 log.info("DB hash: %s", db_hash)
 
@@ -181,10 +207,9 @@ class WebDavSyncService:
                 zf.writestr("manifest.sha256.json", manifest_json)
 
             zip_size = Path(tmp_zip_path).stat().st_size
-            original_size = self._db_path.stat().st_size
             ratio = (1 - zip_size / original_size) * 100 if original_size > 0 else 0
             log.info(
-                "Backup zip: %.1f KB → %.1f KB (%.0f%% reduction)",
+                "Backup zip: %.1f KB → %.1f KB (%.0f%% reduction vs original)",
                 original_size / 1024,
                 zip_size / 1024,
                 ratio,
@@ -218,6 +243,11 @@ class WebDavSyncService:
             if tmp_zip_path:
                 try:
                     Path(tmp_zip_path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            if tmp_clean_db_path:
+                try:
+                    Path(tmp_clean_db_path).unlink(missing_ok=True)
                 except OSError:
                     pass
 

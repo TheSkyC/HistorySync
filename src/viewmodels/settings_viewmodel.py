@@ -54,6 +54,8 @@ class WebDavWorker(QObject):
                         res.downloaded_path.unlink(missing_ok=True)
                     except Exception:
                         pass
+                    self.progress.emit(_("Rebuilding search index..."))
+                    self.db.rebuild_fts_index()
                     if res.hash_info:
                         self.hash_info_ready.emit(res.hash_info)
                     self.finished.emit(self.action, True, res.message)
