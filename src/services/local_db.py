@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import re
 import shutil
@@ -346,32 +347,41 @@ class LocalDatabase:
         return size_before, size_after
 
     def export_without_fts(self, dest: Path) -> None:
-        """Export a copy of the database with FTS tables/triggers stripped.
+        """Export a copy of the database with FTS tables/triggers stripped."""
+        dest_path = dest.absolute().as_posix()
+        if os.path.exists(dest_path):
+            os.remove(dest_path)
 
-        The exported file is a valid SQLite database containing all user data
-        (history, domains, backup_stats, hidden_records) but *without* the
-        history_fts virtual table or its shadow tables/triggers.  This makes
-        it much smaller for upload to WebDAV.  The caller is responsible for
-        deleting *dest* when done.
-        """
-        with self._lock:
-            # VACUUM INTO creates a defragmented, WAL-free copy.
-            src_conn = sqlite3.connect(str(self.db_path), timeout=30)
-            try:
-                src_conn.execute(f"VACUUM INTO '{dest}'")
-            finally:
-                src_conn.close()
+        with self._lock, self._conn(write=False) as conn:
+            # Need to use str(dest) as VACUUM INTO requires a string literal path in quotes
+            conn.execute(f"VACUUM INTO '{dest_path}'")
 
-        # Open the copy and drop the FTS virtual table (this also removes all
-        # shadow tables: _data, _idx, _content, _docsize, _config) and triggers.
-        dst_conn = sqlite3.connect(str(dest), timeout=30)
+        dst_conn = sqlite3.connect(dest_path, timeout=30)
         try:
-            dst_conn.isolation_level = None  # autocommit for DDL
-            dst_conn.execute("DROP TABLE IF EXISTS history_fts")
+            dst_conn.isolation_level = None  # autocommit for DDL and VACUUM
+
+            # 1. Drop triggers first to avoid any issues with virtual table removal
             dst_conn.execute("DROP TRIGGER IF EXISTS history_ai")
             dst_conn.execute("DROP TRIGGER IF EXISTS history_ad")
             dst_conn.execute("DROP TRIGGER IF EXISTS history_au")
+
+            # 2. Drop the FTS5 virtual table itself.
+            dst_conn.execute("DROP TABLE IF EXISTS history_fts")
+
+            # 3. Double-check that triggers are really gone (belt-and-suspenders)
+            cursor = dst_conn.execute("SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'history_%'")
+            for trigger_name in [row[0] for row in cursor.fetchall()]:
+                dst_conn.execute(f"DROP TRIGGER IF EXISTS {trigger_name}")
+
+            # 4. Reclaim all space previously occupied by FTS index
             dst_conn.execute("VACUUM")
+
+            cursor = dst_conn.execute("SELECT name FROM sqlite_master WHERE name LIKE 'history_fts%'")
+            leftovers = [row[0] for row in cursor.fetchall()]
+            if leftovers:
+                log.warning("FTS stripping completed with leftovers: %s", leftovers)
+            else:
+                log.info("FTS stripping successful: All related tables and triggers removed.")
         finally:
             dst_conn.close()
 

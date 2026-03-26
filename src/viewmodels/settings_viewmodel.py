@@ -32,6 +32,8 @@ class WebDavWorker(QObject):
                 self.finished.emit(self.action, res.success, res.message)
 
             elif self.action == "backup":
+                if self.db is not None:
+                    self.svc.set_local_db(self.db)
                 res = self.svc.sync(
                     progress_callback=self.progress.emit,
                     favicon_cache_dir=self.favicon_cache_dir,
@@ -112,6 +114,7 @@ class SettingsViewModel(QObject):
             pass
 
         svc = WebDavSyncService(wd_config, self._main_vm._db.db_path)
+        svc.set_local_db(self._main_vm._db)
 
         from src.utils.path_helper import get_config_dir
 

@@ -11,7 +11,11 @@ import os
 from pathlib import Path
 import tempfile
 import time
+from typing import TYPE_CHECKING
 import zipfile
+
+if TYPE_CHECKING:
+    from src.services.local_db import LocalDatabase
 
 from src.models.app_config import WebDavConfig
 from src.utils.constants import DB_FILENAME, FAVICON_DB_FILENAME, WEBDAV_BACKUP_NAME_PREFIX
@@ -82,7 +86,7 @@ class WebDavSyncService:
         self._db_path = db_path
         self._status = SyncStatus.IDLE
         self._last_result: SyncResult | None = None
-        self._local_db: "LocalDatabase | None" = None  # set by caller for FTS ops
+        self._local_db: LocalDatabase | None = None  # set by caller for FTS ops
 
     @property
     def status(self) -> SyncStatus:
@@ -99,7 +103,7 @@ class WebDavSyncService:
         self._config = config
         self._status = SyncStatus.IDLE
 
-    def set_local_db(self, db: "LocalDatabase") -> None:
+    def set_local_db(self, db: LocalDatabase) -> None:
         """Provide a LocalDatabase reference so sync/restore can manage FTS."""
         self._local_db = db
 
@@ -172,11 +176,13 @@ class WebDavSyncService:
 
             original_size = self._db_path.stat().st_size
             clean_size = clean_db_path.stat().st_size
+            saved = original_size - clean_size
             log.info(
-                "FTS stripped: %.1f MB → %.1f MB (saved %.1f MB)",
+                "FTS stripped: %.3f MB → %.3f MB (saved %.3f MB / %d bytes)",
                 original_size / 1024 / 1024,
                 clean_size / 1024 / 1024,
-                (original_size - clean_size) / 1024 / 1024,
+                saved / 1024 / 1024,
+                saved,
             )
 
             # ── Build zip archive with hash manifest ──────────
