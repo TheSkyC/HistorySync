@@ -44,6 +44,26 @@ class DbStats:
         return self.free_page_count / self.page_count * 100
 
 
+def _extract_url_host(url: str) -> str | None:
+    """Extract the hostname from a URL string, stripping scheme, port, path, and query.
+
+    Returns ``None`` for empty, malformed, or non-HTTP URLs so callers can
+    safely skip those rows without extra guards.
+    """
+    if not url:
+        return None
+    try:
+        s = url
+        if "://" in s:
+            s = s.split("://", 1)[1]
+        host = s.split("/")[0].split("?")[0].split("#")[0]
+        if ":" in host and not host.startswith("["):
+            host = host.rsplit(":", 1)[0]
+        return host.lower() or None
+    except Exception:
+        return None
+
+
 class LocalDatabase:
     def __init__(self, db_path: Path):
         self.db_path = db_path
@@ -347,7 +367,14 @@ class LocalDatabase:
         return size_before, size_after
 
     def export_without_fts(self, dest: Path) -> None:
-        """Export a copy of the database with FTS tables/triggers stripped."""
+        """Export a copy of the database with FTS tables/triggers stripped.
+
+        The exported file is a valid SQLite database containing all user data
+        (history, domains, backup_stats, hidden_records) but *without* the
+        history_fts virtual table or its shadow tables/triggers.  This makes
+        it much smaller for upload to WebDAV.  The caller is responsible for
+        deleting *dest* when done.
+        """
         dest_path = dest.absolute().as_posix()
         if os.path.exists(dest_path):
             os.remove(dest_path)
@@ -414,23 +441,9 @@ class LocalDatabase:
 
         _cb(_("Scanning for un-normalised URLs…"))
 
-        def _extract_host(url: str) -> str | None:
-            if not url:
-                return None
-            try:
-                s = url
-                if "://" in s:
-                    s = s.split("://", 1)[1]
-                host = s.split("/")[0].split("?")[0].split("#")[0]
-                if ":" in host and not host.startswith("["):
-                    host = host.rsplit(":", 1)[0]
-                return host.lower() or None
-            except Exception:
-                return None
-
         updated = 0
         with self._conn() as conn:
-            conn.create_function("_extract_host", 1, _extract_host)
+            conn.create_function("_extract_host", 1, _extract_url_host)
 
             _cb(_("Inserting new domain entries…"))
             conn.execute("""
@@ -477,22 +490,8 @@ class LocalDatabase:
         if not records:
             return 0
 
-        def _extract_host(url: str) -> str | None:
-            if not url:
-                return None
-            try:
-                s = url
-                if "://" in s:
-                    s = s.split("://", 1)[1]
-                host = s.split("/")[0].split("?")[0].split("#")[0]
-                if ":" in host and not host.startswith("["):
-                    host = host.rsplit(":", 1)[0]
-                return host.lower() or None
-            except Exception:
-                return None
-
         # Pre-compute host for every record once in Python (avoids per-row UDF round-trip)
-        rec_hosts = [_extract_host(r.url) for r in records]
+        rec_hosts = [_extract_url_host(r.url) for r in records]
 
         with self._conn() as conn:
             # 1. Bulk-insert any new domains

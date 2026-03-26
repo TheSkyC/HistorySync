@@ -78,20 +78,19 @@ def parse_query(text: str) -> SearchQuery:
                     pass
             elif token == "title":
                 query.title_only = True
-                # If title:value is used, 'value' is part of the keyword
-                # but we'll prioritize it in the final keyword construction
-                pass
+                # Replace 'title:value' with just 'value' so the keyword is preserved
+                remaining_text = re.sub(pattern, r"\1", remaining_text)
+                continue
             elif token == "url":
                 query.url_only = True
+                # Replace 'url:value' with just 'value' so the keyword is preserved
+                remaining_text = re.sub(pattern, r"\1", remaining_text)
+                continue
             elif token == "browser":
                 query.browser = val.lower()
 
             # Remove token from text
             remaining_text = re.sub(pattern, "", remaining_text)
-
-    # Special handling for field restriction prefix without value e.g. "title:python" vs "title: python"
-    # The regex above already handles title:value.
-    # If the user just typed "title: ", remaining_text will contain "title: ".
 
     query.keyword = " ".join(remaining_text.split()).strip()
     return query
