@@ -351,6 +351,7 @@ class HistoryViewModel(QObject):
     def __init__(self, db: LocalDatabase, favicon_manager: FaviconManager, parent=None):
         super().__init__(parent)
         self._db = db
+        self._favicon_manager = favicon_manager
         self._initialized = False
         self.table_model = HistoryTableModel(db, favicon_manager)
 

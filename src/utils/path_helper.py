@@ -84,6 +84,12 @@ def get_locales_dir() -> Path:
     return base / "resources" / "locales"
 
 
+def get_templates_dir() -> Path:
+    """返回 HTML 模板目录。"""
+    base = Path(sys._MEIPASS) if hasattr(sys, "_MEIPASS") else Path(__file__).parent.parent
+    return base / "resources" / "templates"
+
+
 def get_home() -> Path:
     return Path.home()
 

@@ -272,8 +272,16 @@ class HistoryPage(QWidget):
         self._status_label.setObjectName("muted")
         self._selection_label = QLabel("")
         self._selection_label.setObjectName("muted")
+
+        self._export_btn = QPushButton(_("Export…"))
+        self._export_btn.setIcon(get_icon("download"))
+        self._export_btn.setToolTip(_("Export current filtered results to CSV / JSON / HTML"))
+        self._export_btn.clicked.connect(self._open_export_dialog)
+
         bottom.addWidget(self._status_label)
         bottom.addStretch()
+        bottom.addWidget(self._export_btn)
+        bottom.addSpacing(8)
         bottom.addWidget(self._selection_label)
         root.addLayout(bottom)
 
@@ -623,6 +631,45 @@ class HistoryPage(QWidget):
 
     def refresh(self):
         self._vm.refresh()
+
+    def _open_export_dialog(self):
+        """Open the export dialog pre-filled with the current filter state (Entry A)."""
+        from pathlib import Path
+
+        from src.services.exporter import ResolvedExportParams
+        from src.views.export_dialog import ExportDialog
+
+        vm = self._vm.table_model  # HistoryTableModel
+
+        # Retrieve favicon_cache from the FaviconManager the viewmodel holds
+        favicon_cache = None
+        try:
+            favicon_cache = self._vm._favicon_manager._cache
+        except AttributeError:
+            pass
+
+        params = ResolvedExportParams(
+            output_path=Path(),  # user will choose inside dialog
+            fmt="csv",
+            columns=[],
+            embed_icons=False,
+            keyword=vm._keyword,
+            browser_type=vm._browser_type,
+            date_from=vm._date_from,
+            date_to=vm._date_to,
+            domain_ids=vm._domain_ids,
+            excludes=vm._excludes,
+            title_only=vm._title_only,
+            url_only=vm._url_only,
+            use_regex=vm._use_regex,
+        )
+        dlg = ExportDialog(
+            db=self._vm._db,
+            favicon_cache=favicon_cache,
+            resolved_params=params,
+            parent=self,
+        )
+        dlg.exec()
 
 
 def _qdate_to_unix(qdate: QDate, is_start: bool) -> int | None:

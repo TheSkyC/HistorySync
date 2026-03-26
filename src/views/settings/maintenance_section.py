@@ -46,6 +46,7 @@ class MaintenanceSection(QWidget):
     vacuum_requested = Signal()
     normalize_domains_requested = Signal()
     rebuild_fts_requested = Signal()
+    export_requested = Signal()  # Entry B: open ExportDialog with no pre-filter
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -104,9 +105,20 @@ class MaintenanceSection(QWidget):
         )
         self._fts_btn.clicked.connect(self.rebuild_fts_requested)
 
+        self._export_btn = QPushButton(_("Export History…"))
+        self._export_btn.setIcon(get_icon("download"))
+        self._export_btn.setToolTip(
+            _(
+                "Export the entire history database to CSV, JSON, or HTML.\n"
+                "You can filter by date range and choose which columns to include."
+            )
+        )
+        self._export_btn.clicked.connect(self.export_requested)
+
         btn_row.addWidget(self._vacuum_btn)
         btn_row.addWidget(self._normalize_btn)
         btn_row.addWidget(self._fts_btn)
+        btn_row.addWidget(self._export_btn)
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
@@ -124,7 +136,7 @@ class MaintenanceSection(QWidget):
         self._log_lbl.setWordWrap(True)
         layout.addWidget(self._log_lbl)
 
-        self._all_btns = [self._vacuum_btn, self._normalize_btn, self._fts_btn]
+        self._all_btns = [self._vacuum_btn, self._normalize_btn, self._fts_btn, self._export_btn]
 
     # ── Helpers ───────────────────────────────────────────────
 

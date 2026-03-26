@@ -59,9 +59,9 @@ class StartupSection(QWidget):
         color_map = {
             "success": "#4caf50",
             "warning": "#ff9800",
-            "error":   "#f44336",
-            "info":    "",   # inherits muted style
-            "":        "",
+            "error": "#f44336",
+            "info": "",  # inherits muted style
+            "": "",
         }
         self._status_lbl.setText(text)
         color = color_map.get(level, "")

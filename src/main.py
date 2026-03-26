@@ -34,6 +34,14 @@ Launch argument examples:
   python -m src.main --sync --backup      # Sync and backup after startup
   python -m src.main --headless --sync    # Headless sync then auto-exit (suitable for scheduled tasks)
   python -m src.main --headless --backup  # Headless backup then auto-exit
+
+Headless export examples (no GUI launched):
+  python -m src.main --export history.csv
+  python -m src.main --export history.json --keyword python --after 2024-01-01
+  python -m src.main --export report.html --format html --embed-icons --browser chrome
+  python -m src.main --export out.csv --columns title,url,visit_time --before 2024-12-31
+  python -m src.main --export out.csv --domain github.com --domain stackoverflow.com
+  python -m src.main --export out.json --keyword "^https://github" --regex
         """,
     )
 
@@ -98,12 +106,178 @@ Launch argument examples:
         ),
     )
 
+    # ── Headless Export ───────────────────────────────────────────────────────
+    export_group = parser.add_argument_group(
+        "Headless Export",
+        description=(
+            "Run a headless export and exit immediately. No Qt GUI is launched.\n"
+            "Example: python -m src.main --export history.csv --keyword python --after 2024-01-01"
+        ),
+    )
+    export_group.add_argument(
+        "--export",
+        metavar="FILE_PATH",
+        help=(
+            "Export history to FILE_PATH and exit. "
+            "Format is inferred from the file extension (.csv / .json / .html); "
+            "override with --format."
+        ),
+    )
+    export_group.add_argument(
+        "--format",
+        metavar="FORMAT",
+        choices=["csv", "json", "html"],
+        help="Export format: csv | json | html  (default: inferred from extension, fallback csv)",
+    )
+    export_group.add_argument(
+        "--columns",
+        metavar="COLS",
+        help=(
+            "Comma-separated list of columns to include. "
+            "Available: id,title,url,visit_time,visit_count,browser_type,profile_name,domain,metadata. "
+            "Default: all columns."
+        ),
+    )
+    export_group.add_argument(
+        "--embed-icons",
+        action="store_true",
+        help="Embed favicons as Base64 data-URIs (HTML export only).",
+    )
+    # Reuse existing query filters for --export
+    export_group.add_argument("--keyword", metavar="TEXT", help="Filter: keyword / regex (use with --regex)")
+    export_group.add_argument("--browser", metavar="TYPE", help="Filter: browser type (e.g. chrome, firefox, edge)")
+    export_group.add_argument("--after", metavar="DATE", help="Filter: include records on or after DATE (YYYY-MM-DD)")
+    export_group.add_argument("--before", metavar="DATE", help="Filter: include records on or before DATE (YYYY-MM-DD)")
+    export_group.add_argument(
+        "--domain",
+        metavar="HOST",
+        action="append",
+        help="Filter: restrict to domain (may be repeated, e.g. --domain github.com --domain google.com)",
+    )
+    export_group.add_argument("--regex", action="store_true", help="Treat --keyword as a Python regular expression")
+
     return parser
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Headless mode
+# Headless export
 # ══════════════════════════════════════════════════════════════════════════════
+
+
+def _cli_export_main(args: argparse.Namespace) -> int:
+    """
+    Perform a headless export then exit.
+
+    Zero Qt dependency for CSV / JSON.
+    HTML with --embed-icons also needs no Qt (FaviconCache is pure SQLite).
+    Returns 0 on success, 1 on error.
+    """
+    from datetime import datetime
+    import logging as _logging
+    from pathlib import Path
+    import sys
+
+    from src.models.app_config import AppConfig
+    from src.services.exporter import ALL_COLUMNS, Exporter, ResolvedExportParams
+    from src.services.favicon_cache import FaviconCache
+    from src.services.local_db import LocalDatabase
+    from src.utils.logger import get_logger, setup_logger
+    from src.utils.path_helper import get_log_dir
+
+    setup_logger(get_log_dir(), level=_logging.WARNING)
+    log = get_logger("main.export")
+
+    # ── Config ────────────────────────────────────────────────────────────────
+    if getattr(args, "fresh", False):
+        config = AppConfig()
+        config._fresh = True
+    else:
+        config = AppConfig.load()
+
+    # ── Output path & format ──────────────────────────────────────────────────
+    output_path = Path(args.export).expanduser().resolve()
+
+    if args.format:
+        fmt = args.format.lower()
+    else:
+        ext = output_path.suffix.lower()
+        fmt = {"json": "json", ".json": "json", ".html": "html", ".htm": "html"}.get(ext, "csv")
+
+    # ── Columns ───────────────────────────────────────────────────────────────
+    if args.columns:
+        requested = [c.strip() for c in args.columns.split(",")]
+        columns = [c for c in requested if c in ALL_COLUMNS]
+        if not columns:
+            return 1
+    else:
+        columns = []  # empty = all
+
+    # ── Date conversion ───────────────────────────────────────────────────────
+    def _parse_date_start(s: str) -> int:
+        try:
+            d = datetime.strptime(s.strip(), "%Y-%m-%d")
+            return int(d.replace(hour=0, minute=0, second=0).timestamp())
+        except ValueError:
+            sys.exit(1)
+
+    def _parse_date_end(s: str) -> int:
+        try:
+            d = datetime.strptime(s.strip(), "%Y-%m-%d")
+            return int(d.replace(hour=23, minute=59, second=59).timestamp())
+        except ValueError:
+            sys.exit(1)
+
+    date_from = _parse_date_start(args.after) if args.after else None
+    date_to = _parse_date_end(args.before) if args.before else None
+
+    # ── Domain → domain_ids ───────────────────────────────────────────────────
+    db = LocalDatabase(config.get_db_path())
+    domain_ids: list[int] | None = None
+    if args.domain:
+        ids: list[int] = []
+        with db._lock:
+            conn = db._ensure_conn()
+            for d in args.domain:
+                ids.extend(LocalDatabase._domain_ids_for(conn, d))
+        domain_ids = list(set(ids)) if ids else None
+
+    # ── Favicon cache (needed only for HTML + embed-icons) ────────────────────
+    favicon_cache: FaviconCache | None = None
+    if fmt == "html" and args.embed_icons:
+        favicon_cache = FaviconCache(config.get_favicon_db_path())
+
+    # ── Build params ──────────────────────────────────────────────────────────
+    params = ResolvedExportParams(
+        output_path=output_path,
+        fmt=fmt,
+        columns=columns,
+        embed_icons=bool(args.embed_icons),
+        keyword=args.keyword or "",
+        browser_type=args.browser or "",
+        date_from=date_from,
+        date_to=date_to,
+        domain_ids=domain_ids,
+        use_regex=bool(args.regex),
+    )
+
+    # ── Run export ────────────────────────────────────────────────────────────
+    exporter = Exporter(db, favicon_cache)
+
+    last_pct = [-1]
+
+    def _progress(current: int, total: int) -> None:
+        if total <= 0:
+            return
+        pct = int(current * 100 / total)
+        if pct != last_pct[0]:
+            last_pct[0] = pct
+
+    try:
+        exporter.export(params, progress_callback=_progress)
+        return 0
+    except Exception:
+        log.exception("Export failed")
+        return 1
 
 
 def _headless_main(args: argparse.Namespace) -> int:
@@ -507,8 +681,10 @@ def main():
         custom_dir = Path(args.config_dir).expanduser().resolve()
         set_runtime_paths(config_dir=custom_dir, data_dir=custom_dir)
 
-    # ── Step 3: Dispatch to headless or GUI ──────────────────────────────────
-    if args.headless:
+    # ── Step 3: Dispatch to headless export, headless sync, or GUI ──────────
+    if getattr(args, "export", None):
+        sys.exit(_cli_export_main(args))
+    elif args.headless:
         sys.exit(_headless_main(args))
     else:
         _gui_main(args)

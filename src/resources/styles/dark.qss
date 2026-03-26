@@ -680,3 +680,16 @@ QLabel#browser_card_badge {
     background: transparent;
 }
 
+/* ── QGroupBox (修复布局塌陷) ──────────────────────── */
+QGroupBox {
+    margin-top: 20px; 
+    border: none;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0px;
+    color: #4a5068; 
+    font-weight: 600;
+}

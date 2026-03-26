@@ -64,9 +64,11 @@ def _field_row(label_text: str, field: QLineEdit) -> QHBoxLayout:
 
 # ── Reuse _StrengthBar and _pw_score from the wizard ──────────────────────────
 
+
 def _get_strength_helpers():
     """Import shared strength UI from first_run_wizard to avoid duplication."""
     from src.views.first_run_wizard import _pw_score, _StrengthBar
+
     return _StrengthBar, _pw_score
 
 
@@ -178,10 +180,12 @@ class MasterPasswordSetDialog(QDialog):
         title_row.addStretch()
         layout.addLayout(title_row)
 
-        desc = QLabel(_(
-            "The master password protects sensitive settings (WebDAV credentials, sync config, privacy rules). "
-            "You will be asked to enter it before any protected action."
-        ))
+        desc = QLabel(
+            _(
+                "The master password protects sensitive settings (WebDAV credentials, sync config, privacy rules). "
+                "You will be asked to enter it before any protected action."
+            )
+        )
         desc.setWordWrap(True)
         desc.setStyleSheet("color: #888; font-size: 12px;")
         layout.addWidget(desc)

@@ -27,7 +27,7 @@ class SecuritySection(QWidget):
     发出 password_changed(new_hash) 信号，由 SettingsPage 负责写入 config。
     """
 
-    password_changed = Signal(str)   # new_hash (可能为空字符串 = 已移除)
+    password_changed = Signal(str)  # new_hash (可能为空字符串 = 已移除)
     lock_session_requested = Signal()
 
     def __init__(self, parent=None):
@@ -52,10 +52,12 @@ class SecuritySection(QWidget):
         layout.addLayout(status_row)
 
         # ── 说明 ───────────────────────────────────────────────
-        self._desc_label = QLabel(_(
-            "A master password protects sensitive settings from unauthorized changes.\n"
-            "You will be prompted before modifying WebDAV credentials, sync config, or privacy rules."
-        ))
+        self._desc_label = QLabel(
+            _(
+                "A master password protects sensitive settings from unauthorized changes.\n"
+                "You will be prompted before modifying WebDAV credentials, sync config, or privacy rules."
+            )
+        )
         self._desc_label.setWordWrap(True)
         self._desc_label.setStyleSheet("color: #888; font-size: 12px;")
         layout.addWidget(self._desc_label)
@@ -140,6 +142,7 @@ class SecuritySection(QWidget):
 
     def _on_set_password(self):
         from src.views.master_password_dialog import MasterPasswordSetDialog
+
         dlg = MasterPasswordSetDialog(self)
         if dlg.exec():
             new_hash = dlg.get_hash()
@@ -153,6 +156,7 @@ class SecuritySection(QWidget):
             MasterPasswordChangeDialog,
             require_master_password,
         )
+
         if not require_master_password(self._stored_hash, self):
             return
         dlg = MasterPasswordChangeDialog(self._stored_hash, self)
@@ -174,10 +178,7 @@ class SecuritySection(QWidget):
         reply = QMessageBox.warning(
             self,
             _("Remove Master Password"),
-            _(
-                "Are you sure you want to remove the master password?\n\n"
-                "This will leave your settings unprotected."
-            ),
+            _("Are you sure you want to remove the master password?\n\nThis will leave your settings unprotected."),
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )

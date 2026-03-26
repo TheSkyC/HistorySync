@@ -85,7 +85,7 @@ class AppConfig:
     theme: str = "dark"  # "dark" | "light" | "system"
     last_backup_ts: int = 0
     last_sync_ts: int = 0
-    master_password_hash: str = ""   # bcrypt hash; empty = no password set
+    master_password_hash: str = ""  # bcrypt hash; empty = no password set
     first_run_completed: bool = False
 
     # ── 运行时标志（不持久化）─────────────────────────────────────────────────

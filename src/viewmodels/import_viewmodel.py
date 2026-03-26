@@ -110,7 +110,9 @@ class ImportWorker(QObject):
                 if self._cancelled:
                     break
 
-                self.progress.emit(idx, total, task.file_path.name, _("Saving {n} records…").format(n=f"{len(records):,}"))
+                self.progress.emit(
+                    idx, total, task.file_path.name, _("Saving {n} records…").format(n=f"{len(records):,}")
+                )
 
                 try:
                     inserted = self._db.upsert_records(records) if records else 0

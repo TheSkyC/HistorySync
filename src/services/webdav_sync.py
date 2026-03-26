@@ -172,6 +172,7 @@ class WebDavSyncService:
                 self._local_db.export_without_fts(clean_db_path)
             else:
                 import shutil as _shutil
+
                 _shutil.copy2(self._db_path, clean_db_path)
 
             original_size = self._db_path.stat().st_size

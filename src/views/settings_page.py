@@ -204,6 +204,7 @@ class SettingsPage(QWidget):
         self._sec_maint.vacuum_requested.connect(lambda: self._run_maintenance("vacuum"))
         self._sec_maint.normalize_domains_requested.connect(lambda: self._run_maintenance("normalize_domains"))
         self._sec_maint.rebuild_fts_requested.connect(lambda: self._run_maintenance("rebuild_fts"))
+        self._sec_maint.export_requested.connect(self._open_export_dialog)
         self._refresh_db_stats()
 
         # Security
@@ -217,6 +218,7 @@ class SettingsPage(QWidget):
     def _save(self):
         # ── 主密码保护 ────────────────────────────────────────
         from src.views.master_password_dialog import require_master_password
+
         cfg = self._vm.get_config()
         if not require_master_password(cfg.master_password_hash, self):
             return
@@ -384,6 +386,7 @@ class SettingsPage(QWidget):
 
     def _on_add_blacklist_domain(self, domain: str):
         from src.views.master_password_dialog import require_master_password
+
         cfg = self._vm.get_config()
         if not require_master_password(cfg.master_password_hash, self):
             return
@@ -400,6 +403,7 @@ class SettingsPage(QWidget):
 
     def _on_remove_blacklist_domain(self, domain: str):
         from src.views.master_password_dialog import require_master_password
+
         cfg = self._vm.get_config()
         if not require_master_password(cfg.master_password_hash, self):
             return
@@ -410,6 +414,7 @@ class SettingsPage(QWidget):
 
     def _on_clear_hidden(self):
         from src.views.master_password_dialog import require_master_password
+
         cfg = self._vm.get_config()
         if not require_master_password(cfg.master_password_hash, self):
             return
@@ -520,3 +525,22 @@ class SettingsPage(QWidget):
             return
         self._next_backup_ts = compute_next_backup_ts(self._vm.get_config())
         self._update_countdowns()
+
+    def _open_export_dialog(self):
+        """Entry B: open ExportDialog with no pre-filled filter (export all)."""
+        from src.views.export_dialog import ExportDialog
+
+        db = self._vm._main_vm._db
+        favicon_cache = None
+        try:
+            favicon_cache = self._vm._main_vm._favicon_manager._cache
+        except AttributeError:
+            pass
+
+        dlg = ExportDialog(
+            db=db,
+            favicon_cache=favicon_cache,
+            resolved_params=None,  # Entry B — no pre-existing filter
+            parent=self,
+        )
+        dlg.exec()
