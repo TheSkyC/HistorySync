@@ -431,6 +431,7 @@ _BROWSER_NAMES: dict[str, str] = {
     "whale": "Naver Whale",
     "waterfox": "Waterfox",
     "librewolf": "LibreWolf",
+    "seamonkey": "SeaMonkey",
 }
 
 

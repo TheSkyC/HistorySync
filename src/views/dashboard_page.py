@@ -188,6 +188,10 @@ class BrowserCard(QFrame):
             r"C:\Program Files\Tor Browser\Browser\firefox.exe",
             r"%USERPROFILE%\Desktop\Tor Browser\Browser\firefox.exe",
         ],
+        "seamonkey": [
+            r"C:\Program Files\Mozilla SeaMonkey\seamonkey.exe",
+            r"C:\Program Files (x86)\Mozilla SeaMonkey\seamonkey.exe",
+        ],
     }
 
     _LAUNCH_HINTS: dict[str, list[str]] = {
@@ -209,6 +213,7 @@ class BrowserCard(QFrame):
         "waterfox": ["waterfox"],
         "safari": ["open", "-a", "Safari"],
         "tor_browser": ["torbrowser-launcher", "tor-browser"],
+        "seamonkey": ["seamonkey"],
     }
 
     def __init__(self, browser_type: str, display_name: str, parent=None):
@@ -394,7 +399,7 @@ class _EmptyState(QWidget):
 class BrowserSettingsDialog(QDialog):
     """浏览器同步设置对话框：启用/禁用各浏览器，支持重新检测。"""
 
-    browser_sync_changed = Signal(str, bool)   # (browser_type, enabled)
+    browser_sync_changed = Signal(str, bool)  # (browser_type, enabled)
     redetect_requested = Signal()
 
     def __init__(self, disabled_browsers: set[str], parent=None):
@@ -422,7 +427,9 @@ class BrowserSettingsDialog(QDialog):
         title_row.addStretch()
         root.addLayout(title_row)
 
-        desc = QLabel(_("Enable or disable history sync for each browser.\nDisabled browsers will not be scanned during sync."))
+        desc = QLabel(
+            _("Enable or disable history sync for each browser.\nDisabled browsers will not be scanned during sync.")
+        )
         desc.setWordWrap(True)
         desc.setStyleSheet("font-size: 12px; color: #888;")
         root.addWidget(desc)
@@ -535,6 +542,7 @@ class BrowserSettingsDialog(QDialog):
             return
         # We need to know if it was detected; re-check from what we stored
         from src.services.browser_defs import BUILTIN_BROWSERS
+
         bdef = next((b for b in BUILTIN_BROWSERS if b.browser_type == browser_type), None)
         is_detected = bdef.is_history_available() if bdef else False
         if is_detected:
@@ -564,7 +572,7 @@ class BrowserSettingsDialog(QDialog):
         for bt, cb in self._checkboxes.items():
             enabled = cb.isChecked()
             was_disabled = bt in self._disabled_browsers
-            if enabled == was_disabled:   # state changed
+            if enabled == was_disabled:  # state changed
                 self.browser_sync_changed.emit(bt, enabled)
         self.accept()
 
@@ -882,6 +890,7 @@ class DashboardPage(QWidget):
                 "waterfox": "Waterfox",
                 "safari": "Safari",
                 "tor_browser": "Tor Browser",
+                "seamonkey": "SeaMonkey",
             }
             app_name = name_map.get(browser_type)
             if app_name:

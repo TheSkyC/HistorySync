@@ -428,6 +428,7 @@ class HistoryPage(QWidget):
             "librewolf": "LibreWolf",
             "uc": "UC Browser",
             "coccoc": "Cốc Cốc",
+            "seamonkey": "SeaMonkey",
         }
         for bt in browser_types:
             icon = get_browser_icon(bt, size=16)

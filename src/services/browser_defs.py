@@ -244,6 +244,7 @@ def _resolve_firefox_dirs(browser_type: str = "firefox") -> tuple[Path, ...]:
             "librewolf": appdata / "librewolf",
             "palemoon": appdata / "Moonchild Productions" / "Pale Moon",
             "basilisk": appdata / "Moonchild Productions" / "Basilisk",
+            "seamonkey": appdata / "Mozilla" / "SeaMonkey",
         }
         d = mapping.get(browser_type)
         return (d,) if d else (appdata / "Mozilla" / "Firefox",)
@@ -254,6 +255,7 @@ def _resolve_firefox_dirs(browser_type: str = "firefox") -> tuple[Path, ...]:
             "waterfox": sup / "Waterfox",
             "librewolf": sup / "librewolf",
             "palemoon": sup / "Pale Moon",
+            "seamonkey": sup / "SeaMonkey",
         }
         d = mapping.get(browser_type)
         return (d,) if d else (sup / "Firefox",)
@@ -264,6 +266,7 @@ def _resolve_firefox_dirs(browser_type: str = "firefox") -> tuple[Path, ...]:
         "librewolf": [home / ".librewolf"],
         "palemoon": [home / ".moonchild productions" / "pale moon"],
         "basilisk": [home / ".moonchild productions" / "basilisk"],
+        "seamonkey": [home / ".mozilla" / "seamonkey"],
     }
     dirs = mapping.get(browser_type, [home / ".mozilla" / "firefox"])
     return tuple(dirs)
@@ -339,6 +342,7 @@ BUILTIN_BROWSERS: list[BrowserDef] = [
     _make_def("librewolf", "LibreWolf", "firefox"),
     _make_def("palemoon", "Pale Moon", "firefox"),
     _make_def("basilisk", "Basilisk", "firefox"),
+    _make_def("seamonkey", "SeaMonkey", "firefox"),
     # Safari
     _make_def("safari", "Safari", "safari"),
 ]
