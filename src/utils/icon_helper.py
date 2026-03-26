@@ -124,7 +124,9 @@ def _find_browser_icon_path(browser_type: str) -> Path | None:
     返回找到的第一个路径，否则 None。
     """
     browsers_dir = _ICONS_DIR / "browsers"
-    for name in (browser_type, "web"):
+    browser_type_hyphen = browser_type.replace("_", "-")
+    candidates = dict.fromkeys([browser_type, browser_type_hyphen, "web"])
+    for name in candidates:
         for ext in (".svg", ".png"):
             path = browsers_dir / f"{name}{ext}"
             if path.is_file():
