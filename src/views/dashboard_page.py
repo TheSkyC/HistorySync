@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import os
+from pathlib import Path
 import subprocess
 import webbrowser
 
@@ -773,7 +774,7 @@ class DashboardPage(QWidget):
             if browser_type in BrowserCard._WINDOWS_BROWSERS:
                 for path in BrowserCard._WINDOWS_BROWSERS[browser_type]:
                     expanded_path = os.path.expandvars(path)
-                    if os.path.exists(expanded_path):
+                    if Path(expanded_path).exists():
                         try:
                             os.startfile(expanded_path)
                             log.info("Launched %s using direct path: %s", browser_type, expanded_path)

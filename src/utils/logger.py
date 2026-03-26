@@ -8,16 +8,15 @@ import sys
 
 from src.utils.constants import APP_NAME, LOG_BACKUP_COUNT, LOG_FILENAME, LOG_MAX_BYTES
 
-_initialized = False
+_state = {"initialized": False}
 _logger = logging.getLogger(APP_NAME)
 
 
 def setup_logger(log_dir: Path, level: int = logging.INFO) -> logging.Logger:
-    global _initialized
-    if _initialized:
+    if _state["initialized"]:
         return _logger
 
-    _initialized = True
+    _state["initialized"] = True
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / LOG_FILENAME
 

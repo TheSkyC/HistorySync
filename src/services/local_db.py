@@ -6,7 +6,6 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-import os
 from pathlib import Path
 import re
 import shutil
@@ -376,8 +375,8 @@ class LocalDatabase:
         deleting *dest* when done.
         """
         dest_path = dest.absolute().as_posix()
-        if os.path.exists(dest_path):
-            os.remove(dest_path)
+        if dest.exists():
+            dest.unlink()
 
         with self._lock, self._conn(write=False) as conn:
             # Need to use str(dest) as VACUUM INTO requires a string literal path in quotes

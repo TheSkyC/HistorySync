@@ -9,8 +9,7 @@ import sys
 
 from src.utils.constants import APP_NAME
 
-_runtime_config_dir: Path | None = None
-_runtime_data_dir: Path | None = None
+_runtime_paths: dict[str, Path | None] = {"config_dir": None, "data_dir": None}
 
 
 def set_runtime_paths(
@@ -28,10 +27,9 @@ def set_runtime_paths(
         覆盖数据目录（history.db、logs、favicon_cache 等）。
         若未单独指定但 config_dir 有值，则与 config_dir 相同（Portable 语义）。
     """
-    global _runtime_config_dir, _runtime_data_dir
-    _runtime_config_dir = config_dir
+    _runtime_paths["config_dir"] = config_dir
     # 若 data_dir 未单独指定但 config_dir 有值，则让数据与配置同目录（portable 语义）
-    _runtime_data_dir = data_dir if data_dir is not None else config_dir
+    _runtime_paths["data_dir"] = data_dir if data_dir is not None else config_dir
 
 
 # ── 平台默认路径计算 ───────────────────────────────
@@ -60,16 +58,16 @@ def _default_data_dir() -> Path:
 
 def get_config_dir() -> Path:
     """返回配置目录（config.json、secret.key 等所在位置）。"""
-    return _runtime_config_dir if _runtime_config_dir is not None else _default_config_dir()
+    return _runtime_paths["config_dir"] if _runtime_paths["config_dir"] is not None else _default_config_dir()
 
 
 def get_app_data_dir() -> Path:
     """返回应用数据根目录（DB、日志、favicon 缓存等）。"""
-    return _runtime_data_dir if _runtime_data_dir is not None else _default_data_dir()
+    return _runtime_paths["data_dir"] if _runtime_paths["data_dir"] is not None else _default_data_dir()
 
 
 def get_log_dir() -> Path:
-    if sys.platform == "darwin" and _runtime_data_dir is None:
+    if sys.platform == "darwin" and _runtime_paths["data_dir"] is None:
         return Path.home() / "Library" / "Logs" / APP_NAME
     return get_app_data_dir() / "logs"
 

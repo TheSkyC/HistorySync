@@ -45,14 +45,13 @@ class MasterPasswordSession:
             self._last_activity = time.monotonic()
 
 
-_session: MasterPasswordSession | None = None
+_state: dict[str, MasterPasswordSession | None] = {"session": None}
 
 
 def get_session() -> MasterPasswordSession:
-    global _session
-    if _session is None:
-        _session = MasterPasswordSession()
-    return _session
+    if _state["session"] is None:
+        _state["session"] = MasterPasswordSession()
+    return _state["session"]  # type: ignore[return-value]
 
 
 # ── Password hashing helpers ──────────────────────────────────────────────────
