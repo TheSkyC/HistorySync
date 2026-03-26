@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 
 from src.utils.constants import APP_NAME
 from src.utils.i18n import _
-from src.utils.icon_helper import get_app_icon
+from src.utils.icon_helper import get_app_icon, make_transparent_icon
 from src.utils.logger import get_logger
 from src.utils.path_helper import get_log_dir
 from src.utils.theme_manager import ThemeManager
@@ -51,6 +51,9 @@ class MainWindow(QMainWindow):
             self.setWindowTitle(f"{APP_NAME}  {_('[Fresh Mode]')}")
         else:
             self.setWindowTitle(APP_NAME)
+        # 移除标题栏默认图标：注入完全透明的像素图标覆盖系统默认值。
+        # 任务栏和 Alt+Tab 切换器仍使用 QApplication 层的图标，不受影响。
+        self.setWindowIcon(make_transparent_icon())
         self.setMinimumSize(900, 600)
         self.resize(main_vm._config.window_width, main_vm._config.window_height)
         if main_vm._config.window_x >= 0 and main_vm._config.window_y >= 0:

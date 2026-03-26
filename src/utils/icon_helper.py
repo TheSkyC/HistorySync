@@ -181,6 +181,14 @@ def get_browser_icon(browser_type: str, size: int = 20) -> QIcon:
     return icon
 
 
+def make_transparent_icon() -> QIcon:
+    px = QPixmap(16, 16)
+    px.fill(QColor(0, 0, 0, 0))
+    icon = QIcon()
+    icon.addPixmap(px, QIcon.Normal, QIcon.Off)
+    return icon
+
+
 def get_app_icon() -> QIcon:
     """
     加载应用主图标。

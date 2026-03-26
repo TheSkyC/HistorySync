@@ -495,6 +495,12 @@ def _gui_main(args: argparse.Namespace) -> None:
     ThemeManager.instance().apply_sync(app, config.theme)
     app.setQuitOnLastWindowClosed(False)
 
+    from src.utils.icon_helper import get_app_icon as _get_app_icon
+
+    _app_icon = _get_app_icon()
+    if not _app_icon.isNull():
+        app.setWindowIcon(_app_icon)
+
     # ── 5. ViewModel ─────────────────────────────────────────────────────────
     main_vm = MainViewModel(config)
 
