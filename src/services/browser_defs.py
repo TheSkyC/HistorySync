@@ -144,7 +144,7 @@ def _parse_firefox_profiles_ini(base_dir: Path, ini_path: Path, db_filename: str
             yield name or profile_dir.name, db
 
 
-_LINUX_UNAVAILABLE: frozenset[str] = frozenset({"chrome_canary"})
+_LINUX_UNAVAILABLE: frozenset[str] = frozenset({"chrome_canary", "edge_canary"})
 """Browser types that have no Linux release and should resolve to zero paths on Linux."""
 
 
@@ -160,6 +160,9 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
             "chrome_dev": [local / "Google" / "Chrome Dev" / "User Data"],
             "chrome_for_testing": [local / "Google" / "Chrome for Testing" / "User Data"],
             "edge": [local / "Microsoft" / "Edge" / "User Data"],
+            "edge_beta": [local / "Microsoft" / "Edge Beta" / "User Data"],
+            "edge_dev": [local / "Microsoft" / "Edge Dev" / "User Data"],
+            "edge_canary": [local / "Microsoft" / "Edge SxS" / "User Data"],
             "brave": [local / "BraveSoftware" / "Brave-Browser" / "User Data"],
             "brave_beta": [local / "BraveSoftware" / "Brave-Browser-Beta" / "User Data"],
             "brave_dev": [local / "BraveSoftware" / "Brave-Browser-Dev" / "User Data"],
@@ -184,6 +187,9 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
             "chrome_dev": [sup / "Google" / "Chrome Dev"],
             "chrome_for_testing": [sup / "Google" / "Chrome for Testing"],
             "edge": [sup / "Microsoft Edge"],
+            "edge_beta": [sup / "Microsoft Edge Beta"],
+            "edge_dev": [sup / "Microsoft Edge Dev"],
+            "edge_canary": [sup / "Microsoft Edge Canary"],
             "brave": [sup / "BraveSoftware" / "Brave-Browser"],
             "brave_beta": [sup / "BraveSoftware" / "Brave-Browser-Beta"],
             "brave_dev": [sup / "BraveSoftware" / "Brave-Browser-Dev"],
@@ -208,6 +214,9 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
             "chrome_dev": [cfg_home / "google-chrome-unstable"],
             "chrome_for_testing": [cfg_home / "google-chrome-for-testing"],
             "edge": [cfg_home / "microsoft-edge"],
+            "edge_beta": [cfg_home / "microsoft-edge-beta"],
+            "edge_dev": [cfg_home / "microsoft-edge-dev"],
+            # edge_canary intentionally omitted — no Linux release (see _LINUX_UNAVAILABLE)
             "brave": [cfg_home / "BraveSoftware" / "Brave-Browser"],
             "brave_beta": [cfg_home / "BraveSoftware" / "Brave-Browser-Beta"],
             "brave_dev": [cfg_home / "BraveSoftware" / "Brave-Browser-Dev"],
@@ -308,6 +317,9 @@ BUILTIN_BROWSERS: list[BrowserDef] = [
     _make_def("chrome_dev", "Google Chrome Dev", "chromium"),
     _make_def("chrome_for_testing", "Google Chrome for Testing", "chromium"),
     _make_def("edge", "Microsoft Edge", "chromium"),
+    _make_def("edge_beta", "Microsoft Edge Beta", "chromium"),
+    _make_def("edge_dev", "Microsoft Edge Dev", "chromium"),
+    _make_def("edge_canary", "Microsoft Edge Canary", "chromium"),
     _make_def("brave", "Brave", "chromium"),
     _make_def("brave_beta", "Brave Beta", "chromium"),
     _make_def("brave_dev", "Brave Dev", "chromium"),
