@@ -61,7 +61,10 @@ class MainWindow(QMainWindow):
         self._setup_global_shortcuts()
 
         self._theme_btn.set_theme(main_vm._config.theme)
-        QTimer.singleShot(200, self._vm.start)
+        if main_vm._config.first_run_completed:
+            QTimer.singleShot(200, self._vm.start)
+        else:
+            QTimer.singleShot(200, self._vm.start_ui)
 
     # ── UI construction ───────────────────────────────────────
 

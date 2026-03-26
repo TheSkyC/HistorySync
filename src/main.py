@@ -379,10 +379,20 @@ def _gui_main(args: argparse.Namespace) -> None:
         def _show_first_run():
             wizard = FirstRunWizard(config, window if not should_minimize else None)
             wizard.exec()
-            # 向导可能设置了主密码——刷新 SettingsPage 安全模块，使其显示最新状态
             window._page_settings.reload_security()
-            # 向导可能修改了 disabled_browsers，通知 VM 重新加载配置
             main_vm.reload_extractor_config()
+
+            if not config.first_run_completed:
+                config.first_run_completed = True
+                log.info("First-run wizard: safety-net marking first_run_completed=True")
+            try:
+                config.save()
+            except Exception as exc:
+                log.warning("First-run wizard: safety-net save failed: %s", exc)
+
+            main_vm.start_scheduler()
+            log.info("First-run wizard: scheduler started")
+
             # 如果用户勾选了"立即同步"，延迟触发一次同步
             if wizard.should_sync_on_finish:
                 log.info("First-run wizard: triggering initial sync")

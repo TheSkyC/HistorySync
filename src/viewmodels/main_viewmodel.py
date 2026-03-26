@@ -65,14 +65,27 @@ class MainViewModel(QObject):
         self.history_vm = HistoryViewModel(self._db, self._favicon_manager, parent=self)
 
     def start(self) -> None:
+        """Start all subsystems.  On first-run, call start_ui() now and
+        defer start_scheduler() until after the setup wizard finishes."""
+        self.start_ui()
+        self.start_scheduler()
+
+    def start_ui(self) -> None:
+        """Start UI-facing subsystems (history, monitor, stats) without
+        arming the sync/backup scheduler.  Call this on first-run so the
+        dashboard is responsive while the wizard is open."""
+        self.history_vm.set_hidden_ids(self._db.get_hidden_ids())
+        self._monitor.start()
+        self._emit_stats()
+
+    def start_scheduler(self) -> None:
+        """Arm the sync/backup scheduler.  Safe to call more than once —
+        Scheduler.start() stops any running timers before re-configuring."""
         self._scheduler.start(
             self._config.scheduler,
             last_sync_ts=self._config.last_sync_ts,
             last_backup_ts=self._config.last_backup_ts,
         )
-        self.history_vm.set_hidden_ids(self._db.get_hidden_ids())
-        self._monitor.start()
-        self._emit_stats()
 
     # ── Public sync operations ─────────────────────────────────
 
