@@ -139,6 +139,15 @@ class BrowserCard(QFrame):
             r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
             r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe",
         ],
+        "brave_beta": [
+            r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser-Beta\Application\brave.exe",
+        ],
+        "brave_dev": [
+            r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser-Dev\Application\brave.exe",
+        ],
+        "brave_nightly": [
+            r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser-Nightly\Application\brave.exe",
+        ],
         "vivaldi": [
             r"C:\Program Files\Vivaldi\Application\vivaldi.exe",
             r"C:\Program Files (x86)\Vivaldi\Application\vivaldi.exe",
@@ -177,6 +186,9 @@ class BrowserCard(QFrame):
         "chromium": ["chromium-browser", "chromium", "google-chrome"],
         "edge": ["microsoft-edge", "msedge"],
         "brave": ["brave-browser", "brave"],
+        "brave_beta": ["brave-browser-beta", "brave-beta"],
+        "brave_dev": ["brave-browser-dev", "brave-dev"],
+        "brave_nightly": ["brave-browser-nightly", "brave-nightly"],
         "vivaldi": ["vivaldi-stable", "vivaldi"],
         "opera": ["opera"],
         "opera_gx": ["opera"],
@@ -790,6 +802,9 @@ class DashboardPage(QWidget):
                 "firefox": "firefox",
                 "opera": "opera",
                 "brave": "brave",
+                "brave_beta": "brave-beta",
+                "brave_dev": "brave-dev",
+                "brave_nightly": "brave-nightly",
                 "vivaldi": "vivaldi",
             }
 
@@ -810,6 +825,9 @@ class DashboardPage(QWidget):
                 "edge": ["msedge", "MicrosoftEdge", "edge"],
                 "firefox": ["firefox", "Firefox"],
                 "brave": ["brave", "Brave"],
+                "brave_beta": ["brave-beta", "brave"],
+                "brave_dev": ["brave-dev", "brave"],
+                "brave_nightly": ["brave-nightly", "brave"],
                 "opera": ["opera", "Opera"],
                 "vivaldi": ["vivaldi", "Vivaldi"],
                 "chromium": ["chromium", "chrome"],
@@ -832,6 +850,9 @@ class DashboardPage(QWidget):
                 "chromium": "Chromium",
                 "edge": "Microsoft Edge",
                 "brave": "Brave Browser",
+                "brave_beta": "Brave Browser Beta",
+                "brave_dev": "Brave Browser Dev",
+                "brave_nightly": "Brave Browser Nightly",
                 "vivaldi": "Vivaldi",
                 "opera": "Opera",
                 "opera_gx": "Opera GX",

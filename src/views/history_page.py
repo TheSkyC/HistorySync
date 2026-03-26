@@ -403,8 +403,15 @@ class HistoryPage(QWidget):
         self._browser_combo.addItem(_("All Browsers"), "")
         labels = {
             "chrome": "Chrome",
+            "chrome_beta": "Chrome Beta",
+            "chrome_canary": "Chrome Canary",
+            "chrome_dev": "Chrome Dev",
+            "chrome_for_testing": "Chrome for Testing",
             "edge": "Edge",
             "brave": "Brave",
+            "brave_beta": "Brave Beta",
+            "brave_dev": "Brave Dev",
+            "brave_nightly": "Brave Nightly",
             "firefox": "Firefox",
             "opera": "Opera",
             "opera_gx": "Opera GX",

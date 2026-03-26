@@ -408,8 +408,15 @@ class HistoryViewModel(QObject):
 
 _BROWSER_NAMES: dict[str, str] = {
     "chrome": "Google Chrome",
+    "chrome_beta": "Google Chrome Beta",
+    "chrome_canary": "Google Chrome Canary",
+    "chrome_dev": "Google Chrome Dev",
+    "chrome_for_testing": "Google Chrome for Testing",
     "edge": "Microsoft Edge",
     "brave": "Brave",
+    "brave_beta": "Brave Beta",
+    "brave_dev": "Brave Dev",
+    "brave_nightly": "Brave Nightly",
     "firefox": "Mozilla Firefox",
     "opera": "Opera",
     "opera_gx": "Opera GX",
