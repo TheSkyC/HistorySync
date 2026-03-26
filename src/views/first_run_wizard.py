@@ -225,15 +225,14 @@ class _BrowserSyncPage(_PageBase):
         layout.addSpacing(8)
 
         # Select-all / select-none buttons row
-        from PySide6.QtWidgets import QHBoxLayout as _HBL, QPushButton as _PB
 
-        btn_row = _HBL()
+        btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
         btn_row.setContentsMargins(0, 0, 0, 0)
-        self._btn_all = _PB(_("Select All"))
+        self._btn_all = QPushButton(_("Select All"))
         self._btn_all.setFixedHeight(30)
         self._btn_all.setStyleSheet("font-size: 12px;")
-        self._btn_none = _PB(_("Deselect All"))
+        self._btn_none = QPushButton(_("Deselect All"))
         self._btn_none.setFixedHeight(30)
         self._btn_none.setStyleSheet("font-size: 12px;")
         btn_row.addWidget(self._btn_all)
@@ -334,11 +333,11 @@ class _StrengthBar(QWidget):
 
     # Colour stops: (score_threshold, hex_color)
     _STOPS = [
-        "#e05252",  # 0 – Very weak
-        "#e07050",  # 1 – Weak
-        "#e0a030",  # 2 – Fair
-        "#a0c020",  # 3 – Good
-        "#34a853",  # 4 – Strong
+        "#e05252",  # 0 - Very weak
+        "#e07050",  # 1 - Weak
+        "#e0a030",  # 2 - Fair
+        "#a0c020",  # 3 - Good
+        "#34a853",  # 4 - Strong
     ]
     _LABELS = [
         lambda: _("Very weak"),
