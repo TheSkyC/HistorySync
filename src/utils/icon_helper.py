@@ -115,6 +115,12 @@ def _svg_to_pixmap_colorful(svg_path: str | Path, size: int) -> QPixmap:
     return px
 
 
+_BROWSER_ICON_ALIASES: dict[str, str] = {
+    "chrome_for_testing": "chrome-test",
+    "chrome-for-testing": "chrome-test",
+}
+
+
 def _find_browser_icon_path(browser_type: str) -> Path | None:
     """
     按优先级查找浏览器图标文件：
@@ -125,7 +131,8 @@ def _find_browser_icon_path(browser_type: str) -> Path | None:
     """
     browsers_dir = _ICONS_DIR / "browsers"
     browser_type_hyphen = browser_type.replace("_", "-")
-    candidates = dict.fromkeys([browser_type, browser_type_hyphen, "web"])
+    alias = _BROWSER_ICON_ALIASES.get(browser_type) or _BROWSER_ICON_ALIASES.get(browser_type_hyphen)
+    candidates = dict.fromkeys(filter(None, [alias, browser_type, browser_type_hyphen, "web"]))
     for name in candidates:
         for ext in (".svg", ".png"):
             path = browsers_dir / f"{name}{ext}"
@@ -143,6 +150,7 @@ def _load_browser_pixmap_raw(path: Path, size: int) -> QPixmap:
         return QPixmap()
     if px.width() != size or px.height() != size:
         from PySide6.QtCore import Qt
+
         px = px.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
     return px
 

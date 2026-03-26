@@ -25,6 +25,13 @@ class BrowserDef:
     engine: Engine
     _data_dirs: tuple[Path, ...] = field(default=(), compare=False, hash=False, repr=False)
 
+    def is_available_on_platform(self) -> bool:
+        """Return False if this browser has no release for the current OS.
+
+        Currently the only case is Chrome Canary on Linux.
+        """
+        return self.browser_type not in _LINUX_UNAVAILABLE or sys.platform in ("win32", "darwin")
+
     def get_data_dirs(self) -> list[Path]:
         return list(self._data_dirs)
 
@@ -137,6 +144,10 @@ def _parse_firefox_profiles_ini(base_dir: Path, ini_path: Path, db_filename: str
             yield name or profile_dir.name, db
 
 
+_LINUX_UNAVAILABLE: frozenset[str] = frozenset({"chrome_canary"})
+"""Browser types that have no Linux release and should resolve to zero paths on Linux."""
+
+
 def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
     home = Path.home()
     if sys.platform == "win32":
@@ -144,6 +155,10 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
         roaming = Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
         mapping = {
             "chrome": [local / "Google" / "Chrome" / "User Data"],
+            "chrome_beta": [local / "Google" / "Chrome Beta" / "User Data"],
+            "chrome_canary": [local / "Google" / "Chrome SxS" / "User Data"],
+            "chrome_dev": [local / "Google" / "Chrome Dev" / "User Data"],
+            "chrome_for_testing": [local / "Google" / "Chrome for Testing" / "User Data"],
             "edge": [local / "Microsoft" / "Edge" / "User Data"],
             "brave": [local / "BraveSoftware" / "Brave-Browser" / "User Data"],
             "opera": [roaming / "Opera Software" / "Opera Stable"],
@@ -161,6 +176,10 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
         sup = home / "Library" / "Application Support"
         mapping = {
             "chrome": [sup / "Google" / "Chrome"],
+            "chrome_beta": [sup / "Google" / "Chrome Beta"],
+            "chrome_canary": [sup / "Google" / "Chrome Canary"],
+            "chrome_dev": [sup / "Google" / "Chrome Dev"],
+            "chrome_for_testing": [sup / "Google" / "Chrome for Testing"],
             "edge": [sup / "Microsoft Edge"],
             "brave": [sup / "BraveSoftware" / "Brave-Browser"],
             "opera": [sup / "com.operasoftware.Opera"],
@@ -178,6 +197,10 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
         snap = home / "snap"
         mapping = {
             "chrome": [cfg_home / "google-chrome", cfg_home / "chromium"],
+            "chrome_beta": [cfg_home / "google-chrome-beta"],
+            # chrome_canary intentionally omitted — no Linux release (see _LINUX_UNAVAILABLE)
+            "chrome_dev": [cfg_home / "google-chrome-unstable"],
+            "chrome_for_testing": [cfg_home / "google-chrome-for-testing"],
             "edge": [cfg_home / "microsoft-edge"],
             "brave": [cfg_home / "BraveSoftware" / "Brave-Browser"],
             "opera": [cfg_home / "opera"],
@@ -237,7 +260,10 @@ def _resolve_safari_dirs() -> tuple[Path, ...]:
 
 def _make_def(browser_type: str, display_name: str, engine: Engine) -> BrowserDef:
     if engine == "chromium":
-        dirs = _resolve_chromium_dirs(browser_type)
+        if sys.platform != "win32" and sys.platform != "darwin" and browser_type in _LINUX_UNAVAILABLE:
+            dirs: tuple[Path, ...] = ()
+        else:
+            dirs = _resolve_chromium_dirs(browser_type)
     elif engine == "safari":
         dirs = _resolve_safari_dirs()
     else:
@@ -268,6 +294,10 @@ def make_custom_chromium_def(
 BUILTIN_BROWSERS: list[BrowserDef] = [
     # Chromium-based
     _make_def("chrome", "Google Chrome", "chromium"),
+    _make_def("chrome_beta", "Google Chrome Beta", "chromium"),
+    _make_def("chrome_canary", "Google Chrome Canary", "chromium"),
+    _make_def("chrome_dev", "Google Chrome Dev", "chromium"),
+    _make_def("chrome_for_testing", "Google Chrome for Testing", "chromium"),
     _make_def("edge", "Microsoft Edge", "chromium"),
     _make_def("brave", "Brave", "chromium"),
     _make_def("opera", "Opera", "chromium"),
