@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
     QDateEdit,
     QDialog,
     QFileDialog,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -37,6 +36,7 @@ from src.services.local_db import LocalDatabase
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
+from src.views.option_selector import OptionSelector
 
 log = get_logger("export_dialog")
 
@@ -214,7 +214,7 @@ class ExportDialog(QDialog):
         fmt_layout.addLayout(combo_row)
 
         # 移动到下方，并默认设为不可见
-        self._embed_icons_chk = QCheckBox(_("Embed favicons (HTML only)"))
+        self._embed_icons_chk = QCheckBox(_("Embed favicons"))
         self._embed_icons_chk.setVisible(False)
         fmt_layout.addWidget(self._embed_icons_chk)
 
@@ -228,28 +228,19 @@ class ExportDialog(QDialog):
         col_select_all = QHBoxLayout()
         select_all_btn = QPushButton(_("Select All"))
         select_none_btn = QPushButton(_("Select None"))
-        select_all_btn.clicked.connect(lambda: self._set_all_columns(True))
-        select_none_btn.clicked.connect(lambda: self._set_all_columns(False))
+        select_all_btn.clicked.connect(self._select_all_columns)
+        select_none_btn.clicked.connect(self._select_no_columns)
         col_select_all.addWidget(select_all_btn)
         col_select_all.addWidget(select_none_btn)
         col_select_all.addStretch()
         col_outer.addLayout(col_select_all)
 
-        # Grid layout: 5 columns wide, wraps naturally
-        col_grid = QGridLayout()
-        col_grid.setContentsMargins(4, 0, 4, 4)
-        col_grid.setHorizontalSpacing(20)
-        col_grid.setVerticalSpacing(6)
+        # Animated toggle-button selector — colours are managed by ThemeManager
+        _options = [(col, _(_COLUMN_HEADERS.get(col, col))) for col in ALL_COLUMNS]
+        self._col_selector = OptionSelector(_options)
+        self._col_selector.select_all()
+        col_outer.addWidget(self._col_selector)
 
-        self._col_checks: dict[str, QCheckBox] = {}
-        COLS_PER_ROW = 5
-        for i, col in enumerate(ALL_COLUMNS):
-            chk = QCheckBox(_COLUMN_HEADERS.get(col, col))
-            chk.setChecked(True)
-            col_grid.addWidget(chk, i // COLS_PER_ROW, i % COLS_PER_ROW)
-            self._col_checks[col] = chk
-
-        col_outer.addLayout(col_grid)
         root.addWidget(col_group)
 
         # ── Output path ──────────────────────────────────────────────────────
@@ -365,9 +356,11 @@ class ExportDialog(QDialog):
                 self._date_warning.setVisible(False)
         self._refresh_count()
 
-    def _set_all_columns(self, checked: bool) -> None:
-        for chk in self._col_checks.values():
-            chk.setChecked(checked)
+    def _select_all_columns(self) -> None:
+        self._col_selector.select_all()
+
+    def _select_no_columns(self) -> None:
+        self._col_selector.select_none()
 
     def _browse(self) -> None:
         fmt = self._fmt_combo.currentData()
@@ -419,7 +412,7 @@ class ExportDialog(QDialog):
         from_ts = _qdate_to_unix_start(self._date_from.date())
         to_ts = _qdate_to_unix_end(self._date_to.date())
         fmt = self._fmt_combo.currentData() or "csv"
-        columns = [col for col, chk in self._col_checks.items() if chk.isChecked()]
+        columns = self._col_selector.get_selection()
         embed = self._embed_icons_chk.isChecked()
 
         if self._entry_a and self._resolved_params:
@@ -463,7 +456,7 @@ class ExportDialog(QDialog):
         if params is None:
             return
 
-        columns = [col for col, chk in self._col_checks.items() if chk.isChecked()]
+        columns = self._col_selector.get_selection()
         if not columns:
             QMessageBox.warning(self, _("No Columns"), _("Please select at least one column to export."))
             return
@@ -536,8 +529,7 @@ class ExportDialog(QDialog):
         self._date_to.setEnabled(enabled)
         self._fmt_combo.setEnabled(enabled)
         self._embed_icons_chk.setEnabled(enabled)
-        for chk in self._col_checks.values():
-            chk.setEnabled(enabled)
+        self._col_selector.setEnabled(enabled)
         self._path_edit.setEnabled(enabled)
 
     def _open_output_folder(self) -> None:
