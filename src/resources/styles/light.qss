@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2025-2026, TheSkyC
+  Copyright (c) 2026, TheSkyC
   SPDX-License-Identifier: Apache-2.0
   Light theme
 */
@@ -215,6 +215,11 @@ QLineEdit:focus {
 QLineEdit:disabled {
     color: #b4b8c8;
     background-color: #f0f2f5;
+}
+
+/* ── PasswordEdit ──────────── */
+PasswordEdit {
+    padding-right: 32px;
 }
 
 QLineEdit#search_box {
@@ -681,7 +686,7 @@ QLabel#browser_card_badge {
     background: transparent;
 }
 
-/* ── QGroupBox (修复布局塌陷) ──────────────────────── */
+/* ── QGroupBox ──────────────────────── */
 QGroupBox {
     margin-top: 20px; 
     border: none;

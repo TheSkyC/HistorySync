@@ -23,6 +23,7 @@ from src.models.app_config import WebDavConfig
 from src.utils.constants import WEBDAV_DEFAULT_REMOTE_PATH
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
+from src.views.password_edit import PasswordEdit
 
 
 class WebDavSection(QWidget):
@@ -96,8 +97,7 @@ class WebDavSection(QWidget):
         self._user = QLineEdit()
         self._user.setPlaceholderText(_("Username:").rstrip(":"))
 
-        self._password = QLineEdit()
-        self._password.setEchoMode(QLineEdit.Password)
+        self._password = PasswordEdit()
 
         self._path = QLineEdit()
         self._path.setPlaceholderText(WEBDAV_DEFAULT_REMOTE_PATH)

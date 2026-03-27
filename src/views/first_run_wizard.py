@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QPushButton,
     QSpinBox,
@@ -23,6 +22,7 @@ from src.models.app_config import AppConfig
 from src.utils.i18n import _
 from src.utils.icon_helper import get_browser_pixmap, get_icon
 from src.utils.logger import get_logger
+from src.views.password_edit import PasswordEdit
 
 log = get_logger("view.first_run_wizard")
 
@@ -461,28 +461,14 @@ class _MasterPasswordPage(_PageBase):
 
         layout.addSpacing(8)
 
-        def pw_row(label: str) -> tuple[QHBoxLayout, QLineEdit]:
+        def pw_row(label: str) -> tuple[QHBoxLayout, PasswordEdit]:
             row = QHBoxLayout()
             lbl = QLabel(label)
             lbl.setMinimumWidth(140)
-            field = QLineEdit()
-            field.setEchoMode(QLineEdit.Password)
+            field = PasswordEdit()
             field.setMinimumWidth(220)
-
-            eye_btn = QPushButton()
-            eye_btn.setFixedSize(30, 30)
-            eye_btn.setCheckable(True)
-            eye_btn.setStyleSheet("border: none; background: transparent;")
-            eye_icon = get_icon("eye", 16)
-            if not eye_icon.isNull():
-                eye_btn.setIcon(eye_icon)
-            eye_btn.toggled.connect(
-                lambda checked, f=field: f.setEchoMode(QLineEdit.Normal if checked else QLineEdit.Password)
-            )
-
             row.addWidget(lbl)
             row.addWidget(field)
-            row.addWidget(eye_btn)
             return row, field
 
         row1, self._pw1 = pw_row(_("New password:"))
@@ -491,7 +477,7 @@ class _MasterPasswordPage(_PageBase):
 
         # Strength bar (sits right under pw1, aligned with the input field)
         strength_container = QHBoxLayout()
-        strength_container.setContentsMargins(140, 0, 30, 0)  # align with input field
+        strength_container.setContentsMargins(140, 0, 0, 0)  # align with input field (eye btn is inside PasswordEdit)
         self._strength_bar = _StrengthBar()
         strength_container.addWidget(self._strength_bar)
         layout.addLayout(strength_container)

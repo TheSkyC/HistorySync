@@ -9,8 +9,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
-    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -18,6 +16,7 @@ from PySide6.QtWidgets import (
 from src.utils.i18n import _
 from src.utils.logger import get_logger
 from src.utils.master_key_manager import get_session, hash_password, verify_password
+from src.views.password_edit import PasswordEdit
 
 log = get_logger("view.master_password_dialog")
 
@@ -25,40 +24,19 @@ log = get_logger("view.master_password_dialog")
 # ── shared helpers ─────────────────────────────────────────────────────────────
 
 
-def _password_field(placeholder: str = "") -> QLineEdit:
-    w = QLineEdit()
-    w.setEchoMode(QLineEdit.Password)
+def _password_field(placeholder: str = "") -> PasswordEdit:
+    w = PasswordEdit()
     w.setPlaceholderText(placeholder)
     w.setMinimumWidth(280)
     return w
 
 
-def _eye_toggle(field: QLineEdit, parent: QWidget | None = None) -> QPushButton:
-    from src.utils.icon_helper import get_icon
-
-    btn = QPushButton(parent)
-    btn.setFixedSize(32, 32)
-    btn.setCheckable(True)
-    btn.setToolTip(_("Show / hide password"))
-    btn.setStyleSheet("QPushButton { border: none; background: transparent; }")
-    icon = get_icon("eye", 16)
-    if not icon.isNull():
-        btn.setIcon(icon)
-
-    def _toggle(checked: bool):
-        field.setEchoMode(QLineEdit.Normal if checked else QLineEdit.Password)
-
-    btn.toggled.connect(_toggle)
-    return btn
-
-
-def _field_row(label_text: str, field: QLineEdit) -> QHBoxLayout:
+def _field_row(label_text: str, field: PasswordEdit) -> QHBoxLayout:
     row = QHBoxLayout()
     lbl = QLabel(label_text)
     lbl.setMinimumWidth(120)
     row.addWidget(lbl)
     row.addWidget(field)
-    row.addWidget(_eye_toggle(field))
     return row
 
 
@@ -200,7 +178,7 @@ class MasterPasswordSetDialog(QDialog):
 
         # Strength bar aligned with input field (lbl=120 + eye=32 gap)
         bar_container = QHBoxLayout()
-        bar_container.setContentsMargins(124, 0, 36, 0)
+        bar_container.setContentsMargins(124, 0, 0, 0)
         self._strength_bar = _StrengthBar()
         self._strength_bar.setFixedHeight(28)
         bar_container.addWidget(self._strength_bar)
@@ -300,7 +278,7 @@ class MasterPasswordChangeDialog(QDialog):
 
         # Strength bar
         bar_container = QHBoxLayout()
-        bar_container.setContentsMargins(124, 0, 36, 0)
+        bar_container.setContentsMargins(124, 0, 0, 0)
         self._strength_bar = _StrengthBar()
         self._strength_bar.setFixedHeight(22)
         bar_container.addWidget(self._strength_bar)
