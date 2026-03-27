@@ -578,7 +578,8 @@ def _create_chromium_db(path: Path, rows: list[tuple]) -> None:
             url TEXT,
             title TEXT,
             last_visit_time INTEGER,
-            visit_count INTEGER
+            visit_count INTEGER,
+            typed_count INTEGER DEFAULT 0
         )
     """)
     conn.executemany(
@@ -767,7 +768,8 @@ def _create_firefox_db(path: Path, rows: list[tuple]) -> None:
             last_visit_date INTEGER,
             visit_count INTEGER,
             hidden INTEGER DEFAULT 0,
-            description TEXT
+            description TEXT,
+            typed INTEGER DEFAULT 0
         )
     """)
     conn.executemany(

@@ -566,7 +566,6 @@ class LocalDatabase:
                     transition_type  = excluded.transition_type,
                     visit_duration   = excluded.visit_duration
             """
-            inserted = 0
             _BULK = 2000  # larger batches amortise per-executemany overhead
             for i in range(0, len(records), _BULK):
                 batch = records[i : i + _BULK]
@@ -587,11 +586,13 @@ class LocalDatabase:
                     )
                     for j, r in enumerate(batch)
                 ]
-                cursor = conn.executemany(sql, params)
-                if cursor.rowcount >= 0:
-                    inserted += cursor.rowcount
+                conn.executemany(sql, params)
 
-            # 6. Commit the history inserts, then restore FTS triggers.
+            # 6. Count truly new rows using the id watermark (ON CONFLICT DO UPDATE
+            #    reports rowcount=1 for both inserts and updates, so rowcount is unreliable).
+            inserted: int = conn.execute("SELECT COUNT(*) FROM history WHERE id > ?", (max_id_before,)).fetchone()[0]
+
+            # 7. Commit the history inserts, then restore FTS triggers.
             conn.commit()
             conn.executescript("""
                 CREATE TRIGGER IF NOT EXISTS history_ai AFTER INSERT ON history BEGIN
