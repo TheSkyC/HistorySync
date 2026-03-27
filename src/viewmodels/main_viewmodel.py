@@ -76,8 +76,10 @@ class MainViewModel(QObject):
         """Start UI-facing subsystems (history, monitor, stats) without
         arming the sync/backup scheduler.  Call this on first-run so the
         dashboard is responsive while the wizard is open."""
+        from PySide6.QtCore import QTimer
+
         self.history_vm.set_hidden_ids(self._db.get_hidden_ids())
-        self._monitor.start()
+        QTimer.singleShot(1000, self._monitor.start)
         self._emit_stats()
 
     def start_scheduler(self) -> None:

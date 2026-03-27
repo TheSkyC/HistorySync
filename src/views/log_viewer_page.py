@@ -80,8 +80,15 @@ class LogViewerPage(QWidget):
         # 主题切换时重新着色日志
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
 
-        # Initial load
-        self._load_full_log()
+        # _load_full_log() is deferred to showEvent so it does NOT run during
+        # application startup (saves ~150 ms + 25 K _level_colors calls).
+        self._log_loaded = False
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._log_loaded:
+            self._log_loaded = True
+            self._load_full_log()
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -267,6 +274,9 @@ class LogViewerPage(QWidget):
 
         filtered: list[tuple[str, str]] = []  # (line_text, color_hex)
 
+        # Resolve color map once for the whole batch — not per line.
+        colors = _level_colors()
+
         for line in lines:
             if not line.strip():
                 continue
@@ -287,7 +297,7 @@ class LogViewerPage(QWidget):
             if keyword and keyword not in line.lower():
                 continue
 
-            color = _level_colors().get(line_level, _level_colors().get("INFO", "#d4d4d4"))
+            color = colors.get(line_level, colors.get("INFO", "#d4d4d4"))
             filtered.append((line, color))
 
         if not filtered:

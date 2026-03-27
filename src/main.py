@@ -559,7 +559,8 @@ def _gui_main(args: argparse.Namespace) -> None:
         def _show_first_run():
             wizard = FirstRunWizard(config, window if not should_minimize else None)
             wizard.exec()
-            window._page_settings.reload_security()
+            if window._page_settings is not None:
+                window._page_settings.reload_security()
             main_vm.reload_extractor_config()
 
             if not config.first_run_completed:

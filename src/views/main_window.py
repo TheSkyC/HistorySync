@@ -25,10 +25,7 @@ from src.utils.theme_manager import ThemeManager
 from src.viewmodels.main_viewmodel import MainViewModel
 from src.viewmodels.settings_viewmodel import SettingsViewModel
 from src.views.dashboard_page import DashboardPage
-from src.views.history_page import HistoryPage
-from src.views.log_viewer_page import LogViewerPage
 from src.views.nav_widgets import NavButton, ThemeButton
-from src.views.settings_page import SettingsPage
 
 log = get_logger("view.main_window")
 
@@ -143,15 +140,19 @@ class MainWindow(QMainWindow):
         self._stack = QStackedWidget()
         self._stack.setObjectName("content_area")
 
+        # Only the first-visible page is built eagerly; the rest use cheap
+        # placeholder QWidgets so Qt has no widget tree to polish at show().
         self._page_dashboard = DashboardPage()
-        self._page_history = HistoryPage(self._vm.history_vm, self._vm._config)
-        self._page_settings = SettingsPage(self._settings_vm)
-        self._page_logs = LogViewerPage(get_log_dir())
+        self._stack.addWidget(self._page_dashboard)  # index 0
 
-        self._stack.addWidget(self._page_dashboard)
-        self._stack.addWidget(self._page_history)
-        self._stack.addWidget(self._page_settings)
-        self._stack.addWidget(self._page_logs)
+        # Placeholders occupy the correct stack indices until first access.
+        for _ in range(3):
+            self._stack.addWidget(QWidget())  # indices 1, 2, 3
+
+        # Lazy page references — None until the user navigates there.
+        self._page_history = None
+        self._page_settings = None
+        self._page_logs = None
 
         self._nav_dashboard.clicked.connect(lambda: self._switch_page(PAGE_DASHBOARD))
         self._nav_history.clicked.connect(lambda: self._switch_page(PAGE_HISTORY))
@@ -160,6 +161,15 @@ class MainWindow(QMainWindow):
         self._switch_page(PAGE_DASHBOARD)
 
         return self._stack
+
+    # ── Lazy page construction ─────────────────────────────────
+
+    def _replace_placeholder(self, index: int, new_widget: QWidget) -> None:
+        """Swap the placeholder at *index* for the real page widget."""
+        old = self._stack.widget(index)
+        self._stack.removeWidget(old)
+        self._stack.insertWidget(index, new_widget)
+        old.deleteLater()
 
     def _setup_global_shortcuts(self):
         QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(self._vm.trigger_sync)
@@ -179,18 +189,17 @@ class MainWindow(QMainWindow):
         vm.browser_status_changed.connect(self._on_browser_status_changed)
         vm.records_deleted.connect(self._on_records_deleted)
         vm.domain_blacklisted.connect(self._on_domain_blacklisted)
-        vm.backup_finished.connect(lambda ok, _msg: self._page_settings.notify_backup_happened(ok))
+        # backup_finished → settings page is guarded in _on_backup_finished
+        vm.backup_finished.connect(self._on_backup_finished)
 
+        # DashboardPage is always eager — connect directly.
         self._page_dashboard.sync_requested.connect(vm.trigger_sync)
         self._page_dashboard.sync_browser_requested.connect(vm.trigger_sync_browser)
         self._page_dashboard.browser_sync_toggle_requested.connect(vm.toggle_browser_sync)
         self._page_dashboard.redetect_browsers_requested.connect(vm.force_redetect_browsers)
         self._page_dashboard.view_history_requested.connect(self._on_view_browser_history)
-        self._page_settings.saved.connect(self._on_settings_saved)
-
-        self._page_history.delete_records_requested.connect(self._on_delete_records)
-        self._page_history.hide_records_requested.connect(self._on_hide_records)
-        self._page_history.blacklist_domain_requested.connect(self._on_blacklist_domain)
+        # HistoryPage / SettingsPage / LogViewerPage signals are wired up in
+        # _switch_page() the first time those pages are created.
 
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
 
@@ -215,13 +224,39 @@ class MainWindow(QMainWindow):
     def _switch_page(self, index: int):
         for i, btn in enumerate(self._nav_buttons):
             btn.setChecked(i == index)
+
+        # ── Lazy page construction ─────────────────────────────
+        if index == PAGE_HISTORY and self._page_history is None:
+            from src.views.history_page import HistoryPage
+
+            self._page_history = HistoryPage(self._vm.history_vm, self._vm._config)
+            self._replace_placeholder(PAGE_HISTORY, self._page_history)
+            # Wire up signals now that the page exists.
+            self._page_history.delete_records_requested.connect(self._on_delete_records)
+            self._page_history.hide_records_requested.connect(self._on_hide_records)
+            self._page_history.blacklist_domain_requested.connect(self._on_blacklist_domain)
+
+        elif index == PAGE_SETTINGS and self._page_settings is None:
+            from src.views.settings_page import SettingsPage
+
+            self._page_settings = SettingsPage(self._settings_vm)
+            self._replace_placeholder(PAGE_SETTINGS, self._page_settings)
+            self._page_settings.saved.connect(self._on_settings_saved)
+
+        elif index == PAGE_LOGS and self._page_logs is None:
+            from src.views.log_viewer_page import LogViewerPage
+
+            self._page_logs = LogViewerPage(get_log_dir())
+            self._replace_placeholder(PAGE_LOGS, self._page_logs)
+
         self._stack.setCurrentIndex(index)
+
         if index == PAGE_HISTORY and not self._history_initialized:
             self._history_initialized = True
             QTimer.singleShot(0, self._vm.history_vm.initialize)
 
     def _focus_history_search(self):
-        self._switch_page(PAGE_HISTORY)
+        self._switch_page(PAGE_HISTORY)  # creates page if needed
         self._page_history._focus_search()
 
     # ── VM signal handlers ────────────────────────────────────
@@ -239,10 +274,16 @@ class MainWindow(QMainWindow):
         import time as _time
 
         self._page_dashboard.on_sync_finished(new_count)
-        self._page_history.refresh()
+        if self._page_history is not None:
+            self._page_history.refresh()
         self._status_bar.showMessage(_("Sync complete — {count} new records").format(count=new_count), 5000)
         self._progress_label.setText("")
-        self._page_settings.notify_sync_happened(int(_time.time()))
+        if self._page_settings is not None:
+            self._page_settings.notify_sync_happened(int(_time.time()))
+
+    def _on_backup_finished(self, ok: bool, _msg: str):
+        if self._page_settings is not None:
+            self._page_settings.notify_backup_happened(ok)
 
     def _on_sync_error(self, msg: str):
         self._page_dashboard.on_sync_error(msg)
@@ -268,7 +309,7 @@ class MainWindow(QMainWindow):
         self._vm.history_vm.set_hidden_ids(self._vm.get_hidden_ids())
 
     def _on_view_browser_history(self, browser_type: str):
-        self._switch_page(PAGE_HISTORY)
+        self._switch_page(PAGE_HISTORY)  # creates page if needed
         self._page_history.filter_by_browser(browser_type)
 
     def _on_delete_records(self, ids: list[int]):
@@ -286,7 +327,8 @@ class MainWindow(QMainWindow):
         self._status_bar.showMessage(
             _("'{domain}' blacklisted — {n} record(s) deleted").format(domain=domain, n=deleted), 6000
         )
-        self._page_settings.add_blacklist_domain(domain)
+        if self._page_settings is not None:
+            self._page_settings.add_blacklist_domain(domain)
 
     def _on_records_deleted(self, n: int):
         log.info("Deleted %d records via privacy action", n)
@@ -317,3 +359,7 @@ class MainWindow(QMainWindow):
             cfg.save()
         except Exception:
             pass
+
+    @property
+    def page_settings(self):
+        return self._page_settings

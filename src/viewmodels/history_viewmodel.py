@@ -158,7 +158,7 @@ class HistoryTableModel(QAbstractTableModel):
 
         return None
 
-    def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
+    def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:  # noqa: PLR0911
         if not index.isValid():
             return None
         if role not in (
