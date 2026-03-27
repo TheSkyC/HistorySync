@@ -453,12 +453,12 @@ class BrowserSettingsDialog(QDialog):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         scroll.setMinimumHeight(120)
-        scroll.setMaximumHeight(280)
 
         inner = QWidget()
         cb_layout = QVBoxLayout(inner)
         cb_layout.setSpacing(6)
         cb_layout.setContentsMargins(4, 4, 4, 4)
+        cb_layout.setAlignment(Qt.AlignTop)
 
         from src.services.browser_defs import BUILTIN_BROWSERS
 
@@ -512,6 +512,8 @@ class BrowserSettingsDialog(QDialog):
             row.addWidget(cb, 1)
             row.addWidget(dot)
             cb_layout.addLayout(row)
+
+        cb_layout.addStretch()  # absorb extra vertical space so items stay compact
 
         scroll.setWidget(inner)
         root.addWidget(scroll, 1)

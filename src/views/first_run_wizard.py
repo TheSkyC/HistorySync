@@ -255,7 +255,8 @@ class _BrowserSyncPage(_PageBase):
         self._cb_layout.setContentsMargins(0, 4, 0, 4)
         self._cb_layout.setAlignment(Qt.AlignTop)
         scroll.setWidget(inner)
-        layout.addWidget(scroll, 1)  # stretch=1: grows with window, capped by maxHeight
+        layout.addWidget(scroll)  # no stretch — trailing addStretch absorbs extra height
+        layout.addStretch(1)  # all extra wizard-page height absorbed here, items stay compact
 
         self._checkboxes: dict[str, QCheckBox] = {}
         self._populate_browsers()
@@ -311,6 +312,8 @@ class _BrowserSyncPage(_PageBase):
             row.addWidget(dot)
 
             self._cb_layout.addLayout(row)
+
+        self._cb_layout.addStretch()  # absorb extra vertical space so items stay compact
 
     def _on_select_all(self):
         for cb in self._checkboxes.values():
@@ -607,6 +610,7 @@ class FirstRunWizard(QDialog):
         self.setWindowTitle(_("HistorySync — First-Time Setup"))
         self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint & ~Qt.WindowContextHelpButtonHint)
         self.setMinimumSize(520, 420)
+        self.setMaximumHeight(520)
         self.resize(520, 460)
         self._build_ui()
 
