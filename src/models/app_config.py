@@ -71,11 +71,20 @@ class PrivacyConfig:
 
 
 @dataclass
+class UIConfig:
+    """UI preferences including visible columns."""
+
+    visible_columns: list = field(default_factory=lambda: ["title", "url", "browser", "visit_time"])
+    column_widths: dict = field(default_factory=dict)
+
+
+@dataclass
 class AppConfig:
     webdav: WebDavConfig = field(default_factory=WebDavConfig)
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
     extractor: ExtractorConfig = field(default_factory=ExtractorConfig)
     privacy: PrivacyConfig = field(default_factory=PrivacyConfig)
+    ui: UIConfig = field(default_factory=UIConfig)
     window_x: int = -1
     window_y: int = -1
     window_width: int = DEFAULT_WINDOW_WIDTH
@@ -139,6 +148,7 @@ class AppConfig:
             "scheduler": asdict(self.scheduler),
             "extractor": asdict(self.extractor),
             "privacy": asdict(self.privacy),
+            "ui": asdict(self.ui),
             "window_x": self.window_x,
             "window_y": self.window_y,
             "window_width": self.window_width,
@@ -180,6 +190,8 @@ class AppConfig:
             cfg.privacy = PrivacyConfig(
                 **{k: v for k, v in d["privacy"].items() if k in PrivacyConfig.__dataclass_fields__}
             )
+        if "ui" in d:
+            cfg.ui = UIConfig(**{k: v for k, v in d["ui"].items() if k in UIConfig.__dataclass_fields__})
         for key in (
             "window_x",
             "window_y",

@@ -33,12 +33,20 @@ CACHE_PAGE_SIZE = PAGE_SIZE
 # 最多在内存中保留多少页
 MAX_CACHED_PAGES = 10
 
-# Column indices
-COL_TITLE = 0
-COL_URL = 1
-COL_BROWSER = 2
-COL_TIME = 3
-COLUMN_COUNT = 4
+# Column definitions - all available columns
+ALL_COLUMNS = {
+    "title": {"index": 0, "label_key": "Page Title", "align": Qt.AlignLeft},
+    "url": {"index": 1, "label_key": "URL", "align": Qt.AlignLeft},
+    "browser": {"index": 2, "label_key": "Browser", "align": Qt.AlignCenter, "icon_only": True},
+    "visit_time": {"index": 3, "label_key": "Visit Time", "align": Qt.AlignCenter},
+    "visit_count": {"index": 4, "label_key": "Visit Count", "align": Qt.AlignCenter},
+    "domain": {"index": 5, "label_key": "Domain", "align": Qt.AlignLeft},
+    "profile_name": {"index": 6, "label_key": "Profile", "align": Qt.AlignLeft},
+    "metadata": {"index": 7, "label_key": "Description", "align": Qt.AlignLeft},
+}
+
+# Default visible columns
+DEFAULT_VISIBLE_COLUMNS = ["title", "url", "browser", "visit_time", "visit_count", "domain", "profile_name"]
 
 
 class HistoryTableModel(QAbstractTableModel):
@@ -47,11 +55,16 @@ class HistoryTableModel(QAbstractTableModel):
     """
 
     total_count_changed = Signal(int)
+    columns_changed = Signal()
 
-    def __init__(self, db: LocalDatabase, favicon_manager: FaviconManager, parent=None):
+    def __init__(self, db: LocalDatabase, favicon_manager: FaviconManager, visible_columns=None, parent=None):
         super().__init__(parent)
         self._db = db
         self._favicon_manager = favicon_manager
+
+        # Visible columns configuration
+        self._visible_columns = visible_columns or DEFAULT_VISIBLE_COLUMNS
+        self._update_column_mapping()
 
         # 过滤参数
         self._keyword = ""
@@ -76,6 +89,30 @@ class HistoryTableModel(QAbstractTableModel):
 
     # ── Public API ───────────────────────────────────────────
 
+    def _update_column_mapping(self):
+        """Update column index mapping based on visible columns."""
+        self._col_to_key = {}
+        self._key_to_col = {}
+        for display_idx, key in enumerate(self._visible_columns):
+            self._col_to_key[display_idx] = key
+            self._key_to_col[key] = display_idx
+
+    def set_visible_columns(self, columns: list[str]) -> None:
+        """Update which columns are visible."""
+        self.beginResetModel()
+        self._visible_columns = columns
+        self._update_column_mapping()
+        self.endResetModel()
+        self.columns_changed.emit()
+
+    def get_visible_columns(self) -> list[str]:
+        """Get list of currently visible column keys."""
+        return self._visible_columns.copy()
+
+    def get_all_columns(self) -> dict:
+        """Get all available column definitions."""
+        return ALL_COLUMNS.copy()
+
     def set_hidden_ids(self, ids: set[int]) -> None:
         self._hidden_ids = ids
         self.reload()
@@ -86,19 +123,35 @@ class HistoryTableModel(QAbstractTableModel):
         return self._total_count
 
     def columnCount(self, parent=QModelIndex()) -> int:
-        return COLUMN_COUNT
+        return len(self._visible_columns)
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole) -> Any:
         if orientation == Qt.Horizontal:
+            if section >= len(self._visible_columns):
+                return None
+
+            col_key = self._col_to_key[section]
+            col_def = ALL_COLUMNS.get(col_key, {})
+
             if role == Qt.DisplayRole:
-                labels = [_("Page Title"), _("URL"), "", _("Visit Time")]
-                return labels[section]
-            if role == Qt.DecorationRole and section == COL_BROWSER:
-                return get_browser_icon("web", size=16)
-            if role == Qt.ToolTipRole and section == COL_BROWSER:
-                return _("Browser")
-            if role == Qt.TextAlignmentRole and section == COL_BROWSER:
-                return Qt.AlignCenter
+                if col_def.get("icon_only"):
+                    return ""
+                return _(col_def.get("label_key", col_key.title()))
+
+            if role == Qt.DecorationRole:
+                if col_key == "browser":
+                    return get_browser_icon("web", size=16)
+                return None
+
+            if role == Qt.ToolTipRole:
+                if col_key == "browser":
+                    return _("Browser")
+                return _(col_def.get("label_key", col_key.title()))
+
+            if role == Qt.TextAlignmentRole:
+                align = col_def.get("align", Qt.AlignLeft)
+                return int(align | Qt.AlignVCenter)
+
         return None
 
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
@@ -118,40 +171,77 @@ class HistoryTableModel(QAbstractTableModel):
         if record is None:
             return None
 
-        col = index.column()
+        col_idx = index.column()
+        if col_idx >= len(self._visible_columns):
+            return None
+
+        col_key = self._col_to_key[col_idx]
+        col_def = ALL_COLUMNS.get(col_key, {})
 
         if role == Qt.DisplayRole:
-            if col == COL_TITLE:
+            if col_key == "title":
                 return record.title or record.url
-            if col == COL_URL:
+            if col_key == "url":
                 return record.url
-            if col == COL_BROWSER:
+            if col_key == "browser":
                 return ""
-            if col == COL_TIME:
+            if col_key == "visit_time":
                 return _format_time(record.visit_time)
+            if col_key == "visit_count":
+                return str(record.visit_count)
+            if col_key == "domain":
+                return self._extract_domain(record.url)
+            if col_key == "profile_name":
+                return record.profile_name or ""
+            if col_key == "metadata":
+                return record.metadata or ""
 
         elif role == Qt.DecorationRole:
-            if col == COL_TITLE:
+            if col_key == "title":
                 return self._favicon_manager.get_pixmap(record.url, size=16)
-            if col == COL_BROWSER:
+            if col_key == "browser":
                 return get_browser_pixmap(record.browser_type or "web", size=20)
 
         elif role == Qt.ToolTipRole:
-            if col == COL_TITLE:
+            if col_key == "title":
                 return record.metadata or record.title
-            if col == COL_URL:
+            if col_key == "url":
                 return record.url
-            if col == COL_BROWSER:
+            if col_key == "browser":
                 return _browser_display_name(record.browser_type)
+            if col_key == "visit_count":
+                return _("Visited {count} times").format(count=record.visit_count)
+            if col_key == "domain":
+                return self._extract_domain(record.url)
+            if col_key == "profile_name":
+                return _("Browser Profile: {profile}").format(profile=record.profile_name or _("Default"))
+            if col_key == "metadata":
+                return record.metadata or _("No description available")
 
         elif role == Qt.UserRole:
             return record
 
         elif role == Qt.TextAlignmentRole:
-            if col == COL_TIME:
-                return Qt.AlignCenter
+            align = col_def.get("align", Qt.AlignLeft)
+            # Add vertical centering to all columns
+            return int(align | Qt.AlignVCenter)
 
         return None
+
+    def _extract_domain(self, url: str) -> str:
+        """Extract domain from URL."""
+        try:
+            from urllib.parse import urlparse
+
+            netloc = urlparse(url).netloc or ""
+            # Strip port
+            domain = netloc.rsplit(":", 1)[0] if ":" in netloc and not netloc.startswith("[") else netloc
+            # Strip www.
+            if domain.lower().startswith("www."):
+                domain = domain[4:]
+            return domain.lower()
+        except Exception:
+            return ""
 
     # ── Data loading ─────────────────────────────────────────
 
@@ -234,11 +324,20 @@ class HistoryTableModel(QAbstractTableModel):
             except Exception:
                 pass
 
-        self.dataChanged.emit(
-            self.index(first_row, COL_TITLE),
-            self.index(last_row, COL_BROWSER),
-            [Qt.DecorationRole],
-        )
+        # Find columns that have icons
+        icon_columns = []
+        for col_idx, col_key in enumerate(self._visible_columns):
+            if col_key in ["title", "browser"]:
+                icon_columns.append(col_idx)
+
+        if icon_columns:
+            first_col = min(icon_columns)
+            last_col = max(icon_columns)
+            self.dataChanged.emit(
+                self.index(first_row, first_col),
+                self.index(last_row, last_col),
+                [Qt.DecorationRole],
+            )
 
     @property
     def total_count(self) -> int:
@@ -331,11 +430,14 @@ class HistoryTableModel(QAbstractTableModel):
         self._emit_decoration_changed(start, prev)
 
     def _emit_decoration_changed(self, first_row: int, last_row: int) -> None:
-        self.dataChanged.emit(
-            self.index(first_row, COL_TITLE),
-            self.index(last_row, COL_TITLE),
-            [Qt.DecorationRole],
-        )
+        # Find title column index
+        title_col = self._key_to_col.get("title")
+        if title_col is not None:
+            self.dataChanged.emit(
+                self.index(first_row, title_col),
+                self.index(last_row, title_col),
+                [Qt.DecorationRole],
+            )
 
 
 # ── ViewModel ────────────────────────────────────────────────
@@ -347,13 +449,14 @@ class HistoryViewModel(QObject):
     model_ready = Signal()
     browser_list_changed = Signal(list)
     status_message = Signal(str)
+    ui_config_changed = Signal(list, dict)
 
-    def __init__(self, db: LocalDatabase, favicon_manager: FaviconManager, parent=None):
+    def __init__(self, db: LocalDatabase, favicon_manager: FaviconManager, visible_columns=None, parent=None):
         super().__init__(parent)
         self._db = db
         self._favicon_manager = favicon_manager
         self._initialized = False
-        self.table_model = HistoryTableModel(db, favicon_manager)
+        self.table_model = HistoryTableModel(db, favicon_manager, visible_columns)
 
     def initialize(self):
         self._initialized = True

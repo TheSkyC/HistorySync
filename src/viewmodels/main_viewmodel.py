@@ -62,7 +62,9 @@ class MainViewModel(QObject):
         self._monitor = BrowserMonitor(self._em, self._db, parent=self)
         self._monitor.statuses_changed.connect(self._on_monitor_statuses_changed)
 
-        self.history_vm = HistoryViewModel(self._db, self._favicon_manager, parent=self)
+        visible_columns = config.ui.visible_columns if hasattr(config, "ui") else None
+        self.history_vm = HistoryViewModel(self._db, self._favicon_manager, visible_columns, parent=self)
+        self.history_vm.ui_config_changed.connect(self._on_history_ui_config_changed)
 
     def start(self) -> None:
         """Start all subsystems.  On first-run, call start_ui() now and
@@ -292,6 +294,12 @@ class MainViewModel(QObject):
     def _on_monitor_statuses_changed(self, statuses: dict):
         display_names = self._em.get_all_registered()
         self.browser_status_changed.emit(statuses, display_names)
+
+    @Slot(list, dict)
+    def _on_history_ui_config_changed(self, visible_columns: list, column_widths: dict):
+        self._config.ui.visible_columns = visible_columns
+        self._config.ui.column_widths = column_widths
+        self.save_config(self._config)
 
     def _emit_stats(self):
         self.stats_updated.emit(

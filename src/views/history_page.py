@@ -42,15 +42,27 @@ _DEBOUNCE_MS = 350
 
 
 class _IconHeaderView(QHeaderView):
-    def __init__(self, icon_col: int, parent=None):
+    """Custom header view with icon support and right-click menu for column configuration."""
+
+    def __init__(self, parent=None):
         super().__init__(Qt.Horizontal, parent)
-        self._icon_col = icon_col
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_column_menu)
+        self._page = None  # Will be set by HistoryPage
 
     def paintSection(self, painter: QPainter, rect: QRect, logical_index: int) -> None:
-        if logical_index != self._icon_col:
+        if not self.model():
             super().paintSection(painter, rect, logical_index)
             return
 
+        # Check if this column has an icon decoration
+        icon: QIcon = self.model().headerData(logical_index, Qt.Horizontal, Qt.DecorationRole)
+
+        if not isinstance(icon, QIcon) or icon.isNull():
+            super().paintSection(painter, rect, logical_index)
+            return
+
+        # Has icon decoration - paint header background without text, then draw icon
         painter.save()
         opt = QStyleOptionHeader()
         self.initStyleOptionForIndex(opt, logical_index)
@@ -60,12 +72,7 @@ class _IconHeaderView(QHeaderView):
         self.style().drawControl(QStyle.CE_Header, opt, painter, self)
         painter.restore()
 
-        if not self.model():
-            return
-        icon: QIcon = self.model().headerData(logical_index, Qt.Horizontal, Qt.DecorationRole)
-        if not icon or icon.isNull():
-            return
-
+        # Draw the icon centered
         size = 16
         x = rect.x() + (rect.width() - size) // 2
         y = rect.y() + (rect.height() - size) // 2
@@ -79,6 +86,11 @@ class _IconHeaderView(QHeaderView):
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         painter.drawPixmap(target, px)
         painter.restore()
+
+    def _show_column_menu(self, pos):
+        """Show column visibility configuration menu."""
+        if self._page:
+            self._page._show_column_config_menu(self.mapToGlobal(pos), self.logicalIndexAt(pos))
 
 
 class SearchLineEdit(QLineEdit):
@@ -143,10 +155,21 @@ class HistoryPage(QWidget):
     def __init__(self, vm: HistoryViewModel, config=None, parent=None):
         super().__init__(parent)
         self._vm = vm
-        self._config = config  # AppConfig reference for blacklist/hidden
+        self._config = config
+
+        self._current_widths = getattr(config.ui, "column_widths", {}) if config and hasattr(config, "ui") else {}
+
         self._debounce = QTimer(self)
         self._debounce.setSingleShot(True)
         self._debounce.timeout.connect(self._do_search)
+
+        self._col_move_timer = QTimer(self)
+        self._col_move_timer.setSingleShot(True)
+        self._col_move_timer.timeout.connect(self._sync_column_order)
+
+        self._col_resize_timer = QTimer(self)
+        self._col_resize_timer.setSingleShot(True)
+        self._col_resize_timer.timeout.connect(self._sync_ui_config)
 
         self._init_ui()
         self._connect_vm()
@@ -250,15 +273,21 @@ class HistoryPage(QWidget):
         self._table.setContextMenuPolicy(Qt.CustomContextMenu)
         self._table.customContextMenuRequested.connect(self._show_context_menu)
 
-        hh = _IconHeaderView(2)
+        # Custom header with right-click menu support
+        hh = _IconHeaderView()
+        hh._page = self  # Link back to page for column config menu
         self._table.setHorizontalHeader(hh)
-        hh.setSectionResizeMode(0, QHeaderView.Stretch)
-        hh.setSectionResizeMode(1, QHeaderView.Stretch)
-        hh.setSectionResizeMode(2, QHeaderView.Fixed)
-        hh.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        hh.resizeSection(2, 48)
         hh.setHighlightSections(False)
         hh.setStretchLastSection(False)
+
+        hh.setSectionsMovable(True)
+        hh.setDragEnabled(True)
+        hh.setDragDropMode(QAbstractItemView.InternalMove)
+        hh.sectionMoved.connect(lambda: self._col_move_timer.start(500))
+        hh.sectionResized.connect(self._on_section_resized)
+
+        # Apply dynamic column widths
+        self._apply_column_widths()
 
         self._table.verticalHeader().setDefaultSectionSize(38)
         self._table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
@@ -320,15 +349,189 @@ class HistoryPage(QWidget):
             w._vm.trigger_sync()
             self._status_label.setText(_("Sync triggered..."))
 
+    def _sync_column_order(self):
+        """将拖拽后的视觉顺序同步到模型并保存，确保下次启动时顺序一致。"""
+        hh = self._table.horizontalHeader()
+        new_order = []
+
+        for visual_idx in range(hh.count()):
+            logical_idx = hh.logicalIndex(visual_idx)
+            col_key = self._vm.table_model._col_to_key[logical_idx]
+            new_order.append(col_key)
+
+        current_order = self._vm.table_model.get_visible_columns()
+        if new_order != current_order:
+            hh.blockSignals(True)
+            self._vm.table_model.set_visible_columns(new_order)
+            for i in range(hh.count()):
+                v_idx = hh.visualIndex(i)
+                if v_idx != i:
+                    hh.moveSection(v_idx, i)
+            hh.blockSignals(False)
+            self._sync_ui_config()
+
     def _connect_vm(self):
         self._vm.table_model.total_count_changed.connect(self._on_total_count_changed)
         self._vm.browser_list_changed.connect(self._update_browser_combo)
         self._vm.status_message.connect(self._status_label.setText)
+        self._vm.table_model.columns_changed.connect(self._on_columns_changed)
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
 
     def _on_theme_changed(self, _theme: str) -> None:
         """主题切换后只重绘可见视口，完全绕开 dataChanged 全表回调。"""
         self._table.viewport().update()
+
+    def _on_columns_changed(self):
+        QTimer.singleShot(0, self._apply_column_widths)
+
+    def _on_section_resized(self, logical_index, old_size, new_size):
+        col_key = self._vm.table_model._col_to_key.get(logical_index)
+        if col_key and col_key != "browser":
+            self._current_widths[col_key] = new_size
+            self._col_resize_timer.start(500)
+
+    def _sync_ui_config(self):
+        visible_cols = self._vm.table_model.get_visible_columns()
+        self._vm.ui_config_changed.emit(visible_cols, self._current_widths)
+
+    def _apply_column_widths(self):
+        hh = self._table.horizontalHeader()
+        visible_cols = self._vm.table_model.get_visible_columns()
+
+        hh.blockSignals(True)
+
+        default_widths = {
+            "title": 350,
+            "url": 400,
+            "visit_time": 140,
+            "visit_count": 90,
+            "domain": 160,
+            "profile_name": 120,
+            "metadata": 250,
+        }
+
+        for idx, col_key in enumerate(visible_cols):
+            if col_key == "browser":
+                hh.setSectionResizeMode(idx, QHeaderView.Fixed)
+                hh.resizeSection(idx, 48)
+            else:
+                hh.setSectionResizeMode(idx, QHeaderView.Interactive)
+                w = self._current_widths.get(col_key, default_widths.get(col_key, 120))
+                hh.resizeSection(idx, w)
+
+        hh.setStretchLastSection(True)
+        hh.blockSignals(False)
+
+    def _auto_fit_column(self, logical_index: int):
+        if logical_index < 0:
+            return
+
+        col_key = self._vm.table_model._col_to_key.get(logical_index)
+        if not col_key or col_key == "browser":
+            return
+
+        fm = self._table.fontMetrics()
+
+        header_text = self._vm.table_model.headerData(logical_index, Qt.Horizontal, Qt.DisplayRole) or ""
+        max_w = fm.horizontalAdvance(header_text) + 40
+
+        rows_to_scan = min(self._vm.table_model.rowCount(), 200)
+        for row in range(rows_to_scan):
+            idx = self._vm.table_model.index(row, logical_index)
+            text = self._vm.table_model.data(idx, Qt.DisplayRole)
+            if text:
+                w = fm.horizontalAdvance(str(text)) + 24  # 预留左右边距
+                max_w = max(max_w, w)
+
+        max_w = min(max_w, 600)
+
+        hh = self._table.horizontalHeader()
+        hh.resizeSection(logical_index, max_w)
+
+        self._current_widths[col_key] = max_w
+        self._col_resize_timer.start(500)
+
+    def _reset_table_view(self):
+        default_cols = ["title", "url", "browser", "visit_time"]
+
+        self._current_widths.clear()
+
+        hh = self._table.horizontalHeader()
+        hh.blockSignals(True)
+
+        self._vm.table_model.set_visible_columns(default_cols)
+
+        for i in range(hh.count()):
+            v_idx = hh.visualIndex(i)
+            if v_idx != i:
+                hh.moveSection(v_idx, i)
+
+        hh.blockSignals(False)
+
+        self._apply_column_widths()
+        self._sync_ui_config()
+
+    def _show_column_config_menu(self, global_pos, clicked_logical_index):
+        """Show column visibility and configuration menu."""
+        if self._col_move_timer.isActive():
+            self._col_move_timer.stop()
+            self._sync_column_order()
+
+        menu = QMenu(self)
+
+        all_cols = self._vm.table_model.get_all_columns()
+        visible_cols = self._vm.table_model.get_visible_columns()
+
+        # ── 1. 列显示/隐藏开关 ──
+        for col_key, col_def in all_cols.items():
+            label = _(col_def.get("label_key", col_key.title()))
+            action = menu.addAction(label)
+            action.setCheckable(True)
+            action.setChecked(col_key in visible_cols)
+            action.setData(col_key)
+
+            # 至少保留一列可见
+            if len(visible_cols) == 1 and col_key in visible_cols:
+                action.setEnabled(False)
+
+        menu.addSeparator()
+
+        # ── 2. 自动适应列宽 ──
+        fit_this_act = menu.addAction(get_icon("maximize-2"), _("Auto-fit This Column"))
+        if clicked_logical_index < 0:
+            fit_this_act.setEnabled(False)
+
+        fit_all_act = menu.addAction(get_icon("maximize"), _("Auto-fit All Columns"))
+
+        menu.addSeparator()
+
+        # ── 3. 恢复默认 ──
+        reset_act = menu.addAction(get_icon("rotate-ccw"), _("Restore Default View"))
+
+        # ── 处理用户点击 ──
+        action = menu.exec(global_pos)
+        if not action:
+            return
+
+        if action == fit_this_act:
+            self._auto_fit_column(clicked_logical_index)
+        elif action == fit_all_act:
+            for idx in range(self._table.horizontalHeader().count()):
+                self._auto_fit_column(self._table.horizontalHeader().logicalIndex(idx))
+        elif action == reset_act:
+            self._reset_table_view()
+        else:
+            # 处理列的显示/隐藏切换
+            col_key = action.data()
+            new_visible = visible_cols.copy()
+
+            if col_key in new_visible:
+                new_visible.remove(col_key)
+            else:
+                new_visible.append(col_key)
+
+            self._vm.table_model.set_visible_columns(new_visible)
+            self._sync_ui_config()
 
     # ── Selection helpers ─────────────────────────────────────
 
