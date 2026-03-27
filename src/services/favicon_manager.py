@@ -203,18 +203,30 @@ class FaviconManager(QObject):
 
     # ── 后台提取调度 ──────────────────────────────────────────
 
-    def schedule_extraction(self) -> None:
+    def schedule_extraction(
+        self,
+        target_browsers: list[str] | None = None,
+    ) -> None:
         """
-        在后台 QThread 中异步提取所有浏览器的图标。
+        在后台 QThread 中异步提取浏览器图标并写入缓存。
         若上一次提取还未结束，本次调用会被静默忽略（避免并发写入缓存）。
+
+        Parameters
+        ----------
+        target_browsers:
+            限定本次只提取指定浏览器的图标。传入 None（默认）表示提取
+            所有已注册且可用的浏览器图标。
         """
         if self._is_running:
             log.debug("FaviconManager: extraction already running, skipping")
             return
 
-        extractors = self._ext_manager.get_available()
+        extractors = self._ext_manager.get_available(target_browsers)
         if not extractors:
-            log.info("FaviconManager: no available extractors, skipping")
+            log.info(
+                "FaviconManager: no available extractors%s, skipping",
+                f" for {target_browsers}" if target_browsers is not None else "",
+            )
             return
 
         self._is_running = True

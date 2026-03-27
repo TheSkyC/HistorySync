@@ -250,15 +250,14 @@ class MainViewModel(QObject):
 
         total_new = sum(results.values())
         self._monitor.clear_syncing()
-        # Always persist the sync timestamp so the UI countdown is correct
-        # even when no new records were found (results may be all-zero).
         self._config.last_sync_ts = int(_time.time())
         self._config.save()
         self.history_vm.refresh()
         self._emit_stats()
         self.sync_finished.emit(total_new)
         log.info("Sync done, %d new records", total_new)
-        self._favicon_manager.schedule_extraction()
+        synced_browsers = list(results.keys()) if results else None
+        self._favicon_manager.schedule_extraction(target_browsers=synced_browsers)
 
     @Slot(str, str, int)
     def _on_sync_progress(self, browser_type: str, status: str, count: int):

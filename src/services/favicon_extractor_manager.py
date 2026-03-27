@@ -58,8 +58,24 @@ class FaviconExtractorManager:
 
     # ── 查询接口 ──────────────────────────────────────────────
 
-    def get_available(self) -> list[BaseFaviconExtractor]:
-        return [ext for ext in self._registry.values() if ext.is_available()]
+    def get_available(
+        self,
+        target_browsers: list[str] | None = None,
+    ) -> list[BaseFaviconExtractor]:
+        """返回可用的图标提取器列表。
+
+        Parameters
+        ----------
+        target_browsers:
+            若提供，则只返回列表中指定浏览器的提取器（同时仍需通过
+            is_available() 检查）。传入 None 表示返回所有已注册的可用提取器。
+        """
+        candidates = (
+            [self._registry[bt] for bt in target_browsers if bt in self._registry]
+            if target_browsers is not None
+            else list(self._registry.values())
+        )
+        return [ext for ext in candidates if ext.is_available()]
 
     def get_all_registered(self) -> dict[str, str]:
         """返回 {browser_type: display_name} 字典（含已禁用的浏览器）。"""
