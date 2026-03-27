@@ -43,6 +43,10 @@ ALL_COLUMNS = {
     "domain": {"index": 5, "label_key": "Domain", "align": Qt.AlignLeft},
     "profile_name": {"index": 6, "label_key": "Profile", "align": Qt.AlignLeft},
     "metadata": {"index": 7, "label_key": "Description", "align": Qt.AlignLeft},
+    "typed_count": {"index": 8, "label_key": "Typed Count", "align": Qt.AlignCenter},
+    "first_visit_time": {"index": 9, "label_key": "First Visit Time", "align": Qt.AlignCenter},
+    "transition_type": {"index": 10, "label_key": "Transition Type", "align": Qt.AlignCenter},
+    "visit_duration": {"index": 11, "label_key": "Visit Duration (s)", "align": Qt.AlignCenter},
 }
 
 # Default visible columns
@@ -195,6 +199,16 @@ class HistoryTableModel(QAbstractTableModel):
                 return record.profile_name or ""
             if col_key == "metadata":
                 return record.metadata or ""
+            if col_key == "typed_count":
+                return str(record.typed_count) if record.typed_count is not None else ""
+            if col_key == "first_visit_time":
+                return _format_time(record.first_visit_time) if record.first_visit_time else ""
+            if col_key == "transition_type":
+                return _format_transition(record.transition_type, record.browser_type)
+            if col_key == "visit_duration":
+                if record.visit_duration is not None:
+                    return f"{record.visit_duration:.1f}s"
+                return ""
 
         elif role == Qt.DecorationRole:
             if col_key == "title":
@@ -217,6 +231,20 @@ class HistoryTableModel(QAbstractTableModel):
                 return _("Browser Profile: {profile}").format(profile=record.profile_name or _("Default"))
             if col_key == "metadata":
                 return record.metadata or _("No description available")
+            if col_key == "typed_count":
+                if record.typed_count is not None:
+                    return _("Manually typed in address bar {count} time(s)").format(count=record.typed_count)
+                return _("Not available for this browser")
+            if col_key == "first_visit_time":
+                if record.first_visit_time:
+                    return _("First visited: {t}").format(t=_format_time(record.first_visit_time))
+                return _("Not available for this browser")
+            if col_key == "transition_type":
+                return _format_transition(record.transition_type, record.browser_type) or _("Not available")
+            if col_key == "visit_duration":
+                if record.visit_duration is not None:
+                    return _("Time on page: {s:.1f} seconds").format(s=record.visit_duration)
+                return _("Not available for this browser")
 
         elif role == Qt.UserRole:
             return record
@@ -551,3 +579,37 @@ def _format_time(ts: int) -> str:
         return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
     except (OSError, ValueError):
         return str(ts)
+
+
+_CHROMIUM_TRANSITION_LABELS = {
+    0: "Link",
+    1: "Typed",
+    2: "Auto Bookmark",
+    3: "Auto Subframe",
+    4: "Manual Subframe",
+    5: "Generated",
+    6: "Auto Toplevel",
+    7: "Form Submit",
+    8: "Reload",
+    9: "Keyword",
+    10: "Keyword Generated",
+}
+_FIREFOX_TRANSITION_LABELS = {
+    1: "Link",
+    2: "Typed",
+    3: "Bookmark",
+    4: "Embed",
+    5: "Redirect Permanent",
+    6: "Redirect Temporary",
+    7: "Download",
+    8: "Framed Link",
+    9: "Reload",
+}
+
+
+def _format_transition(value: int | None, browser_type: str) -> str:
+    if value is None:
+        return ""
+    if browser_type in ("firefox", "librewolf", "floorp", "waterfox"):
+        return _FIREFOX_TRANSITION_LABELS.get(value, str(value))
+    return _CHROMIUM_TRANSITION_LABELS.get(value, str(value))

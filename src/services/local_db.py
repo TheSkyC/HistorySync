@@ -145,16 +145,20 @@ class LocalDatabase:
                 );
 
                 CREATE TABLE IF NOT EXISTS history (
-                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                    url           TEXT    NOT NULL,
-                    title         TEXT    NOT NULL DEFAULT '',
-                    visit_time    INTEGER NOT NULL,
-                    visit_count   INTEGER NOT NULL DEFAULT 1,
-                    browser_type  TEXT    NOT NULL,
-                    profile_name  TEXT    NOT NULL DEFAULT '',
-                    metadata      TEXT    NOT NULL DEFAULT '',
-                    domain_id     INTEGER REFERENCES domains(id),
-                    created_at    INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+                    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                    url               TEXT    NOT NULL,
+                    title             TEXT    NOT NULL DEFAULT '',
+                    visit_time        INTEGER NOT NULL,
+                    visit_count       INTEGER NOT NULL DEFAULT 1,
+                    browser_type      TEXT    NOT NULL,
+                    profile_name      TEXT    NOT NULL DEFAULT '',
+                    metadata          TEXT    NOT NULL DEFAULT '',
+                    domain_id         INTEGER REFERENCES domains(id),
+                    created_at        INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+                    typed_count       INTEGER,
+                    first_visit_time  INTEGER,
+                    transition_type   INTEGER,
+                    visit_duration    REAL
                 );
 
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_history_dedup
@@ -207,7 +211,29 @@ class LocalDatabase:
                         VALUES (new.id, new.url, new.title);
                 END;
             """)
+        self._migrate_schema()
         log.info("Database schema initialized: %s", self.db_path)
+
+    def _migrate_schema(self) -> None:
+        """Apply incremental schema migrations for existing databases.
+
+        Each ALTER TABLE is guarded so it is a no-op when the column already
+        exists (SQLite raises OperationalError in that case; we swallow it).
+        """
+        _new_columns = [
+            ("typed_count", "INTEGER"),
+            ("first_visit_time", "INTEGER"),
+            ("transition_type", "INTEGER"),
+            ("visit_duration", "REAL"),
+        ]
+        with self._conn() as conn:
+            for col_name, col_type in _new_columns:
+                try:
+                    conn.execute(f"ALTER TABLE history ADD COLUMN {col_name} {col_type}")
+                    log.info("Schema migration: added column history.%s", col_name)
+                except sqlite3.OperationalError:
+                    # Column already exists — nothing to do.
+                    pass
 
     # ── Hidden records CRUD ───────────────────────────────────
 
@@ -529,10 +555,16 @@ class LocalDatabase:
             # 5. Bulk insert history records using plain positional params
             #    (no subquery, no UDF call per row).
             sql = """
-                INSERT OR IGNORE INTO history
+                INSERT INTO history
                     (url, title, visit_time, visit_count,
-                     browser_type, profile_name, metadata, domain_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                     browser_type, profile_name, metadata, domain_id,
+                     typed_count, first_visit_time, transition_type, visit_duration)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(browser_type, url, visit_time) DO UPDATE SET
+                    typed_count      = excluded.typed_count,
+                    first_visit_time = excluded.first_visit_time,
+                    transition_type  = excluded.transition_type,
+                    visit_duration   = excluded.visit_duration
             """
             inserted = 0
             _BULK = 2000  # larger batches amortise per-executemany overhead
@@ -548,6 +580,10 @@ class LocalDatabase:
                         r.profile_name,
                         r.metadata,
                         host_to_id.get(rec_hosts[i + j]),
+                        r.typed_count,
+                        r.first_visit_time,
+                        r.transition_type,
+                        r.visit_duration,
                     )
                     for j, r in enumerate(batch)
                 ]
@@ -705,7 +741,8 @@ class LocalDatabase:
             if use_fts:
                 sql = """
                     SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
-                           h.browser_type, h.profile_name, h.metadata
+                           h.browser_type, h.profile_name, h.metadata,
+                           h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration
                     FROM history h
                     JOIN history_fts fts ON h.id = fts.rowid
                     WHERE history_fts MATCH ?
@@ -721,7 +758,8 @@ class LocalDatabase:
                 if title_only:
                     sql = """
                         SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
-                               h.browser_type, h.profile_name, h.metadata
+                               h.browser_type, h.profile_name, h.metadata,
+                               h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration
                         FROM history h
                         WHERE h.title LIKE ?
                     """
@@ -729,7 +767,8 @@ class LocalDatabase:
                 elif url_only:
                     sql = """
                         SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
-                               h.browser_type, h.profile_name, h.metadata
+                               h.browser_type, h.profile_name, h.metadata,
+                               h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration
                         FROM history h
                         WHERE h.url LIKE ?
                     """
@@ -737,7 +776,8 @@ class LocalDatabase:
                 else:
                     sql = """
                         SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
-                               h.browser_type, h.profile_name, h.metadata
+                               h.browser_type, h.profile_name, h.metadata,
+                               h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration
                         FROM history h
                         WHERE (h.url LIKE ? OR h.title LIKE ?)
                     """
@@ -814,7 +854,7 @@ class LocalDatabase:
                     conditions.append("url NOT LIKE ? AND title NOT LIKE ?")
                     params.extend([f"%{ex}%", f"%{ex}%"])
 
-            sql = "SELECT id, url, title, visit_time, visit_count, browser_type, profile_name, metadata FROM history"
+            sql = "SELECT id, url, title, visit_time, visit_count, browser_type, profile_name, metadata, typed_count, first_visit_time, transition_type, visit_duration FROM history"
             with self._conn() as conn:
                 self._populate_excl_table(conn, excl)
                 if excl:
@@ -1076,7 +1116,8 @@ class LocalDatabase:
         placeholders = ",".join("?" * len(ids))
         with self._conn() as conn:
             rows = conn.execute(
-                f"SELECT id, url, title, visit_time, visit_count, browser_type, profile_name, metadata "
+                f"SELECT id, url, title, visit_time, visit_count, browser_type, profile_name, metadata, "
+                f"typed_count, first_visit_time, transition_type, visit_duration "
                 f"FROM history WHERE id IN ({placeholders})",
                 ids,
             ).fetchall()
@@ -1095,6 +1136,10 @@ class LocalDatabase:
             browser_type=row["browser_type"],
             profile_name=row["profile_name"],
             metadata=row["metadata"],
+            typed_count=row["typed_count"],
+            first_visit_time=row["first_visit_time"],
+            transition_type=row["transition_type"],
+            visit_duration=row["visit_duration"],
         )
 
 

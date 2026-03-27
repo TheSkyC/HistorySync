@@ -616,9 +616,18 @@ class DatabaseImporter:
         records: list[HistoryRecord] = []
         try:
             with open_db_snapshot(path, "HistorySync-import") as conn:
-                rows = conn.execute(
-                    "SELECT url, title, visit_time, visit_count, browser_type, profile_name, metadata FROM history"
-                ).fetchall()
+                # Try to read new fields; fall back to base columns for older backup DBs
+                try:
+                    rows = conn.execute(
+                        "SELECT url, title, visit_time, visit_count, browser_type, profile_name, metadata, "
+                        "typed_count, first_visit_time, transition_type, visit_duration FROM history"
+                    ).fetchall()
+                    has_new_fields = True
+                except sqlite3.OperationalError:
+                    rows = conn.execute(
+                        "SELECT url, title, visit_time, visit_count, browser_type, profile_name, metadata FROM history"
+                    ).fetchall()
+                    has_new_fields = False
             for row in rows:
                 bt = target_browser_type if target_browser_type else (row[4] or "imported")
                 pn = target_profile_name if target_profile_name else (row[5] or "imported")
@@ -631,6 +640,10 @@ class DatabaseImporter:
                         browser_type=bt,
                         profile_name=pn,
                         metadata=row[6] or "",
+                        typed_count=row[7] if has_new_fields else None,
+                        first_visit_time=row[8] if has_new_fields else None,
+                        transition_type=row[9] if has_new_fields else None,
+                        visit_duration=row[10] if has_new_fields else None,
                     )
                 )
         except Exception as exc:

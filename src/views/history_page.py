@@ -269,6 +269,7 @@ class HistoryPage(QWidget):
         self._table.setSortingEnabled(False)
         self._table.setWordWrap(False)
         self._table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self._table.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
         self._table.verticalHeader().setVisible(False)
         self._table.setContextMenuPolicy(Qt.CustomContextMenu)
         self._table.customContextMenuRequested.connect(self._show_context_menu)
@@ -408,6 +409,10 @@ class HistoryPage(QWidget):
             "domain": 160,
             "profile_name": 120,
             "metadata": 250,
+            "typed_count": 100,
+            "first_visit_time": 140,
+            "transition_type": 120,
+            "visit_duration": 130,
         }
 
         for idx, col_key in enumerate(visible_cols):

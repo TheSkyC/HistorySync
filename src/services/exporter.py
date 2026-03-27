@@ -35,6 +35,10 @@ ALL_COLUMNS: list[str] = [
     "profile_name",
     "domain",
     "metadata",
+    "typed_count",
+    "first_visit_time",
+    "transition_type",
+    "visit_duration",
 ]
 
 # Human-readable headers (CSV / HTML)
@@ -48,6 +52,10 @@ _COLUMN_HEADERS: dict[str, str] = {
     "profile_name": "Profile",
     "domain": "Domain",
     "metadata": "Metadata",
+    "typed_count": "Typed Count",
+    "first_visit_time": "First Visit Time",
+    "transition_type": "Transition Type",
+    "visit_duration": "Visit Duration (s)",
 }
 
 
@@ -95,6 +103,32 @@ def _extract_root_domain(domain: str) -> str:
 
 def _record_to_row(record: HistoryRecord, columns: list[str]) -> dict[str, Any]:
     """Convert a HistoryRecord to a dict keyed by selected columns."""
+    # Format first_visit_time the same way as visit_time (UTC string)
+    first_visit_str: str | None = None
+    if record.first_visit_time:
+        try:
+            first_visit_str = datetime.fromtimestamp(record.first_visit_time, tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+        except (OSError, ValueError):
+            first_visit_str = str(record.first_visit_time)
+
+    # Map numeric transition_type to a human-readable label
+    _CHROMIUM_TRANSITIONS = {
+        0: "Link",
+        1: "Typed",
+        2: "Auto Bookmark",
+        3: "Auto Subframe",
+        4: "Manual Subframe",
+        5: "Generated",
+        6: "Auto Toplevel",
+        7: "Form Submit",
+        8: "Reload",
+        9: "Keyword",
+        10: "Keyword Generated",
+    }
+    transition_str: str | None = None
+    if record.transition_type is not None:
+        transition_str = _CHROMIUM_TRANSITIONS.get(record.transition_type, str(record.transition_type))
+
     full: dict[str, Any] = {
         "id": record.id,
         "title": record.title or "",
@@ -105,6 +139,10 @@ def _record_to_row(record: HistoryRecord, columns: list[str]) -> dict[str, Any]:
         "profile_name": record.profile_name,
         "domain": _extract_domain(record.url),
         "metadata": record.metadata or "",
+        "typed_count": record.typed_count,
+        "first_visit_time": first_visit_str,
+        "transition_type": transition_str,
+        "visit_duration": round(record.visit_duration, 2) if record.visit_duration is not None else None,
     }
     return {col: full[col] for col in columns if col in full}
 
@@ -603,6 +641,14 @@ class _HtmlWriter:
             item["d"] = row["domain"]
         if "metadata" in row:
             item["m"] = row["metadata"]
+        if "typed_count" in row and row["typed_count"] is not None:
+            item["tc"] = row["typed_count"]
+        if "first_visit_time" in row and row["first_visit_time"] is not None:
+            item["fvt"] = row["first_visit_time"]
+        if "transition_type" in row and row["transition_type"] is not None:
+            item["tt"] = row["transition_type"]
+        if "visit_duration" in row and row["visit_duration"] is not None:
+            item["vd"] = row["visit_duration"]
 
         if self._params.embed_icons:
             domain = row.get("domain", _extract_domain(record.url))
