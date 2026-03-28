@@ -368,6 +368,7 @@ jobs:
             "ArchitecturesInstallIn64BitMode=x64compatible",
             "WizardStyle=modern",
             "DisableWelcomePage=yes",
+            "LicenseFile=LICENSE",
             "UninstallDisplayIcon={app}\${appName}.exe",
             "ChangesEnvironment=yes",
             "",
@@ -516,9 +517,13 @@ jobs:
           mkdir -p "$DEB/usr/bin"
           mkdir -p "$DEB/usr/share/applications"
           mkdir -p "$DEB/usr/share/icons/hicolor/256x256/apps"
+          mkdir -p "$DEB/usr/share/doc/${{ env.APP_ID }}"
 
           # Application files
           cp -r "$DIST"/. "$DEB/usr/lib/${{ env.APP_ID }}/"
+
+          # License (Debian Policy §12.5: must be installed as copyright)
+          [ -f LICENSE ] && cp LICENSE "$DEB/usr/share/doc/${{ env.APP_ID }}/copyright"
 
           # usr/bin shims: expose both the GUI launcher and the CLI on $PATH
           ln -s "/usr/lib/${{ env.APP_ID }}/${{ env.APP_NAME }}" \
