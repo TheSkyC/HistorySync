@@ -119,7 +119,23 @@ class ExtractorManager:
         self,
         browser_types: list[str] | None = None,
         progress_callback: ProgressCallback | None = None,
+        force_full: bool = False,
     ) -> dict[str, int]:
+        """Run extraction for the given browsers.
+
+        Parameters
+        ----------
+        browser_types:
+            Browsers to extract; ``None`` means all available browsers.
+        progress_callback:
+            Optional callback ``(browser_type, status, count)``.
+        force_full:
+            When ``True``, skip the incremental ``since_map`` watermark and
+            re-extract **all** records from the browser databases.  Existing
+            records are upserted (ON CONFLICT DO UPDATE), so this is safe to
+            run at any time — it will back-fill any fields (e.g. ``visit_count``,
+            ``typed_count``) that were not captured during earlier syncs.
+        """
         targets = [bt for bt in (browser_types or self.get_available_browsers()) if bt in self._registry]
         if not targets:
             return {}
@@ -128,7 +144,7 @@ class ExtractorManager:
         n_workers = min(_MAX_PARALLEL_WORKERS, len(targets))
 
         with ThreadPoolExecutor(max_workers=n_workers, thread_name_prefix="hs-extract") as pool:
-            futures = {pool.submit(self._extract_one, bt, progress_callback): bt for bt in targets}
+            futures = {pool.submit(self._extract_one, bt, progress_callback, force_full): bt for bt in targets}
             for future in as_completed(futures):
                 bt = futures[future]
                 try:
@@ -141,17 +157,26 @@ class ExtractorManager:
 
         return results
 
-    def _extract_one(self, browser_type: str, progress_callback: ProgressCallback | None) -> int:
+    def _extract_one(
+        self,
+        browser_type: str,
+        progress_callback: ProgressCallback | None,
+        force_full: bool = False,
+    ) -> int:
         extractor = self._registry[browser_type]
 
-        since_map = self._db.get_max_visit_times(browser_type)
-        if since_map:
-            log.info(
-                "[%s] Incremental mode: %d profiles, since=%s",
-                browser_type,
-                len(since_map),
-                {k: time.strftime("%Y-%m-%d", time.localtime(v)) for k, v in since_map.items()},
-            )
+        if force_full:
+            since_map: dict[str, int] = {}
+            log.info("[%s] Full-resync mode: ignoring watermark, fetching all records", browser_type)
+        else:
+            since_map = self._db.get_max_visit_times(browser_type)
+            if since_map:
+                log.info(
+                    "[%s] Incremental mode: %d profiles, since=%s",
+                    browser_type,
+                    len(since_map),
+                    {k: time.strftime("%Y-%m-%d", time.localtime(v)) for k, v in since_map.items()},
+                )
 
         if progress_callback:
             progress_callback(browser_type, "extracting", 0)

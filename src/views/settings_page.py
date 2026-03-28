@@ -205,6 +205,7 @@ class SettingsPage(QWidget):
         self._sec_maint.normalize_domains_requested.connect(lambda: self._run_maintenance("normalize_domains"))
         self._sec_maint.rebuild_fts_requested.connect(lambda: self._run_maintenance("rebuild_fts"))
         self._sec_maint.export_requested.connect(self._open_export_dialog)
+        self._sec_maint.full_resync_requested.connect(self._on_full_resync_requested)
         self._refresh_db_stats()
 
         # Security
@@ -308,6 +309,12 @@ class SettingsPage(QWidget):
         self._vm.webdav_action_finished.connect(self._on_webdav_finished)
         self._vm.maintenance_progress.connect(self._sec_maint.append_log)
         self._vm.maintenance_finished.connect(self._on_maint_finished)
+
+        # Full-resync feedback — hooked directly to main_vm sync signals
+        main_vm = self._vm._main_vm
+        main_vm.sync_started.connect(self._on_resync_started)
+        main_vm.sync_finished.connect(self._on_resync_finished)
+        main_vm.sync_error.connect(self._on_resync_error)
 
     def _apply_wheel_event_filter(self):
         for widget in self.findChildren(QComboBox) + self.findChildren(QSpinBox):
@@ -504,6 +511,54 @@ class SettingsPage(QWidget):
                 self._set_status(f"✓ {label}", "success")
         else:
             self._set_status(_("✗ Maintenance failed — check log"), "error")
+
+    # ── Full-resync handlers ──────────────────────────────────
+
+    def _on_full_resync_requested(self):
+        """Confirm with user then kick off a full resync via main_vm."""
+        from PySide6.QtWidgets import QMessageBox
+
+        reply = QMessageBox.question(
+            self,
+            _("Full Resync"),
+            _(
+                "This will re-read the complete history from all browser databases\n"
+                "and upsert every record, back-filling any fields that were missing\n"
+                "No existing records will be deleted. Continue?"
+            ),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        self._resync_running = True
+        self._sec_maint.set_resync_running(True)
+        self._vm._main_vm.trigger_full_resync()
+
+    def _on_resync_started(self):
+        # Only update UI if we initiated the resync from this page
+        if getattr(self, "_resync_running", False):
+            self._sec_maint.set_resync_running(True)
+
+    def _on_resync_finished(self, new_count: int):
+        if not getattr(self, "_resync_running", False):
+            return
+        self._resync_running = False
+        self._sec_maint.set_resync_running(False)
+        self._sec_maint.set_resync_done(new_count)
+        self._refresh_db_stats()
+        self._set_status(
+            _("✓ Full resync complete — {n} new records upserted").format(n=f"{new_count:,}"),
+            "success",
+        )
+
+    def _on_resync_error(self, msg: str):
+        if not getattr(self, "_resync_running", False):
+            return
+        self._resync_running = False
+        self._sec_maint.set_resync_running(False)
+        self._sec_maint.set_resync_error(msg)
+        self._set_status(_("✗ Full resync failed — check log"), "error")
 
     # ── External API (called from main_window) ────────────────
 

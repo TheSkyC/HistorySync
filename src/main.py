@@ -30,9 +30,11 @@ Launch argument examples:
   python -m src.main --config-dir D:\\MyConf  # Use a custom config directory
   python -m src.main --portable           # Portable mode, store config in program root directory
   python -m src.main --sync               # Trigger a sync immediately after startup
+  python -m src.main --resync             # Full re-extraction (back-fills all historical fields)
   python -m src.main --backup             # Trigger a WebDAV backup immediately after startup
   python -m src.main --sync --backup      # Sync and backup after startup
   python -m src.main --headless --sync    # Headless sync then auto-exit (suitable for scheduled tasks)
+  python -m src.main --headless --resync  # Headless full resync then auto-exit
   python -m src.main --headless --backup  # Headless backup then auto-exit
 
 Headless export examples (no GUI launched):
@@ -87,6 +89,16 @@ Headless export examples (no GUI launched):
         "--sync",
         action="store_true",
         help="Trigger a browser history sync immediately after startup completes",
+    )
+    action_group.add_argument(
+        "--resync",
+        action="store_true",
+        help=(
+            "Trigger a full re-extraction of all browser history after startup. "
+            "Unlike --sync, this ignores the incremental watermark and re-reads every record, "
+            "back-filling fields (e.g. visit_count) that were not captured in earlier syncs. "
+            "Safe to run at any time — existing records are upserted, not duplicated."
+        ),
     )
     action_group.add_argument(
         "--backup",
@@ -309,7 +321,8 @@ def _headless_main(args: argparse.Namespace) -> int:
         config = AppConfig.load()
         log.info("Headless: config loaded")
 
-    do_sync = args.sync or (not args.sync and not args.backup)
+    do_sync = args.sync or (not args.sync and not args.backup and not getattr(args, "resync", False))
+    do_resync = getattr(args, "resync", False)
     do_backup = args.backup
 
     qt_app = QApplication(sys.argv[:1])
@@ -346,15 +359,17 @@ def _headless_main(args: argparse.Namespace) -> int:
             QTimer.singleShot(200, qt_app.quit)
 
     # ── Sync signals ─────────────────────────────────────────────────────────
-    if do_sync:
+    if do_sync or do_resync:
         pending[0] += 1
 
         def _on_sync_done(new_count: int):
-            log.info("Headless sync done: %d new records", new_count)
+            label = "resync" if do_resync else "sync"
+            log.info("Headless %s done: %d new records", label, new_count)
             _check_done()
 
         def _on_sync_error(msg: str):
-            log.error("Headless sync error: %s", msg)
+            label = "resync" if do_resync else "sync"
+            log.error("Headless %s error: %s", label, msg)
             errors.append(msg)
             exit_code[0] = 1
             _check_done()
@@ -387,6 +402,9 @@ def _headless_main(args: argparse.Namespace) -> int:
         if do_sync:
             log.info("Headless: triggering sync")
             main_vm.trigger_sync()
+        if do_resync:
+            log.info("Headless: triggering full resync")
+            main_vm.trigger_full_resync()
         if do_backup and config.webdav.enabled:
             log.info("Headless: triggering backup")
             main_vm.trigger_backup()
@@ -581,6 +599,11 @@ def _gui_main(args: argparse.Namespace) -> None:
     if args.sync:
         log.info("CLI --sync: will trigger sync after startup")
         QTimer.singleShot(500, main_vm.trigger_sync)
+
+    if getattr(args, "resync", False):
+        log.info("CLI --resync: will trigger full resync after startup")
+        delay = 800 if args.sync else 500
+        QTimer.singleShot(delay, main_vm.trigger_full_resync)
 
     if args.backup:
         if not config.webdav.enabled:

@@ -100,6 +100,20 @@ class MainViewModel(QObject):
         """Trigger a sync for a single browser (from dashboard card context menu)."""
         self._scheduler.trigger_browser(browser_type)
 
+    def trigger_full_resync(self, browser_types: list[str] | None = None) -> None:
+        """Trigger a full re-extraction, back-filling all historical records.
+
+        This ignores the incremental watermark so that fields added in newer
+        versions (e.g. ``visit_count``, ``typed_count``) are populated for
+        records that were synced before those fields existed.
+
+        Parameters
+        ----------
+        browser_types:
+            Limit to specific browsers.  ``None`` re-syncs all available browsers.
+        """
+        self._scheduler.trigger_full_resync(browser_types=browser_types)
+
     def trigger_backup(self) -> None:
         self._scheduler.trigger_backup_now()
 

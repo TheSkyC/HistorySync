@@ -561,10 +561,14 @@ class LocalDatabase:
                      typed_count, first_visit_time, transition_type, visit_duration)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(browser_type, url, visit_time) DO UPDATE SET
-                    typed_count      = excluded.typed_count,
-                    first_visit_time = excluded.first_visit_time,
-                    transition_type  = excluded.transition_type,
-                    visit_duration   = excluded.visit_duration
+                    title            = CASE WHEN excluded.title != '' THEN excluded.title
+                                           ELSE title END,
+                    visit_count      = CASE WHEN excluded.visit_count > visit_count THEN excluded.visit_count
+                                           ELSE visit_count END,
+                    typed_count      = COALESCE(excluded.typed_count, typed_count),
+                    first_visit_time = COALESCE(excluded.first_visit_time, first_visit_time),
+                    transition_type  = COALESCE(excluded.transition_type, transition_type),
+                    visit_duration   = COALESCE(excluded.visit_duration, visit_duration)
             """
             _BULK = 2000  # larger batches amortise per-executemany overhead
             for i in range(0, len(records), _BULK):

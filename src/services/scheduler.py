@@ -32,12 +32,14 @@ class SyncWorker(QObject):
         webdav_service=None,
         browser_types: list[str] | None = None,
         favicon_cache_dir: Path | None = None,
+        force_full: bool = False,
     ):
         super().__init__()
         self._em = extractor_manager
         self._wdav = webdav_service
         self._browser_types = browser_types  # None = all browsers
         self._favicon_cache_dir = favicon_cache_dir
+        self._force_full = force_full
         self._cancelled = False
 
     def cancel(self) -> None:
@@ -54,7 +56,11 @@ class SyncWorker(QObject):
                 if not self._cancelled:
                     self.progress.emit(bt, status, count)
 
-            results = self._em.run_extraction(browser_types=self._browser_types, progress_callback=cb)
+            results = self._em.run_extraction(
+                browser_types=self._browser_types,
+                progress_callback=cb,
+                force_full=self._force_full,
+            )
             if not self._cancelled and self._wdav and self._wdav.is_configured() and self._wdav._config.auto_backup:
                 self._wdav.sync(favicon_cache_dir=self._favicon_cache_dir)
         except Exception as exc:
@@ -253,6 +259,26 @@ class Scheduler(QObject):
             return
         self._run_sync(browser_types=[browser_type])
 
+    def trigger_full_resync(self, browser_types: list[str] | None = None) -> None:
+        """Trigger a full re-extraction of all (or specified) browsers.
+
+        Unlike the normal incremental sync, this ignores the visit-time
+        watermark and re-reads every record from the browser databases, then
+        upserts them.  Use this when a new field (e.g. ``visit_count``) was
+        added and you want to back-fill historical data.
+
+        Parameters
+        ----------
+        browser_types:
+            Limit the resync to these browser types.  ``None`` means all
+            available browsers.
+        """
+        if self._running:
+            log.info("Sync already running, skipping full-resync trigger")
+            return
+        log.info("Full resync triggered (browsers=%s)", browser_types or "all")
+        self._run_sync(browser_types=browser_types, force_full=True)
+
     def trigger_backup_now(self) -> None:
         if self._backup_running:
             log.info("Backup already running, skipping")
@@ -292,13 +318,17 @@ class Scheduler(QObject):
         if not self._running:
             self._run_sync()
 
-    def _run_sync(self, browser_types: list[str] | None = None) -> None:
+    def _run_sync(self, browser_types: list[str] | None = None, force_full: bool = False) -> None:
         self._running = True
         self.sync_started.emit()
 
         thread = QThread()
         worker = SyncWorker(
-            self._em, self._wdav, browser_types=browser_types, favicon_cache_dir=self._favicon_cache_dir
+            self._em,
+            self._wdav,
+            browser_types=browser_types,
+            favicon_cache_dir=self._favicon_cache_dir,
+            force_full=force_full,
         )
         self._worker = worker
         self._worker_thread = thread

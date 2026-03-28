@@ -47,6 +47,7 @@ class MaintenanceSection(QWidget):
     normalize_domains_requested = Signal()
     rebuild_fts_requested = Signal()
     export_requested = Signal()  # Entry B: open ExportDialog with no pre-filter
+    full_resync_requested = Signal()  # Trigger full browser history re-extraction
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -115,10 +116,23 @@ class MaintenanceSection(QWidget):
         )
         self._export_btn.clicked.connect(self.export_requested)
 
+        self._resync_btn = QPushButton(_("Full Resync"))
+        self._resync_btn.setIcon(get_icon("refresh-cw"))
+        self._resync_btn.setToolTip(
+            _(
+                "Re-extract the complete browser history from scratch and upsert all records.\n"
+                "Use this to back-fill fields (e.g. Visit Count) that were not captured\n"
+                "in earlier syncs. Existing records are never deleted — only updated.\n"
+                "This may take a while for large histories."
+            )
+        )
+        self._resync_btn.clicked.connect(self.full_resync_requested)
+
         btn_row.addWidget(self._vacuum_btn)
         btn_row.addWidget(self._normalize_btn)
         btn_row.addWidget(self._fts_btn)
         btn_row.addWidget(self._export_btn)
+        btn_row.addWidget(self._resync_btn)
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
@@ -136,7 +150,7 @@ class MaintenanceSection(QWidget):
         self._log_lbl.setWordWrap(True)
         layout.addWidget(self._log_lbl)
 
-        self._all_btns = [self._vacuum_btn, self._normalize_btn, self._fts_btn, self._export_btn]
+        self._all_btns = [self._vacuum_btn, self._normalize_btn, self._fts_btn, self._export_btn, self._resync_btn]
 
     # ── Helpers ───────────────────────────────────────────────
 
@@ -179,6 +193,34 @@ class MaintenanceSection(QWidget):
 
         self._val_records.setText(f"{stats.record_count:,}")
         self._val_domains.setText(f"{stats.domain_count:,}")
+
+    def set_resync_running(self, running: bool):
+        """Disable/enable all buttons while a full resync is in progress."""
+        for btn in self._all_btns:
+            btn.setEnabled(not running)
+        self._progress.setVisible(running)
+        if running:
+            self._log_lbl.setText(_("Full resync in progress — re-reading all browser history…"))
+            self._log_lbl.setObjectName("muted")
+        else:
+            self._log_lbl.style().unpolish(self._log_lbl)
+            self._log_lbl.style().polish(self._log_lbl)
+
+    def set_resync_done(self, new_count: int):
+        """Show the result after a full resync finishes."""
+        self._log_lbl.setText(
+            _("✓ Full resync complete — {n} new records upserted.").format(n=f"{new_count:,}")
+        )
+        self._log_lbl.setObjectName("success")
+        self._log_lbl.style().unpolish(self._log_lbl)
+        self._log_lbl.style().polish(self._log_lbl)
+
+    def set_resync_error(self, msg: str):
+        """Show an error message after a full resync fails."""
+        self._log_lbl.setText(_("✗ Full resync failed: {msg}").format(msg=msg))
+        self._log_lbl.setObjectName("error")
+        self._log_lbl.style().unpolish(self._log_lbl)
+        self._log_lbl.style().polish(self._log_lbl)
 
     def set_running(self, running: bool):
         """Disable/enable all buttons and show/hide the progress bar."""
