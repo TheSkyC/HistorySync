@@ -90,7 +90,7 @@ class ExportWorker(QObject):
         try:
             count = self._exporter.export(
                 self._params,
-                progress_callback=lambda c, t: self.progress.emit(c, t),
+                progress_callback=self.progress.emit,
                 cancel_check=lambda: self._cancelled,
             )
             self.finished.emit(count)
