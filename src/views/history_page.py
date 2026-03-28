@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import date, datetime
 from urllib.parse import urlparse
 import webbrowser
@@ -362,13 +363,12 @@ class HistoryPage(QWidget):
 
         current_order = self._vm.table_model.get_visible_columns()
         if new_order != current_order:
-            hh.blockSignals(True)
-            self._vm.table_model.set_visible_columns(new_order)
-            for i in range(hh.count()):
-                v_idx = hh.visualIndex(i)
-                if v_idx != i:
-                    hh.moveSection(v_idx, i)
-            hh.blockSignals(False)
+            with self._batch_header_update() as hh:
+                self._vm.table_model.set_visible_columns(new_order)
+                for i in range(hh.count()):
+                    v_idx = hh.visualIndex(i)
+                    if v_idx != i:
+                        hh.moveSection(v_idx, i)
             self._sync_ui_config()
 
     def _connect_vm(self):
@@ -391,16 +391,23 @@ class HistoryPage(QWidget):
             self._current_widths[col_key] = new_size
             self._col_resize_timer.start(500)
 
+    @contextmanager
+    def _batch_header_update(self):
+        """批量修改列头时屏蔽信号，结束后强制刷新滚动条几何。"""
+        hh = self._table.horizontalHeader()
+        hh.blockSignals(True)
+        try:
+            yield hh
+        finally:
+            hh.blockSignals(False)
+            self._table.updateGeometries()
+
     def _sync_ui_config(self):
         visible_cols = self._vm.table_model.get_visible_columns()
         self._vm.ui_config_changed.emit(visible_cols, self._current_widths)
 
     def _apply_column_widths(self):
-        hh = self._table.horizontalHeader()
         visible_cols = self._vm.table_model.get_visible_columns()
-
-        hh.blockSignals(True)
-
         default_widths = {
             "title": 350,
             "url": 400,
@@ -408,17 +415,16 @@ class HistoryPage(QWidget):
             "metadata": 250,
         }
 
-        for idx, col_key in enumerate(visible_cols):
-            if col_key == "browser":
-                hh.setSectionResizeMode(idx, QHeaderView.Fixed)
-                hh.resizeSection(idx, 48)
-            else:
-                hh.setSectionResizeMode(idx, QHeaderView.Interactive)
-                w = self._current_widths.get(col_key, default_widths.get(col_key, 120))
-                hh.resizeSection(idx, w)
-
-        hh.setStretchLastSection(True)
-        hh.blockSignals(False)
+        with self._batch_header_update() as hh:
+            for idx, col_key in enumerate(visible_cols):
+                if col_key == "browser":
+                    hh.setSectionResizeMode(idx, QHeaderView.Fixed)
+                    hh.resizeSection(idx, 48)
+                else:
+                    hh.setSectionResizeMode(idx, QHeaderView.Interactive)
+                    w = self._current_widths.get(col_key, default_widths.get(col_key, 120))
+                    hh.resizeSection(idx, w)
+            hh.setStretchLastSection(True)
 
     def _auto_fit_column(self, logical_index: int):
         if logical_index < 0:
@@ -460,17 +466,12 @@ class HistoryPage(QWidget):
 
         self._current_widths.clear()
 
-        hh = self._table.horizontalHeader()
-        hh.blockSignals(True)
-
-        self._vm.table_model.set_visible_columns(default_cols)
-
-        for i in range(hh.count()):
-            v_idx = hh.visualIndex(i)
-            if v_idx != i:
-                hh.moveSection(v_idx, i)
-
-        hh.blockSignals(False)
+        with self._batch_header_update() as hh:
+            self._vm.table_model.set_visible_columns(default_cols)
+            for i in range(hh.count()):
+                v_idx = hh.visualIndex(i)
+                if v_idx != i:
+                    hh.moveSection(v_idx, i)
 
         self._apply_column_widths()
         self._sync_ui_config()
