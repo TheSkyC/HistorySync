@@ -34,6 +34,7 @@ max-statements = 200
 [lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "main.py" = ["E402"]
+"cli.py" = ["T201"]
 "tests/*.py" = ["E402"]
 
 [lint.mccabe]

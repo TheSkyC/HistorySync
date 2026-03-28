@@ -21,7 +21,6 @@ logs/
 # Build & distribution
 dist/
 build/
-*.spec
 *.egg-info/
 
 # IDE & editor settings
