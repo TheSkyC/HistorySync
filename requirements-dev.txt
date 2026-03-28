@@ -24,10 +24,13 @@ colorama==0.4.6
     # via
     #   build
     #   click
+    #   pytest
 idna==3.11
     # via
     #   -r requirements.txt
     #   requests
+iniconfig==2.3.0
+    # via pytest
 jaraco-classes==3.4.0
     # via
     #   -r requirements.txt
@@ -56,11 +59,16 @@ packaging==26.0
     #   build
     #   pyinstaller
     #   pyinstaller-hooks-contrib
+    #   pytest
     #   wheel
 pefile==2024.8.26
     # via pyinstaller
 pip-tools==7.5.3
     # via -r requirements-dev.in
+pluggy==1.6.0
+    # via pytest
+pygments==2.19.2
+    # via pytest
 pyinstaller==6.19.0
     # via -r requirements-dev.in
 pyinstaller-hooks-contrib==2026.3
@@ -80,6 +88,8 @@ pyside6-essentials==6.10.2
     #   -r requirements.txt
     #   pyside6
     #   pyside6-addons
+pytest==9.0.2
+    # via -r requirements-dev.in
 python-dateutil==2.9.0.post0
     # via
     #   -r requirements.txt

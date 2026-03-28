@@ -1,3 +1,4 @@
+# Python core & virtual environments
 __pycache__/
 *.py[cod]
 *.pyo
@@ -5,23 +6,31 @@ __pycache__/
 venv/
 env/
 
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local databases & logs
 *.db
 *.db-wal
 *.db-shm
-CLAUDE.md
-
 *.log
 logs/
 
-.vscode/
-.idea/
-.claude/
-*.swp
-
+# Build & distribution
 dist/
 build/
 *.spec
 *.egg-info/
 
+# IDE & editor settings
+.vscode/
+.idea/
+.claude/
+CLAUDE.md
+*.swp
+
+# OS generated files
 .DS_Store
 Thumbs.db
