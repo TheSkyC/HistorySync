@@ -167,15 +167,10 @@ Headless export examples (no GUI launched):
 def _cli_export_main(args: argparse.Namespace) -> int:
     """
     Perform a headless export then exit.
-
-    Zero Qt dependency for CSV / JSON.
-    HTML with --embed-icons also needs no Qt (FaviconCache is pure SQLite).
     Returns 0 on success, 1 on error.
     """
     from datetime import datetime
     import logging as _logging
-    from pathlib import Path
-    import sys
 
     from src.models.app_config import AppConfig
     from src.services.exporter import ALL_COLUMNS, Exporter, ResolvedExportParams
