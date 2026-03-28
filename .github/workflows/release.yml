@@ -89,6 +89,8 @@ jobs:
     env:
       VERSION_TAG: ${{ needs.setup.outputs.version_tag }}
       VERSION_NUM: ${{ needs.setup.outputs.version_num }}
+      HAS_WIN_CERT:   ${{ secrets.WINDOWS_CERTIFICATE != '' }}
+      HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -280,7 +282,7 @@ jobs:
           }
 
       - name: Sign executable (Windows)
-        if: runner.os == 'Windows' && secrets.WINDOWS_CERTIFICATE != ''
+        if: runner.os == 'Windows' && env.HAS_WIN_CERT == 'true'
         shell: pwsh
         env:
           CERT_B64: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -296,7 +298,7 @@ jobs:
           Write-Host "::notice::Executable signed successfully."
 
       - name: Sign and notarize app bundle (macOS)
-        if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
+        if: runner.os == 'macOS' && env.HAS_APPLE_CERT == 'true'
         shell: bash
         env:
           APPLE_CERT:     ${{ secrets.APPLE_CERTIFICATE }}
