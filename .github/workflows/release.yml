@@ -114,12 +114,6 @@ jobs:
             python_arch: aarch64-apple-darwin
             arch_display: arm64
 
-          # ── macOS x64 (Intel) ──────────────────────────────────────────────
-          - platform_name: macos-x64
-            os_image: macos-13           # Last Intel runner
-            python_arch: x86_64-apple-darwin
-            arch_display: x64
-
     steps:
       - uses: actions/checkout@v4
 
@@ -353,7 +347,7 @@ jobs:
           Push-Location "dist\${{ env.APP_NAME }}"
           Compress-Archive -Path * -DestinationPath "..\..\$out"
           Pop-Location
-          Write-Host "Created: $out ($('{0:N2}' -f ((Get-Item "../../$out").length / 1MB)) MB)"
+          Write-Host "Created: $out ($('{0:N2}' -f ((Get-Item $out).length / 1MB)) MB)"
 
       # ── Windows: Inno Setup installer ─────────────────────────────────────
       - name: Generate Inno Setup script
