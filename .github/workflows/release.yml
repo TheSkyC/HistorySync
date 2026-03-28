@@ -664,4 +664,5 @@ jobs:
         with:
           tag_name: ${{ env.VERSION_TAG }}
           generate_release_notes: true
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') || contains(env.VERSION_TAG, 'alpha') || contains(env.VERSION_TAG, 'beta') || contains(env.VERSION_TAG, 'rc') }}
           files: release_assets/*
