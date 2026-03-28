@@ -387,15 +387,15 @@ jobs:
             'Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked',
             "",
             "[Files]",
-            'Source: "dist\${appName}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs',
+            "Source: ""dist\${appName}\*""; DestDir: ""{app}""; Flags: ignoreversion recursesubdirs createallsubdirs",
             "",
             "[Icons]",
-            'Name: "{group}\${appName}";                        Filename: "{app}\${appName}.exe"',
-            'Name: "{group}\{cm:UninstallProgram,${appName}}";  Filename: "{uninstallexe}"',
-            'Name: "{commondesktop}\${appName}";                Filename: "{app}\${appName}.exe"; Tasks: desktopicon',
+            "Name: ""{group}\${appName}"";                        Filename: ""{app}\${appName}.exe""",
+            "Name: ""{group}\{cm:UninstallProgram,${appName}}"";  Filename: ""{uninstallexe}""",
+            "Name: ""{commondesktop}\${appName}"";                Filename: ""{app}\${appName}.exe""; Tasks: desktopicon",
             "",
             "[Run]",
-            'Filename: "{app}\${appName}.exe"; Description: "{cm:LaunchProgram,${appName}}"; Flags: nowait postinstall skipifsilent'
+            "Filename: ""{app}\${appName}.exe""; Description: ""{cm:LaunchProgram,${appName}}""; Flags: nowait postinstall skipifsilent"
           ) -join "`n" | Set-Content installer.iss -Encoding UTF8
 
       - name: Compile Inno Setup installer
