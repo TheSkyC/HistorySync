@@ -63,7 +63,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-test.txt
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       # Run with the same flags as test.yml so the release gate has identical
       # rigour to the CI gate. Diverging flags risk a test passing here but
@@ -176,13 +175,21 @@ jobs:
           Copy-Item "dist\hsync\hsync.exe" "dist\${{ env.APP_NAME }}\hsync.exe" -Force
           Write-Host "Embedded: hsync.exe → dist\${{ env.APP_NAME }}\hsync.exe"
 
-      - name: Embed CLI binary into GUI bundle (Unix)
-        if: runner.os != 'Windows'
+      - name: Embed CLI binary into GUI bundle (Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           cp "dist/hsync/hsync" "dist/${{ env.APP_NAME }}/hsync"
           chmod +x "dist/${{ env.APP_NAME }}/hsync"
           echo "Embedded: hsync → dist/${{ env.APP_NAME }}/hsync"
+      
+      - name: Embed CLI binary into GUI bundle (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cp "dist/hsync/hsync" "dist/${{ env.APP_NAME }}.app/Contents/MacOS/hsync"
+          chmod +x "dist/${{ env.APP_NAME }}.app/Contents/MacOS/hsync"
+          echo "Embedded: hsync → dist/${{ env.APP_NAME }}.app/Contents/MacOS/hsync"
 
       # ── Strip translation source files ────────────────────────────────────
       # Covers both the GUI bundle (dist/HistorySync/) and the standalone

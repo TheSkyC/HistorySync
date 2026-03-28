@@ -171,3 +171,11 @@ cli_coll = COLLECT(
     upx=False,
     name="hsync",           # → dist/hsync/
 )
+
+if sys.platform == "darwin":
+    gui_bundle = BUNDLE(
+        gui_coll,
+        name="HistorySync.app",
+        icon=_icon,
+        bundle_identifier="com.historysync.app",
+    )
