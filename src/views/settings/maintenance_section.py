@@ -208,9 +208,7 @@ class MaintenanceSection(QWidget):
 
     def set_resync_done(self, new_count: int):
         """Show the result after a full resync finishes."""
-        self._log_lbl.setText(
-            _("✓ Full resync complete — {n} new records upserted.").format(n=f"{new_count:,}")
-        )
+        self._log_lbl.setText(_("✓ Full resync complete — {n} new records upserted.").format(n=f"{new_count:,}"))
         self._log_lbl.setObjectName("success")
         self._log_lbl.style().unpolish(self._log_lbl)
         self._log_lbl.style().polish(self._log_lbl)
