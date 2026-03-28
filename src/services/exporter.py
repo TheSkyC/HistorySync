@@ -17,7 +17,7 @@ from src.models.history_record import HistoryRecord
 from src.services.favicon_cache import FaviconCache
 from src.services.local_db import LocalDatabase
 from src.utils.constants import APP_NAME, APP_VERSION
-from src.utils.i18n import _
+from src.utils.i18n_core import _
 from src.utils.logger import get_logger
 from src.utils.path_helper import get_templates_dir
 

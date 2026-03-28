@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 from src.models.app_config import WebDavConfig
 from src.utils.constants import DB_FILENAME, FAVICON_DB_FILENAME, WEBDAV_BACKUP_NAME_PREFIX
-from src.utils.i18n import _
+from src.utils.i18n_core import _
 from src.utils.logger import get_logger
 
 log = get_logger("webdav")

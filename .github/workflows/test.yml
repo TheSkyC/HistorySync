@@ -7,6 +7,7 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'requirements*.txt'
+      - 'requirements*.in'
       - 'pytest.ini'
       - 'ruff.toml'
       - '.github/workflows/test.yml'
@@ -16,6 +17,7 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'requirements*.txt'
+      - 'requirements*.in'
       - 'pytest.ini'
       - 'ruff.toml'
       - '.github/workflows/test.yml'
@@ -53,8 +55,8 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Test matrix
-  # - main / master branch  → all three platforms
-  # - all other branches    → ubuntu only
+  # - main / master branch → all three platforms
+  # - all other branches   → ubuntu only
   # ─────────────────────────────────────────────────────────────────────────────
   test:
     name: Tests (${{ matrix.os }})
@@ -73,12 +75,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
-      - name: Install dependencies
+      - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install -r requirements-test.txt
         shell: bash
 
       - name: Run tests with coverage

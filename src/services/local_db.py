@@ -14,7 +14,7 @@ import threading
 import time
 
 from src.models.history_record import BackupStats, HistoryRecord
-from src.utils.i18n import _
+from src.utils.i18n_core import _
 from src.utils.logger import get_logger
 
 log = get_logger("local_db")
