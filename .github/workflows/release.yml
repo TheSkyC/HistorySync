@@ -8,16 +8,47 @@ on:
 
 env:
   APP_NAME: HistorySync
+  APP_ID: historysync                    # lowercase, used for .deb / AppImage / desktop entry
   PYTHON_STANDALONE_VERSION: '3.12.12'
   PYTHON_STANDALONE_RELEASE_TAG: '20251202'
   PYTHON_BUILD_VERSION: '3.12'
 
+# ═══════════════════════════════════════════════════════════════════════════════
 jobs:
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Run the full test suite before attempting a release build.
-  # ─────────────────────────────────────────────────────────────────────────────
+
+  # ── 0. Version ──────────────────────────────────────────────────────────────
+  # Extracts a clean tag (vX.Y.Z) and bare number (X.Y.Z) from the git ref and
+  # exposes them as outputs for every downstream job.
+  # ────────────────────────────────────────────────────────────────────────────
+  setup:
+    name: Parse Version
+    runs-on: ubuntu-latest
+    outputs:
+      version_tag: ${{ steps.ver.outputs.tag }}
+      version_num: ${{ steps.ver.outputs.num }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version tag and bare number
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            # workflow_dispatch or branch push: synthesise a dev version
+            TAG="v0.0.0-dev.$(git rev-parse --short HEAD)"
+          fi
+          NUM="${TAG#v}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "num=${NUM}"  >> "$GITHUB_OUTPUT"
+          echo "::notice title=Version::Building ${TAG} (${NUM})"
+
+  # ── 1. Test gate ─────────────────────────────────────────────────────────────
+  # All build jobs depend on this passing; a red test suite blocks the release.
+  # ────────────────────────────────────────────────────────────────────────────
   test:
-    name: Run Tests (release gate)
+    name: Run Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,337 +64,588 @@ jobs:
           pip install -r requirements-test.txt
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Run pytest
-        run: pytest -q --tb=short
+      # Run with the same flags as test.yml so the release gate has identical
+      # rigour to the CI gate. Diverging flags risk a test passing here but
+      # failing (or hiding failures) in the regular workflow.
+      - name: Run pytest with coverage
+        run: |
+          pytest \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            -q --tb=short
 
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ── 2. Build ─────────────────────────────────────────────────────────────────
+  # Matrix:
+  #   windows-x64  →  setup.exe (Inno Setup)  +  portable .zip
+  #   linux-x64    →  .AppImage  +  .deb  +  .tar.gz
+  #   macos-arm64  →  .dmg  (native Apple Silicon runner)
+  #   macos-x64    →  .dmg  (native Intel runner)
+  # ────────────────────────────────────────────────────────────────────────────
   build:
-    name: Build for ${{ matrix.os_name }}-${{ matrix.arch_display }}
-    needs: test
+    name: Build · ${{ matrix.platform_name }}
+    needs: [setup, test]
     runs-on: ${{ matrix.os_image }}
+    env:
+      VERSION_TAG: ${{ needs.setup.outputs.version_tag }}
+      VERSION_NUM: ${{ needs.setup.outputs.version_num }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os_name: windows
+          # ── Windows x64 ────────────────────────────────────────────────────
+          - platform_name: windows-x64
             os_image: windows-latest
-            arch_display: x64
             python_arch: x86_64-pc-windows-msvc
-            asset_suffix: win-x64.zip
-          - os_name: linux
-            os_image: ubuntu-latest
             arch_display: x64
+
+          # ── Linux x64 ──────────────────────────────────────────────────────
+          # ubuntu-22.04: older GLIBC (2.35) = wider distro compatibility
+          - platform_name: linux-x64
+            os_image: ubuntu-22.04
             python_arch: x86_64-unknown-linux-gnu
-            asset_suffix: linux-x64.tar.gz
-          - os_name: macos
-            os_image: macos-15
-            arch_display: universal
-            python_arch_arm64: aarch64-apple-darwin
-            python_arch_x64: x86_64-apple-darwin
-            asset_suffix: macos-universal.dmg
+            arch_display: x86_64
+
+          # ── macOS ARM64 (Apple Silicon) ────────────────────────────────────
+          - platform_name: macos-arm64
+            os_image: macos-15           # Apple Silicon native runner
+            python_arch: aarch64-apple-darwin
+            arch_display: arm64
+
+          # ── macOS x64 (Intel) ──────────────────────────────────────────────
+          - platform_name: macos-x64
+            os_image: macos-13           # Last Intel runner
+            python_arch: x86_64-apple-darwin
+            arch_display: x64
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python for Build
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_BUILD_VERSION }}
+      # ── Python build environment ──────────────────────────────────────────
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_BUILD_VERSION }}
+          cache: pip
 
-    - name: Download Standalone Python (Minimal Runtime)
-      shell: bash
-      run: |
-        PYTHON_VERSION="${{ env.PYTHON_STANDALONE_VERSION }}"
-        RELEASE_TAG="${{ env.PYTHON_STANDALONE_RELEASE_TAG }}"
+      - name: Install build dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          if (Test-Path requirements.txt) { pip install -r requirements.txt }
 
-        if [[ "${{ runner.os }}" == "Windows" ]]; then
-          URL="https://github.com/indygreg/python-build-standalone/releases/download/$RELEASE_TAG/cpython-$PYTHON_VERSION+$RELEASE_TAG-${{ matrix.python_arch }}-install_only_stripped.tar.gz"
-          echo "Downloading MINIMAL Python from $URL"
-          curl -L $URL -o python-standalone.tar.gz
-          tar -xzf python-standalone.tar.gz
-          mv python python_minimal
-        elif [[ "${{ runner.os }}" == "Linux" ]]; then
-          URL="https://github.com/indygreg/python-build-standalone/releases/download/$RELEASE_TAG/cpython-$PYTHON_VERSION+$RELEASE_TAG-${{ matrix.python_arch }}-install_only_stripped.tar.gz"
-          echo "Downloading MINIMAL Python from $URL"
-          curl -L $URL | tar -xz
-          mv python python_minimal
-        elif [[ "${{ runner.os }}" == "macOS" ]]; then
-          URL_ARM="https://github.com/indygreg/python-build-standalone/releases/download/$RELEASE_TAG/cpython-$PYTHON_VERSION+$RELEASE_TAG-${{ matrix.python_arch_arm64 }}-install_only_stripped.tar.gz"
-          URL_X64="https://github.com/indygreg/python-build-standalone/releases/download/$RELEASE_TAG/cpython-$PYTHON_VERSION+$RELEASE_TAG-${{ matrix.python_arch_x64 }}-install_only_stripped.tar.gz"
-          echo "Downloading Python for ARM64..." && curl -L $URL_ARM | tar -xz && mv python python_minimal_arm64
-          echo "Downloading Python for x86_64..." && curl -L $URL_X64 | tar -xz && mv python python_minimal_x64
-        fi
+      - name: Install build dependencies (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-    - name: Install dependencies (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller
-        if (Test-Path requirements.txt) {
-          pip install -r requirements.txt
-        }
+      # ── Standalone Python runtime (Windows only) ──────────────────────────
+      # On Linux / macOS PyInstaller bundles a complete runtime on its own.
+      # On Windows we replace the bundled vcruntime + Python DLLs with the
+      # known-good indygreg standalone build to avoid MSVC dependency issues.
+      - name: Download standalone Python runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          BASE="https://github.com/indygreg/python-build-standalone/releases/download"
+          TAG="${{ env.PYTHON_STANDALONE_RELEASE_TAG }}"
+          VER="${{ env.PYTHON_STANDALONE_VERSION }}"
+          ARCH="${{ matrix.python_arch }}"
+          URL="${BASE}/${TAG}/cpython-${VER}+${TAG}-${ARCH}-install_only_stripped.tar.gz"
+          echo "Fetching: ${URL}"
+          curl -fsSL "$URL" -o runtime.tar.gz
+          tar -xzf runtime.tar.gz && mv python python_minimal
 
-    - name: Install dependencies (Unix)
-      if: runner.os != 'Windows'
-      shell: bash
-      run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller
-        if [ -f requirements.txt ]; then
-          pip install -r requirements.txt
-        fi
+      # ── PyInstaller build ─────────────────────────────────────────────────
+      - name: Build with PyInstaller (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          pyinstaller `
+            --name "${{ env.APP_NAME }}" `
+            --windowed --noupx --noconfirm `
+            --icon "src/resources/icons/app-icon.ico" `
+            --add-data "NOTICE;." `
+            --add-data "LICENSE;." `
+            --add-data "src/resources;resources" `
+            --hidden-import "PySide6.QtSvg" `
+            --hidden-import "PySide6.QtSvgWidgets" `
+            --hidden-import "webdav4" `
+            --hidden-import "webdav4.client" `
+            --exclude-module "Qt6Sql"              --exclude-module "Qt6Test" `
+            --exclude-module "Qt6Xml"              --exclude-module "Qt6Qml" `
+            --exclude-module "Qt6Quick"            --exclude-module "Qt6WebEngineWidgets" `
+            --exclude-module "Qt6WebEngineCore"    --exclude-module "Qt6WebChannel" `
+            --exclude-module "Qt6Positioning"      --exclude-module "Qt6Sensors" `
+            --exclude-module "Qt6Nfc"              --exclude-module "Qt6Bluetooth" `
+            --exclude-module "Qt6DataVisualization" --exclude-module "Qt6Multimedia" `
+            --exclude-module "tkinter"   --exclude-module "unittest" `
+            --exclude-module "pdb"       --exclude-module "doctest" `
+            --exclude-module "pydoc"     --exclude-module "turtle" `
+            --exclude-module "test"      --exclude-module "lib2to3" `
+            --exclude-module "scipy"     --exclude-module "matplotlib" `
+            --exclude-module "IPython"   --exclude-module "jupyter" `
+            --optimize 2 `
+            src/main.py
 
-    - name: Build with PyInstaller (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        Write-Host "Building HistorySync for Windows..."
+      - name: Build with PyInstaller (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          [[ "${{ runner.os }}" == "macOS" ]] && \
+            ICON="--icon src/resources/icons/app-icon.icns" || \
+            ICON="--icon src/resources/icons/app-icon.ico"
 
-        pyinstaller `
-          --name "${{ env.APP_NAME }}" `
-          --windowed `
-          --noupx `
-          --noconfirm `
-          --icon "src/resources/icons/app-icon.ico" `
-          --add-data "NOTICE;." `
-          --add-data "LICENSE;." `
-          --add-data "src/resources;resources" `
-          --hidden-import "PySide6.QtSvg" `
-          --hidden-import "PySide6.QtSvgWidgets" `
-          --hidden-import "webdav4" `
-          --hidden-import "webdav4.client" `
-          --exclude-module "Qt6Sql" `
-          --exclude-module "Qt6Test" `
-          --exclude-module "Qt6Xml" `
-          --exclude-module "Qt6Qml" `
-          --exclude-module "Qt6Quick" `
-          --exclude-module "Qt6WebEngineWidgets" `
-          --exclude-module "Qt6WebEngineCore" `
-          --exclude-module "Qt6WebChannel" `
-          --exclude-module "Qt6Positioning" `
-          --exclude-module "Qt6Sensors" `
-          --exclude-module "Qt6Nfc" `
-          --exclude-module "Qt6Bluetooth" `
-          --exclude-module "Qt6DataVisualization" `
-          --exclude-module "Qt6Multimedia" `
-          --exclude-module "tkinter" `
-          --exclude-module "unittest" `
-          --exclude-module "pdb" `
-          --exclude-module "doctest" `
-          --exclude-module "pydoc" `
-          --exclude-module "turtle" `
-          --exclude-module "test" `
-          --exclude-module "lib2to3" `
-          --exclude-module "scipy" `
-          --exclude-module "matplotlib" `
-          --exclude-module "IPython" `
-          --exclude-module "jupyter" `
-          --optimize 2 `
-          src/main.py
+          pyinstaller \
+            --name "${{ env.APP_NAME }}" \
+            --windowed --noupx --noconfirm \
+            $ICON \
+            --add-data "NOTICE:." --add-data "LICENSE:." \
+            --add-data "src/resources:resources" \
+            --hidden-import "PySide6.QtSvg" \
+            --hidden-import "PySide6.QtSvgWidgets" \
+            --hidden-import "webdav4" --hidden-import "webdav4.client" \
+            --exclude-module "Qt6Sql"              --exclude-module "Qt6Test" \
+            --exclude-module "Qt6Xml"              --exclude-module "Qt6Qml" \
+            --exclude-module "Qt6Quick"            --exclude-module "Qt6WebEngineWidgets" \
+            --exclude-module "Qt6WebEngineCore"    --exclude-module "Qt6WebChannel" \
+            --exclude-module "Qt6Positioning"      --exclude-module "Qt6Sensors" \
+            --exclude-module "Qt6Nfc"              --exclude-module "Qt6Bluetooth" \
+            --exclude-module "Qt6DataVisualization" --exclude-module "Qt6Multimedia" \
+            --exclude-module "tkinter"   --exclude-module "unittest" \
+            --exclude-module "pdb"       --exclude-module "doctest" \
+            --exclude-module "pydoc"     --exclude-module "turtle" \
+            --exclude-module "test"      --exclude-module "lib2to3" \
+            --exclude-module "scipy"     --exclude-module "matplotlib" \
+            --exclude-module "IPython"   --exclude-module "jupyter" \
+            --optimize 2 \
+            src/main.py
 
-    - name: Build with PyInstaller (Unix)
-      if: runner.os != 'Windows'
-      shell: bash
-      run: |
-        echo "Building HistorySync for ${{ matrix.os_name }}..."
+      # ── Strip translation source files ────────────────────────────────────
+      - name: Strip .po / .pot files (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dist = "dist\${{ env.APP_NAME }}"
+          Get-ChildItem -Path $dist -Recurse -Include "*.po","*.pot" | Remove-Item -Force
+          if (Get-ChildItem -Path $dist -Recurse -Include "*.po","*.pot") {
+            Write-Error "Error: residual translation source files remain."
+          }
 
-        # macOS
-        if [[ "${{ runner.os }}" == "macOS" ]]; then
-          ICON_ARG="--icon src/resources/icons/app-icon.icns"
-        else
-          ICON_ARG="--icon src/resources/icons/app-icon.ico"
-        fi
-
-        pyinstaller \
-          --name "${{ env.APP_NAME }}" \
-          --windowed \
-          --noupx \
-          --noconfirm \
-          $ICON_ARG \
-          --add-data "NOTICE:." \
-          --add-data "LICENSE:." \
-          --add-data "src/resources:resources" \
-          --hidden-import "PySide6.QtSvg" \
-          --hidden-import "PySide6.QtSvgWidgets" \
-          --hidden-import "webdav4" \
-          --hidden-import "webdav4.client" \
-          --exclude-module "Qt6Sql" \
-          --exclude-module "Qt6Test" \
-          --exclude-module "Qt6Xml" \
-          --exclude-module "Qt6Qml" \
-          --exclude-module "Qt6Quick" \
-          --exclude-module "Qt6WebEngineWidgets" \
-          --exclude-module "Qt6WebEngineCore" \
-          --exclude-module "Qt6WebChannel" \
-          --exclude-module "Qt6Positioning" \
-          --exclude-module "Qt6Sensors" \
-          --exclude-module "Qt6Nfc" \
-          --exclude-module "Qt6Bluetooth" \
-          --exclude-module "Qt6DataVisualization" \
-          --exclude-module "Qt6Multimedia" \
-          --exclude-module "tkinter" \
-          --exclude-module "unittest" \
-          --exclude-module "pdb" \
-          --exclude-module "doctest" \
-          --exclude-module "pydoc" \
-          --exclude-module "turtle" \
-          --exclude-module "test" \
-          --exclude-module "lib2to3" \
-          --exclude-module "scipy" \
-          --exclude-module "matplotlib" \
-          --exclude-module "IPython" \
-          --exclude-module "jupyter" \
-          --optimize 2 \
-          src/main.py
-
-    - name: Cleanup Translation Source Files (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        $distPath = "dist/${{ env.APP_NAME }}"
-        Write-Host "Removing .po and .pot files from $distPath..."
-        Get-ChildItem -Path $distPath -Include "*.po", "*.pot" -Recurse | Remove-Item -Force
-
-        $remaining = Get-ChildItem -Path $distPath -Include "*.po", "*.pot" -Recurse
-        if ($remaining) { Write-Error "Failed to clean up all source translation files." }
-
-    - name: Cleanup Translation Source Files (Unix)
-      if: runner.os != 'Windows'
-      shell: bash
-      run: |
-        DIST_PATH="dist/${{ env.APP_NAME }}"
-        echo "Removing .po and .pot files from $DIST_PATH..."
-        find "$DIST_PATH" -type f \( -name "*.po" -o -name "*.pot" \) -delete
-
-        if find "$DIST_PATH" -type f \( -name "*.po" -o -name "*.pot" \) | grep -q .; then
-          echo "Error: Failed to clean up all source translation files."
-          exit 1
-        fi
-
-    - name: Bundle Python Runtime (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        $distDir = "dist/${{ env.APP_NAME }}"
-        $runtimeSourceDir = "python_minimal"
-
-        Write-Host "Precisely replacing Windows Python runtime..."
-
-        $runtimeFiles = @(
-            "python.exe",
-            "pythonw.exe",
-            "python3.dll",
-            "python312.dll",
-            "vcruntime140.dll",
-            "vcruntime140_1.dll"
-        )
-
-        foreach ($file in $runtimeFiles) {
-            $sourceFile = Join-Path $runtimeSourceDir $file
-            if (Test-Path $sourceFile) {
-                Write-Host "Copying runtime file: $file"
-                Copy-Item -Path $sourceFile -Destination $distDir -Force
-            }
-        }
-
-    - name: Bundle Python Runtime (Linux)
-      if: runner.os == 'Linux'
-      shell: bash
-      run: |
-        DIST_DIR="dist/${{ env.APP_NAME }}"
-        RUNTIME_SOURCE_DIR="python_minimal"
-        echo "Precisely replacing Linux Python runtime..."
-        cp "$RUNTIME_SOURCE_DIR/bin/python3" "$DIST_DIR/"
-        find "$RUNTIME_SOURCE_DIR/lib" -maxdepth 1 -name "*.so*" -exec cp {} "$DIST_DIR/lib/" \;
-
-    - name: Prepare Artifacts (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        $sourceDir = "dist/${{ env.APP_NAME }}"
-        $destinationZip = "${{ env.APP_NAME }}-${{ matrix.asset_suffix }}"
-        if (Test-Path $destinationZip) {
-          Remove-Item $destinationZip
-        }
-        Push-Location $sourceDir
-        Compress-Archive -Path * -DestinationPath "../../$destinationZip"
-        Pop-Location
-
-    - name: Prepare Artifacts (Linux)
-      if: runner.os == 'Linux'
-      shell: bash
-      run: |
-        tar -czvf ${{ env.APP_NAME }}-${{ matrix.asset_suffix }} -C dist/ ${{ env.APP_NAME }}
-
-    - name: Prepare Artifacts (macOS)
-      if: runner.os == 'macOS'
-      shell: bash
-      run: |
-        # macOS Universal: lipo 合并 arm64 + x86_64 二进制
-        APP_BUNDLE_PATH="dist/${{ env.APP_NAME }}.app"
-        MAIN_BIN="$APP_BUNDLE_PATH/Contents/MacOS/${{ env.APP_NAME }}"
-
-        if [ -f "$MAIN_BIN" ]; then
-          echo "Attempting to create Universal binary with lipo..."
-          # 注意: PyInstaller 单次构建只针对当前架构；
-          # 要真正 universal 需要分别构建再 lipo 合并，此处留作扩展钩子。
-          echo "Single-arch build detected (current runner arch). Packaging as-is."
-        fi
-
-        if [ -d "$APP_BUNDLE_PATH" ]; then
-          echo "Waiting for file handles on $APP_BUNDLE_PATH to be released..."
-          MAX_WAIT_SECONDS=30
-          SECONDS_WAITED=0
-          while lsof +D "$APP_BUNDLE_PATH" >/dev/null 2>&1 && [ $SECONDS_WAITED -lt $MAX_WAIT_SECONDS ]; do
-            echo "Handles still busy, waiting 2 more seconds..."
-            sleep 2
-            SECONDS_WAITED=$((SECONDS_WAITED + 2))
-          done
-
-          if [ $SECONDS_WAITED -ge $MAX_WAIT_SECONDS ]; then
-            echo "Error: Timed out waiting for file handles to be released."
-            lsof +D "$APP_BUNDLE_PATH"
-            exit 1
+      - name: Strip .po / .pot files (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          find "dist/${{ env.APP_NAME }}" -type f \( -name "*.po" -o -name "*.pot" \) -delete
+          if find "dist/${{ env.APP_NAME }}" -type f \( -name "*.po" -o -name "*.pot" \) \
+               | grep -q .; then
+            echo "Error: residual .po/.pot files remain" && exit 1
           fi
 
-          echo "File handles released. Creating DMG..."
+      # ── [Optional] Code signing ───────────────────────────────────────────
+      # These steps are no-ops until the corresponding secrets are populated.
+      #
+      # Windows: add repository secrets
+      #   WINDOWS_CERTIFICATE          – base64-encoded PFX file
+      #   WINDOWS_CERTIFICATE_PASSWORD – PFX passphrase
+      #
+      # macOS: add repository secrets
+      #   APPLE_CERTIFICATE            – base64-encoded .p12 Developer ID cert
+      #   APPLE_CERTIFICATE_PASSWORD   – .p12 passphrase
+      #   APPLE_ID                     – Apple ID email used for notarization
+      #   APPLE_ID_PASSWORD            – app-specific password (not your Apple ID password)
+      #   APPLE_TEAM_ID                – 10-character Apple Team ID
+
+      # ── Windows: replace bundled Python runtime ───────────────────────────
+      # IMPORTANT: this step must run BEFORE code signing so that the final
+      # DLLs (python312.dll, vcruntime140.dll, etc.) are the ones that get
+      # signed. Signing first and then overwriting the DLLs would invalidate
+      # the signature on those files.
+      # Swap out the Python interpreter and vcruntime DLLs that PyInstaller
+      # pulled from the build machine with the clean standalone build we
+      # downloaded earlier – ensures a consistent, minimal runtime footprint.
+      - name: Replace Python runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dist = "dist\${{ env.APP_NAME }}"
+          $src  = "python_minimal"
+          foreach ($f in @("python.exe","pythonw.exe","python3.dll","python312.dll",
+                           "vcruntime140.dll","vcruntime140_1.dll")) {
+            $s = Join-Path $src $f
+            if (Test-Path $s) { Copy-Item $s $dist -Force; Write-Host "Replaced: $f" }
+          }
+
+      - name: Sign executable (Windows)
+        if: runner.os == 'Windows' && secrets.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          CERT_B64: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CERT_PWD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [System.Convert]::FromBase64String($env:CERT_B64)
+          [System.IO.File]::WriteAllBytes("cert.pfx", $certBytes)
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe"
+          & $signtool sign /fd sha256 /td sha256 /tr http://timestamp.digicert.com `
+            /f cert.pfx /p $env:CERT_PWD `
+            "dist\${{ env.APP_NAME }}\${{ env.APP_NAME }}.exe"
+          Remove-Item cert.pfx -Force
+          Write-Host "::notice::Executable signed successfully."
+
+      - name: Sign and notarize app bundle (macOS)
+        if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
+        shell: bash
+        env:
+          APPLE_CERT:     ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERT_PWD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID:       ${{ secrets.APPLE_ID }}
+          APPLE_ID_PWD:   ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID:  ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo "$APPLE_CERT" | base64 --decode > cert.p12
+          security create-keychain -p "" build.keychain
+          security import cert.p12 -k build.keychain -P "$APPLE_CERT_PWD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+          security list-keychains -d user -s build.keychain
+
+          # Derive the signing identity CN from the imported certificate.
+          # APPLE_TEAM_ID is the 10-character Team ID, not the certificate Common
+          # Name that codesign --sign expects. Using Team ID directly causes
+          # codesign to either fail or pick the wrong identity.
+          SIGNING_IDENTITY=$(security find-identity -v -p codesigning build.keychain \
+            | grep "Developer ID Application" \
+            | head -1 \
+            | sed 's/.*"\(.*\)"/\1/')
+          if [ -z "$SIGNING_IDENTITY" ]; then
+            echo "::error::No 'Developer ID Application' certificate found in build.keychain."
+            exit 1
+          fi
+          echo "::notice::Signing with identity: ${SIGNING_IDENTITY}"
+
+          codesign --deep --force --verify --verbose \
+            --sign "$SIGNING_IDENTITY" \
+            --options runtime \
+            "dist/${{ env.APP_NAME }}.app"
+
+          ditto -c -k --keepParent "dist/${{ env.APP_NAME }}.app" _notarize.zip
+          xcrun notarytool submit _notarize.zip \
+            --apple-id "$APPLE_ID" --password "$APPLE_ID_PWD" \
+            --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "dist/${{ env.APP_NAME }}.app"
+          rm cert.p12 _notarize.zip
+          echo "::notice::App bundle signed and notarized."
+
+      # ═════════════════════════════════════════════════════════════════════
+      # Packaging
+      # ═════════════════════════════════════════════════════════════════════
+
+      # ── Windows: portable ZIP ─────────────────────────────────────────────
+      - name: Package portable ZIP (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $out = "${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-x64-portable.zip"
+          Push-Location "dist\${{ env.APP_NAME }}"
+          Compress-Archive -Path * -DestinationPath "..\..\$out"
+          Pop-Location
+          Write-Host "Created: $out ($('{0:N2}' -f ((Get-Item "../../$out").length / 1MB)) MB)"
+
+      # ── Windows: Inno Setup installer ─────────────────────────────────────
+      - name: Generate Inno Setup script
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $appName = "${{ env.APP_NAME }}"
+          $ver     = "${{ env.VERSION_NUM }}"
+          $repo    = "${{ github.repository }}"
+          $outName = "${appName}-${{ env.VERSION_TAG }}-windows-x64-setup"
+
+          @(
+            "[Setup]",
+            "AppName=${appName}",
+            "AppVersion=${ver}",
+            "AppPublisher=${appName} Project",
+            "AppPublisherURL=https://github.com/${repo}",
+            "AppSupportURL=https://github.com/${repo}/issues",
+            "DefaultDirName={autopf}\${appName}",
+            "DefaultGroupName=${appName}",
+            "AllowNoIcons=yes",
+            "OutputDir=.",
+            "OutputBaseFilename=${outName}",
+            "Compression=lzma2/ultra64",
+            "SolidCompression=yes",
+            "PrivilegesRequired=lowest",
+            "ArchitecturesInstallIn64BitMode=x64compatible",
+            "WizardStyle=modern",
+            "DisableWelcomePage=yes",
+            "UninstallDisplayIcon={app}\${appName}.exe",
+            "",
+            "[Languages]",
+            'Name: "english"; MessagesFile: "compiler:Default.isl"',
+            "",
+            "[Tasks]",
+            'Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked',
+            "",
+            "[Files]",
+            'Source: "dist\${appName}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs',
+            "",
+            "[Icons]",
+            'Name: "{group}\${appName}";                        Filename: "{app}\${appName}.exe"',
+            'Name: "{group}\{cm:UninstallProgram,${appName}}";  Filename: "{uninstallexe}"',
+            'Name: "{commondesktop}\${appName}";                Filename: "{app}\${appName}.exe"; Tasks: desktopicon',
+            "",
+            "[Run]",
+            'Filename: "{app}\${appName}.exe"; Description: "{cm:LaunchProgram,${appName}}"; Flags: nowait postinstall skipifsilent'
+          ) -join "`n" | Set-Content installer.iss -Encoding UTF8
+
+      - name: Compile Inno Setup installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed." }
+          $exe = "${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-x64-setup.exe"
+          Write-Host "Created: $exe ($('{0:N2}' -f ((Get-Item $exe).length / 1MB)) MB)"
+
+      # ── macOS: DMG ────────────────────────────────────────────────────────
+      - name: Package DMG (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          APP_BUNDLE="dist/${{ env.APP_NAME }}.app"
+          OUT="${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-macos-${{ matrix.arch_display }}.dmg"
+
+          # Wait for any open file handles to clear before calling hdiutil
+          MAX=30; WAITED=0
+          while lsof +D "$APP_BUNDLE" >/dev/null 2>&1 && [ $WAITED -lt $MAX ]; do
+            echo "Waiting for file handles (${WAITED}/${MAX}s)..." && sleep 2
+            WAITED=$((WAITED+2))
+          done
+          if [ $WAITED -ge $MAX ]; then
+            echo "Timed out waiting for file handles:" && lsof +D "$APP_BUNDLE" && exit 1
+          fi
+
           hdiutil create \
             -volname "${{ env.APP_NAME }}" \
-            -srcfolder "$APP_BUNDLE_PATH" \
-            -ov \
-            -format UDZO \
-            "${{ env.APP_NAME }}-${{ matrix.asset_suffix }}"
-        else
-          echo "Error: .app bundle not found in dist/ for macOS."
-          exit 1
-        fi
+            -srcfolder "$APP_BUNDLE" \
+            -ov -format UDZO \
+            "$OUT"
+          echo "Created: $OUT"
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ env.APP_NAME }}-${{ matrix.os_name }}-${{ matrix.arch_display }}
-        path: ${{ env.APP_NAME }}-${{ matrix.asset_suffix }}
+      # ── Linux: install packaging tools ────────────────────────────────────
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          # libfuse2: required to run appimagetool AppImage on Ubuntu 22.04
+          sudo apt-get install -y libfuse2 fakeroot dpkg-dev
 
+      # ── Linux: AppImage ───────────────────────────────────────────────────
+      - name: Build AppImage (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          DIST="dist/${{ env.APP_NAME }}"
+          APPDIR="$RUNNER_TEMP/AppDir"
+          OUT="${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-linux-${{ matrix.arch_display }}.AppImage"
+
+          # Download appimagetool
+          curl -fsSL -o "$RUNNER_TEMP/appimagetool" \
+            "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x "$RUNNER_TEMP/appimagetool"
+
+          # ── AppDir layout ────────────────────────────────────────────────
+          # All PyInstaller output lives under usr/lib/historysync; the AppRun
+          # launcher script at the root delegates to the real binary there.
+          mkdir -p "$APPDIR/usr/lib/${{ env.APP_ID }}"
+          cp -r "$DIST"/. "$APPDIR/usr/lib/${{ env.APP_ID }}/"
+
+          # AppRun – executes the bundled binary; PyInstaller's bootloader
+          # handles LD_LIBRARY_PATH internally, so no export needed here.
+          {
+            echo '#!/bin/bash'
+            echo 'SELF="$(readlink -f "$0")"'
+            echo 'HERE="${SELF%/*}"'
+            echo 'exec "${HERE}/usr/lib/historysync/HistorySync" "$@"'
+          } > "$APPDIR/AppRun"
+          chmod +x "$APPDIR/AppRun"
+
+          # Desktop integration
+          {
+            echo '[Desktop Entry]'
+            echo 'Name=HistorySync'
+            echo 'Exec=HistorySync'
+            echo 'Icon=historysync'
+            echo 'Type=Application'
+            echo 'Categories=Utility;'
+          } > "$APPDIR/${{ env.APP_ID }}.desktop"
+
+          # Icon (256×256 PNG preferred by appimagetool)
+          if [ -f "src/resources/icons/app-icon.png" ]; then
+            cp "src/resources/icons/app-icon.png" "$APPDIR/${{ env.APP_ID }}.png"
+          else
+            # Minimal transparent 1×1 PNG fallback
+            echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" | base64 -d > "$APPDIR/${{ env.APP_ID }}.png"
+          fi
+
+          # APPIMAGE_EXTRACT_AND_RUN=1: run appimagetool without mounting via FUSE
+          # (belt-and-suspenders alongside the libfuse2 install above)
+          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 \
+            "$RUNNER_TEMP/appimagetool" "$APPDIR" "$OUT"
+          echo "Created: $OUT"
+
+      # ── Linux: .deb package ───────────────────────────────────────────────
+      - name: Build .deb package (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          NUM="${{ env.VERSION_NUM }}"
+          DIST="dist/${{ env.APP_NAME }}"
+          DEB="${{ env.APP_ID }}_${NUM}_amd64"      # Debian naming convention: lowercase, underscores
+
+          # Directory tree expected by dpkg-deb
+          mkdir -p "$DEB/DEBIAN"
+          mkdir -p "$DEB/usr/lib/${{ env.APP_ID }}"
+          mkdir -p "$DEB/usr/bin"
+          mkdir -p "$DEB/usr/share/applications"
+          mkdir -p "$DEB/usr/share/icons/hicolor/256x256/apps"
+
+          # Application files
+          cp -r "$DIST"/. "$DEB/usr/lib/${{ env.APP_ID }}/"
+
+          # usr/bin shim so the app is on $PATH
+          ln -s "/usr/lib/${{ env.APP_ID }}/${{ env.APP_NAME }}" \
+            "$DEB/usr/bin/${{ env.APP_ID }}"
+
+          # Desktop entry
+          {
+            echo '[Desktop Entry]'
+            echo 'Name=${{ env.APP_NAME }}'
+            echo 'Comment=Browser history synchronization tool'
+            echo 'Exec=/usr/lib/${{ env.APP_ID }}/${{ env.APP_NAME }}'
+            echo 'Icon=${{ env.APP_ID }}'
+            echo 'Type=Application'
+            echo 'Categories=Utility;'
+            echo 'StartupNotify=true'
+          } > "$DEB/usr/share/applications/${{ env.APP_ID }}.desktop"
+
+          # Icon
+          [ -f "src/resources/icons/app-icon.png" ] && \
+            cp "src/resources/icons/app-icon.png" \
+              "$DEB/usr/share/icons/hicolor/256x256/apps/${{ env.APP_ID }}.png"
+
+          # DEBIAN/control – Installed-Size is in KiB per policy
+          INSTALLED_KB=$(du -sk "$DEB/usr" | cut -f1)
+          {
+            echo 'Package: ${{ env.APP_ID }}'
+            echo "Version: ${NUM}"
+            echo 'Architecture: amd64'
+            echo 'Maintainer: ${{ env.APP_NAME }} Project <noreply@github.com>'
+            echo "Installed-Size: ${INSTALLED_KB}"
+            echo 'Depends: libgl1'
+            echo 'Homepage: https://github.com/${{ github.repository }}'
+            echo 'Description: Browser History Sync'
+            echo ' A cross-platform browser history synchronization and search tool.'
+          } > "$DEB/DEBIAN/control"
+
+          # maintainer scripts: refresh desktop database on install/remove
+          printf '#!/bin/sh\nupdate-desktop-database /usr/share/applications || true\n' \
+            > "$DEB/DEBIAN/postinst"
+          printf '#!/bin/sh\nupdate-desktop-database /usr/share/applications || true\n' \
+            > "$DEB/DEBIAN/postrm"
+          chmod 0755 "$DEB/DEBIAN/postinst" "$DEB/DEBIAN/postrm"
+
+          fakeroot dpkg-deb --build "$DEB" \
+            "${{ env.APP_ID }}_${NUM}_amd64.deb"
+          echo "Created: ${{ env.APP_ID }}_${NUM}_amd64.deb"
+
+      # ── Linux: tar.gz ─────────────────────────────────────────────────────
+      - name: Build tar.gz (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          OUT="${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-linux-${{ matrix.arch_display }}.tar.gz"
+          tar -czf "$OUT" -C dist/ "${{ env.APP_NAME }}"
+          echo "Created: $OUT"
+
+      # ── Upload artifacts ──────────────────────────────────────────────────
+      - name: Upload artifacts (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-windows-x64
+          path: |
+            ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-x64-setup.exe
+            ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-x64-portable.zip
+
+      - name: Upload artifacts (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-macos-${{ matrix.arch_display }}
+          path: ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-macos-${{ matrix.arch_display }}.dmg
+
+      - name: Upload artifacts (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-linux-x64
+          path: |
+            ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-linux-${{ matrix.arch_display }}.AppImage
+            ${{ env.APP_ID }}_${{ env.VERSION_NUM }}_amd64.deb
+            ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-linux-${{ matrix.arch_display }}.tar.gz
+
+  # ── 3. Release ───────────────────────────────────────────────────────────────
+  # Collects every platform artifact, flattens the directory tree, generates a
+  # SHA256SUMS.txt file, then publishes the GitHub Release with all assets.
+  # ────────────────────────────────────────────────────────────────────────────
   release:
-    name: Create GitHub Release
-    needs: build
+    name: Publish GitHub Release
+    needs: [setup, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      VERSION_TAG: ${{ needs.setup.outputs.version_tag }}
     steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: pkg-*
 
-    - name: List downloaded files
-      run: ls -R artifacts
+      - name: Flatten artifact tree and generate SHA256SUMS.txt
+        run: |
+          mkdir release_assets
+          # Flatten nested artifact subdirectories into a single directory.
+          # Abort on any filename collision so an accidental duplicate is never
+          # silently overwritten and excluded from the release.
+          find artifacts -type f | sort | while read -r f; do
+            dest="release_assets/$(basename "$f")"
+            if [ -e "$dest" ]; then
+              echo "::error::Filename collision detected: '$(basename "$f")' exists in multiple artifact packages."
+              exit 1
+            fi
+            cp "$f" "$dest"
+          done
+          # Generate SHA256SUMS in GNU coreutils format (sha256sum is already available)
+          cd release_assets
+          sha256sum * | sort > SHA256SUMS.txt
 
-    - name: Create Release and Upload Assets
-      uses: softprops/action-gh-release@v2
-      with:
-        generate_release_notes: true
-        files: |
-          artifacts/*/*
+          echo "── Release assets ───────────────────────────────"
+          ls -lh
+          echo ""
+          echo "── SHA256SUMS.txt ───────────────────────────────"
+          cat SHA256SUMS.txt
+
+      - name: Publish GitHub Release
+        # Pinned to v2.3.2 – avoids silent breakage from floating major-version
+        # tags. Update deliberately when a new release has been reviewed.
+        uses: softprops/action-gh-release@v2.3.2
+        with:
+          tag_name: ${{ env.VERSION_TAG }}
+          generate_release_notes: true
+          files: release_assets/*

@@ -109,8 +109,16 @@ jobs:
     steps:
       - name: Check results
         run: |
-          if [[ "${{ needs.lint.result }}" != "success" || "${{ needs.test.result }}" != "success" ]]; then
-            echo "One or more jobs failed."
-            exit 1
-          fi
+          declare -A results=(
+            [lint]="${{ needs.lint.result }}"
+            [test]="${{ needs.test.result }}"
+          )
+          failed=0
+          for job in "${!results[@]}"; do
+            if [[ "${results[$job]}" != "success" ]]; then
+              echo "::error::Job '${job}' did not succeed (result: ${results[$job]})."
+              failed=1
+            fi
+          done
+          if [[ $failed -ne 0 ]]; then exit 1; fi
           echo "All checks passed."
