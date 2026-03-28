@@ -3,8 +3,22 @@ name: Tests
 on:
   push:
     branches: ["**"]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'requirements*.txt'
+      - 'pytest.ini'
+      - 'ruff.toml'
+      - '.github/workflows/test.yml'
   pull_request:
     branches: ["**"]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'requirements*.txt'
+      - 'pytest.ini'
+      - 'ruff.toml'
+      - '.github/workflows/test.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -38,7 +52,9 @@ jobs:
         run: ruff format --check src/ tests/
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Test matrix – runs on Windows, Linux, and macOS
+  # Test matrix
+  # - main / master branch  → all three platforms
+  # - all other branches    → ubuntu only
   # ─────────────────────────────────────────────────────────────────────────────
   test:
     name: Tests (${{ matrix.os }})
@@ -47,7 +63,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && fromJSON('["ubuntu-latest","windows-latest","macos-latest"]') || fromJSON('["ubuntu-latest"]') }}
 
     steps:
       - uses: actions/checkout@v4
@@ -64,10 +80,6 @@ jobs:
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         shell: bash
-
-      - name: Install Qt / PySide6 for headless CI
-        run: pip install PySide6-Essentials
-        continue-on-error: true
 
       - name: Run tests with coverage
         run: |
