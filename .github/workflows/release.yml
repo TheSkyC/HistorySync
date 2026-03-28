@@ -392,7 +392,7 @@ jobs:
             "[Icons]",
             "Name: ""{group}\${appName}"";                        Filename: ""{app}\${appName}.exe""",
             "Name: ""{group}\{cm:UninstallProgram,${appName}}"";  Filename: ""{uninstallexe}""",
-            "Name: ""{commondesktop}\${appName}"";                Filename: ""{app}\${appName}.exe""; Tasks: desktopicon",
+            "Name: ""{userdesktop}\${appName}"";                Filename: ""{app}\${appName}.exe""; Tasks: desktopicon",
             "",
             "[Run]",
             "Filename: ""{app}\${appName}.exe""; Description: ""{cm:LaunchProgram,${appName}}""; Flags: nowait postinstall skipifsilent"
