@@ -10,7 +10,7 @@
 #                       → used by the lean tar.gz for NAS / Docker / cron
 #
 # Usage:
-#   pyinstaller app.spec --noconfirm --noupx
+#   pyinstaller app.spec --noconfirm
 #
 # The release workflow copies dist/hsync/hsync[.exe] into dist/HistorySync/
 # so every installer ships both binaries in one package.

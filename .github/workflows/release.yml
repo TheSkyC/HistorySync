@@ -164,7 +164,7 @@ jobs:
       # installer ships both HistorySync (GUI) and hsync (CLI).
       - name: Build with PyInstaller
         shell: bash
-        run: pyinstaller app.spec --noconfirm --noupx
+        run: pyinstaller app.spec --noconfirm
 
       # ── Embed CLI binary inside the GUI bundle ────────────────────────────
       # All downstream packaging steps operate on dist/HistorySync/ only.
