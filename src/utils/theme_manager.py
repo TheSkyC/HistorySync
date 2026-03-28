@@ -176,7 +176,14 @@ class ThemeManager(QObject):
 
             app.setStyleSheet(qss)
 
+            deferred_hscroll: list[tuple] = []  # (hbar, scroll_h) 延迟恢复水平滚动
+
             for w, model, col_info, scroll_v, scroll_h in saved_state:
+                hbar = w.horizontalScrollBar()
+                if hbar is not None and scroll_h:
+                    hbar.setUpdatesEnabled(False)
+                    deferred_hscroll.append((hbar, scroll_h))
+
                 w.setModel(model)
                 if col_info:
                     hh = w.horizontalHeader()
@@ -185,14 +192,19 @@ class ThemeManager(QObject):
                             hh.setSectionResizeMode(i, mode)
                             if mode in (QHeaderView.Interactive, QHeaderView.Fixed):
                                 hh.resizeSection(i, width)
-                # 恢复滚动条位置
                 vbar = w.verticalScrollBar()
-                hbar = w.horizontalScrollBar()
                 if vbar is not None:
                     vbar.setValue(scroll_v)
-                if hbar is not None:
-                    hbar.setValue(scroll_h)
                 w.viewport().update()
+
+            if deferred_hscroll:
+
+                def _restore_hscroll(items=deferred_hscroll):
+                    for hbar, val in items:
+                        hbar.setValue(val)
+                        hbar.setUpdatesEnabled(True)
+
+                QTimer.singleShot(0, _restore_hscroll)
 
             self._applied = resolved
         else:
