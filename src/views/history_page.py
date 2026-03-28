@@ -404,15 +404,8 @@ class HistoryPage(QWidget):
         default_widths = {
             "title": 350,
             "url": 400,
-            "visit_time": 140,
-            "visit_count": 90,
             "domain": 160,
-            "profile_name": 120,
             "metadata": 250,
-            "typed_count": 100,
-            "first_visit_time": 140,
-            "transition_type": 120,
-            "visit_duration": 130,
         }
 
         for idx, col_key in enumerate(visible_cols):
@@ -455,6 +448,12 @@ class HistoryPage(QWidget):
 
         self._current_widths[col_key] = max_w
         self._col_resize_timer.start(500)
+
+    def _auto_fit_new_column(self, col_key: str):
+        for logical_idx, key in self._vm.table_model._col_to_key.items():
+            if key == col_key:
+                self._auto_fit_column(logical_idx)
+                break
 
     def _reset_table_view(self):
         default_cols = ["title", "url", "browser", "visit_time"]
@@ -529,14 +528,20 @@ class HistoryPage(QWidget):
             # 处理列的显示/隐藏切换
             col_key = action.data()
             new_visible = visible_cols.copy()
+            is_first_time_add = False
 
             if col_key in new_visible:
                 new_visible.remove(col_key)
             else:
                 new_visible.append(col_key)
+                if col_key not in self._current_widths:
+                    is_first_time_add = True
 
             self._vm.table_model.set_visible_columns(new_visible)
             self._sync_ui_config()
+
+            if is_first_time_add:
+                QTimer.singleShot(50, lambda k=col_key: self._auto_fit_new_column(k))
 
     # ── Selection helpers ─────────────────────────────────────
 
