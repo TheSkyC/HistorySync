@@ -12,6 +12,7 @@ env:
   PYTHON_STANDALONE_VERSION: '3.12.12'
   PYTHON_STANDALONE_RELEASE_TAG: '20251202'
   PYTHON_BUILD_VERSION: '3.12'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 # ═══════════════════════════════════════════════════════════════════════════════
 jobs:
