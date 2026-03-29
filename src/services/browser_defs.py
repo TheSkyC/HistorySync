@@ -109,6 +109,109 @@ class BrowserDef:
                 yield "Default", db
 
 
+@dataclass(frozen=True)
+class CustomFilenameBrowserDef(BrowserDef):
+    """Chromium-based browser whose history DB uses a non-standard filename (e.g. 'History2')."""
+
+    _history_filename: str = field(default="History", compare=False, hash=False, repr=False)
+    _favicon_filename: str = field(default="Favicons", compare=False, hash=False, repr=False)
+
+    def _iter_chromium_history(self) -> Iterator[tuple[str, Path]]:
+        for data_dir in self._data_dirs:
+            if not data_dir.exists():
+                continue
+            yield from _enumerate_chromium_profiles_with_filename(data_dir, self._history_filename)
+
+    def _iter_chromium_favicons(self) -> Iterator[tuple[str, Path]]:
+        for data_dir in self._data_dirs:
+            if not data_dir.exists():
+                continue
+            yield from _enumerate_chromium_profiles_with_filename(data_dir, self._favicon_filename)
+
+
+@dataclass(frozen=True)
+class UCBrowserDef(BrowserDef):
+    """UC Browser (desktop) has dynamic profile directories under a versioned i18n folder."""
+
+    def _iter_chromium_history(self) -> Iterator[tuple[str, Path]]:
+        for data_dir in self._data_dirs:
+            if not data_dir.exists():
+                continue
+            # UC Browser stores profiles as *.default subdirs inside User Data_i18n
+            try:
+                for child in sorted(data_dir.iterdir()):
+                    if child.is_dir() and child.name.endswith(".default"):
+                        db = child / "History"
+                        if db.exists():
+                            yield child.name, db
+            except OSError:
+                pass
+            # Fallback: standard Chromium layout in case future versions change
+            yield from _enumerate_chromium_profiles_with_filename(data_dir, "History")
+
+    def _iter_chromium_favicons(self) -> Iterator[tuple[str, Path]]:
+        for data_dir in self._data_dirs:
+            if not data_dir.exists():
+                continue
+            try:
+                for child in sorted(data_dir.iterdir()):
+                    if child.is_dir() and child.name.endswith(".default"):
+                        db = child / "Favicons"
+                        if db.exists():
+                            yield child.name, db
+            except OSError:
+                pass
+
+
+@dataclass(frozen=True)
+class SogouBrowserDef(BrowserDef):
+    """搜狗浏览器：历史文件为独立 HistoryUrl3.db，不在 User Data 标准布局下。"""
+
+    def _iter_chromium_history(self) -> Iterator[tuple[str, Path]]:
+        for data_dir in self._data_dirs:
+            # data_dir points directly to the SogouExplorer folder
+            db = data_dir / "HistoryUrl3.db"
+            if db.exists():
+                yield "Default", db
+            # Also check daily backup folder
+            backup_dir = data_dir / "DailyBackup"
+            if backup_dir.is_dir():
+                try:
+                    for f in sorted(backup_dir.iterdir()):
+                        if f.name.startswith("uhistory") and f.suffix == ".db":
+                            yield f"backup_{f.stem}", f
+                except OSError:
+                    pass
+
+    def _iter_chromium_favicons(self) -> Iterator[tuple[str, Path]]:
+        for data_dir in self._data_dirs:
+            # Try FavIcon subfolder first
+            fav_dir = data_dir / "FavIcon"
+            db = fav_dir / "FavorIcon.db"
+            if db.exists():
+                yield "Default", db
+            # Fallback: embedded in HistoryUrl3.db (no separate file needed)
+
+
+def _enumerate_chromium_profiles_with_filename(user_data_dir: Path, history_filename: str) -> list[tuple[str, Path]]:
+    """Like _enumerate_chromium_profiles but yields the DB file directly using a custom filename."""
+    profiles: list[tuple[str, Path]] = []
+    default = user_data_dir / "Default"
+    if default.is_dir():
+        db = default / history_filename
+        if db.exists():
+            profiles.append(("Default", db))
+    try:
+        for child in sorted(user_data_dir.iterdir()):
+            if child.is_dir() and child.name.startswith("Profile "):
+                db = child / history_filename
+                if db.exists():
+                    profiles.append((child.name, db))
+    except OSError:
+        pass
+    return profiles
+
+
 def _enumerate_chromium_profiles(user_data_dir: Path) -> list[tuple[str, Path]]:
     profiles: list[tuple[str, Path]] = []
     default = user_data_dir / "Default"
@@ -144,7 +247,18 @@ def _parse_firefox_profiles_ini(base_dir: Path, ini_path: Path, db_filename: str
             yield name or profile_dir.name, db
 
 
-_LINUX_UNAVAILABLE: frozenset[str] = frozenset({"chrome_canary", "edge_canary"})
+_LINUX_UNAVAILABLE: frozenset[str] = frozenset(
+    {
+        "chrome_canary",
+        "edge_canary",
+        "qq_browser",
+        "sogou",
+        "centbrowser",
+        "browser_2345",
+        "liebao",
+        "uc",
+    }
+)
 """Browser types that have no Linux release and should resolve to zero paths on Linux."""
 
 
@@ -176,7 +290,14 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
             "whale": [local / "Naver" / "Naver Whale" / "User Data"],
             "coccoc": [local / "CocCoc" / "Browser" / "User Data"],
             "thorium": [local / "Thorium" / "User Data"],
-            "uc": [local / "UCWeb" / "UC Browser" / "User Data"],
+            "uc": [local / "UCBrowser" / "User Data_i18n"],
+            "qq_browser": [local / "Tencent" / "QQBrowser" / "User Data"],
+            "sogou": [local / "SogouExplorer"],
+            "twinkstar": [local / "TwinkStar" / "User Data"],
+            "centbrowser": [local / "CentBrowser" / "User Data"],
+            "browser_2345": [local / "2345Soft" / "2345Explorer" / "User Data"],
+            "liebao": [local / "liebao" / "User Data"],
+            "maxthon": [local / "Maxthon" / "User Data"],
         }
     elif sys.platform == "darwin":
         sup = home / "Library" / "Application Support"
@@ -203,6 +324,15 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
             "whale": [sup / "Naver" / "Whale"],
             "coccoc": [sup / "CocCoc" / "Browser"],
             "thorium": [sup / "Thorium"],
+            "twinkstar": [sup / "TwinkStar" / "User Data"],
+            # Windows-only
+            "qq_browser": [],
+            "sogou": [],
+            "centbrowser": [],
+            "browser_2345": [],
+            "liebao": [],
+            "maxthon": [],
+            "uc": [],
         }
     else:  # Linux / XDG
         cfg_home = Path(os.environ.get("XDG_CONFIG_HOME", home / ".config"))
@@ -210,13 +340,13 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
         mapping = {
             "chrome": [cfg_home / "google-chrome", cfg_home / "chromium"],
             "chrome_beta": [cfg_home / "google-chrome-beta"],
-            # chrome_canary intentionally omitted — no Linux release (see _LINUX_UNAVAILABLE)
+            # chrome_canary intentionally omitted — no Linux release
             "chrome_dev": [cfg_home / "google-chrome-unstable"],
             "chrome_for_testing": [cfg_home / "google-chrome-for-testing"],
             "edge": [cfg_home / "microsoft-edge"],
             "edge_beta": [cfg_home / "microsoft-edge-beta"],
             "edge_dev": [cfg_home / "microsoft-edge-dev"],
-            # edge_canary intentionally omitted — no Linux release (see _LINUX_UNAVAILABLE)
+            # edge_canary intentionally omitted — no Linux release
             "brave": [cfg_home / "BraveSoftware" / "Brave-Browser"],
             "brave_beta": [cfg_home / "BraveSoftware" / "Brave-Browser-Beta"],
             "brave_dev": [cfg_home / "BraveSoftware" / "Brave-Browser-Dev"],
@@ -230,6 +360,15 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
             "whale": [cfg_home / "naver-whale"],
             "coccoc": [cfg_home / "coccoc"],
             "thorium": [cfg_home / "thorium"],
+            # Windows-only
+            "qq_browser": [],
+            "sogou": [],
+            "twinkstar": [],
+            "centbrowser": [],
+            "browser_2345": [],
+            "liebao": [],
+            "maxthon": [],
+            "uc": [],
         }
     return tuple(mapping.get(browser_type, []))
 
@@ -297,6 +436,43 @@ def _make_def(browser_type: str, display_name: str, engine: Engine) -> BrowserDe
     )
 
 
+def _make_custom_filename_def(
+    browser_type: str,
+    display_name: str,
+    history_filename: str = "History",
+    favicon_filename: str = "Favicons",
+) -> CustomFilenameBrowserDef:
+    dirs = _resolve_chromium_dirs(browser_type)
+    return CustomFilenameBrowserDef(
+        browser_type=browser_type,
+        display_name=display_name,
+        engine="chromium",
+        _data_dirs=dirs,
+        _history_filename=history_filename,
+        _favicon_filename=favicon_filename,
+    )
+
+
+def _make_uc_def() -> UCBrowserDef:
+    dirs = _resolve_chromium_dirs("uc")
+    return UCBrowserDef(
+        browser_type="uc",
+        display_name="UC Browser",
+        engine="chromium",
+        _data_dirs=dirs,
+    )
+
+
+def _make_sogou_def() -> SogouBrowserDef:
+    dirs = _resolve_chromium_dirs("sogou")
+    return SogouBrowserDef(
+        browser_type="sogou",
+        display_name="搜狗浏览器 (Sogou)",
+        engine="chromium",
+        _data_dirs=dirs,
+    )
+
+
 def make_custom_chromium_def(
     browser_type: str,
     display_name: str,
@@ -345,6 +521,15 @@ BUILTIN_BROWSERS: list[BrowserDef] = [
     _make_def("seamonkey", "SeaMonkey", "firefox"),
     # Safari
     _make_def("safari", "Safari", "safari"),
+    # Chinese / regional browsers (Windows-only)
+    _make_def("qq_browser", "QQ浏览器 (QQ Browser)", "chromium"),
+    _make_sogou_def(),
+    _make_custom_filename_def("twinkstar", "星愿浏览器 (Twinkstar)", history_filename="History2"),
+    _make_def("centbrowser", "百分浏览器 (CentBrowser)", "chromium"),
+    _make_def("browser_2345", "2345浏览器 (2345 Explorer)", "chromium"),
+    _make_def("liebao", "猎豹浏览器 (Liebao)", "chromium"),
+    _make_uc_def(),
+    _make_def("maxthon", "傲游浏览器 (Maxthon)", "chromium"),
 ]
 
 BROWSER_DEF_MAP: dict[str, BrowserDef] = {d.browser_type: d for d in BUILTIN_BROWSERS}
