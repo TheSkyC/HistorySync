@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 import shutil
 import sqlite3
@@ -22,7 +22,7 @@ log = get_logger("migration_service")
 # ---------------------------------------------------------------------------
 
 
-class MigrationStep(str, Enum):
+class MigrationStep(StrEnum):
     BACKUP = "backup"
     DB_MIGRATE = "db_migrate"
     CONFIG_MERGE = "config_merge"
