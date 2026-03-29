@@ -221,8 +221,8 @@ class ImportDialog(QDialog):
         self._importer = importer
 
         self.setWindowTitle(_("Import Browser History"))
-        self.setMinimumSize(860, 480)
-        self.resize(920, 540)
+        self.setMinimumSize(700, 480)
+        self.resize(860, 540)
         self.setAcceptDrops(True)
 
         self._vm.progress_updated.connect(self._on_progress)
@@ -266,6 +266,8 @@ class ImportDialog(QDialog):
                 "·  Safari History.db  ·  HistorySync history.db"
             )
         )
+        self._hint_lbl.setWordWrap(True)
+        self._hint_lbl.setMaximumWidth(820)
         bl.addWidget(self._hint_lbl)
 
         self._table = QTableWidget(0, 6)

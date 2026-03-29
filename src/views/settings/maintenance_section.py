@@ -48,6 +48,7 @@ class MaintenanceSection(QWidget):
     rebuild_fts_requested = Signal()
     export_requested = Signal()  # Entry B: open ExportDialog with no pre-filter
     full_resync_requested = Signal()  # Trigger full browser history re-extraction
+    migrate_legacy_requested = Signal()  # Open the migration wizard manually
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -131,10 +132,25 @@ class MaintenanceSection(QWidget):
         btn_row.addWidget(self._vacuum_btn)
         btn_row.addWidget(self._normalize_btn)
         btn_row.addWidget(self._fts_btn)
-        btn_row.addWidget(self._export_btn)
-        btn_row.addWidget(self._resync_btn)
         btn_row.addStretch()
         layout.addLayout(btn_row)
+
+        # ── Action buttons — Row 2: export / sync / migration ─
+        btn_row2 = QHBoxLayout()
+        btn_row2.setSpacing(8)
+
+        btn_row2.addWidget(self._export_btn)
+        btn_row2.addWidget(self._resync_btn)
+
+        self._migrate_btn = QPushButton(_("Migrate Legacy Data…"))
+        self._migrate_btn.setIcon(get_icon("upload"))
+        self._migrate_btn.setToolTip(
+            _("Import data from a previous HistorySync installation.\nUseful if you skipped migration on first launch.")
+        )
+        self._migrate_btn.clicked.connect(self._on_migrate_requested)
+        btn_row2.addWidget(self._migrate_btn)
+        btn_row2.addStretch()
+        layout.addLayout(btn_row2)
 
         # ── Progress bar (hidden when idle) ───────────────────
         self._progress = QProgressBar()
@@ -150,7 +166,14 @@ class MaintenanceSection(QWidget):
         self._log_lbl.setWordWrap(True)
         layout.addWidget(self._log_lbl)
 
-        self._all_btns = [self._vacuum_btn, self._normalize_btn, self._fts_btn, self._export_btn, self._resync_btn]
+        self._all_btns = [
+            self._vacuum_btn,
+            self._normalize_btn,
+            self._fts_btn,
+            self._export_btn,
+            self._resync_btn,
+            self._migrate_btn,
+        ]
 
     # ── Helpers ───────────────────────────────────────────────
 
@@ -241,3 +264,38 @@ class MaintenanceSection(QWidget):
             self._log_lbl.setObjectName("muted")
         self._log_lbl.style().unpolish(self._log_lbl)
         self._log_lbl.style().polish(self._log_lbl)
+
+    def _on_migrate_requested(self) -> None:
+        """Open the migration wizard; offer a force-migrate option when no legacy data is found."""
+        from src.utils.migration_detector import detect_legacy_installation
+        from src.views.migration_wizard import MigrationWizard
+
+        legacy = detect_legacy_installation()
+        if not legacy.found:
+            from PySide6.QtWidgets import QMessageBox
+
+            msg = QMessageBox(self)
+            msg.setWindowTitle(_("No Legacy Data"))
+            msg.setText(_("No legacy HistorySync data was found.\n\nNothing to migrate."))
+            msg.setInformativeText(
+                _(
+                    "If legacy data was not detected automatically, or you want to "
+                    "test the migration pipeline, you can force-run it on current data "
+                )
+            )
+            msg.setIcon(QMessageBox.Information)
+            force_btn = msg.addButton(_("Force Migrate\u2026"), QMessageBox.ActionRole)
+            ok_btn = msg.addButton(QMessageBox.Ok)
+            msg.setDefaultButton(ok_btn)
+            msg.exec()
+
+            if msg.clickedButton() is not force_btn:
+                return
+
+            # User explicitly chose to run a real migration on current data.
+            from src.utils.migration_detector import build_force_migrate_result
+
+            legacy = build_force_migrate_result()
+
+        wizard = MigrationWizard(legacy, parent=self)
+        wizard.exec()

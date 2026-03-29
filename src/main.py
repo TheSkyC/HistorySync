@@ -465,6 +465,28 @@ def _gui_main(args: argparse.Namespace) -> None:
     log = get_logger("main")
     log.warning("HistorySync starting up  args=%s", vars(args))
 
+    # ── 1a. Legacy migration detection (before AppConfig.load) ───────────────
+    # We need a minimal QApplication to show dialogs, so we set it up early
+    # and re-use it below.  The full setup (font, theme, etc.) happens later.
+    QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    app = QApplication(sys.argv[:1])
+
+    if not args.fresh:
+        from src.utils.migration_detector import detect_legacy_installation
+
+        legacy = detect_legacy_installation()
+
+        if legacy.found:
+            log.info("Legacy installation detected — showing migration wizard")
+            from src.views.migration_wizard import MigrationWizard
+
+            wizard = MigrationWizard(legacy)
+            wizard.exec()
+            log.info("Migration wizard closed")
+            # Whether the user migrated, skipped, or quit, we continue with
+            # the normal startup flow.  AppConfig.load() will now find a valid
+            # (possibly freshly merged) config.json with first_run_completed set.
+
     # ── 2. Config ────────────────────────────────────────────────────────────
     if args.fresh:
         config = AppConfig()
@@ -479,9 +501,9 @@ def _gui_main(args: argparse.Namespace) -> None:
     lang_manager.setup_translation(lang_code)
     log.info("Language: %s", lang_manager.get_current_language())
 
-    # ── 4. Qt application ────────────────────────────────────────────────────
-    QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
-    app = QApplication(sys.argv[:1])
+    # ── 4. Qt application (already created above for migration check) ───────
+    # QApplication is a singleton; just retrieve the existing instance.
+    app = QApplication.instance() or QApplication(sys.argv[:1])
 
     # ── 4a. Single-instance guard ────────────────────────────────────────────
     # Must be created *after* QApplication so QTcpServer/QTcpSocket work, but
