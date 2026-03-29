@@ -264,17 +264,31 @@ class BrowserCard(QFrame):
         top.addWidget(self._name_label, 1)
         layout.addLayout(top)
 
-        # Status badge
+        # Status badge (container with dot + text)
         badge_row = QHBoxLayout()
         badge_row.setContentsMargins(0, 0, 0, 0)
         badge_row.setSpacing(0)
 
-        self._badge = QLabel()
-        self._badge.setObjectName("browser_card_badge")
-        self._badge.setAlignment(Qt.AlignCenter)
-        self._badge.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self._badge_container = QWidget()
+        self._badge_container.setObjectName("browser_card_badge_container")
+        self._badge_container.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-        badge_row.addWidget(self._badge)
+        badge_layout = QHBoxLayout(self._badge_container)
+        badge_layout.setContentsMargins(6, 2, 8, 2)
+        badge_layout.setSpacing(6)
+
+        self._badge_dot = QLabel()
+        self._badge_dot.setFixedSize(8, 8)
+        self._badge_dot.setAlignment(Qt.AlignCenter)
+
+        self._badge_text = QLabel()
+        self._badge_text.setObjectName("browser_card_badge_text")
+        self._badge_text.setStyleSheet("font-size: 11px; background: transparent; border: none;")
+
+        badge_layout.addWidget(self._badge_dot)
+        badge_layout.addWidget(self._badge_text)
+
+        badge_row.addWidget(self._badge_container)
         badge_row.addStretch()
         layout.addLayout(badge_row)
 
@@ -286,23 +300,21 @@ class BrowserCard(QFrame):
             is_light = ThemeManager.instance().current == "light"
             dot_color = "#9ca3af" if is_light else "#6b7280"
             bg_color = "#f3f4f6" if is_light else "#1e2028"
-            self._badge.setText("● " + _("Sync disabled"))
-            self._badge.setStyleSheet(
-                f"color: {dot_color};"
+            self._badge_dot.setPixmap(_make_dot_pixmap(dot_color, 8))
+            self._badge_text.setText(_("Sync disabled"))
+            self._badge_text.setStyleSheet(f"font-size: 11px; color: {dot_color}; background: transparent; border: none;")
+            self._badge_container.setStyleSheet(
                 f"background-color: {bg_color};"
                 f"border-radius: 8px;"
-                f"font-size: 11px;"
-                f"padding: 2px 8px 2px 6px;"
             )
         else:
             dot_color, bg_color = _status_colors(self._status_name)
-            self._badge.setText(f"● {_status_label(self._status_name)}")
-            self._badge.setStyleSheet(
-                f"color: {dot_color};"
+            self._badge_dot.setPixmap(_make_dot_pixmap(dot_color, 8))
+            self._badge_text.setText(_status_label(self._status_name))
+            self._badge_text.setStyleSheet(f"font-size: 11px; color: {dot_color}; background: transparent; border: none;")
+            self._badge_container.setStyleSheet(
                 f"background-color: {bg_color};"
                 f"border-radius: 8px;"
-                f"font-size: 11px;"
-                f"padding: 2px 8px 2px 6px;"
             )
 
     def update_status(self, status_name: str):
