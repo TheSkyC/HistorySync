@@ -157,6 +157,78 @@ class MainViewModel(QObject):
         self._monitor.force_check()
         log.info("Browser re-detection triggered by user")
 
+    def on_learned_browsers_added(self, browsers: list) -> None:
+        """深度扫描完成后，将新发现的浏览器即时注入运行时。
+
+        流程：
+        1. 写入内存 config 并调用 config.save() 持久化
+        2. 调用 register_learned_browser() 注册到全局 BROWSER_DEF_MAP（修复6：保证
+           下次深度扫描时 get_all_known_data_dirs() 能正确过滤已添加的浏览器）
+        3. 调用 ExtractorManager.register_new_learned() 把提取器加入 _registry
+        4. 触发 BrowserMonitor 立即重检，刷新仪表板卡片
+        """
+        from datetime import datetime
+
+        from src.services.browser_defs import create_learned_browser_def, register_learned_browser
+
+        new_entries: dict = {}
+        for browser in browsers:
+            entry = {
+                "display_name": browser.display_name,
+                "engine": browser.engine,
+                "data_dir": str(browser.data_dir),
+                "discovered_at": datetime.now().isoformat(),
+                "profiles": browser.profiles,
+            }
+            new_entries[browser.browser_type] = entry
+            # 写入内存 config
+            self._config.extractor.learned_browsers[browser.browser_type] = entry
+
+            # 注册到全局 BROWSER_DEF_MAP
+            browser_def = create_learned_browser_def(
+                browser_type=browser.browser_type,
+                display_name=browser.display_name,
+                engine=browser.engine,
+                data_dir=browser.data_dir,
+            )
+            register_learned_browser(browser_def)
+
+        self._config.save()
+
+        self._em.register_new_learned(new_entries)
+        self._monitor.force_check()
+        log.info("Learned browsers added at runtime: %s", list(new_entries.keys()))
+
+    def on_browser_remove(self, browser_type: str, clear_data: bool) -> None:
+        """处理用户从仪表板右键菜单删除深度扫描浏览器的请求。
+
+        流程：
+        1. 从内存 config 中移除（View 层已做 config.save()）
+        2. 从 ExtractorManager 注销提取器（如果支持）
+        3. 若 clear_data=True，删除该浏览器在本地数据库中的所有历史记录
+        4. 触发 BrowserMonitor 重检以刷新仪表板
+        """
+        # 从内存 config 同步（View 层已调用 config.save()，这里保持内存一致）
+        self._config.extractor.learned_browsers.pop(browser_type, None)
+        if browser_type in self._config.extractor.disabled_browsers:
+            self._config.extractor.disabled_browsers.remove(browser_type)
+
+        # 从 ExtractorManager 注销（若接口存在）
+        if hasattr(self._em, "unregister_browser"):
+            self._em.unregister_browser(browser_type)
+
+        # 可选：清除数据库历史记录
+        if clear_data:
+            try:
+                deleted = self._db.delete_records_by_browser(browser_type)
+                log.info("Deleted %d history records for removed browser %s", deleted, browser_type)
+            except Exception as exc:
+                log.warning("Could not delete history for %s: %s", browser_type, exc)
+
+        # 刷新仪表板卡片
+        self._monitor.force_check()
+        log.info("Browser removed from config: %s (clear_data=%s)", browser_type, clear_data)
+
     def get_total_count(self) -> int:
         return self._db.get_total_count()
 

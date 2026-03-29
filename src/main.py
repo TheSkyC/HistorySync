@@ -593,6 +593,7 @@ def _gui_main(args: argparse.Namespace) -> None:
 
         def _show_first_run():
             wizard = FirstRunWizard(config, window if not should_minimize else None)
+            wizard.learned_browsers_added.connect(main_vm.on_learned_browsers_added)
             wizard.exec()
             if window._page_settings is not None:
                 window._page_settings.reload_security()

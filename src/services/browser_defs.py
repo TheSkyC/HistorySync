@@ -537,3 +537,61 @@ BROWSER_DEF_MAP: dict[str, BrowserDef] = {d.browser_type: d for d in BUILTIN_BRO
 
 def get_browser_def(browser_type: str) -> BrowserDef | None:
     return BROWSER_DEF_MAP.get(browser_type)
+
+
+def create_learned_browser_def(
+    browser_type: str,
+    display_name: str,
+    engine: Engine,
+    data_dir: str | Path,
+) -> BrowserDef:
+    """
+    创建从智能扫描发现的浏览器定义
+
+    Args:
+        browser_type: 浏览器类型ID（如"detected_liebao"）
+        display_name: 显示名称（如"Liebao Browser"）
+        engine: 浏览器引擎（"chromium" | "firefox" | "safari"）
+        data_dir: 数据目录路径
+
+    Returns:
+        BrowserDef实例
+    """
+    data_dir_path = Path(data_dir) if isinstance(data_dir, str) else data_dir
+
+    return BrowserDef(browser_type=browser_type, display_name=display_name, engine=engine, _data_dirs=(data_dir_path,))
+
+
+def register_learned_browser(browser_def: BrowserDef) -> None:
+    """
+    注册学习到的浏览器定义到全局映射表
+
+    Args:
+        browser_def: 浏览器定义
+    """
+    BROWSER_DEF_MAP[browser_def.browser_type] = browser_def
+    log.info(f"Registered learned browser: {browser_def.display_name} ({browser_def.browser_type})")
+
+
+def get_all_known_data_dirs() -> set[str]:
+    """
+    返回所有已知浏览器（内置 + 已学习）的数据目录路径集合（小写）。
+    用于深度扫描时过滤掉已添加的浏览器。
+    """
+    dirs: set[str] = set()
+    for bdef in BROWSER_DEF_MAP.values():
+        for data_dir in bdef.get_data_dirs():
+            dirs.add(str(data_dir).lower())
+
+    try:
+        from src.models.app_config import AppConfig
+
+        config = AppConfig.load()
+        for entry in config.extractor.learned_browsers.values():
+            data_dir = entry.get("data_dir")
+            if data_dir:
+                dirs.add(str(data_dir).lower())
+    except Exception:
+        pass
+
+    return dirs

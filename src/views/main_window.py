@@ -195,6 +195,8 @@ class MainWindow(QMainWindow):
         self._page_dashboard.sync_browser_requested.connect(vm.trigger_sync_browser)
         self._page_dashboard.browser_sync_toggle_requested.connect(vm.toggle_browser_sync)
         self._page_dashboard.redetect_browsers_requested.connect(vm.force_redetect_browsers)
+        self._page_dashboard.learned_browsers_added.connect(vm.on_learned_browsers_added)
+        self._page_dashboard.browser_remove_requested.connect(vm.on_browser_remove)
         self._page_dashboard.view_history_requested.connect(self._on_view_browser_history)
         # HistoryPage / SettingsPage / LogViewerPage signals are wired up in
         # _switch_page() the first time those pages are created.
@@ -261,11 +263,12 @@ class MainWindow(QMainWindow):
 
     def _on_sync_started(self):
         self._page_dashboard.on_sync_started()
-        self._status_bar.showMessage(_("Syncing in background..."))
-        self._progress_label.setText("")
+        self._status_bar.showMessage(_("Syncing browser history…"))
+        self._progress_label.setText(_("Starting…"))
 
     def _on_sync_progress(self, msg: str):
-        self._page_dashboard.on_sync_progress(msg)
+        # Dashboard no longer has a progress widget — show detail only in status bar
+        self._status_bar.showMessage(msg)
         self._progress_label.setText(msg)
 
     def _on_sync_finished(self, new_count: int):
@@ -274,7 +277,7 @@ class MainWindow(QMainWindow):
         self._page_dashboard.on_sync_finished(new_count)
         if self._page_history is not None:
             self._page_history.refresh()
-        self._status_bar.showMessage(_("Sync complete — {count} new records").format(count=new_count), 5000)
+        self._status_bar.showMessage(_("Sync complete — {count} new records added").format(count=new_count), 6000)
         self._progress_label.setText("")
         if self._page_settings is not None:
             self._page_settings.notify_sync_happened(int(_time.time()))

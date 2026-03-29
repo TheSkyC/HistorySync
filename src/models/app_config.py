@@ -61,6 +61,17 @@ class SchedulerConfig:
 class ExtractorConfig:
     custom_paths: dict = field(default_factory=dict)
     disabled_browsers: list = field(default_factory=list)
+    learned_browsers: dict = field(default_factory=dict)  # 智能扫描发现的浏览器
+    # learned_browsers 格式：
+    # {
+    #   "detected_liebao": {
+    #     "display_name": "Liebao Browser",
+    #     "engine": "chromium",
+    #     "data_dir": "C:\\Users\\...\\liebao\\User Data",
+    #     "discovered_at": "2026-03-29T10:30:00",
+    #     "profiles": ["Default", "Profile 1"]
+    #   }
+    # }
 
 
 @dataclass

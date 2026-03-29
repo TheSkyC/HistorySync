@@ -44,12 +44,14 @@ class ExtractorManager:
         db: LocalDatabase,
         disabled_browsers: list[str] | None = None,
         blacklisted_domains: list[str] | None = None,
+        learned_browsers: dict | None = None,
     ):
         self._db = db
         self._disabled: set[str] = set(disabled_browsers or [])
         self._blacklisted_domains: set[str] = set(blacklisted_domains or [])
         self._registry: dict[str, BaseExtractor] = {}
         self._register_builtin()
+        self._register_learned(learned_browsers or {})
 
     # ── Registry ──────────────────────────────────────────────
 
@@ -59,9 +61,40 @@ class ExtractorManager:
                 continue
             self._registry[defn.browser_type] = _make_extractor(defn)
 
+    def _register_learned(self, learned_browsers: dict) -> None:
+        """注册从智能扫描发现的浏览器"""
+        from src.services.browser_defs import create_learned_browser_def, register_learned_browser
+
+        for browser_type, info in learned_browsers.items():
+            if browser_type in self._disabled:
+                continue
+
+            try:
+                # 创建浏览器定义
+                browser_def = create_learned_browser_def(
+                    browser_type=browser_type,
+                    display_name=info.get("display_name", "Unknown Browser"),
+                    engine=info.get("engine", "chromium"),
+                    data_dir=info.get("data_dir", ""),
+                )
+
+                # 注册到全局映射表
+                register_learned_browser(browser_def)
+
+                # 创建提取器
+                self._registry[browser_type] = _make_extractor(browser_def)
+                log.info(f"Registered learned browser: {browser_def.display_name}")
+
+            except Exception as e:
+                log.error(f"Failed to register learned browser {browser_type}: {e}")
+
     def register(self, extractor: BaseExtractor) -> None:
         self._registry[extractor.browser_type] = extractor
         log.info("Registered extractor: %s", extractor.display_name)
+
+    def register_new_learned(self, learned_browsers: dict) -> None:
+        """运行时注册新发现的浏览器。"""
+        self._register_learned(learned_browsers)
 
     def register_custom_path(self, browser_type: str, display_name: str, db_path: Path) -> None:
         extractor = ChromiumExtractor.for_custom_path(browser_type, display_name, db_path)
@@ -109,6 +142,12 @@ class ExtractorManager:
 
     def iter_all_extractors(self) -> Iterator[tuple[str, BaseExtractor]]:
         return iter(self._registry.items())
+
+    def unregister_browser(self, browser_type: str) -> None:
+        """从运行时注册表中移除浏览器提取器。"""
+        if browser_type in self._registry:
+            self._registry.pop(browser_type)
+            log.info("Unregistered browser extractor: %s", browser_type)
 
     def is_browser_disabled(self, browser_type: str) -> bool:
         return browser_type in self._disabled

@@ -1072,6 +1072,14 @@ class LocalDatabase:
             cursor = conn.execute(f"DELETE FROM history WHERE id IN ({placeholders})", ids)
             return cursor.rowcount
 
+    def delete_records_by_browser(self, browser_type: str) -> int:
+        """删除指定浏览器的所有历史记录及对应的 backup_stats 条目。"""
+        with self._conn() as conn:
+            cursor = conn.execute("DELETE FROM history WHERE browser_type = ?", (browser_type,))
+            deleted = cursor.rowcount
+            conn.execute("DELETE FROM backup_stats WHERE browser_type = ?", (browser_type,))
+            return deleted
+
     # ── Domain-matching helpers ──────────────────────────────
 
     @staticmethod

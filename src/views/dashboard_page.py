@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 import webbrowser
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QCursor, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -19,8 +19,8 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QMenu,
-    QProgressBar,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -34,6 +34,87 @@ from src.utils.logger import get_logger
 from src.utils.theme_manager import ThemeManager
 
 log = get_logger("view.dashboard")
+
+
+# ── Flow layout ────────────────────────────────────────────────
+
+
+class FlowLayout(QLayout):
+    """A layout that arranges widgets left-to-right, wrapping to the next row
+    when there is no more horizontal space — like CSS ``flex-wrap: wrap``."""
+
+    def __init__(self, parent=None, h_spacing: int = 10, v_spacing: int = 10):
+        super().__init__(parent)
+        self._items: list = []
+        self._h_spacing = h_spacing
+        self._v_spacing = v_spacing
+
+    # ── QLayout interface ──────────────────────────────────────────────────────
+
+    def addItem(self, item):
+        self._items.append(item)
+
+    def count(self) -> int:
+        return len(self._items)
+
+    def itemAt(self, index: int):
+        if 0 <= index < len(self._items):
+            return self._items[index]
+        return None
+
+    def takeAt(self, index: int):
+        if 0 <= index < len(self._items):
+            return self._items.pop(index)
+        return None
+
+    def expandingDirections(self):
+        return Qt.Orientations(Qt.Orientation(0))
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        return self._do_layout(QRect(0, 0, width, 0), test_only=True)
+
+    def setGeometry(self, rect: QRect):
+        super().setGeometry(rect)
+        self._do_layout(rect, test_only=False)
+
+    def sizeHint(self) -> QSize:
+        return self.minimumSize()
+
+    def minimumSize(self) -> QSize:
+        size = QSize()
+        for item in self._items:
+            size = size.expandedTo(item.minimumSize())
+        m = self.contentsMargins()
+        size += QSize(m.left() + m.right(), m.top() + m.bottom())
+        return size
+
+    # ── Internal ───────────────────────────────────────────────────────────────
+
+    def _do_layout(self, rect: QRect, *, test_only: bool) -> int:
+        m = self.contentsMargins()
+        eff = rect.adjusted(m.left(), m.top(), -m.right(), -m.bottom())
+        x = eff.x()
+        y = eff.y()
+        line_height = 0
+
+        for item in self._items:
+            item.widget()
+            hint = item.sizeHint()
+            next_x = x + hint.width() + self._h_spacing
+            if next_x - self._h_spacing > eff.right() and line_height > 0:
+                x = eff.x()
+                y += line_height + self._v_spacing
+                next_x = x + hint.width() + self._h_spacing
+                line_height = 0
+            if not test_only:
+                item.setGeometry(QRect(QPoint(x, y), hint))
+            x = next_x
+            line_height = max(line_height, hint.height())
+
+        return y + line_height - rect.y() + m.bottom()
 
 
 def _make_dot_pixmap(color: str, size: int = 10) -> QPixmap:
@@ -117,6 +198,7 @@ class BrowserCard(QFrame):
     open_browser_requested = Signal(str)
     view_history_requested = Signal(str)
     sync_toggle_requested = Signal(str, bool)  # (browser_type, enabled)
+    browser_remove_requested = Signal(str, bool)  # (browser_type, clear_data)
 
     # Windows browser registry paths and common install locations
     _WINDOWS_BROWSERS: dict[str, list[str]] = {
@@ -225,7 +307,8 @@ class BrowserCard(QFrame):
 
         self.setObjectName("browser_card")
         self.setFixedWidth(168)
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.setMinimumHeight(80)
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
         self.setCursor(QCursor(Qt.PointingHandCursor))
@@ -354,6 +437,14 @@ class BrowserCard(QFrame):
         copy_action = menu.addAction(get_icon("copy", 14), _("Copy Browser Name"))
         copy_action.triggered.connect(self._copy_name)
 
+        if self._browser_type.startswith("detected_"):
+            menu.addSeparator()
+            rename_action = menu.addAction(get_icon("pencil", 14), _("Rename Browser"))
+            rename_action.triggered.connect(self._on_rename)
+
+            remove_action = menu.addAction(get_icon("trash", 14), _("Remove from Config"))
+            remove_action.triggered.connect(self._on_remove_browser)
+
         menu.exec(QCursor.pos())
 
     def _on_toggle_sync(self, enabled: bool):
@@ -370,6 +461,80 @@ class BrowserCard(QFrame):
         from PySide6.QtWidgets import QApplication
 
         QApplication.clipboard().setText(self._display_name)
+
+    def _on_rename(self):
+        """重命名浏览器"""
+        from PySide6.QtWidgets import QInputDialog
+
+        from src.models.app_config import AppConfig
+        from src.services.browser_defs import create_learned_browser_def, register_learned_browser
+
+        new_name, ok = QInputDialog.getText(
+            self, _("Rename Browser"), _("Enter new name for {}:").format(self._display_name), text=self._display_name
+        )
+
+        if ok and new_name and new_name != self._display_name:
+            # 更新配置
+            config = AppConfig.load()
+            if self._browser_type in config.extractor.learned_browsers:
+                config.extractor.learned_browsers[self._browser_type]["display_name"] = new_name
+                config.save()
+
+                # 更新浏览器定义
+                info = config.extractor.learned_browsers[self._browser_type]
+                browser_def = create_learned_browser_def(
+                    browser_type=self._browser_type,
+                    display_name=new_name,
+                    engine=info.get("engine", "chromium"),
+                    data_dir=info.get("data_dir", ""),
+                )
+                register_learned_browser(browser_def)
+
+                # 更新UI
+                self._display_name = new_name
+                self._name_label.setText(new_name)
+
+    def _on_remove_browser(self):
+        """从配置中删除深度扫描添加的浏览器"""
+        from PySide6.QtWidgets import QCheckBox, QDialogButtonBox, QLabel, QVBoxLayout
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle(_("Remove Browser"))
+        dlg.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        dlg.setFixedWidth(380)
+
+        layout = QVBoxLayout(dlg)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        title_lbl = QLabel(_("Remove <b>{}</b> from config?").format(self._display_name))
+        title_lbl.setWordWrap(True)
+        title_lbl.setStyleSheet("font-size: 13px;")
+        layout.addWidget(title_lbl)
+
+        info_lbl = QLabel(_("This browser was added via deep scan. Removing it will stop HistorySync from syncing it."))
+        info_lbl.setWordWrap(True)
+        info_lbl.setStyleSheet("font-size: 11px; color: #888;")
+        layout.addWidget(info_lbl)
+
+        clear_cb = QCheckBox(_("Also delete all synced history records for this browser"))
+        clear_cb.setChecked(False)
+        clear_cb.setStyleSheet("font-size: 12px; color: #e05252;")
+        layout.addWidget(clear_cb)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText(_("Remove"))
+        buttons.button(QDialogButtonBox.Ok).setStyleSheet(
+            "QPushButton { background: #c0392b; color: white; border-radius: 4px; padding: 4px 14px; }"
+            "QPushButton:hover { background: #e74c3c; }"
+        )
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        layout.addWidget(buttons)
+
+        if dlg.exec() == QDialog.Accepted:
+            clear_data = clear_cb.isChecked()
+            self.browser_remove_requested.emit(self._browser_type, clear_data)
 
     @property
     def browser_type(self) -> str:
@@ -411,6 +576,7 @@ class BrowserSettingsDialog(QDialog):
 
     browser_sync_changed = Signal(str, bool)  # (browser_type, enabled)
     redetect_requested = Signal()
+    browsers_discovered = Signal(list)  # list[DetectedBrowser] — 深度扫描后新增
 
     def __init__(self, disabled_browsers: set[str], parent=None):
         super().__init__(parent)
@@ -422,6 +588,8 @@ class BrowserSettingsDialog(QDialog):
         self._disabled_browsers = set(disabled_browsers)
         self._checkboxes: dict[str, QCheckBox] = {}
         self._dots: dict[str, QLabel] = {}
+        self._scroll_area = None
+        self._browser_list_widget = None
         self._build_ui()
 
     def _build_ui(self):
@@ -459,26 +627,62 @@ class BrowserSettingsDialog(QDialog):
         root.addLayout(btn_row)
 
         # Scroll area with browser checkboxes
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setMinimumHeight(120)
+        self._scroll_area = QScrollArea()
+        self._scroll_area.setWidgetResizable(True)
+        self._scroll_area.setFrameShape(QFrame.NoFrame)
+        self._scroll_area.setMinimumHeight(120)
 
+        self._populate_browsers()
+
+        root.addWidget(self._scroll_area, 1)
+
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("color: #333;")
+        root.addWidget(sep)
+
+        # Re-detect button
+        redetect_btn = QPushButton(_("Re-detect Browsers Now"))
+        redetect_btn.setIcon(get_icon("search", 16))
+        redetect_btn.setFixedHeight(32)
+        redetect_btn.clicked.connect(self._on_redetect)
+        root.addWidget(redetect_btn)
+
+        # Deep scan button
+        deep_scan_btn = QPushButton(_("Deep Scan for Browsers"))
+        deep_scan_btn.setIcon(get_icon("search", 16))
+        deep_scan_btn.setFixedHeight(32)
+        deep_scan_btn.clicked.connect(self._on_deep_scan)
+        root.addWidget(deep_scan_btn)
+
+        # OK / Cancel
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.accepted.connect(self._on_accept)
+        btns.rejected.connect(self.reject)
+        root.addWidget(btns)
+
+    def _populate_browsers(self):
+        """构建或重新构建浏览器列表"""
+        from src.services.browser_defs import BROWSER_DEF_MAP
+
+        # 清空现有的checkboxes和dots
+        self._checkboxes.clear()
+        self._dots.clear()
+
+        # 创建新的inner widget
         inner = QWidget()
         cb_layout = QVBoxLayout(inner)
         cb_layout.setSpacing(6)
         cb_layout.setContentsMargins(4, 4, 4, 4)
         cb_layout.setAlignment(Qt.AlignTop)
 
-        from src.services.browser_defs import BUILTIN_BROWSERS
-
-        # Pre-detect which browsers have history available
-        detected = {bdef.browser_type for bdef in BUILTIN_BROWSERS if bdef.is_history_available()}
+        # Pre-detect which browsers have history available (built-in + learned)
+        all_defs = list(BROWSER_DEF_MAP.values())
+        detected = {bdef.browser_type for bdef in all_defs if bdef.is_history_available()}
 
         # Sort: detected first, then undetected
-        sorted_browsers = sorted(
-            BUILTIN_BROWSERS, key=lambda b: (0 if b.browser_type in detected else 1, b.display_name)
-        )
+        sorted_browsers = sorted(all_defs, key=lambda b: (0 if b.browser_type in detected else 1, b.display_name))
 
         for bdef in sorted_browsers:
             is_detected = bdef.browser_type in detected
@@ -525,27 +729,11 @@ class BrowserSettingsDialog(QDialog):
 
         cb_layout.addStretch()  # absorb extra vertical space so items stay compact
 
-        scroll.setWidget(inner)
-        root.addWidget(scroll, 1)
-
-        # Separator
-        sep = QFrame()
-        sep.setFrameShape(QFrame.HLine)
-        sep.setStyleSheet("color: #333;")
-        root.addWidget(sep)
-
-        # Re-detect button
-        redetect_btn = QPushButton(_("Re-detect Browsers Now"))
-        redetect_btn.setIcon(get_icon("search", 16))
-        redetect_btn.setFixedHeight(32)
-        redetect_btn.clicked.connect(self._on_redetect)
-        root.addWidget(redetect_btn)
-
-        # OK / Cancel
-        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btns.accepted.connect(self._on_accept)
-        btns.rejected.connect(self.reject)
-        root.addWidget(btns)
+        # 替换scroll area的widget
+        old_widget = self._scroll_area.widget()
+        self._scroll_area.setWidget(inner)
+        if old_widget:
+            old_widget.deleteLater()
 
     def _on_cb_toggled(self, browser_type: str, checked: bool) -> None:
         """Update the status dot when a checkbox is toggled."""
@@ -553,9 +741,9 @@ class BrowserSettingsDialog(QDialog):
         if dot is None:
             return
         # We need to know if it was detected; re-check from what we stored
-        from src.services.browser_defs import BUILTIN_BROWSERS
+        from src.services.browser_defs import BROWSER_DEF_MAP
 
-        bdef = next((b for b in BUILTIN_BROWSERS if b.browser_type == browser_type), None)
+        bdef = BROWSER_DEF_MAP.get(browser_type)
         is_detected = bdef.is_history_available() if bdef else False
         if is_detected:
             if checked:
@@ -579,6 +767,22 @@ class BrowserSettingsDialog(QDialog):
     def _on_redetect(self):
         self.redetect_requested.emit()
 
+    def _on_deep_scan(self):
+        """启动深度扫描"""
+        from src.services.browser_defs import get_all_known_data_dirs
+        from src.views.dialogs.browser_scan_dialog import BrowserScanDialog
+
+        known_dirs = get_all_known_data_dirs()
+        dialog = BrowserScanDialog(self, known_data_dirs=known_dirs)
+        dialog.browsers_selected.connect(self._on_browsers_added)
+        dialog.start_scan()
+        dialog.exec()
+
+    def _on_browsers_added(self, browsers):
+        """添加扫描发现的浏览器"""
+        self._populate_browsers()
+        self.browsers_discovered.emit(browsers)
+
     def _on_accept(self):
         # Emit changes for each browser whose state differs from original
         for bt, cb in self._checkboxes.items():
@@ -601,19 +805,36 @@ class DashboardPage(QWidget):
     view_history_requested = Signal(str)
     browser_sync_toggle_requested = Signal(str, bool)  # (browser_type, enabled)
     redetect_browsers_requested = Signal()
+    learned_browsers_added = Signal(list)  # list[DetectedBrowser] — 深度扫描新增浏览器
+    browser_remove_requested = Signal(str, bool)  # (browser_type, clear_data)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._init_ui()
-        self._progress_timer = QTimer(self)
-        self._progress_timer.setInterval(40)
-        self._progress_timer.timeout.connect(self._tick_progress)
-        self._progress_value = 0
         self._browser_cards: dict[str, BrowserCard] = {}
         self._disabled_browsers: set[str] = set()
 
     def _init_ui(self):
-        root = QVBoxLayout(self)
+        # Outer layout holds only the scroll area
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # Scroll area that wraps all dashboard content
+        self._page_scroll = QScrollArea()
+        self._page_scroll.setWidgetResizable(True)
+        self._page_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._page_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self._page_scroll.setFrameShape(QFrame.NoFrame)
+        self._page_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+
+        # Inner content widget
+        content = QWidget()
+        content.setObjectName("dashboard_content")
+        self._page_scroll.setWidget(content)
+        outer.addWidget(self._page_scroll)
+
+        root = QVBoxLayout(content)
         root.setContentsMargins(32, 28, 32, 28)
         root.setSpacing(24)
 
@@ -659,22 +880,6 @@ class DashboardPage(QWidget):
         cards_grid.addWidget(self._card_webdav, 0, 3)
         root.addLayout(cards_grid)
 
-        # Progress area
-        self._progress_frame = QFrame()
-        self._progress_frame.setObjectName("card")
-        self._progress_frame.setVisible(False)
-        p_layout = QVBoxLayout(self._progress_frame)
-        p_layout.setContentsMargins(20, 14, 20, 14)
-        p_layout.setSpacing(8)
-        self._progress_label = QLabel(_("Preparing..."))
-        self._progress_bar = QProgressBar()
-        self._progress_bar.setRange(0, 100)
-        self._progress_bar.setTextVisible(False)
-        self._progress_bar.setFixedHeight(4)
-        p_layout.addWidget(self._progress_label)
-        p_layout.addWidget(self._progress_bar)
-        root.addWidget(self._progress_frame)
-
         # Browser cards section
         detail_frame = QFrame()
         detail_frame.setObjectName("card")
@@ -706,12 +911,13 @@ class DashboardPage(QWidget):
         d_layout.addLayout(section_header_row)
         d_layout.addSpacing(14)
 
+        # Cards container with flow layout — expands downward automatically
         self._cards_container = QWidget()
         self._cards_container.setObjectName("cards_container")
-        self._cards_grid = QGridLayout(self._cards_container)
-        self._cards_grid.setSpacing(10)
-        self._cards_grid.setContentsMargins(0, 0, 0, 0)
-        self._cards_grid.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self._cards_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self._cards_container.setStyleSheet("QWidget#cards_container { background: transparent; }")
+        self._cards_layout = FlowLayout(self._cards_container, h_spacing=10, v_spacing=10)
+        self._cards_layout.setContentsMargins(0, 0, 0, 0)
 
         self._empty_state = _EmptyState()
         self._empty_state.setVisible(False)
@@ -740,7 +946,8 @@ class DashboardPage(QWidget):
         to_remove = [bt for bt in self._browser_cards if bt not in detected]
         for bt in to_remove:
             card = self._browser_cards.pop(bt)
-            self._cards_grid.removeWidget(card)
+            self._cards_layout.removeWidget(card)
+            card.setParent(None)
             card.deleteLater()
 
         # Add or update
@@ -752,6 +959,7 @@ class DashboardPage(QWidget):
                 card.open_browser_requested.connect(self._on_open_browser)
                 card.view_history_requested.connect(self._on_view_history)
                 card.sync_toggle_requested.connect(self.browser_sync_toggle_requested)
+                card.browser_remove_requested.connect(self._on_browser_remove)
                 self._browser_cards[bt] = card
             card = self._browser_cards[bt]
             card.set_sync_enabled(bt not in self._disabled_browsers)
@@ -764,23 +972,44 @@ class DashboardPage(QWidget):
         self._cards_container.setVisible(has_detected)
 
     def _relayout_cards(self):
-        while self._cards_grid.count():
-            item = self._cards_grid.takeAt(0)
-            if item.widget():
+        # Remove all items from the flow layout without destroying widgets
+        while self._cards_layout.count():
+            item = self._cards_layout.takeAt(0)
+            if item and item.widget():
                 item.widget().setParent(self._cards_container)
 
-        cols = 4
-        for i, card in enumerate(self._browser_cards.values()):
-            row, col = divmod(i, cols)
-            self._cards_grid.addWidget(card, row, col)
+        # Re-add all cards — FlowLayout handles wrapping automatically
+        for card in self._browser_cards.values():
+            card.setParent(self._cards_container)
+            self._cards_layout.addWidget(card)
+            card.show()
 
     # ── Per-browser actions ────────────────────────────────────
+
+    def _on_browser_remove(self, browser_type: str, clear_data: bool):
+        """处理从配置中删除深度扫描浏览器的请求。"""
+        from src.models.app_config import AppConfig
+        from src.services.browser_defs import BROWSER_DEF_MAP
+
+        # 从配置中移除
+        config = AppConfig.load()
+        config.extractor.learned_browsers.pop(browser_type, None)
+        if browser_type in config.extractor.disabled_browsers:
+            config.extractor.disabled_browsers.remove(browser_type)
+        config.save()
+
+        # 从全局浏览器定义表中移除
+        BROWSER_DEF_MAP.pop(browser_type, None)
+
+        # 转发给 ViewModel 处理（清除数据、刷新状态等）
+        self.browser_remove_requested.emit(browser_type, clear_data)
 
     def _on_browser_settings(self):
         """打开浏览器同步设置对话框。"""
         dlg = BrowserSettingsDialog(self._disabled_browsers, parent=self)
         dlg.browser_sync_changed.connect(self._on_browser_sync_changed_from_dialog)
         dlg.redetect_requested.connect(self.redetect_browsers_requested)
+        dlg.browsers_discovered.connect(self.learned_browsers_added)  # 深度扫描结果透传给 MainViewModel
         if dlg.exec() == QDialog.Accepted:
             # 批量应用所有更改
             new_disabled = set(dlg.get_disabled_browsers())
@@ -941,34 +1170,14 @@ class DashboardPage(QWidget):
     def on_sync_started(self):
         self._sync_btn.setEnabled(False)
         self._sync_btn.setText(_("Syncing..."))
-        self._progress_frame.setVisible(True)
-        self._progress_value = 0
-        self._progress_bar.setValue(0)
-        self._progress_timer.start()
-
-    def on_sync_progress(self, msg: str):
-        self._progress_label.setText(msg)
-        self._progress_value = min(self._progress_value + 8, 90)
-        self._progress_bar.setValue(self._progress_value)
 
     def on_sync_finished(self, new_count: int):
-        self._progress_timer.stop()
-        self._progress_bar.setValue(100)
-        self._progress_label.setText(_("Sync complete, {count} new records added").format(count=new_count))
         self._sync_btn.setEnabled(True)
         self._sync_btn.setText(_("Sync Now"))
-        QTimer.singleShot(3000, lambda: self._progress_frame.setVisible(False))
 
     def on_sync_error(self, msg: str):
-        self._progress_timer.stop()
-        self._progress_label.setText(_("Sync failed: {msg}").format(msg=msg))
         self._sync_btn.setEnabled(True)
         self._sync_btn.setText(_("Sync Now"))
-
-    def _tick_progress(self):
-        v = self._progress_bar.value()
-        if v < self._progress_value:
-            self._progress_bar.setValue(v + 2)
 
 
 def _fmt_time(ts: int | None) -> str:

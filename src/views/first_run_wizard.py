@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from datetime import datetime
+
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -190,6 +192,8 @@ class _SyncPage(_PageBase):
 class _BrowserSyncPage(_PageBase):
     """让用户选择哪些已检测到的浏览器参与同步。"""
 
+    learned_browsers_added = Signal(list)  # list[DetectedBrowser] — 深度扫描新增浏览器
+
     def __init__(self, config: AppConfig, parent=None):
         super().__init__(parent)
         self._config = config
@@ -240,6 +244,26 @@ class _BrowserSyncPage(_PageBase):
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
+        # 深度扫描提示
+        from src.utils.icon_helper import get_icon
+
+        scan_hint_layout = QHBoxLayout()
+        scan_hint_layout.setSpacing(4)
+        scan_hint_layout.setContentsMargins(0, 0, 0, 0)
+
+        scan_icon = QLabel()
+        scan_icon.setPixmap(get_icon("search", 14).pixmap(14, 14))
+        scan_hint_layout.addWidget(scan_icon)
+
+        scan_hint = QLabel(_("Browser not in the list? <a href='#scan'>Run a deep scan</a>"))
+        scan_hint.setStyleSheet("color: #888; font-size: 11px;")
+        scan_hint.setOpenExternalLinks(False)
+        scan_hint.linkActivated.connect(self._on_deep_scan)
+        scan_hint_layout.addWidget(scan_hint)
+        scan_hint_layout.addStretch()
+
+        layout.addLayout(scan_hint_layout)
+
         # Scroll area for browser checkboxes — stretch=1 so it expands with the window
         from PySide6.QtWidgets import QFrame, QScrollArea
 
@@ -265,16 +289,34 @@ class _BrowserSyncPage(_PageBase):
         self._btn_none.clicked.connect(self._on_deselect_all)
 
     def _populate_browsers(self):
-        from src.services.browser_defs import BUILTIN_BROWSERS
+        from src.services.browser_defs import BROWSER_DEF_MAP
+
+        previous_checked: dict[str, bool] = {bt: cb.isChecked() for bt, cb in self._checkboxes.items()}
+
+        while self._cb_layout.count():
+            item = self._cb_layout.takeAt(0)
+            if item is None:
+                continue
+            sub = item.layout()
+            if sub is not None:
+                while sub.count():
+                    child = sub.takeAt(0)
+                    if child and child.widget():
+                        child.widget().deleteLater()
+            elif item.widget():
+                item.widget().deleteLater()
+        self._checkboxes.clear()
 
         disabled = set(self._config.extractor.disabled_browsers)
 
-        # Detect which browsers are actually installed
-        detected = {bdef.browser_type for bdef in BUILTIN_BROWSERS if bdef.is_history_available()}
+        # 检测已安装的浏览器
+        all_defs = list(BROWSER_DEF_MAP.values())
+        detected = {bdef.browser_type for bdef in all_defs if bdef.is_history_available()}
 
-        # Sort: detected browsers first, then undetected, alphabetically within each group
+        # 排序
         sorted_browsers = sorted(
-            BUILTIN_BROWSERS, key=lambda b: (0 if b.browser_type in detected else 1, b.display_name)
+            all_defs,
+            key=lambda b: (0 if b.browser_type in detected else 1, b.display_name),
         )
 
         for bdef in sorted_browsers:
@@ -295,7 +337,11 @@ class _BrowserSyncPage(_PageBase):
             row.addWidget(icon_lbl)
 
             cb = QCheckBox(bdef.display_name)
-            cb.setChecked(bdef.browser_type not in disabled)
+            # 恢复用户改过的状态；新浏览器默认勾选
+            if bdef.browser_type in previous_checked:
+                cb.setChecked(previous_checked[bdef.browser_type])
+            else:
+                cb.setChecked(bdef.browser_type not in disabled)
             cb.setStyleSheet("font-size: 13px;")
             self._checkboxes[bdef.browser_type] = cb
             row.addWidget(cb, 1)
@@ -322,6 +368,34 @@ class _BrowserSyncPage(_PageBase):
     def _on_deselect_all(self):
         for cb in self._checkboxes.values():
             cb.setChecked(False)
+
+    def _on_deep_scan(self):
+        """启动深度扫描"""
+        from src.services.browser_defs import get_all_known_data_dirs
+        from src.views.dialogs.browser_scan_dialog import BrowserScanDialog
+
+        known_dirs = get_all_known_data_dirs()
+        dialog = BrowserScanDialog(self, known_data_dirs=known_dirs)
+        dialog.browsers_selected.connect(self._on_browsers_added)
+        dialog.start_scan()
+        dialog.exec()
+
+    def _on_browsers_added(self, browsers):
+        """添加扫描发现的浏览器"""
+        for browser in browsers:
+            # 写入内存 config
+            self._config.extractor.learned_browsers[browser.browser_type] = {
+                "display_name": browser.display_name,
+                "engine": browser.engine,
+                "data_dir": str(browser.data_dir),
+                "discovered_at": datetime.now().isoformat(),
+                "profiles": browser.profiles,
+            }
+
+        self._populate_browsers()
+
+        if browsers:
+            self.learned_browsers_added.emit(browsers)
 
     def apply(self) -> None:
         disabled = [bt for bt, cb in self._checkboxes.items() if not cb.isChecked()]
@@ -589,6 +663,8 @@ class _DonePage(_PageBase):
 class FirstRunWizard(QDialog):
     """Multi-page first-run setup wizard."""
 
+    learned_browsers_added = Signal(list)  # list[DetectedBrowser] — 深度扫描新增浏览器
+
     def __init__(self, config: AppConfig, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._config = config
@@ -623,6 +699,8 @@ class FirstRunWizard(QDialog):
         self._page_browser_sync = _BrowserSyncPage(self._config)
         self._page_password = _MasterPasswordPage(self._config)
         self._page_done = _DonePage()
+
+        self._page_browser_sync.learned_browsers_added.connect(self.learned_browsers_added)
 
         for page in (
             self._page_welcome,
