@@ -302,26 +302,24 @@ class BrowserCard(QFrame):
             bg_color = "#f3f4f6" if is_light else "#1e2028"
             self._badge_dot.setPixmap(_make_dot_pixmap(dot_color, 8))
             self._badge_text.setText(_("Sync disabled"))
-            self._badge_text.setStyleSheet(f"font-size: 11px; color: {dot_color}; background: transparent; border: none;")
-            self._badge_container.setStyleSheet(
-                f"background-color: {bg_color};"
-                f"border-radius: 8px;"
+            self._badge_text.setStyleSheet(
+                f"font-size: 11px; color: {dot_color}; background: transparent; border: none;"
             )
+            self._badge_container.setStyleSheet(f"background-color: {bg_color};border-radius: 8px;")
         else:
             dot_color, bg_color = _status_colors(self._status_name)
             self._badge_dot.setPixmap(_make_dot_pixmap(dot_color, 8))
             self._badge_text.setText(_status_label(self._status_name))
-            self._badge_text.setStyleSheet(f"font-size: 11px; color: {dot_color}; background: transparent; border: none;")
-            self._badge_container.setStyleSheet(
-                f"background-color: {bg_color};"
-                f"border-radius: 8px;"
+            self._badge_text.setStyleSheet(
+                f"font-size: 11px; color: {dot_color}; background: transparent; border: none;"
             )
+            self._badge_container.setStyleSheet(f"background-color: {bg_color};border-radius: 8px;")
+        self._badge_container.update()
 
     def update_status(self, status_name: str):
-        if self._status_name == status_name:
-            return
         self._status_name = status_name
         self._apply_status()
+        self.update()
 
     def _show_context_menu(self, _pos):
         menu = QMenu(self)

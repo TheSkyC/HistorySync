@@ -142,6 +142,7 @@ class MainViewModel(QObject):
         except Exception as exc:
             log.warning("Failed to save browser sync state: %s", exc)
         log.info("Browser '%s' sync set to: %s", browser_type, "enabled" if enabled else "disabled")
+        self._monitor.force_check()
 
     def reload_extractor_config(self) -> None:
         """向导完成后重新应用 extractor 配置（disabled_browsers 等）。"""
