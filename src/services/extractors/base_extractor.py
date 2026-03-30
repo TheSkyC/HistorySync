@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import concurrent.futures
 from contextlib import contextmanager
 from pathlib import Path
 import shutil
 import sqlite3
 import tempfile
+import threading
 import time
 
 from src.models.history_record import HistoryRecord
@@ -18,14 +20,12 @@ from src.utils.logger import get_logger
 log = get_logger("extractor")
 
 _BACKUP_TIMEOUT_SEC = 10
-
-
-# ── 模块级工具（供历史 & 图标两侧共用）─────────────────────
+_LOCK_PROBE_TIMEOUT_SEC = 0.5  # 500ms 内拿不到锁立即切换文件拷贝
 
 
 def copy_db_with_wal(src: Path, dst: Path) -> None:
     """
-    文件级拷贝 SQLite 数据库（含 WAL / SHM 三件套）。
+    文件级拷贝 SQLite 数据库。
 
     拷贝顺序：先 WAL/SHM，后主文件。
     先拷 WAL 可使副本的 "主文件 + WAL" 在时间轴上更接近一致点，
@@ -86,48 +86,76 @@ def _try_backup(
     display_name: str,
     timeout_sec: float,
 ) -> sqlite3.Connection | None:
-    """尝试 SQLite backup() API，超时或失败返回 None。"""
+    """尝试 SQLite backup() API，超时后返回 None 以降级到文件拷贝。"""
     src_conn = mem_conn = None
     _start = time.monotonic()
-    _last_log = [_start]
+    cancel_event = threading.Event()
 
-    def _progress(status: int, remaining: int, total: int) -> None:
-        now = time.monotonic()
-        if now - _last_log[0] >= 2.0:
-            log.debug(
-                "[%s] backup() progress: remaining=%d total=%d elapsed=%.1fs",
+    def _do_backup() -> sqlite3.Connection | None:
+        nonlocal src_conn, mem_conn
+        _last_log = [_start]
+
+        def _progress(status: int, remaining: int, total: int) -> None:
+            # 若主线程已超时并设置取消标志，抛出异常中断 backup()
+            if cancel_event.is_set():
+                raise sqlite3.OperationalError("backup() cancelled: lock probe timed out")
+            now = time.monotonic()
+            if now - _last_log[0] >= 2.0:
+                log.debug(
+                    "[%s] backup() progress: remaining=%d total=%d elapsed=%.1fs",
+                    display_name,
+                    remaining,
+                    total,
+                    now - _start,
+                )
+                _last_log[0] = now
+
+        try:
+            src_conn = sqlite3.connect(str(db_path), timeout=0)
+            src_conn.execute("SELECT 1")
+            mem_conn = sqlite3.connect(":memory:", check_same_thread=False)
+            # pages=1：每传输 1 页触发一次 progress，确保 cancel_event 能被快速响应
+            src_conn.backup(mem_conn, pages=1, progress=_progress)
+            mem_conn.row_factory = sqlite3.Row
+            return mem_conn
+        except sqlite3.Error:
+            _close_quietly(mem_conn)
+            return None
+        finally:
+            _close_quietly(src_conn)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_do_backup)
+        try:
+            result = future.result(timeout=_LOCK_PROBE_TIMEOUT_SEC)
+            if result is not None:
+                elapsed = time.monotonic() - _start
+                log.debug("[%s] backup() OK in %.2fs", display_name, elapsed)
+                return result
+            # backup() 本身报错（非锁问题）
+            log.warning(
+                "[%s] backup() failed for '%s' — will try file copy",
                 display_name,
-                remaining,
-                total,
-                now - _start,
+                db_path.name,
             )
-            _last_log[0] = now
-        if now - _start > timeout_sec:
-            raise sqlite3.OperationalError(
-                f"backup() timed out after {timeout_sec}s (browser may be holding a write lock)"
+            return None
+        except concurrent.futures.TimeoutError:
+            # 超时：通知子线程通过 progress 回调抛出异常来退出
+            cancel_event.set()
+            elapsed = time.monotonic() - _start
+            log.debug(
+                "[%s] backup() lock probe timed out in %.0fms for '%s' — switching to file copy",
+                display_name,
+                elapsed * 1000,
+                db_path.name,
             )
-
-    try:
-        src_conn = sqlite3.connect(str(db_path), timeout=0)
-        src_conn.execute("SELECT 1")
-        mem_conn = sqlite3.connect(":memory:")
-        src_conn.backup(mem_conn, pages=100, progress=_progress)
-        mem_conn.row_factory = sqlite3.Row
-        log.debug("[%s] backup() OK in %.2fs", display_name, time.monotonic() - _start)
-        return mem_conn
-    except sqlite3.Error as exc:
-        log.warning(
-            "[%s] backup() failed for '%s' (%.2fs): %s — will try file copy",
-            display_name,
-            db_path.name,
-            time.monotonic() - _start,
-            exc,
-        )
-        _close_quietly(src_conn)
-        _close_quietly(mem_conn)
-        return None
-    finally:
-        _close_quietly(src_conn)
+            # 等待子线程清理（cancel_event 已设，下次 progress 触发时会退出）
+            # 等待子线程响应 cancel_event（最多等一个 progress 周期 ~2s + 余量）
+            try:
+                future.result(timeout=3.0)
+            except Exception:
+                pass
+            return None
 
 
 def _try_file_copy(
@@ -137,25 +165,27 @@ def _try_file_copy(
     retry: int = 3,
     delay: float = 0.5,
 ) -> sqlite3.Connection | None:
-    _start = time.monotonic()
-
-    def _progress(status: int, remaining: int, total: int) -> None:
-        if time.monotonic() - _start > timeout_sec:
-            raise sqlite3.OperationalError(f"[{display_name}] file-copy backup() timed out")
-
+    """文件级拷贝降级方案。"""
     for attempt in range(1, retry + 1):
         file_conn = mem_conn = None
+        _start = time.monotonic()
         try:
             with tempfile.TemporaryDirectory(prefix="historysync_") as tmp_dir:
                 dst = Path(tmp_dir) / db_path.name
                 copy_db_with_wal(db_path, dst)
+                # immutable=1：告知 SQLite 文件不会被外部修改，完全跳过文件锁逻辑
                 file_conn = sqlite3.connect(f"file:{dst}?immutable=1", uri=True)
                 file_conn.execute("PRAGMA query_only = ON")
-                mem_conn = sqlite3.connect(":memory:")
-                file_conn.backup(mem_conn, pages=200, progress=_progress)
+                mem_conn = sqlite3.connect(":memory:", check_same_thread=False)
+                file_conn.backup(mem_conn, pages=200)
                 mem_conn.row_factory = sqlite3.Row
                 _close_quietly(file_conn)
-                log.debug("[%s] file-copy OK (attempt %d)", display_name, attempt)
+                log.debug(
+                    "[%s] file-copy OK (attempt %d, %.2fs)",
+                    display_name,
+                    attempt,
+                    time.monotonic() - _start,
+                )
                 return mem_conn
         except OSError as exc:
             _close_quietly(mem_conn)
