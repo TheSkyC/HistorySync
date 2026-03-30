@@ -571,6 +571,7 @@ class LocalDatabase:
                     except OSError as exc:
                         log.warning("Failed to delete %s: %s", p.name, exc)
             shutil.copy2(new_db_path, self.db_path)
+            self._reset_conn()
             log.info("Database successfully replaced")
 
     def upsert_records(self, records: list[HistoryRecord]) -> int:
