@@ -277,7 +277,7 @@ class SettingsPage(QWidget):
             delta = self._next_sync_ts - now
             text = fmt_countdown(delta)
             self._sec_scheduler.set_next_sync_text(
-                _("⏰ Next sync in: {t}").format(t=text) if text else _("⏰ Next sync: due soon")
+                _("Next sync in: {t}").format(t=text) if text else _("Next sync: due soon")
             )
             if text and (min_delta is None or delta < min_delta):
                 min_delta = delta
@@ -288,7 +288,7 @@ class SettingsPage(QWidget):
             delta = self._next_backup_ts - now
             text = fmt_countdown(delta)
             self._sec_webdav.set_next_backup_text(
-                _("⏰ Next backup in: {t}").format(t=text) if text else _("⏰ Next backup: due soon")
+                _("Next backup in: {t}").format(t=text) if text else _("Next backup: due soon")
             )
             if text and (min_delta is None or delta < min_delta):
                 min_delta = delta

@@ -75,9 +75,19 @@ class WebDavSection(QWidget):
         layout.addLayout(auto_backup_row)
 
         # Next backup countdown
+        next_backup_row = QHBoxLayout()
+        next_backup_row.setSpacing(6)
+        self._next_backup_icon_lbl = QLabel()
+        self._next_backup_icon_lbl.setPixmap(get_icon("refresh-ccw", 14).pixmap(14, 14))
+        self._next_backup_icon_lbl.setFixedSize(14, 14)
         self._next_backup_lbl = QLabel("")
         self._next_backup_lbl.setObjectName("muted")
-        layout.addWidget(self._next_backup_lbl)
+        next_backup_row.addWidget(self._next_backup_icon_lbl)
+        next_backup_row.addWidget(self._next_backup_lbl)
+        next_backup_row.addStretch()
+        self._next_backup_icon_lbl.hide()
+        self._next_backup_lbl.hide()
+        layout.addLayout(next_backup_row)
 
         # Favicon backup
         self._backup_favicons_cb = QCheckBox(_("Include favicon cache in backup"))
@@ -229,6 +239,8 @@ class WebDavSection(QWidget):
 
     def set_next_backup_text(self, text: str):
         self._next_backup_lbl.setText(text)
+        self._next_backup_icon_lbl.setVisible(bool(text))
+        self._next_backup_lbl.setVisible(bool(text))
 
     def set_status(self, text: str, kind: str = "muted"):
         self._status_lbl.setObjectName(kind)

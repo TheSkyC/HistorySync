@@ -6,6 +6,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QSpinBox, QVBoxLayout, QWidget
 
 from src.utils.i18n import _
+from src.utils.icon_helper import get_icon
 
 
 class SchedulerSection(QWidget):
@@ -38,9 +39,19 @@ class SchedulerSection(QWidget):
         interval_row.addStretch()
         layout.addLayout(interval_row)
 
+        next_sync_row = QHBoxLayout()
+        next_sync_row.setSpacing(6)
+        self._next_sync_icon_lbl = QLabel()
+        self._next_sync_icon_lbl.setPixmap(get_icon("refresh-ccw", 14).pixmap(14, 14))
+        self._next_sync_icon_lbl.setFixedSize(14, 14)
         self._next_sync_lbl = QLabel("")
         self._next_sync_lbl.setObjectName("muted")
-        layout.addWidget(self._next_sync_lbl)
+        next_sync_row.addWidget(self._next_sync_icon_lbl)
+        next_sync_row.addWidget(self._next_sync_lbl)
+        next_sync_row.addStretch()
+        self._next_sync_icon_lbl.hide()
+        self._next_sync_lbl.hide()
+        layout.addLayout(next_sync_row)
 
     # ── Public API ────────────────────────────────────────────
 
@@ -56,6 +67,8 @@ class SchedulerSection(QWidget):
 
     def set_next_sync_text(self, text: str):
         self._next_sync_lbl.setText(text)
+        self._next_sync_icon_lbl.setVisible(bool(text))
+        self._next_sync_lbl.setVisible(bool(text))
 
     # ── Internal (for signal wiring in SettingsPage) ──────────
 

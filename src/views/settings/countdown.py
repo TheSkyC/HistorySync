@@ -41,10 +41,9 @@ def compute_next_sync_ts(cfg, last_sync_ts: int | None) -> int | None:
 
 
 def compute_next_backup_ts(cfg) -> int | None:
-    """Return the Unix timestamp of the next scheduled backup, or None."""
+    import time as _time
+
     if not (cfg.scheduler.auto_backup_enabled and cfg.webdav.enabled):
         return None
-    last_backup = cfg.last_backup_ts if cfg.last_backup_ts > 0 else None
-    if last_backup:
-        return last_backup + cfg.scheduler.auto_backup_interval_hours * 3600
-    return None
+    last_backup = cfg.last_backup_ts if cfg.last_backup_ts > 0 else int(_time.time())
+    return last_backup + cfg.scheduler.auto_backup_interval_hours * 3600
