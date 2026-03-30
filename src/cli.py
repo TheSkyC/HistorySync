@@ -1107,18 +1107,21 @@ def _cmd_interactive(config, parser: argparse.ArgumentParser) -> int:
 
     print()
     try:
-        choice = input("  Choose: ").strip().lower()
+        choice = input("  Choose: ").strip()
     except (EOFError, KeyboardInterrupt):
         print()
         return 0
 
-    mapping = {k.lower(): (label, argv) for k, label, argv in MENU}
+    mapping = {k: (label, argv) for k, label, argv in MENU}
 
-    if choice not in mapping or mapping[choice][1] is None:
-        _info("Bye!")
-        return 0
+    if choice not in mapping:
+        _warn(f"Unknown option: {choice!r}")
+        return 1
 
     label, argv = mapping[choice]
+    if argv is None:
+        _info("Bye!")
+        return 0
     print(f"\n  Running: {_bold('hsync ' + ' '.join(argv))}\n")
 
     try:
