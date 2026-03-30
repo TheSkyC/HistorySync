@@ -43,8 +43,8 @@ class ScanWorker(QThread):
         try:
             self._scanner = BrowserScanner()
             results = self._scanner.scan(
-                progress_callback=lambda status, current, total: self.progress.emit(status, current, total),
-                browser_found_callback=lambda browser: self.browser_found.emit(browser),
+                progress_callback=self.progress.emit,
+                browser_found_callback=self.browser_found.emit,
             )
             self.finished.emit(results)
         except Exception as e:

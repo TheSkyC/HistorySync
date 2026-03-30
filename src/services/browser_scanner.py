@@ -137,13 +137,15 @@ class BrowserScanner:
 
             scanned = self._scan_directory_bfs(
                 root,
-                lambda current, total, sd=scanned_dirs: progress_callback(
-                    "scanning",
-                    sd + current,
-                    0,
-                )
-                if progress_callback
-                else None,
+                lambda current, total, sd=scanned_dirs: (
+                    progress_callback(
+                        "scanning",
+                        sd + current,
+                        0,
+                    )
+                    if progress_callback
+                    else None
+                ),
             )
             scanned_dirs += scanned
 
