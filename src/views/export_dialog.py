@@ -311,6 +311,12 @@ class ExportDialog(QDialog):
             parts.append(datetime.fromtimestamp(p.date_from).strftime("%Y-%m-%d") + " →")
         if p.date_to:
             parts.append(datetime.fromtimestamp(p.date_to).strftime("%Y-%m-%d"))
+        if p.bookmarked_only:
+            parts.append(_("Bookmarked only"))
+        if p.has_annotation:
+            parts.append(_("Has annotation"))
+        if p.bookmark_tag:
+            parts.append(_("Tag: {tag}").format(tag=p.bookmark_tag))
         if parts:
             return _("Current filter: ") + "  ·  ".join(parts)
         return _("Exporting all records (no active filters)")
@@ -401,6 +407,9 @@ class ExportDialog(QDialog):
                 title_only=params.title_only,
                 url_only=params.url_only,
                 use_regex=params.use_regex,
+                bookmarked_only=params.bookmarked_only,
+                has_annotation=params.has_annotation,
+                bookmark_tag=params.bookmark_tag,
             )
             self._count_lbl.setText(_("{count} records will be exported").format(count=f"{count:,}"))
         except Exception as exc:
@@ -431,6 +440,9 @@ class ExportDialog(QDialog):
                 title_only=p.title_only,
                 url_only=p.url_only,
                 use_regex=p.use_regex,
+                bookmarked_only=p.bookmarked_only,
+                has_annotation=p.has_annotation,
+                bookmark_tag=p.bookmark_tag,
             )
         return ResolvedExportParams(
             output_path=output_path,

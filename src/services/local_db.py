@@ -13,7 +13,7 @@ import sqlite3
 import threading
 import time
 
-from src.models.history_record import BackupStats, HistoryRecord
+from src.models.history_record import AnnotationRecord, BackupStats, BookmarkRecord, HistoryRecord
 from src.utils.i18n_core import _
 from src.utils.logger import get_logger
 
@@ -249,6 +249,27 @@ class LocalDatabase:
                     INSERT INTO history_fts(rowid, url, title)
                         VALUES (new.id, new.url, new.title);
                 END;
+
+                CREATE TABLE IF NOT EXISTS bookmarks (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    url           TEXT    NOT NULL UNIQUE,
+                    title         TEXT    NOT NULL DEFAULT '',
+                    tags          TEXT    NOT NULL DEFAULT '',
+                    bookmarked_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+                    history_id    INTEGER
+                );
+                CREATE INDEX IF NOT EXISTS idx_bookmarks_url ON bookmarks(url);
+                CREATE INDEX IF NOT EXISTS idx_bookmarks_at  ON bookmarks(bookmarked_at DESC);
+
+                CREATE TABLE IF NOT EXISTS annotations (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    url        TEXT    NOT NULL UNIQUE,
+                    note       TEXT    NOT NULL DEFAULT '',
+                    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+                    updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+                    history_id INTEGER
+                );
+                CREATE INDEX IF NOT EXISTS idx_annotations_url ON annotations(url);
             """)
         self._migrate_schema()
         log.info("Database schema initialized: %s", self.db_path)
@@ -740,11 +761,27 @@ class LocalDatabase:
         title_only: bool = False,
         url_only: bool = False,
         use_regex: bool = False,
+        bookmarked_only: bool = False,
+        has_annotation: bool = False,
+        bookmark_tag: str = "",
         _force_like: bool = False,  # Internal use for FTS fallback
     ) -> list[HistoryRecord]:
         excl = excluded_ids or set()
 
-        # Regex search: fetches a larger set then filters in Python
+        # ── Bookmark / annotation pre-filter ──────────────────
+        # Build extra JOIN clauses and conditions once, reused across branches.
+        bm_joins: str = ""
+        bm_conditions: list[str] = []
+        bm_params_prefix: list = []
+        if bookmarked_only or bookmark_tag:
+            if bookmark_tag:
+                bm_joins = " JOIN bookmarks bm ON h.url = bm.url"
+                bm_conditions.append("(',' || bm.tags || ',') LIKE ?")
+                bm_params_prefix.append(f"%,{bookmark_tag},%")
+            else:
+                bm_joins = " JOIN bookmarks bm ON h.url = bm.url"
+        if has_annotation:
+            bm_joins += " JOIN annotations ann ON h.url = ann.url AND ann.note != ''"
         if use_regex and keyword:
             try:
                 prog = re.compile(keyword, re.IGNORECASE)
@@ -850,6 +887,12 @@ class LocalDatabase:
 
             if extra:
                 sql += " AND " + " AND ".join(extra)
+            # ── Bookmark/annotation join injection ──────────────
+            if bm_joins:
+                sql = sql.replace("FROM history h", f"FROM history h{bm_joins}", 1)
+                if bm_conditions:
+                    sql += " AND " + " AND ".join(bm_conditions)
+                    params = bm_params_prefix + params
             sql += " ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
             params += [limit, offset]
             with self._conn() as conn:
@@ -905,6 +948,16 @@ class LocalDatabase:
                 self._populate_excl_table(conn, excl)
                 if excl:
                     conditions.append(self._excl_clause())
+                # ── Bookmark/annotation join injection ──────────
+                if bm_joins:
+                    sql = (
+                        "SELECT h.id, h.url, h.title, h.visit_time, h.visit_count, "
+                        "h.browser_type, h.profile_name, h.metadata, h.typed_count, "
+                        f"h.first_visit_time, h.transition_type, h.visit_duration FROM history h{bm_joins}"
+                    )
+                    if bm_conditions:
+                        conditions = bm_conditions + conditions
+                        params = bm_params_prefix + params
                 if conditions:
                     sql += " WHERE " + " AND ".join(conditions)
                 sql += " ORDER BY visit_time DESC LIMIT ? OFFSET ?"
@@ -925,9 +978,26 @@ class LocalDatabase:
         title_only: bool = False,
         url_only: bool = False,
         use_regex: bool = False,
+        bookmarked_only: bool = False,
+        has_annotation: bool = False,
+        bookmark_tag: str = "",
         _force_like: bool = False,  # Internal use for FTS fallback
     ) -> int:
         excl = excluded_ids or set()
+
+        # ── Bookmark / annotation pre-filter ──────────────────
+        bm_joins: str = ""
+        bm_conditions: list[str] = []
+        bm_params_prefix: list = []
+        if bookmarked_only or bookmark_tag:
+            if bookmark_tag:
+                bm_joins = " JOIN bookmarks bm ON h.url = bm.url"
+                bm_conditions.append("(',' || bm.tags || ',') LIKE ?")
+                bm_params_prefix.append(f"%,{bookmark_tag},%")
+            else:
+                bm_joins = " JOIN bookmarks bm ON h.url = bm.url"
+        if has_annotation:
+            bm_joins += " JOIN annotations ann ON h.url = ann.url AND ann.note != ''"
 
         # Regex count: filter the candidate pool and return real match count
         if use_regex and keyword:
@@ -1019,6 +1089,12 @@ class LocalDatabase:
 
             if extra:
                 sql += " AND " + " AND ".join(extra)
+            # ── Bookmark/annotation join injection ──────────────
+            if bm_joins:
+                sql = sql.replace("FROM history h", f"FROM history h{bm_joins}", 1)
+                if bm_conditions:
+                    sql += " AND " + " AND ".join(bm_conditions)
+                    params = bm_params_prefix + params
             with self._conn() as conn:
                 self._populate_excl_table(conn, excl)
                 if excl:
@@ -1069,10 +1145,178 @@ class LocalDatabase:
                 self._populate_excl_table(conn, excl)
                 if excl:
                     conditions.append(self._excl_clause())
+                # ── Bookmark/annotation join injection ──────────
+                if bm_joins:
+                    sql = f"SELECT COUNT(*) FROM history h{bm_joins}"
+                    if bm_conditions:
+                        conditions = bm_conditions + conditions
+                        params = bm_params_prefix + params
                 if conditions:
                     sql += " WHERE " + " AND ".join(conditions)
                 row = conn.execute(sql, params).fetchone()
                 return row[0] if row else 0
+
+    # ── Bookmark CRUD ─────────────────────────────────────────
+
+    def add_bookmark(self, url: str, title: str, tags: list[str], history_id: int | None = None) -> BookmarkRecord:
+        """Insert or replace a bookmark. Returns the stored record."""
+        tags_str = ",".join(t.strip() for t in tags if t.strip())
+        now = int(time.time())
+        with self._conn() as conn:
+            conn.execute(
+                """INSERT INTO bookmarks(url, title, tags, bookmarked_at, history_id)
+                   VALUES(?, ?, ?, ?, ?)
+                   ON CONFLICT(url) DO UPDATE SET
+                       title=excluded.title,
+                       tags=excluded.tags,
+                       history_id=excluded.history_id""",
+                (url, title, tags_str, now, history_id),
+            )
+            row = conn.execute("SELECT id, bookmarked_at FROM bookmarks WHERE url=?", (url,)).fetchone()
+        return BookmarkRecord(
+            id=row["id"],
+            url=url,
+            title=title,
+            tags=tags_str.split(",") if tags_str else [],
+            bookmarked_at=row["bookmarked_at"],
+            history_id=history_id,
+        )
+
+    def remove_bookmark(self, url: str) -> bool:
+        """Delete a bookmark by URL. Returns True if something was deleted."""
+        with self._conn() as conn:
+            cur = conn.execute("DELETE FROM bookmarks WHERE url=?", (url,))
+            return cur.rowcount > 0
+
+    def get_bookmark(self, url: str) -> BookmarkRecord | None:
+        with self._conn(write=False) as conn:
+            row = conn.execute(
+                "SELECT id, url, title, tags, bookmarked_at, history_id FROM bookmarks WHERE url=?", (url,)
+            ).fetchone()
+        return self._row_to_bookmark(row) if row else None
+
+    def is_bookmarked(self, url: str) -> bool:
+        with self._conn(write=False) as conn:
+            row = conn.execute("SELECT 1 FROM bookmarks WHERE url=?", (url,)).fetchone()
+        return row is not None
+
+    def get_bookmarked_urls(self) -> set[str]:
+        with self._conn(write=False) as conn:
+            rows = conn.execute("SELECT url FROM bookmarks").fetchall()
+        return {r[0] for r in rows}
+
+    def get_all_bookmarks(self, tag: str = "") -> list[BookmarkRecord]:
+        with self._conn(write=False) as conn:
+            if tag:
+                rows = conn.execute(
+                    "SELECT id, url, title, tags, bookmarked_at, history_id FROM bookmarks "
+                    "WHERE (',' || tags || ',') LIKE ? ORDER BY bookmarked_at DESC",
+                    (f"%,{tag},%",),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT id, url, title, tags, bookmarked_at, history_id FROM bookmarks ORDER BY bookmarked_at DESC"
+                ).fetchall()
+        return [self._row_to_bookmark(r) for r in rows]
+
+    def get_all_bookmark_tags(self) -> list[str]:
+        with self._conn(write=False) as conn:
+            rows = conn.execute("SELECT tags FROM bookmarks WHERE tags != ''").fetchall()
+
+        tags: set[str] = {t.strip() for r in rows for t in r[0].split(",") if t.strip()}
+        return sorted(tags)
+
+    def update_bookmark_tags(self, url: str, tags: list[str]) -> bool:
+        tags_str = ",".join(t.strip() for t in tags if t.strip())
+        with self._conn() as conn:
+            cur = conn.execute("UPDATE bookmarks SET tags=? WHERE url=?", (tags_str, url))
+            return cur.rowcount > 0
+
+    @staticmethod
+    def _row_to_bookmark(row) -> BookmarkRecord:
+        tags_str = row["tags"] or ""
+        return BookmarkRecord(
+            id=row["id"],
+            url=row["url"],
+            title=row["title"],
+            tags=[t.strip() for t in tags_str.split(",") if t.strip()],
+            bookmarked_at=row["bookmarked_at"],
+            history_id=row["history_id"],
+        )
+
+    # ── Annotation CRUD ────────────────────────────────────────
+
+    def upsert_annotation(self, url: str, note: str, history_id: int | None = None) -> AnnotationRecord:
+        now = int(time.time())
+        with self._conn() as conn:
+            existing = conn.execute("SELECT id, created_at FROM annotations WHERE url=?", (url,)).fetchone()
+            if existing:
+                conn.execute(
+                    "UPDATE annotations SET note=?, updated_at=?, history_id=? WHERE url=?",
+                    (note, now, history_id, url),
+                )
+                ann_id = existing["id"]
+                created_at = existing["created_at"]
+            else:
+                cur = conn.execute(
+                    "INSERT INTO annotations(url, note, created_at, updated_at, history_id) VALUES(?,?,?,?,?)",
+                    (url, note, now, now, history_id),
+                )
+                ann_id = cur.lastrowid
+                created_at = now
+        return AnnotationRecord(
+            id=ann_id,
+            url=url,
+            note=note,
+            created_at=created_at,
+            updated_at=now,
+            history_id=history_id,
+        )
+
+    def delete_annotation(self, url: str) -> bool:
+        with self._conn() as conn:
+            cur = conn.execute("DELETE FROM annotations WHERE url=?", (url,))
+            return cur.rowcount > 0
+
+    def get_annotation(self, url: str) -> AnnotationRecord | None:
+        with self._conn(write=False) as conn:
+            row = conn.execute(
+                "SELECT id, url, note, created_at, updated_at, history_id FROM annotations WHERE url=?", (url,)
+            ).fetchone()
+        if row is None:
+            return None
+        return AnnotationRecord(
+            id=row["id"],
+            url=row["url"],
+            note=row["note"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+            history_id=row["history_id"],
+        )
+
+    def get_annotated_urls(self) -> set[str]:
+        with self._conn(write=False) as conn:
+            rows = conn.execute("SELECT url FROM annotations WHERE note != ''").fetchall()
+        return {r[0] for r in rows}
+
+    def get_all_annotations(self) -> list[AnnotationRecord]:
+        with self._conn(write=False) as conn:
+            rows = conn.execute(
+                "SELECT id, url, note, created_at, updated_at, history_id FROM annotations ORDER BY updated_at DESC"
+            ).fetchall()
+        return [
+            AnnotationRecord(
+                id=r["id"],
+                url=r["url"],
+                note=r["note"],
+                created_at=r["created_at"],
+                updated_at=r["updated_at"],
+                history_id=r["history_id"],
+            )
+            for r in rows
+        ]
+
+    # ── End bookmark / annotation section ─────────────────────
 
     def get_browser_types(self) -> list[str]:
         with self._conn() as conn:
@@ -1177,6 +1421,25 @@ class LocalDatabase:
             ).fetchall()
         return [self._row_to_record(r) for r in rows]
 
+    def get_row_offset_for_url(self, url: str) -> int:
+        """Return the 0-based row index of the *most-recent* visit for *url*
+        in the default (unfiltered, visit_time DESC) sort order.
+
+        Returns -1 if the URL is not found.  Used by the "Locate in History"
+        feature so the history table can scroll to and select that exact row.
+        """
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM history WHERE visit_time > (SELECT MAX(visit_time) FROM history WHERE url = ?)",
+                (url,),
+            ).fetchone()
+            if row is None:
+                return -1
+            count = row[0]
+            # Verify at least one record exists for that URL
+            exists = conn.execute("SELECT 1 FROM history WHERE url = ? LIMIT 1", (url,)).fetchone()
+            return count if exists else -1
+
     # ── Internal helpers ──────────────────────────────────────
 
     @staticmethod
@@ -1205,7 +1468,30 @@ def _is_fts_special(keyword: str) -> bool:
 
 
 def _build_fts_query(keyword: str) -> str:
+    """Build an FTS5 MATCH expression from a keyword.
+
+    If the keyword already carries a column-filter prefix (``title:`` or
+    ``url:``), we must NOT wrap the whole string in phrase-quotes because
+    that would make FTS5 treat ``url:`` as literal text instead of a column
+    filter, causing zero results.  Strip the prefix, quote only the bare
+    term, then re-attach the column prefix.
+
+    Examples:
+        ``github``       →  ``"github"*``
+        ``url:github``   →  ``url:"github"*``
+        ``title:python`` →  ``title:"python"*``
+    """
     if not keyword:
         return '""'
+
+    for prefix in ("url:", "title:"):
+        if keyword.startswith(prefix):
+            bare = keyword[len(prefix) :]
+            if not bare:
+                return '""'
+            escaped = bare.replace('"', '""')
+            return f'{prefix}"{escaped}"*'
+
+    # Plain keyword — wrap entirely in phrase quotes
     escaped = keyword.replace('"', '""')
     return f'"{escaped}"*'

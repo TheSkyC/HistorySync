@@ -21,19 +21,31 @@ class SearchQuery:
     url_only: bool = False
     browser: str = ""
     use_regex: bool = False
+    # Bookmark / annotation filters
+    bookmarked_only: bool = False
+    has_annotation: bool = False
+    bookmark_tag: str = ""
 
 
 def parse_query(text: str) -> SearchQuery:
     """
-    Parse search string with structured tokens like domain:, after:, before:, etc.
-    Example: 'domain:github.com after:2023-01-01 -react title:python search term'
+    Parse search string with structured tokens.
+    Supported tokens:
+      domain:github.com      - filter by domain
+      after:2023-01-01       - date range start
+      before:2024-01-01      - date range end
+      title:python           - search in title only
+      url:github             - search in URL only
+      browser:chrome         - filter by browser
+      -react                 - exclude term
+      is:bookmarked          - only bookmarked records
+      has:note               - only records with annotations
+      tag:work               - filter bookmarks by tag
     """
     query = SearchQuery()
     if not text:
         return query
 
-    # Regular expressions for tokens
-    # Note: tokens must be followed by space or end of string
     token_patterns = {
         "domain": r"\bdomain:([^\s]+)",
         "after": r"\bafter:(\d{4}-\d{2}-\d{2})",
@@ -42,14 +54,15 @@ def parse_query(text: str) -> SearchQuery:
         "url": r"\burl:([^\s]+)",
         "browser": r"\bbrowser:([^\s]+)",
         "exclude": r"(?<!\S)-([^\s]+)",
+        "is": r"\bis:(bookmarked|starred|favorite)",
+        "has": r"\bhas:(note|annotation)",
+        "tag": r"\btag:([^\s]+)",
     }
 
     remaining_text = text
 
-    # Extract single-value tokens
     for token, pattern in token_patterns.items():
         if token == "exclude":
-            # Exclude can have multiple values
             matches = re.findall(pattern, remaining_text)
             if matches:
                 query.excludes.extend(matches)
@@ -60,6 +73,26 @@ def parse_query(text: str) -> SearchQuery:
             matches = re.findall(pattern, remaining_text)
             if matches:
                 query.domains.extend(matches)
+                remaining_text = re.sub(pattern, "", remaining_text)
+            continue
+
+        if token == "is":
+            if re.search(pattern, remaining_text):
+                query.bookmarked_only = True
+                remaining_text = re.sub(pattern, "", remaining_text)
+            continue
+
+        if token == "has":
+            if re.search(pattern, remaining_text):
+                query.has_annotation = True
+                remaining_text = re.sub(pattern, "", remaining_text)
+            continue
+
+        if token == "tag":
+            match = re.search(pattern, remaining_text)
+            if match:
+                query.bookmark_tag = match.group(1).lower()
+                query.bookmarked_only = True
                 remaining_text = re.sub(pattern, "", remaining_text)
             continue
 
@@ -78,18 +111,14 @@ def parse_query(text: str) -> SearchQuery:
                     pass
             elif token == "title":
                 query.title_only = True
-                # Replace 'title:value' with just 'value' so the keyword is preserved
                 remaining_text = re.sub(pattern, r"\1", remaining_text)
                 continue
             elif token == "url":
                 query.url_only = True
-                # Replace 'url:value' with just 'value' so the keyword is preserved
                 remaining_text = re.sub(pattern, r"\1", remaining_text)
                 continue
             elif token == "browser":
                 query.browser = val.lower()
-
-            # Remove token from text
             remaining_text = re.sub(pattern, "", remaining_text)
 
     query.keyword = " ".join(remaining_text.split()).strip()

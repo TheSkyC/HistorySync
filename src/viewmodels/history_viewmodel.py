@@ -27,6 +27,10 @@ from src.utils.logger import get_logger
 
 log = get_logger("viewmodel.history")
 
+# Custom model roles for badge display (bookmark / annotation indicators)
+BOOKMARK_ROLE = Qt.UserRole + 1
+ANNOTATION_ROLE = Qt.UserRole + 2
+
 # 每次从数据库预取的页面大小
 PAGE_SIZE = 200
 CACHE_PAGE_SIZE = PAGE_SIZE
@@ -83,11 +87,18 @@ class HistoryTableModel(QAbstractTableModel):
         self._title_only: bool = False
         self._url_only: bool = False
         self._use_regex: bool = False
+        self._bookmarked_only: bool = False
+        self._has_annotation: bool = False
+        self._bookmark_tag: str = ""
 
         # 虚拟化状态
         self._total_count = 0
         self._page_cache: dict[int, list[HistoryRecord]] = {}
         self._page_lru: OrderedDict[int, None] = OrderedDict()
+
+        # Badge URL caches — bulk-loaded on each reload(), O(1) per-row lookup
+        self._bookmarked_urls: set[str] = set()
+        self._annotated_urls: set[str] = set()
 
         self._favicon_manager.favicons_updated.connect(self._on_favicons_updated)
 
@@ -167,6 +178,8 @@ class HistoryTableModel(QAbstractTableModel):
             Qt.ToolTipRole,
             Qt.UserRole,
             Qt.TextAlignmentRole,
+            BOOKMARK_ROLE,
+            ANNOTATION_ROLE,
         ):
             return None
 
@@ -249,6 +262,12 @@ class HistoryTableModel(QAbstractTableModel):
         elif role == Qt.UserRole:
             return record
 
+        elif role == BOOKMARK_ROLE:
+            return record.url in self._bookmarked_urls
+
+        elif role == ANNOTATION_ROLE:
+            return record.url in self._annotated_urls
+
         elif role == Qt.TextAlignmentRole:
             align = col_def.get("align", Qt.AlignLeft)
             # Add vertical centering to all columns
@@ -285,6 +304,9 @@ class HistoryTableModel(QAbstractTableModel):
         title_only: bool = False,
         url_only: bool = False,
         use_regex: bool = False,
+        bookmarked_only: bool = False,
+        has_annotation: bool = False,
+        bookmark_tag: str = "",
     ):
         self._keyword = keyword
         self._browser_type = browser_type
@@ -296,6 +318,9 @@ class HistoryTableModel(QAbstractTableModel):
         self._title_only = title_only
         self._url_only = url_only
         self._use_regex = use_regex
+        self._bookmarked_only = bookmarked_only
+        self._has_annotation = has_annotation
+        self._bookmark_tag = bookmark_tag
 
         self.reload()
 
@@ -303,6 +328,10 @@ class HistoryTableModel(QAbstractTableModel):
         """重置缓存并重新查询总数，触发视图完整刷新。"""
         self._page_cache.clear()
         self._page_lru.clear()
+
+        # Load badge URL sets for O(1) lookup during rendering
+        self._bookmarked_urls = self._db.get_bookmarked_urls()
+        self._annotated_urls = self._db.get_annotated_urls()
 
         new_count = self._db.get_filtered_count(
             keyword=self._keyword,
@@ -315,6 +344,9 @@ class HistoryTableModel(QAbstractTableModel):
             title_only=self._title_only,
             url_only=self._url_only,
             use_regex=self._use_regex,
+            bookmarked_only=self._bookmarked_only,
+            has_annotation=self._has_annotation,
+            bookmark_tag=self._bookmark_tag,
         )
 
         self.beginResetModel()
@@ -367,6 +399,41 @@ class HistoryTableModel(QAbstractTableModel):
                 [Qt.DecorationRole],
             )
 
+    def invalidate_badge_cache(self, view=None) -> None:
+        """Reload badge URL sets and emit dataChanged for title column to refresh badges.
+
+        Only emits for visible rows to avoid performance issues with large datasets.
+        """
+        # Reload badge data from DB
+        self._bookmarked_urls = self._db.get_bookmarked_urls()
+        self._annotated_urls = self._db.get_annotated_urls()
+
+        if self._total_count == 0:
+            return
+
+        # Determine visible row range
+        first_row = 0
+        last_row = min(self._total_count - 1, 199)
+
+        if view is not None:
+            try:
+                vp_height = view.viewport().height()
+                row_height = max(view.verticalHeader().defaultSectionSize(), 1)
+                first_row = max(0, view.rowAt(0))
+                visible_count = (vp_height // row_height) + 2
+                last_row = min(self._total_count - 1, first_row + visible_count)
+            except Exception:
+                pass
+
+        # Find title column index
+        title_col = self._key_to_col.get("title")
+        if title_col is not None:
+            self.dataChanged.emit(
+                self.index(first_row, title_col),
+                self.index(last_row, title_col),
+                [BOOKMARK_ROLE, ANNOTATION_ROLE],
+            )
+
     @property
     def total_count(self) -> int:
         return self._total_count
@@ -411,6 +478,9 @@ class HistoryTableModel(QAbstractTableModel):
             title_only=self._title_only,
             url_only=self._url_only,
             use_regex=self._use_regex,
+            bookmarked_only=self._bookmarked_only,
+            has_annotation=self._has_annotation,
+            bookmark_tag=self._bookmark_tag,
         )
 
         self._page_cache[page_index] = records
@@ -504,6 +574,9 @@ class HistoryViewModel(QObject):
         title_only: bool = False,
         url_only: bool = False,
         use_regex: bool = False,
+        bookmarked_only: bool = False,
+        has_annotation: bool = False,
+        bookmark_tag: str = "",
     ):
         self.table_model.set_filter(
             keyword,
@@ -515,6 +588,9 @@ class HistoryViewModel(QObject):
             title_only=title_only,
             url_only=url_only,
             use_regex=use_regex,
+            bookmarked_only=bookmarked_only,
+            has_annotation=has_annotation,
+            bookmark_tag=bookmark_tag,
         )
         count = self.table_model.total_count
         self.status_message.emit(_("{total} records").format(total=f"{count:,}"))

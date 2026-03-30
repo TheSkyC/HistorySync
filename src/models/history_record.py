@@ -5,9 +5,8 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-@dataclass
 class HistoryRecord:
-    # --- 基础必填字段 ---
+    # --- 基础字段 ---
     url: str
     title: str
     visit_time: int  # 10位 Unix 时间戳（秒）
@@ -42,6 +41,33 @@ class HistoryRecord:
         （处理 Edge 导入 Chrome 历史记录的极端场景）
         """
         return f"{self.browser_type}|{self.url}|{self.visit_time}"
+
+
+@dataclass
+class BookmarkRecord:
+    """A bookmarked history entry with optional tags."""
+
+    url: str
+    title: str
+    bookmarked_at: int  # Unix timestamp (seconds)
+    tags: list[str] = field(default_factory=list)  # e.g. ["work", "ref"]
+    history_id: int | None = field(default=None, compare=False)
+    id: int | None = field(default=None, compare=False)
+
+    def tags_str(self) -> str:
+        return ", ".join(self.tags)
+
+
+@dataclass
+class AnnotationRecord:
+    """A user note attached to a history URL."""
+
+    url: str
+    note: str  # free-form text
+    created_at: int  # Unix timestamp (seconds)
+    updated_at: int  # Unix timestamp (seconds)
+    history_id: int | None = field(default=None, compare=False)
+    id: int | None = field(default=None, compare=False)
 
 
 @dataclass

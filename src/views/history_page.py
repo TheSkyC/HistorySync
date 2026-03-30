@@ -8,7 +8,7 @@ from datetime import date, datetime
 from urllib.parse import urlparse
 import webbrowser
 
-from PySide6.QtCore import QDate, QRect, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QDate, QItemSelectionModel, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QCursor, QIcon, QKeySequence, QPainter, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -24,7 +24,9 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QStyle,
+    QStyledItemDelegate,
     QStyleOptionHeader,
+    QStyleOptionViewItem,
     QTableView,
     QVBoxLayout,
     QWidget,
@@ -35,7 +37,8 @@ from src.utils.icon_helper import get_browser_icon, get_icon
 from src.utils.logger import get_logger
 from src.utils.search_parser import parse_query
 from src.utils.theme_manager import ThemeManager
-from src.viewmodels.history_viewmodel import HistoryViewModel
+from src.viewmodels.history_viewmodel import ANNOTATION_ROLE, BOOKMARK_ROLE, HistoryViewModel
+from src.views.annotation_dialog import AnnotationDialog
 
 log = get_logger("view.history")
 
@@ -138,6 +141,10 @@ class SearchLineEdit(QLineEdit):
             "• <code>title:keyword</code> - Search only titles<br>"
             "• <code>url:keyword</code> - Search only URLs<br>"
             "• <code>browser:chrome</code> - Filter by browser type<br><br>"
+            "<b>Bookmark Filters:</b><br>"
+            "• <code>is:bookmarked</code> - Only bookmarked records<br>"
+            "• <code>has:note</code> - Only records with annotations<br>"
+            "• <code>tag:work</code> - Filter by bookmark tag<br><br>"
             "<i>Tip: You can combine these tokens with regular text.</i>"
         )
         QMessageBox.information(self, _("Search Help"), msg)
@@ -145,6 +152,216 @@ class SearchLineEdit(QLineEdit):
     @property
     def use_regex(self) -> bool:
         return self._use_regex
+
+
+class BookmarkBadgeDelegate(QStyledItemDelegate):
+    """Custom delegate that renders favicon + badge icons for bookmarks/annotations."""
+
+    def __init__(self, model, parent=None):
+        super().__init__(parent)
+        self._model = model
+        self._badge_size = 14  # Increased from 12 to 14 for better visibility
+        self._badge_spacing = 3
+
+    def _colorize_icon(self, icon: QIcon, color, size: int):
+        """Create a colored version of an icon."""
+        from PySide6.QtGui import QColor, QPainter, QPixmap
+
+        if icon.isNull():
+            return QPixmap()
+
+        # Get the original pixmap
+        pixmap = icon.pixmap(size, size)
+        if pixmap.isNull():
+            return pixmap
+
+        # Create a new pixmap with the same size
+        colored = QPixmap(pixmap.size())
+        colored.fill(Qt.transparent)
+
+        # Paint the color with the original alpha mask
+        painter = QPainter(colored)
+        painter.setCompositionMode(QPainter.CompositionMode_Source)
+        painter.drawPixmap(0, 0, pixmap)
+        painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+        painter.fillRect(colored.rect(), QColor(color))
+        painter.end()
+
+        return colored
+
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index):
+        """Draw favicon and badge icons if present."""
+        from PySide6.QtGui import QPixmap
+
+        # Let the default delegate draw the background and selection
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        opt.text = ""  # We'll draw text manually
+        opt.icon = QIcon()  # We'll draw icon manually
+        option.widget.style().drawControl(QStyle.CE_ItemViewItem, opt, painter, option.widget)
+
+        # Get data
+        display_text = index.data(Qt.DisplayRole) or ""
+        favicon = index.data(Qt.DecorationRole)
+        has_bookmark = index.data(BOOKMARK_ROLE) or False
+        has_annotation = index.data(ANNOTATION_ROLE) or False
+
+        painter.save()
+
+        # Calculate layout
+        rect = option.rect
+        x = rect.x() + 4
+        y = rect.y() + (rect.height() - 16) // 2
+
+        # Draw favicon (can be QIcon or QPixmap)
+        if isinstance(favicon, QPixmap) and not favicon.isNull():
+            painter.drawPixmap(x, y, 16, 16, favicon)
+        elif isinstance(favicon, QIcon) and not favicon.isNull():
+            favicon.paint(painter, x, y, 16, 16)
+        x += 16 + 4
+
+        # Draw badge icons
+        if has_bookmark:
+            bookmark_icon = get_icon("bookmark")
+            if not bookmark_icon.isNull():
+                badge_y = y + (16 - self._badge_size) // 2
+                # Colorize bookmark icon in blue
+                colored_pixmap = self._colorize_icon(bookmark_icon, "#3B82F6", self._badge_size)
+                if not colored_pixmap.isNull():
+                    painter.drawPixmap(x, badge_y, colored_pixmap)
+            x += self._badge_size + self._badge_spacing
+
+        if has_annotation:
+            annotation_icon = get_icon("edit-2")
+            if not annotation_icon.isNull():
+                badge_y = y + (16 - self._badge_size) // 2
+                # Colorize annotation icon in green
+                colored_pixmap = self._colorize_icon(annotation_icon, "#10B981", self._badge_size)
+                if not colored_pixmap.isNull():
+                    painter.drawPixmap(x, badge_y, colored_pixmap)
+            x += self._badge_size + self._badge_spacing
+
+        # Draw text
+        text_rect = QRect(x + 4, rect.y(), rect.width() - (x - rect.x()) - 4, rect.height())
+        painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, display_text)
+
+        painter.restore()
+
+    def editorEvent(self, event, model, option, index):
+        """Handle mouse clicks on badge icons."""
+        from PySide6.QtCore import QEvent
+        from PySide6.QtGui import QMouseEvent
+
+        if not isinstance(event, QMouseEvent):
+            return super().editorEvent(event, model, option, index)
+
+        if event.type() not in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease):
+            return super().editorEvent(event, model, option, index)
+
+        # Calculate badge positions
+        rect = option.rect
+        x = rect.x() + 4 + 16 + 4  # favicon + spacing
+        y = rect.y() + (rect.height() - self._badge_size) // 2
+
+        has_bookmark = index.data(BOOKMARK_ROLE) or False
+        has_annotation = index.data(ANNOTATION_ROLE) or False
+
+        click_pos = event.pos()
+
+        # Check bookmark badge click
+        if has_bookmark:
+            bookmark_rect = QRect(x, y, self._badge_size, self._badge_size)
+            if bookmark_rect.contains(click_pos) and event.type() == QEvent.MouseButtonRelease:
+                self._handle_bookmark_click(index)
+                return True
+            x += self._badge_size + self._badge_spacing
+
+        # Check annotation badge click
+        if has_annotation:
+            annotation_rect = QRect(x, y, self._badge_size, self._badge_size)
+            if annotation_rect.contains(click_pos) and event.type() == QEvent.MouseButtonRelease:
+                self._handle_annotation_click(index)
+                return True
+
+        return super().editorEvent(event, model, option, index)
+
+    def helpEvent(self, event, view, option, index):
+        """Show tooltips when hovering over badges."""
+        from PySide6.QtCore import QEvent
+        from PySide6.QtWidgets import QToolTip
+
+        if event.type() != QEvent.ToolTip:
+            return super().helpEvent(event, view, option, index)
+
+        # Calculate badge positions
+        rect = option.rect
+        x = rect.x() + 4 + 16 + 4
+        y = rect.y() + (rect.height() - self._badge_size) // 2
+
+        has_bookmark = index.data(BOOKMARK_ROLE) or False
+        has_annotation = index.data(ANNOTATION_ROLE) or False
+
+        hover_pos = event.pos()
+
+        # Check bookmark badge hover
+        if has_bookmark:
+            bookmark_rect = QRect(x, y, self._badge_size, self._badge_size)
+            if bookmark_rect.contains(hover_pos):
+                QToolTip.showText(event.globalPos(), _("Bookmarked (click to edit)"), view)
+                return True
+            x += self._badge_size + self._badge_spacing
+
+        # Check annotation badge hover
+        if has_annotation:
+            annotation_rect = QRect(x, y, self._badge_size, self._badge_size)
+            if annotation_rect.contains(hover_pos):
+                record = index.data(Qt.UserRole)
+                if record:
+                    # Get annotation from DB to show preview
+                    page = self.parent()
+                    if hasattr(page, "_vm"):
+                        ann = page._vm._db.get_annotation(record.url)
+                        if ann and ann.note:
+                            preview = ann.note[:100] + "..." if len(ann.note) > 100 else ann.note
+                            QToolTip.showText(event.globalPos(), _("Note: {note}").format(note=preview), view)
+                            return True
+                QToolTip.showText(event.globalPos(), _("Has note (click to edit)"), view)
+                return True
+
+        return super().helpEvent(event, view, option, index)
+
+    def _handle_bookmark_click(self, index):
+        """Open bookmark edit dialog."""
+        page = self.parent()
+        if not hasattr(page, "_vm"):
+            return
+
+        record = index.data(Qt.UserRole)
+        if not record:
+            return
+
+        # Toggle bookmark (same as context menu action)
+        db = page._vm._db
+        if db.is_bookmarked(record.url):
+            db.remove_bookmark(record.url)
+        else:
+            db.add_bookmark(record.url, record.title or record.url, [], history_id=record.id)
+
+        # Refresh badge cache
+        page._vm.table_model.invalidate_badge_cache(page._table)
+
+    def _handle_annotation_click(self, index):
+        """Open annotation edit dialog."""
+        page = self.parent()
+        if not hasattr(page, "_vm"):
+            return
+
+        record = index.data(Qt.UserRole)
+        if not record:
+            return
+
+        # Open annotation dialog (same as context menu action)
+        page._edit_annotation(record)
 
 
 class HistoryPage(QWidget):
@@ -294,6 +511,10 @@ class HistoryPage(QWidget):
         self._table.verticalHeader().setDefaultSectionSize(38)
         self._table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
         self._table.doubleClicked.connect(self._on_double_click)
+
+        # Set badge delegate for title column
+        self._setup_badge_delegate()
+
         root.addWidget(self._table, 1)
 
         # ── Bottom bar ────────────────────────────────────────
@@ -319,6 +540,18 @@ class HistoryPage(QWidget):
         # Connect selection change
         self._table.selectionModel().selectionChanged.connect(self._on_selection_changed)
 
+    def _setup_badge_delegate(self):
+        """Set up badge delegate for title column. Safe to call multiple times."""
+        # Clear existing delegates to avoid stale bindings
+        for col_idx in range(self._table.model().columnCount()):
+            self._table.setItemDelegateForColumn(col_idx, None)
+
+        # Bind delegate to current title column logical index
+        title_col_idx = self._vm.table_model._key_to_col.get("title")
+        if title_col_idx is not None:
+            badge_delegate = BookmarkBadgeDelegate(self._vm.table_model, self)
+            self._table.setItemDelegateForColumn(title_col_idx, badge_delegate)
+
     def _setup_shortcuts(self):
         """Register Ctrl+F (focus search) and Ctrl+R (sync now)."""
         search_sc = QShortcut(QKeySequence("Ctrl+F"), self)
@@ -334,6 +567,43 @@ class HistoryPage(QWidget):
     def _focus_search(self):
         self._search.setFocus()
         self._search.selectAll()
+
+    def filter_by_url(self, url: str):
+        """从书签页"在历史记录中定位"跳转过来时，清空过滤器并定位到该 URL 所在行。"""
+        # Step 1: clear all filters so the full list is shown
+        self._search.blockSignals(True)
+        self._search.clear()
+        self._search.blockSignals(False)
+        self._browser_combo.blockSignals(True)
+        self._browser_combo.setCurrentIndex(0)
+        self._browser_combo.blockSignals(False)
+        self._date_from.blockSignals(True)
+        self._date_from.setDate(QDate(2020, 1, 1))
+        self._date_from.blockSignals(False)
+        self._date_to.blockSignals(True)
+        self._date_to.setDate(QDate.currentDate())
+        self._date_to.blockSignals(False)
+        self._do_search()
+
+        # Step 2: find the row offset for this URL in the unfiltered list
+        row = self._vm._db.get_row_offset_for_url(url)
+        if row < 0:
+            # URL not found - fall back to a url: search so the user sees something
+            self._search.setText(f"url:{url}")
+            self._focus_search()
+            self._do_search()
+            return
+
+        # Step 3: scroll to and select the row
+        model = self._vm.table_model
+        idx = model.index(row, 0)
+        self._table.selectionModel().clearSelection()
+        self._table.selectionModel().select(
+            idx,
+            QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+        )
+        self._table.scrollTo(idx, QAbstractItemView.ScrollHint.PositionAtCenter)
+        self._focus_search()
 
     def filter_by_browser(self, browser_type: str):
         """从 DashboardPage 右键菜单跳转过来时，按浏览器类型过滤列表。"""
@@ -384,6 +654,7 @@ class HistoryPage(QWidget):
 
     def _on_columns_changed(self):
         QTimer.singleShot(0, self._apply_column_widths)
+        QTimer.singleShot(0, self._setup_badge_delegate)  # Rebind delegate after column order changes
 
     def _on_section_resized(self, logical_index, old_size, new_size):
         col_key = self._vm.table_model._col_to_key.get(logical_index)
@@ -409,8 +680,8 @@ class HistoryPage(QWidget):
     def _apply_column_widths(self):
         visible_cols = self._vm.table_model.get_visible_columns()
         default_widths = {
-            "title": 350,
-            "url": 400,
+            "title": 360,
+            "url": 440,
             "domain": 160,
             "metadata": 250,
         }
@@ -605,6 +876,9 @@ class HistoryPage(QWidget):
             title_only=query.title_only,
             url_only=query.url_only,
             use_regex=use_regex,
+            bookmarked_only=query.bookmarked_only,
+            has_annotation=query.has_annotation,
+            bookmark_tag=query.bookmark_tag,
         )
 
     def _reset_filters(self):
@@ -701,12 +975,37 @@ class HistoryPage(QWidget):
 
         # ── Open ──────────────────────────────────────────────
         if not multi:
-            open_act = menu.addAction(get_icon("arrow-right"), _("Open in Browser"))
+            open_act = menu.addAction(get_icon("corner-up-right"), _("Open in Browser"))
             open_act.setShortcut("Double-click")
         else:
             open_act = menu.addAction(
-                get_icon("arrow-right"), _("Open All Selected in Browser ({n})").format(n=len(selected_records))
+                get_icon("corner-up-right"), _("Open All Selected in Browser ({n})").format(n=len(selected_records))
             )
+
+        menu.addSeparator()
+
+        # ── Bookmark ───────────────────────────────────────────
+        if not multi:
+            _db = self._vm._db
+            _is_bm = _db.is_bookmarked(primary.url)
+            if _is_bm:
+                bookmark_act = menu.addAction(get_icon("bookmark"), _("Remove Bookmark"))
+            else:
+                bookmark_act = menu.addAction(get_icon("bookmark"), _("Add Bookmark"))
+        else:
+            bookmark_act = menu.addAction(
+                get_icon("bookmark"), _("Bookmark All Selected ({n})").format(n=len(selected_records))
+            )
+
+        # ── Annotation ─────────────────────────────────────────
+        if not multi:
+            _ann = self._vm._db.get_annotation(primary.url)
+            if _ann and _ann.note:
+                annotation_act = menu.addAction(get_icon("edit-2"), _("Edit Note…"))
+            else:
+                annotation_act = menu.addAction(get_icon("edit-2"), _("Add Note…"))
+        else:
+            annotation_act = None
 
         menu.addSeparator()
 
@@ -808,6 +1107,12 @@ class HistoryPage(QWidget):
             self._search.setText(primary_domain)
             self._focus_search()
 
+        elif action == bookmark_act:
+            self._toggle_bookmark(selected_records, primary, multi)
+
+        elif annotation_act and action == annotation_act:
+            self._edit_annotation(primary)
+
     def _confirm_delete(self, records, ids):
         n = len(records)
         reply = QMessageBox.warning(
@@ -843,6 +1148,34 @@ class HistoryPage(QWidget):
             ids = [r.id for r in records if r.id is not None]
             self._confirm_delete(records, ids)
 
+    def _toggle_bookmark(self, selected_records, primary, multi):
+        db = self._vm._db
+        if multi:
+            for r in selected_records:
+                if not db.is_bookmarked(r.url):
+                    db.add_bookmark(r.url, r.title or r.url, [], history_id=r.id)
+        elif db.is_bookmarked(primary.url):
+            db.remove_bookmark(primary.url)
+        else:
+            db.add_bookmark(primary.url, primary.title or primary.url, [], history_id=primary.id)
+
+        # Refresh badge cache to show/hide bookmark icons
+        self._vm.table_model.invalidate_badge_cache(self._table)
+
+    def _edit_annotation(self, record):
+        db = self._vm._db
+        existing = db.get_annotation(record.url)
+        dlg = AnnotationDialog(record.url, record.title or record.url, existing, parent=self)
+        if dlg.exec():
+            note = dlg.get_note()
+            if note.strip():
+                db.upsert_annotation(record.url, note, history_id=record.id)
+            else:
+                db.delete_annotation(record.url)
+
+            # Refresh badge cache to show/hide annotation icons
+            self._vm.table_model.invalidate_badge_cache(self._table)
+
     def refresh(self):
         self._vm.refresh()
 
@@ -876,6 +1209,9 @@ class HistoryPage(QWidget):
             title_only=vm._title_only,
             url_only=vm._url_only,
             use_regex=vm._use_regex,
+            bookmarked_only=vm._bookmarked_only,
+            has_annotation=vm._has_annotation,
+            bookmark_tag=vm._bookmark_tag,
         )
         dlg = ExportDialog(
             db=self._vm._db,

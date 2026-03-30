@@ -181,6 +181,11 @@ class ResolvedExportParams:
     url_only: bool = False
     use_regex: bool = False
 
+    # Bookmark / annotation filters
+    bookmarked_only: bool = False
+    has_annotation: bool = False
+    bookmark_tag: str = ""
+
 
 # ── Exporter ──────────────────────────────────────────────────────────────────
 
@@ -255,6 +260,9 @@ class Exporter:
                     title_only=params.title_only,
                     url_only=params.url_only,
                     use_regex=False,
+                    bookmarked_only=params.bookmarked_only,
+                    has_annotation=params.has_annotation,
+                    bookmark_tag=params.bookmark_tag,
                 )
                 exported = self._write_batched(
                     params,
@@ -304,6 +312,9 @@ class Exporter:
             title_only=params.title_only,
             url_only=params.url_only,
             use_regex=False,
+            bookmarked_only=params.bookmarked_only,
+            has_annotation=params.has_annotation,
+            bookmark_tag=params.bookmark_tag,
         )
 
         matched_ids: list[int] = []
@@ -354,6 +365,9 @@ class Exporter:
                     title_only=params.title_only,
                     url_only=params.url_only,
                     use_regex=False,
+                    bookmarked_only=params.bookmarked_only,
+                    has_annotation=params.has_annotation,
+                    bookmark_tag=params.bookmark_tag,
                 )
                 if not batch:
                     break

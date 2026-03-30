@@ -31,8 +31,9 @@ log = get_logger("view.main_window")
 
 PAGE_DASHBOARD = 0
 PAGE_HISTORY = 1
-PAGE_SETTINGS = 2
-PAGE_LOGS = 3
+PAGE_BOOKMARKS = 2
+PAGE_SETTINGS = 3
+PAGE_LOGS = 4
 
 
 class MainWindow(QMainWindow):
@@ -113,11 +114,13 @@ class MainWindow(QMainWindow):
         # Nav buttons
         self._nav_dashboard = NavButton("home", _("Overview"))
         self._nav_history = NavButton("list", _("History"))
+        self._nav_bookmarks = NavButton("bookmark", _("Bookmarks"))
         self._nav_settings = NavButton("settings", _("Settings"))
         self._nav_logs = NavButton("file-text", _("Log Viewer"))
         self._nav_buttons = [
             self._nav_dashboard,
             self._nav_history,
+            self._nav_bookmarks,
             self._nav_settings,
             self._nav_logs,
         ]
@@ -144,16 +147,18 @@ class MainWindow(QMainWindow):
         self._stack.addWidget(self._page_dashboard)  # index 0
 
         # Placeholders occupy the correct stack indices until first access.
-        for _ in range(3):
-            self._stack.addWidget(QWidget())  # indices 1, 2, 3
+        for _ in range(4):
+            self._stack.addWidget(QWidget())  # indices 1, 2, 3, 4
 
         # Lazy page references — None until the user navigates there.
         self._page_history = None
+        self._page_bookmarks = None
         self._page_settings = None
         self._page_logs = None
 
         self._nav_dashboard.clicked.connect(lambda: self._switch_page(PAGE_DASHBOARD))
         self._nav_history.clicked.connect(lambda: self._switch_page(PAGE_HISTORY))
+        self._nav_bookmarks.clicked.connect(lambda: self._switch_page(PAGE_BOOKMARKS))
         self._nav_settings.clicked.connect(lambda: self._switch_page(PAGE_SETTINGS))
         self._nav_logs.clicked.connect(lambda: self._switch_page(PAGE_LOGS))
         self._switch_page(PAGE_DASHBOARD)
@@ -173,8 +178,9 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(self._vm.trigger_sync)
         QShortcut(QKeySequence("Ctrl+1"), self).activated.connect(lambda: self._switch_page(PAGE_DASHBOARD))
         QShortcut(QKeySequence("Ctrl+2"), self).activated.connect(lambda: self._switch_page(PAGE_HISTORY))
-        QShortcut(QKeySequence("Ctrl+3"), self).activated.connect(lambda: self._switch_page(PAGE_SETTINGS))
-        QShortcut(QKeySequence("Ctrl+4"), self).activated.connect(lambda: self._switch_page(PAGE_LOGS))
+        QShortcut(QKeySequence("Ctrl+3"), self).activated.connect(lambda: self._switch_page(PAGE_BOOKMARKS))
+        QShortcut(QKeySequence("Ctrl+4"), self).activated.connect(lambda: self._switch_page(PAGE_SETTINGS))
+        QShortcut(QKeySequence("Ctrl+5"), self).activated.connect(lambda: self._switch_page(PAGE_LOGS))
         QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self._focus_history_search)
 
     def _connect_vm(self):
@@ -236,6 +242,14 @@ class MainWindow(QMainWindow):
             self._page_history.hide_records_requested.connect(self._on_hide_records)
             self._page_history.blacklist_domain_requested.connect(self._on_blacklist_domain)
 
+        elif index == PAGE_BOOKMARKS and self._page_bookmarks is None:
+            from src.views.bookmarks_page import BookmarksPage
+
+            self._page_bookmarks = BookmarksPage(self._vm._db)
+            self._replace_placeholder(PAGE_BOOKMARKS, self._page_bookmarks)
+            self._page_bookmarks.navigate_to_history.connect(self._navigate_to_history_url)
+            self._page_bookmarks.bookmark_changed.connect(self._on_bookmark_changed)
+
         elif index == PAGE_SETTINGS and self._page_settings is None:
             from src.views.settings_page import SettingsPage
 
@@ -255,9 +269,17 @@ class MainWindow(QMainWindow):
             self._history_initialized = True
             QTimer.singleShot(0, self._vm.history_vm.initialize)
 
+        if index == PAGE_BOOKMARKS and self._page_bookmarks is not None:
+            self._page_bookmarks.refresh()
+
     def _focus_history_search(self):
         self._switch_page(PAGE_HISTORY)  # creates page if needed
         self._page_history._focus_search()
+
+    def _navigate_to_history_url(self, url: str):
+        """Switch to history page and filter by the given URL (from bookmarks 'Locate in History')."""
+        self._switch_page(PAGE_HISTORY)  # creates page if needed
+        self._page_history.filter_by_url(url)
 
     # ── VM signal handlers ────────────────────────────────────
 
@@ -336,6 +358,11 @@ class MainWindow(QMainWindow):
 
     def _on_domain_blacklisted(self, domain: str):
         log.info("Domain blacklisted: %s", domain)
+
+    def _on_bookmark_changed(self):
+        """Refresh history page badge cache when bookmarks are modified."""
+        if self._page_history is not None:
+            self._page_history._vm.table_model.invalidate_badge_cache(self._page_history._table)
 
     # ── Window events ─────────────────────────────────────────
 

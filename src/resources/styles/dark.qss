@@ -698,3 +698,92 @@ QGroupBox::title {
     color: #4a5068; 
     font-weight: 600;
 }
+/* ── Bookmarks page ─────────────────────────────────── */
+QWidget#bm_sidebar {
+    background-color: #161b27;
+    border-right: 1px solid #252a36;
+}
+
+QListWidget#tag_list {
+    background: transparent;
+    border: none;
+    outline: none;
+}
+QListWidget#tag_list::item {
+    padding: 6px 8px;
+    border-radius: 6px;
+    color: #8892a8;
+}
+QListWidget#tag_list::item:hover {
+    background: #252a36;
+    color: #c8d0e0;
+}
+QListWidget#tag_list::item:selected {
+    background: #2d3448;
+    color: #7c8cf8;
+}
+
+QFrame#bookmark_card {
+    background-color: #1c2130;
+    border: 1px solid #252a36;
+    border-radius: 8px;
+}
+QFrame#bookmark_card:hover {
+    border-color: #3a4258;
+}
+
+QFrame#note_frame {
+    background-color: #1a2035;
+    border-left: 3px solid #5c6bc0;
+    border-radius: 0px 4px 4px 0px;
+}
+
+QLabel#note_text {
+    color: #a8b2c8;
+    font-size: 12px;
+}
+
+QLabel#inline_tag {
+    color: #7c8cf8;
+    font-size: 11px;
+    background: #1e2540;
+    border: 1px solid #2d3458;
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+
+QLabel#muted_small {
+    color: #4a5068;
+    font-size: 11px;
+}
+
+QPushButton#icon_btn {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 2px;
+}
+QPushButton#icon_btn:hover {
+    background: #252a36;
+}
+
+QPushButton#filter_chip {
+    background: #1c2130;
+    border: 1px solid #2d3448;
+    border-radius: 14px;
+    padding: 3px 12px;
+    color: #8892a8;
+}
+QPushButton#filter_chip:checked, QPushButton#filter_chip:hover {
+    background: #2d3448;
+    color: #7c8cf8;
+    border-color: #4a5580;
+}
+
+QLabel#sidebar_section_title {
+    color: #4a5068;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}

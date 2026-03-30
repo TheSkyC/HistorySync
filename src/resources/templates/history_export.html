@@ -1129,7 +1129,7 @@
                 h += n === '…' ? `<span class="pg-info">…</span>`
                     : `<button class="pg-btn${n === p ? ' active' : ''}" data-pg="${n}">${n}</button>`;
             h += `<button class="pg-btn" data-a="next" ${p >= pages ? 'disabled' : ''}>{lbl_next} ›</button>`;
-            h += `<span class="pg-info">{lbl_rows} ${tot ? s + 1 : 0}–${e} {lbl_of} ${tot}</span>`;
+            h += `<span class="pg-info">{lbl_rows} ${tot ? s + 1 : 0}-${e} {lbl_of} ${tot}</span>`;
             h += `<select class="pg-sz" data-a="sz">`;
             for (const v of [50, 100, 200, 500, 1000])
                 h += `<option value="${v}"${v === state.pageSize ? ' selected' : ''}>${v} / {lbl_page}</option>`;
