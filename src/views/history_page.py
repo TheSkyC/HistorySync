@@ -647,6 +647,19 @@ class HistoryPage(QWidget):
         self._vm.status_message.connect(self._status_label.setText)
         self._vm.table_model.columns_changed.connect(self._on_columns_changed)
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
+        # 滚动到底部时触发 regex 增量加载
+        self._table.verticalScrollBar().valueChanged.connect(self._on_scroll_check_load_more)
+
+    def _on_scroll_check_load_more(self, value: int):
+        """当滚动条接近底部时，触发 regex 模式的增量加载。"""
+        if not self._vm.table_model.can_load_more:
+            return
+        sb = self._table.verticalScrollBar()
+        # 距底部不足 3 行高度时触发
+        row_h = max(self._table.verticalHeader().defaultSectionSize(), 1)
+        threshold = sb.maximum() - row_h * 3
+        if value >= threshold:
+            self._vm.load_more()
 
     def _on_theme_changed(self, _theme: str) -> None:
         """主题切换后只重绘可见视口，完全绕开 dataChanged 全表回调。"""
@@ -889,8 +902,11 @@ class HistoryPage(QWidget):
         self._date_to.setDate(QDate.currentDate())
         self._do_search()
 
-    def _on_total_count_changed(self, count: int):
-        self._count_label.setText(_("{total} records").format(total=f"{count:,}"))
+    def _on_total_count_changed(self, count: int, has_more: bool = False):
+        if has_more:
+            self._count_label.setText(_("{total}+ records").format(total=f"{count:,}"))
+        else:
+            self._count_label.setText(_("{total} records").format(total=f"{count:,}"))
 
     def _update_browser_combo(self, browser_types: list[str]):
         current = self._browser_combo.currentData()

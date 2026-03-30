@@ -747,6 +747,75 @@ class LocalDatabase:
         col = f"{alias}id" if alias else "id"
         return f"{col} NOT IN (SELECT id FROM _excl_ids)"
 
+    def get_records_regex_iter(
+        self,
+        pattern: re.Pattern,
+        batch_size: int = 1000,
+        browser_type: str = "",
+        date_from: int | None = None,
+        date_to: int | None = None,
+        excluded_ids: set[int] | None = None,
+        domain_ids: list[int] | None = None,
+        excludes: list[str] | None = None,
+        title_only: bool = False,
+        url_only: bool = False,
+        bookmarked_only: bool = False,
+        has_annotation: bool = False,
+        bookmark_tag: str = "",
+    ) -> Iterator[HistoryRecord]:
+        """Incremental regex search iterator.
+
+        Fetches candidates in batches from the database, filters them with
+        the regex pattern, and yields matching records one by one. This
+        avoids the hard-coded 5000-record limit and enables true incremental
+        loading for large datasets.
+
+        Args:
+            pattern: Compiled regex pattern to match against.
+            batch_size: Number of candidate records to fetch per batch.
+            Other args: Same as get_records() for filtering candidates.
+
+        Yields:
+            HistoryRecord: Each record that matches the regex pattern.
+        """
+        offset = 0
+        while True:
+            candidates = self.get_records(
+                keyword="",  # No FTS/LIKE filtering
+                browser_type=browser_type,
+                date_from=date_from,
+                date_to=date_to,
+                limit=batch_size,
+                offset=offset,
+                excluded_ids=excluded_ids,
+                domain_ids=domain_ids,
+                excludes=excludes,
+                title_only=False,  # Filter in Python layer
+                url_only=False,
+                use_regex=False,
+                bookmarked_only=bookmarked_only,
+                has_annotation=has_annotation,
+                bookmark_tag=bookmark_tag,
+            )
+
+            if not candidates:
+                break
+
+            for r in candidates:
+                if title_only:
+                    match = pattern.search(r.title or "")
+                elif url_only:
+                    match = pattern.search(r.url)
+                else:
+                    match = pattern.search(r.title or "") or pattern.search(r.url)
+
+                if match:
+                    yield r
+
+            offset += batch_size
+            if len(candidates) < batch_size:
+                break  # Reached end of database
+
     def get_records(
         self,
         keyword: str = "",
@@ -790,33 +859,29 @@ class LocalDatabase:
                 log.warning("Invalid regex '%s': %s", keyword, exc)
                 return []
 
-            raw_limit = 5000
-            candidates = self.get_records(
-                keyword="",  # No FTS
+            # Use incremental iterator to collect results
+            iter_obj = self.get_records_regex_iter(
+                pattern=prog,
+                batch_size=1000,
                 browser_type=browser_type,
                 date_from=date_from,
                 date_to=date_to,
-                limit=raw_limit,
-                offset=0,  # Always start from beginning; slice by offset below
                 excluded_ids=excl,
                 domain_ids=domain_ids,
                 excludes=excludes,
                 title_only=title_only,
                 url_only=url_only,
-                use_regex=False,
+                bookmarked_only=bookmarked_only,
+                has_annotation=has_annotation,
+                bookmark_tag=bookmark_tag,
             )
 
+            # Collect until offset + limit
             results = []
-            for r in candidates:
-                if title_only:
-                    match = prog.search(r.title or "")
-                elif url_only:
-                    match = prog.search(r.url)
-                else:
-                    match = prog.search(r.title or "") or prog.search(r.url)
-
-                if match:
-                    results.append(r)
+            for record in iter_obj:
+                results.append(record)
+                if len(results) >= offset + limit:
+                    break
 
             return results[offset : offset + limit]
 
@@ -1007,19 +1072,24 @@ class LocalDatabase:
             except Exception:
                 return 0
 
+            # Upper limit strategy: only count matches in first 5000 candidates
+            MAX_CANDIDATES = 5000
             candidates = self.get_records(
                 keyword="",
                 browser_type=browser_type,
                 date_from=date_from,
                 date_to=date_to,
-                limit=5000,
+                limit=MAX_CANDIDATES,
                 offset=0,
                 excluded_ids=excl,
                 domain_ids=domain_ids,
                 excludes=excludes,
-                title_only=title_only,
-                url_only=url_only,
+                title_only=False,  # Filter in Python layer
+                url_only=False,
                 use_regex=False,
+                bookmarked_only=bookmarked_only,
+                has_annotation=has_annotation,
+                bookmark_tag=bookmark_tag,
             )
 
             count = 0
@@ -1032,6 +1102,11 @@ class LocalDatabase:
                     match = prog.search(r.title or "") or prog.search(r.url)
                 if match:
                     count += 1
+
+            # If candidates reached limit, return limit (UI will show "5000+")
+            if len(candidates) >= MAX_CANDIDATES:
+                return MAX_CANDIDATES
+
             return count
 
         if keyword:

@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from datetime import datetime
 from functools import lru_cache
+import re
 from typing import Any
 
 from PySide6.QtCore import (
@@ -36,6 +37,8 @@ PAGE_SIZE = 200
 CACHE_PAGE_SIZE = PAGE_SIZE
 # 最多在内存中保留多少页
 MAX_CACHED_PAGES = 10
+# regex 增量加载：每批扫描的候选记录数
+REGEX_SCAN_BATCH = 5000
 
 # Column definitions - all available columns
 ALL_COLUMNS = {
@@ -62,7 +65,7 @@ class HistoryTableModel(QAbstractTableModel):
     虚拟化历史记录表格模型（Virtual Scrolling）。
     """
 
-    total_count_changed = Signal(int)
+    total_count_changed = Signal(int, bool)  # (count, has_more)
     columns_changed = Signal()
 
     def __init__(self, db: LocalDatabase, favicon_manager: FaviconManager, visible_columns=None, parent=None):
@@ -95,6 +98,11 @@ class HistoryTableModel(QAbstractTableModel):
         self._total_count = 0
         self._page_cache: dict[int, list[HistoryRecord]] = {}
         self._page_lru: OrderedDict[int, None] = OrderedDict()
+
+        # Regex 增量加载状态
+        self._regex_results: list[HistoryRecord] = []  # 已匹配的记录（内存缓存）
+        self._regex_scan_offset: int = 0  # 已扫描的 DB 偏移量（未过滤）
+        self._regex_has_more: bool = False  # 是否还有更多候选待扫描
 
         # Badge URL caches — bulk-loaded on each reload(), O(1) per-row lookup
         self._bookmarked_urls: set[str] = set()
@@ -328,38 +336,115 @@ class HistoryTableModel(QAbstractTableModel):
         """重置缓存并重新查询总数，触发视图完整刷新。"""
         self._page_cache.clear()
         self._page_lru.clear()
+        self._regex_results.clear()
+        self._regex_scan_offset = 0
+        self._regex_has_more = False
 
         # Load badge URL sets for O(1) lookup during rendering
         self._bookmarked_urls = self._db.get_bookmarked_urls()
         self._annotated_urls = self._db.get_annotated_urls()
 
-        new_count = self._db.get_filtered_count(
-            keyword=self._keyword,
-            browser_type=self._browser_type,
-            date_from=self._date_from,
-            date_to=self._date_to,
-            excluded_ids=self._hidden_ids,
-            domain_ids=self._domain_ids,
-            excludes=self._excludes,
-            title_only=self._title_only,
-            url_only=self._url_only,
-            use_regex=self._use_regex,
-            bookmarked_only=self._bookmarked_only,
-            has_annotation=self._has_annotation,
-            bookmark_tag=self._bookmark_tag,
-        )
+        if self._use_regex and self._keyword:
+            # Regex 增量模式：扫描第一批候选，不阻塞在全量 COUNT 上
+            self._scan_regex_batch()
+            new_count = len(self._regex_results)
+        else:
+            new_count = self._db.get_filtered_count(
+                keyword=self._keyword,
+                browser_type=self._browser_type,
+                date_from=self._date_from,
+                date_to=self._date_to,
+                excluded_ids=self._hidden_ids,
+                domain_ids=self._domain_ids,
+                excludes=self._excludes,
+                title_only=self._title_only,
+                url_only=self._url_only,
+                use_regex=False,  # 非 regex 路径
+                bookmarked_only=self._bookmarked_only,
+                has_annotation=self._has_annotation,
+                bookmark_tag=self._bookmark_tag,
+            )
 
         self.beginResetModel()
         self._total_count = new_count
         self.endResetModel()
 
-        self.total_count_changed.emit(self._total_count)
+        self.total_count_changed.emit(self._total_count, self._regex_has_more)
 
-        if self._total_count > 0:
+        # 非 regex 模式：预取第一页
+        if not (self._use_regex and self._keyword) and self._total_count > 0:
             self._fetch_page(0, defer_pixmaps=True)
 
     def load_more(self) -> bool:
-        """虚拟化模式下无需手动 load_more，保留接口兼容性。"""
+        """虚拟化模式下委托给 load_more_regex（regex 模式），否则无需手动加载。"""
+        if self._use_regex and self._keyword:
+            return self.load_more_regex()
+        return False
+
+    def _scan_regex_batch(self) -> None:
+        """扫描下一批 REGEX_SCAN_BATCH 条候选，将匹配结果追加到 _regex_results。"""
+        try:
+            prog = re.compile(self._keyword, re.IGNORECASE)
+        except Exception as exc:
+            log.warning("Invalid regex '%s': %s", self._keyword, exc)
+            self._regex_has_more = False
+            return
+
+        candidates = self._db.get_records(
+            keyword="",
+            browser_type=self._browser_type,
+            date_from=self._date_from,
+            date_to=self._date_to,
+            limit=REGEX_SCAN_BATCH,
+            offset=self._regex_scan_offset,
+            excluded_ids=self._hidden_ids,
+            domain_ids=self._domain_ids,
+            excludes=self._excludes,
+            title_only=False,  # 在 Python 层过滤
+            url_only=False,
+            use_regex=False,
+            bookmarked_only=self._bookmarked_only,
+            has_annotation=self._has_annotation,
+            bookmark_tag=self._bookmark_tag,
+        )
+
+        before = len(self._regex_results)
+        for r in candidates:
+            if self._title_only:
+                hit = bool(prog.search(r.title or ""))
+            elif self._url_only:
+                hit = bool(prog.search(r.url))
+            else:
+                hit = bool(prog.search(r.title or "") or prog.search(r.url))
+            if hit:
+                self._regex_results.append(r)
+
+        self._regex_scan_offset += len(candidates)
+        # 如果本批拿满了，说明还可能有更多
+        self._regex_has_more = len(candidates) >= REGEX_SCAN_BATCH
+
+        new_matches = self._regex_results[before:]
+        if new_matches:
+            QTimer.singleShot(0, lambda r=new_matches: self._favicon_manager.prefetch_pixmaps(r, size=16))
+
+    def load_more_regex(self) -> bool:
+        """加载下一批 regex 匹配结果，插入到模型末尾。返回 True 表示有新行追加。"""
+        if not self.can_load_more:
+            return False
+
+        old_count = len(self._regex_results)
+        self._scan_regex_batch()
+        new_count = len(self._regex_results)
+
+        if new_count > old_count:
+            self.beginInsertRows(QModelIndex(), old_count, new_count - 1)
+            self._total_count = new_count
+            self.endInsertRows()
+            self.total_count_changed.emit(self._total_count, self._regex_has_more)
+            return True
+
+        # 本批无新匹配，但扫描偏移已更新；通知视图 has_more 状态变化
+        self.total_count_changed.emit(self._total_count, self._regex_has_more)
         return False
 
     def refresh_icons(self, view=None) -> None:
@@ -438,6 +523,11 @@ class HistoryTableModel(QAbstractTableModel):
     def total_count(self) -> int:
         return self._total_count
 
+    @property
+    def can_load_more(self) -> bool:
+        """True 时视图可在滚动到底部后调用 load_more_regex() 加载更多。"""
+        return self._regex_has_more and bool(self._use_regex and self._keyword)
+
     def get_record_at(self, row: int) -> HistoryRecord | None:
         return self._get_record_at(row)
 
@@ -446,6 +536,12 @@ class HistoryTableModel(QAbstractTableModel):
     def _get_record_at(self, row: int) -> HistoryRecord | None:
         if row < 0 or row >= self._total_count:
             return None
+        # Regex 增量模式：直接从内存结果列表取
+        if self._use_regex and self._keyword:
+            if row < len(self._regex_results):
+                return self._regex_results[row]
+            return None
+        # 普通模式：走分页缓存
         page_index = row // CACHE_PAGE_SIZE
         page = self._get_or_fetch_page(page_index)
         local_row = row % CACHE_PAGE_SIZE
@@ -554,6 +650,7 @@ class HistoryViewModel(QObject):
         self._db = db
         self._favicon_manager = favicon_manager
         self._initialized = False
+        self._use_regex = False  # Track regex search state for UI display
         self.table_model = HistoryTableModel(db, favicon_manager, visible_columns)
 
     def initialize(self):
@@ -578,6 +675,7 @@ class HistoryViewModel(QObject):
         has_annotation: bool = False,
         bookmark_tag: str = "",
     ):
+        self._use_regex = use_regex  # Save for status message formatting
         self.table_model.set_filter(
             keyword,
             browser_type,
@@ -593,9 +691,25 @@ class HistoryViewModel(QObject):
             bookmark_tag=bookmark_tag,
         )
         count = self.table_model.total_count
-        self.status_message.emit(_("{total} records").format(total=f"{count:,}"))
+        has_more = self.table_model.can_load_more
+        # regex 且还有更多未扫描时显示「N+」，否则显示精确数量
+        if use_regex and has_more:
+            self.status_message.emit(_("{total}+ records").format(total=f"{count:,}"))
+        else:
+            self.status_message.emit(_("{total} records").format(total=f"{count:,}"))
 
     def load_more(self) -> bool:
+        """滚动到底部时调用，触发 regex 增量加载。非 regex 模式下无需手动加载。"""
+        if self._use_regex:
+            result = self.table_model.load_more_regex()
+            # 同步更新左下角状态栏的记录数
+            count = self.table_model.total_count
+            has_more = self.table_model.can_load_more
+            if has_more:
+                self.status_message.emit(_("{total}+ records").format(total=f"{count:,}"))
+            else:
+                self.status_message.emit(_("{total} records").format(total=f"{count:,}"))
+            return result
         return False
 
     def refresh(self):
