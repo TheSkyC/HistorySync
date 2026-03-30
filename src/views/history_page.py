@@ -547,7 +547,7 @@ class HistoryPage(QWidget):
     # ── Selection helpers ─────────────────────────────────────
 
     def _get_selected_rows(self) -> list[int]:
-        return sorted({idx.row() for idx in self._table.selectedIndexes()})
+        return sorted([idx.row() for idx in self._table.selectionModel().selectedRows()])
 
     def _get_selected_records(self):
         rows = self._get_selected_rows()
