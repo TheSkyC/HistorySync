@@ -247,15 +247,15 @@ class Scheduler(QObject):
             log.info("Auto sync paused")
 
     def trigger_now(self) -> None:
-        if self._running:
-            log.info("Sync already running, skipping trigger")
+        if self._running or (self._worker_thread is not None and self._worker_thread.isRunning()):
+            log.info("Sync already running or previous thread not yet cleaned up, skipping trigger")
             return
         self._run_sync()
 
     def trigger_browser(self, browser_type: str) -> None:
         """Trigger a sync for a single browser only."""
-        if self._running:
-            log.info("Sync already running, skipping single-browser trigger")
+        if self._running or (self._worker_thread is not None and self._worker_thread.isRunning()):
+            log.info("Sync already running or previous thread not yet cleaned up, skipping single-browser trigger")
             return
         self._run_sync(browser_types=[browser_type])
 
@@ -273,15 +273,15 @@ class Scheduler(QObject):
             Limit the resync to these browser types.  ``None`` means all
             available browsers.
         """
-        if self._running:
-            log.info("Sync already running, skipping full-resync trigger")
+        if self._running or (self._worker_thread is not None and self._worker_thread.isRunning()):
+            log.info("Sync already running or previous thread not yet cleaned up, skipping full-resync trigger")
             return
         log.info("Full resync triggered (browsers=%s)", browser_types or "all")
         self._run_sync(browser_types=browser_types, force_full=True)
 
     def trigger_backup_now(self) -> None:
-        if self._backup_running:
-            log.info("Backup already running, skipping")
+        if self._backup_running or (self._backup_thread is not None and self._backup_thread.isRunning()):
+            log.info("Backup already running or previous thread not yet cleaned up, skipping")
             return
         self._run_backup()
 
@@ -361,6 +361,8 @@ class Scheduler(QObject):
 
     @Slot()
     def _on_sync_thread_finished(self) -> None:
+        if self.sender() is not self._worker_thread:
+            return
         if self._running:
             log.warning("Sync thread finished but _running was still True... resetting.")
             self._running = False
@@ -404,6 +406,8 @@ class Scheduler(QObject):
 
     @Slot()
     def _on_backup_thread_finished(self) -> None:
+        if self.sender() is not self._backup_thread:
+            return
         self._backup_running = False
         self._backup_thread = None
         self._backup_worker = None

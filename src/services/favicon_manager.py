@@ -217,8 +217,8 @@ class FaviconManager(QObject):
             限定本次只提取指定浏览器的图标。传入 None（默认）表示提取
             所有已注册且可用的浏览器图标。
         """
-        if self._is_running:
-            log.debug("FaviconManager: extraction already running, skipping")
+        if self._is_running or (self._thread is not None and self._thread.isRunning()):
+            log.debug("FaviconManager: extraction already running or previous thread not yet cleaned up, skipping")
             return
 
         extractors = self._ext_manager.get_available(target_browsers)
@@ -264,6 +264,8 @@ class FaviconManager(QObject):
 
     @Slot()
     def _on_thread_finished(self) -> None:
+        if self.sender() is not self._thread:
+            return
         self._thread = None
         self._worker = None
 
