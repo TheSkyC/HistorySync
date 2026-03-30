@@ -202,15 +202,36 @@ class BrowserCard(QFrame):
 
     # Windows browser registry paths and common install locations
     _WINDOWS_BROWSERS: dict[str, list[str]] = {
+        # ── Google Chrome 各渠道 ──────────────────────────────────────────
         "chrome": [
             r"C:\Program Files\Google\Chrome\Application\chrome.exe",
             r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
             r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe",
         ],
+        "chrome_beta": [
+            r"%LOCALAPPDATA%\Google\Chrome Beta\Application\chrome.exe",
+            r"C:\Program Files\Google\Chrome Beta\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome Beta\Application\chrome.exe",
+        ],
+        "chrome_dev": [
+            r"%LOCALAPPDATA%\Google\Chrome Dev\Application\chrome.exe",
+            r"C:\Program Files\Google\Chrome Dev\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome Dev\Application\chrome.exe",
+        ],
+        "chrome_canary": [
+            r"%LOCALAPPDATA%\Google\Chrome SxS\Application\chrome.exe",
+        ],
+        "chrome_for_testing": [
+            r"%LOCALAPPDATA%\chrome-for-testing\chrome-win64\chrome.exe",
+            r"%LOCALAPPDATA%\ms-playwright\chromium-*\chrome-win\chrome.exe",
+        ],
+        # ── Chromium ──────────────────────────────────────────────────────
         "chromium": [
             r"C:\Program Files\Chromium\Application\chrome.exe",
             r"C:\Program Files (x86)\Chromium\Application\chrome.exe",
+            r"%LOCALAPPDATA%\Chromium\Application\chrome.exe",
         ],
+        # ── Microsoft Edge 各渠道 ─────────────────────────────────────────
         "edge": [
             r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
             r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
@@ -225,6 +246,7 @@ class BrowserCard(QFrame):
         "edge_canary": [
             r"%LOCALAPPDATA%\Microsoft\Edge SxS\Application\msedge.exe",
         ],
+        # ── Brave 各渠道 ──────────────────────────────────────────────────
         "brave": [
             r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
             r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
@@ -239,11 +261,13 @@ class BrowserCard(QFrame):
         "brave_nightly": [
             r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser-Nightly\Application\brave.exe",
         ],
+        # ── Vivaldi ───────────────────────────────────────────────────────
         "vivaldi": [
             r"C:\Program Files\Vivaldi\Application\vivaldi.exe",
             r"C:\Program Files (x86)\Vivaldi\Application\vivaldi.exe",
             r"%LOCALAPPDATA%\Vivaldi\Application\vivaldi.exe",
         ],
+        # ── Opera ─────────────────────────────────────────────────────────
         "opera": [
             r"C:\Program Files\Opera\launcher.exe",
             r"C:\Program Files (x86)\Opera\launcher.exe",
@@ -254,6 +278,35 @@ class BrowserCard(QFrame):
             r"C:\Program Files (x86)\Opera GX\launcher.exe",
             r"%LOCALAPPDATA%\Programs\Opera GX\launcher.exe",
         ],
+        # ── Arc  ──────────────────────────────────────────────────────────
+        "arc": [
+            r"%LOCALAPPDATA%\Programs\Arc\Arc.exe",
+            r"%LOCALAPPDATA%\Packages\TheBrowserCompany.Arc_ttt1ap7aakyb4\LocalCache\Roaming\Arc\bin\Arc.exe",
+        ],
+        # ── Yandex Browser ────────────────────────────────────────────────
+        "yandex": [
+            r"%LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe",
+            r"C:\Program Files\Yandex\YandexBrowser\Application\browser.exe",
+            r"C:\Program Files (x86)\Yandex\YandexBrowser\Application\browser.exe",
+        ],
+        # ── Naver Whale ───────────────────────────────────────────────────
+        "whale": [
+            r"C:\Program Files\Naver\Naver Whale\Application\whale.exe",
+            r"%LOCALAPPDATA%\Naver\Naver Whale\Application\whale.exe",
+        ],
+        # ── CocCoc ────────────────────────────────────────────────────────
+        "coccoc": [
+            r"%LOCALAPPDATA%\CocCoc\Browser\Application\browser.exe",
+            r"C:\Program Files\CocCoc\Browser\Application\browser.exe",
+            r"C:\Program Files (x86)\CocCoc\Browser\Application\browser.exe",
+        ],
+        # ── Thorium ───────────────────────────────────────────────────────
+        "thorium": [
+            r"%LOCALAPPDATA%\Thorium\Application\thorium.exe",
+            r"C:\Program Files\Thorium\Application\thorium.exe",
+            r"C:\Program Files (x86)\Thorium\Application\thorium.exe",
+        ],
+        # ── Firefox 系列 ──────────────────────────────────────────────────
         "firefox": [
             r"C:\Program Files\Mozilla Firefox\firefox.exe",
             r"C:\Program Files (x86)\Mozilla Firefox\firefox.exe",
@@ -266,6 +319,14 @@ class BrowserCard(QFrame):
             r"C:\Program Files\Waterfox\waterfox.exe",
             r"C:\Program Files (x86)\Waterfox\waterfox.exe",
         ],
+        "palemoon": [
+            r"C:\Program Files\Pale Moon\palemoon.exe",
+            r"C:\Program Files (x86)\Pale Moon\palemoon.exe",
+        ],
+        "basilisk": [
+            r"C:\Program Files\Basilisk\basilisk.exe",
+            r"C:\Program Files (x86)\Basilisk\basilisk.exe",
+        ],
         "tor_browser": [
             r"C:\Program Files\Tor Browser\Browser\firefox.exe",
             r"%USERPROFILE%\Desktop\Tor Browser\Browser\firefox.exe",
@@ -274,28 +335,107 @@ class BrowserCard(QFrame):
             r"C:\Program Files\Mozilla SeaMonkey\seamonkey.exe",
             r"C:\Program Files (x86)\Mozilla SeaMonkey\seamonkey.exe",
         ],
+        # ── 国产 / 区域浏览器 ─────────────────────────────────────────────
+        # QQ浏览器
+        "qq_browser": [
+            r"C:\Program Files (x86)\Tencent\QQBrowser\QQBrowser.exe",
+            r"C:\Program Files\Tencent\QQBrowser\QQBrowser.exe",
+            r"%LOCALAPPDATA%\Tencent\QQBrowser\Application\QQBrowser.exe",
+        ],
+        # 搜狗高速浏览器
+        "sogou": [
+            r"C:\Program Files (x86)\SogouExplorer\SogouExplorer.exe",
+            r"C:\Program Files\SogouExplorer\SogouExplorer.exe",
+        ],
+        # 星愿浏览器 (Twinkstar)
+        "twinkstar": [
+            r"C:\Program Files (x86)\Twinkstar\twchrome.exe",
+            r"C:\Program Files\Twinkstar\twchrome.exe",
+            r"%LOCALAPPDATA%\Twinkstar\Application\twchrome.exe",
+        ],
+        # 百分浏览器 (Cent Browser)
+        "centbrowser": [
+            r"%LOCALAPPDATA%\CentBrowser\Application\chrome.exe",
+            r"C:\Program Files\CentBrowser\Application\chrome.exe",
+            r"C:\Program Files (x86)\CentBrowser\Application\chrome.exe",
+        ],
+        # 2345加速浏览器
+        "browser_2345": [
+            r"C:\Program Files (x86)\2345Soft\2345Explorer\2345Explorer.exe",
+            r"C:\Program Files\2345Soft\2345Explorer\2345Explorer.exe",
+        ],
+        # 猎豹安全浏览器 (Cheetah / Liebao)
+        "liebao": [
+            r"C:\Program Files (x86)\liebao\liebao.exe",
+            r"C:\Program Files\liebao\liebao.exe",
+            r"%LOCALAPPDATA%\liebao\liebao.exe",
+        ],
+        # UC浏览器电脑版
+        "uc": [
+            r"%LOCALAPPDATA%\UCBrowser\Application\UCBrowser.exe",
+            r"C:\Program Files (x86)\UCBrowser\Application\UCBrowser.exe",
+            r"C:\Program Files\UCBrowser\Application\UCBrowser.exe",
+        ],
+        # 傲游浏览器 (Maxthon)
+        "maxthon": [
+            r"C:\Program Files\Maxthon\Bin\Maxthon.exe",
+            r"C:\Program Files (x86)\Maxthon\Bin\Maxthon.exe",
+            r"%LOCALAPPDATA%\Maxthon\Bin\Maxthon.exe",
+        ],
     }
 
     _LAUNCH_HINTS: dict[str, list[str]] = {
+        # ── Google Chrome 各渠道 ──────────────────────────────────────────
         "chrome": ["google-chrome", "chrome", "chromium-browser", "chromium"],
+        "chrome_beta": ["google-chrome-beta"],
+        "chrome_dev": ["google-chrome-dev", "google-chrome-unstable"],
+        "chrome_canary": ["google-chrome-canary"],
+        "chrome_for_testing": ["chrome-for-testing"],
+        # ── Chromium ──────────────────────────────────────────────────────
         "chromium": ["chromium-browser", "chromium", "google-chrome"],
+        # ── Microsoft Edge 各渠道 ─────────────────────────────────────────
         "edge": ["microsoft-edge", "msedge"],
         "edge_beta": ["microsoft-edge-beta"],
         "edge_dev": ["microsoft-edge-dev"],
+        "edge_canary": ["microsoft-edge-canary"],
+        # ── Brave 各渠道 ──────────────────────────────────────────────────
         "brave": ["brave-browser", "brave"],
         "brave_beta": ["brave-browser-beta", "brave-beta"],
         "brave_dev": ["brave-browser-dev", "brave-dev"],
         "brave_nightly": ["brave-browser-nightly", "brave-nightly"],
+        # ── Vivaldi ───────────────────────────────────────────────────────
         "vivaldi": ["vivaldi-stable", "vivaldi"],
+        # ── Opera ─────────────────────────────────────────────────────────
         "opera": ["opera"],
         "opera_gx": ["opera"],
+        # ── Arc ───────────────────────────────────────────────────────────
         "arc": ["arc"],
+        # ── Yandex Browser ────────────────────────────────────────────────
+        "yandex": ["yandex-browser", "yandex-browser-stable"],
+        # ── Naver Whale ───────────────────────────────────────────────────
+        "whale": ["naver-whale", "whale"],
+        # ── CocCoc ────────────────────────────────────────────────────────
+        "coccoc": ["coccoc"],
+        # ── Thorium ───────────────────────────────────────────────────────
+        "thorium": ["thorium-browser", "thorium"],
+        # ── Firefox 系列 ──────────────────────────────────────────────────
         "firefox": ["firefox", "firefox-esr"],
         "librewolf": ["librewolf"],
         "waterfox": ["waterfox"],
+        "palemoon": ["palemoon"],
+        "basilisk": ["basilisk"],
         "safari": ["open", "-a", "Safari"],
         "tor_browser": ["torbrowser-launcher", "tor-browser"],
         "seamonkey": ["seamonkey"],
+        # ── 国产 / 区域浏览器 ─────────────────────────────────────────────
+        "qq_browser": ["qqbrowser"],
+        "sogou": ["sogouexplorer", "sogou-explorer"],
+        "twinkstar": ["twinkstar", "twchrome"],
+        "centbrowser": ["centbrowser"],
+        "browser_2345": ["2345explorer"],
+        "liebao": ["liebao"],
+        "uc": ["ucbrowser"],
+        "maxthon": ["maxthon"],
     }
 
     def __init__(self, browser_type: str, display_name: str, parent=None):
@@ -303,7 +443,7 @@ class BrowserCard(QFrame):
         self._browser_type = browser_type
         self._display_name = display_name
         self._status_name = "NOT_FOUND"
-        self._sync_enabled = True  # 该浏览器是否启用同步
+        self._sync_enabled = True
 
         self.setObjectName("browser_card")
         self.setFixedWidth(168)
