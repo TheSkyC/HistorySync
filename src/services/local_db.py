@@ -20,6 +20,45 @@ from src.utils.logger import get_logger
 log = get_logger("local_db")
 
 
+# ── SQL injection defence helpers ─────────────────────────────────────────────
+
+_SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_ALLOWED_COL_TYPES = frozenset({"INTEGER", "REAL", "TEXT", "BLOB", "NUMERIC"})
+
+
+def _quote_identifier(name: str) -> str:
+    """Return *name* as a safely double-quoted SQLite identifier.
+
+    Raises ``ValueError`` if *name* contains characters that cannot appear
+    in a valid SQLite identifier, providing an extra layer of defence against
+    unexpected values sourced from ``sqlite_master`` or schema constants.
+    """
+    if not _SAFE_IDENTIFIER_RE.match(name):
+        raise ValueError(f"Unsafe SQL identifier rejected: {name!r}")
+    # Double-quote and escape any embedded double-quotes (standard SQL).
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _sanitize_col_type(col_type: str) -> str:
+    """Validate that *col_type* is one of the known SQLite affinity keywords."""
+    upper = col_type.strip().upper()
+    if upper not in _ALLOWED_COL_TYPES:
+        raise ValueError(f"Unsafe column type rejected: {col_type!r}")
+    return upper
+
+
+def _sanitize_vacuum_path(path_str: str) -> str:
+    """Escape a filesystem path for use inside a ``VACUUM INTO '...'`` literal.
+
+    SQLite path strings are delimited by single quotes; a single quote inside
+    the path must be doubled.  We also reject null bytes which SQLite would
+    silently truncate.
+    """
+    if "\x00" in path_str:
+        raise ValueError("Null byte in VACUUM INTO path")
+    return path_str.replace("'", "''")
+
+
 @dataclass
 class DbStats:
     """Snapshot of database size and content metrics."""
@@ -229,7 +268,9 @@ class LocalDatabase:
         with self._conn() as conn:
             for col_name, col_type in _new_columns:
                 try:
-                    conn.execute(f"ALTER TABLE history ADD COLUMN {col_name} {col_type}")
+                    safe_col = _quote_identifier(col_name)
+                    safe_type = _sanitize_col_type(col_type)
+                    conn.execute(f"ALTER TABLE history ADD COLUMN {safe_col} {safe_type}")
                     log.info("Schema migration: added column history.%s", col_name)
                 except sqlite3.OperationalError:
                     # Column already exists — nothing to do.
@@ -405,8 +446,8 @@ class LocalDatabase:
             dest.unlink()
 
         with self._lock, self._conn(write=False) as conn:
-            # Need to use str(dest) as VACUUM INTO requires a string literal path in quotes
-            conn.execute(f"VACUUM INTO '{dest_path}'")
+            safe_path = _sanitize_vacuum_path(dest_path)
+            conn.execute(f"VACUUM INTO '{safe_path}'")
 
         dst_conn = sqlite3.connect(dest_path, timeout=30)
         try:
@@ -423,7 +464,7 @@ class LocalDatabase:
             # 3. Double-check that triggers are really gone (belt-and-suspenders)
             cursor = dst_conn.execute("SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'history_%'")
             for trigger_name in [row[0] for row in cursor.fetchall()]:
-                dst_conn.execute(f"DROP TRIGGER IF EXISTS {trigger_name}")
+                dst_conn.execute(f"DROP TRIGGER IF EXISTS {_quote_identifier(trigger_name)}")
 
             # 4. Reclaim all space previously occupied by FTS index
             dst_conn.execute("VACUUM")
