@@ -816,6 +816,115 @@ class LocalDatabase:
             if len(candidates) < batch_size:
                 break  # Reached end of database
 
+    # ── Query builder (shared core) ───────────────────────────
+
+    def _build_query_parts(
+        self,
+        conn: sqlite3.Connection,
+        keyword: str,
+        browser_type: str,
+        date_from: int | None,
+        date_to: int | None,
+        excluded_ids: set[int],
+        domain_ids: list[int] | None,
+        excludes: list[str] | None,
+        title_only: bool,
+        url_only: bool,
+        bookmarked_only: bool,
+        has_annotation: bool,
+        bookmark_tag: str,
+        _force_like: bool,
+    ) -> tuple[str, list, bool]:
+        """Build the shared FROM/WHERE fragment used by both get_records and get_filtered_count.
+
+        Returns ``(from_where_sql, params, use_fts)`` where *from_where_sql* is
+        everything from ``FROM history h …`` up to (but not including) any
+        ORDER BY / LIMIT clause.  Callers prepend their own SELECT projection.
+
+        ``use_fts`` is True when the FTS join is active so callers that need to
+        handle FTS fallback can detect it without re-inspecting the SQL string.
+        """
+        # ── Bookmark / annotation JOINs ───────────────────────
+        bm_joins: str = ""
+        bm_conditions: list[str] = []
+        bm_params_prefix: list = []
+        if bookmarked_only or bookmark_tag:
+            bm_joins = " JOIN bookmarks bm ON h.url = bm.url"
+            if bookmark_tag:
+                bm_conditions.append("(',' || bm.tags || ',') LIKE ?")
+                bm_params_prefix.append(f"%,{bookmark_tag},%")
+        if has_annotation:
+            bm_joins += " JOIN annotations ann ON h.url = ann.url AND ann.note != ''"
+
+        # ── Populate excluded-ids temp table ──────────────────
+        self._populate_excl_table(conn, excluded_ids)
+
+        use_fts = False
+        extra_conditions: list[str] = []
+        params: list = []
+
+        if keyword:
+            use_fts = len(keyword.replace(" ", "")) >= 3 and not _force_like
+            if use_fts:
+                from_where = (
+                    "FROM history h\n    JOIN history_fts fts ON h.id = fts.rowid\n    WHERE history_fts MATCH ?"
+                )
+                fts_keyword = keyword
+                if title_only:
+                    fts_keyword = f"title:{keyword}"
+                elif url_only:
+                    fts_keyword = f"url:{keyword}"
+                params = [_build_fts_query(fts_keyword)]
+            else:
+                like_pat = f"%{keyword}%"
+                if title_only:
+                    from_where = "FROM history h\n    WHERE h.title LIKE ?"
+                    params = [like_pat]
+                elif url_only:
+                    from_where = "FROM history h\n    WHERE h.url LIKE ?"
+                    params = [like_pat]
+                else:
+                    from_where = "FROM history h\n    WHERE (h.url LIKE ? OR h.title LIKE ?)"
+                    params = [like_pat, like_pat]
+        else:
+            from_where = "FROM history h"
+
+        # ── Common filter conditions ───────────────────────────
+        if browser_type:
+            extra_conditions.append("h.browser_type = ?")
+            params.append(browser_type)
+        if date_from is not None:
+            extra_conditions.append("h.visit_time >= ?")
+            params.append(date_from)
+        if date_to is not None:
+            extra_conditions.append("h.visit_time <= ?")
+            params.append(date_to)
+        if domain_ids:
+            placeholders = ",".join("?" * len(domain_ids))
+            extra_conditions.append(f"h.domain_id IN ({placeholders})")
+            params.extend(domain_ids)
+        if excludes:
+            for ex in excludes:
+                extra_conditions.append("h.url NOT LIKE ? AND h.title NOT LIKE ?")
+                params.extend([f"%{ex}%", f"%{ex}%"])
+        if excluded_ids:
+            extra_conditions.append(self._excl_clause("h."))
+
+        # ── Inject bookmark/annotation JOIN into FROM clause ───
+        if bm_joins:
+            from_where = from_where.replace("FROM history h", f"FROM history h{bm_joins}", 1)
+            extra_conditions = bm_conditions + extra_conditions
+            params = bm_params_prefix + params
+
+        # ── Append extra conditions to WHERE clause ────────────
+        if extra_conditions:
+            connector = " AND " if "WHERE" in from_where else " WHERE "
+            from_where += connector + " AND ".join(extra_conditions)
+
+        return from_where, params, use_fts
+
+    # ── Public query methods ──────────────────────────────────
+
     def get_records(
         self,
         keyword: str = "",
@@ -838,20 +947,6 @@ class LocalDatabase:
     ) -> list[HistoryRecord]:
         excl = excluded_ids or set()
 
-        # ── Bookmark / annotation pre-filter ──────────────────
-        # Build extra JOIN clauses and conditions once, reused across branches.
-        bm_joins: str = ""
-        bm_conditions: list[str] = []
-        bm_params_prefix: list = []
-        if bookmarked_only or bookmark_tag:
-            if bookmark_tag:
-                bm_joins = " JOIN bookmarks bm ON h.url = bm.url"
-                bm_conditions.append("(',' || bm.tags || ',') LIKE ?")
-                bm_params_prefix.append(f"%,{bookmark_tag},%")
-            else:
-                bm_joins = " JOIN bookmarks bm ON h.url = bm.url"
-        if has_annotation:
-            bm_joins += " JOIN annotations ann ON h.url = ann.url AND ann.note != ''"
         if use_regex and keyword:
             try:
                 prog = re.compile(keyword, re.IGNORECASE)
@@ -859,7 +954,6 @@ class LocalDatabase:
                 log.warning("Invalid regex '%s': %s", keyword, exc)
                 return []
 
-            # Use incremental iterator to collect results
             iter_obj = self.get_records_regex_iter(
                 pattern=prog,
                 batch_size=1000,
@@ -875,160 +969,57 @@ class LocalDatabase:
                 has_annotation=has_annotation,
                 bookmark_tag=bookmark_tag,
             )
-
-            # Collect until offset + limit
             results = []
             for record in iter_obj:
                 results.append(record)
                 if len(results) >= offset + limit:
                     break
-
             return results[offset : offset + limit]
 
-        if keyword:
-            use_fts = len(keyword.replace(" ", "")) >= 3 and not _force_like
-            if use_fts:
-                sql = """
-                    SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
-                           h.browser_type, h.profile_name, h.metadata,
-                           h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration
-                    FROM history h
-                    JOIN history_fts fts ON h.id = fts.rowid
-                    WHERE history_fts MATCH ?
-                """
-                fts_keyword = keyword
-                if title_only:
-                    fts_keyword = f"title:{keyword}"
-                elif url_only:
-                    fts_keyword = f"url:{keyword}"
-                params: list = [_build_fts_query(fts_keyword)]
-            else:
-                like_pat = f"%{keyword}%"
-                if title_only:
-                    sql = """
-                        SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
-                               h.browser_type, h.profile_name, h.metadata,
-                               h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration
-                        FROM history h
-                        WHERE h.title LIKE ?
-                    """
-                    params = [like_pat]
-                elif url_only:
-                    sql = """
-                        SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
-                               h.browser_type, h.profile_name, h.metadata,
-                               h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration
-                        FROM history h
-                        WHERE h.url LIKE ?
-                    """
-                    params = [like_pat]
-                else:
-                    sql = """
-                        SELECT h.id, h.url, h.title, h.visit_time, h.visit_count,
-                               h.browser_type, h.profile_name, h.metadata,
-                               h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration
-                        FROM history h
-                        WHERE (h.url LIKE ? OR h.title LIKE ?)
-                    """
-                    params = [like_pat, like_pat]
-
-            extra: list[str] = []
-            if browser_type:
-                extra.append("h.browser_type = ?")
-                params.append(browser_type)
-            if date_from is not None:
-                extra.append("h.visit_time >= ?")
-                params.append(date_from)
-            if date_to is not None:
-                extra.append("h.visit_time <= ?")
-                params.append(date_to)
-            if domain_ids:
-                placeholders = ",".join("?" * len(domain_ids))
-                extra.append(f"h.domain_id IN ({placeholders})")
-                params.extend(domain_ids)
-            if excludes:
-                for ex in excludes:
-                    extra.append("h.url NOT LIKE ? AND h.title NOT LIKE ?")
-                    params.extend([f"%{ex}%", f"%{ex}%"])
-
-            if extra:
-                sql += " AND " + " AND ".join(extra)
-            # ── Bookmark/annotation join injection ──────────────
-            if bm_joins:
-                sql = sql.replace("FROM history h", f"FROM history h{bm_joins}", 1)
-                if bm_conditions:
-                    sql += " AND " + " AND ".join(bm_conditions)
-                    params = bm_params_prefix + params
-            sql += " ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
+        _COLS = (
+            "h.id, h.url, h.title, h.visit_time, h.visit_count, "
+            "h.browser_type, h.profile_name, h.metadata, "
+            "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration"
+        )
+        with self._conn() as conn:
+            from_where, params, _use_fts = self._build_query_parts(
+                conn=conn,
+                keyword=keyword,
+                browser_type=browser_type,
+                date_from=date_from,
+                date_to=date_to,
+                excluded_ids=excl,
+                domain_ids=domain_ids,
+                excludes=excludes,
+                title_only=title_only,
+                url_only=url_only,
+                bookmarked_only=bookmarked_only,
+                has_annotation=has_annotation,
+                bookmark_tag=bookmark_tag,
+                _force_like=_force_like,
+            )
+            sql = f"SELECT {_COLS} {from_where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
             params += [limit, offset]
-            with self._conn() as conn:
-                self._populate_excl_table(conn, excl)
-                if excl:
-                    sql = sql.replace(
-                        " ORDER BY h.visit_time DESC LIMIT ? OFFSET ?",
-                        f" AND {self._excl_clause('h.')} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?",
-                    )
-                try:
-                    rows = conn.execute(sql, params).fetchall()
-                except sqlite3.OperationalError as exc:
-                    if "fts5" in str(exc).lower() and not _force_like:
-                        return self.get_records(
-                            keyword=keyword,
-                            browser_type=browser_type,
-                            date_from=date_from,
-                            date_to=date_to,
-                            limit=limit,
-                            offset=offset,
-                            excluded_ids=excl,
-                            domain_ids=domain_ids,
-                            excludes=excludes,
-                            title_only=title_only,
-                            url_only=url_only,
-                            use_regex=False,
-                            _force_like=True,
-                        )
-                    raise
-        else:
-            conditions: list[str] = []
-            params = []
-            if browser_type:
-                conditions.append("browser_type = ?")
-                params.append(browser_type)
-            if date_from is not None:
-                conditions.append("visit_time >= ?")
-                params.append(date_from)
-            if date_to is not None:
-                conditions.append("visit_time <= ?")
-                params.append(date_to)
-            if domain_ids:
-                placeholders = ",".join("?" * len(domain_ids))
-                conditions.append(f"domain_id IN ({placeholders})")
-                params.extend(domain_ids)
-            if excludes:
-                for ex in excludes:
-                    conditions.append("url NOT LIKE ? AND title NOT LIKE ?")
-                    params.extend([f"%{ex}%", f"%{ex}%"])
-
-            sql = "SELECT id, url, title, visit_time, visit_count, browser_type, profile_name, metadata, typed_count, first_visit_time, transition_type, visit_duration FROM history"
-            with self._conn() as conn:
-                self._populate_excl_table(conn, excl)
-                if excl:
-                    conditions.append(self._excl_clause())
-                # ── Bookmark/annotation join injection ──────────
-                if bm_joins:
-                    sql = (
-                        "SELECT h.id, h.url, h.title, h.visit_time, h.visit_count, "
-                        "h.browser_type, h.profile_name, h.metadata, h.typed_count, "
-                        f"h.first_visit_time, h.transition_type, h.visit_duration FROM history h{bm_joins}"
-                    )
-                    if bm_conditions:
-                        conditions = bm_conditions + conditions
-                        params = bm_params_prefix + params
-                if conditions:
-                    sql += " WHERE " + " AND ".join(conditions)
-                sql += " ORDER BY visit_time DESC LIMIT ? OFFSET ?"
-                params += [limit, offset]
+            try:
                 rows = conn.execute(sql, params).fetchall()
+            except sqlite3.OperationalError as exc:
+                if "fts5" in str(exc).lower() and not _force_like:
+                    return self.get_records(
+                        keyword=keyword,
+                        browser_type=browser_type,
+                        date_from=date_from,
+                        date_to=date_to,
+                        limit=limit,
+                        offset=offset,
+                        excluded_ids=excl,
+                        domain_ids=domain_ids,
+                        excludes=excludes,
+                        title_only=title_only,
+                        url_only=url_only,
+                        use_regex=False,
+                        _force_like=True,
+                    )
+                raise
         return [self._row_to_record(r) for r in rows]
 
     def get_filtered_count(
@@ -1051,28 +1042,12 @@ class LocalDatabase:
     ) -> int:
         excl = excluded_ids or set()
 
-        # ── Bookmark / annotation pre-filter ──────────────────
-        bm_joins: str = ""
-        bm_conditions: list[str] = []
-        bm_params_prefix: list = []
-        if bookmarked_only or bookmark_tag:
-            if bookmark_tag:
-                bm_joins = " JOIN bookmarks bm ON h.url = bm.url"
-                bm_conditions.append("(',' || bm.tags || ',') LIKE ?")
-                bm_params_prefix.append(f"%,{bookmark_tag},%")
-            else:
-                bm_joins = " JOIN bookmarks bm ON h.url = bm.url"
-        if has_annotation:
-            bm_joins += " JOIN annotations ann ON h.url = ann.url AND ann.note != ''"
-
-        # Regex count: filter the candidate pool and return real match count
         if use_regex and keyword:
             try:
                 prog = re.compile(keyword, re.IGNORECASE)
             except Exception:
                 return 0
 
-            # Upper limit strategy: only count matches in first 5000 candidates
             MAX_CANDIDATES = 5000
             candidates = self.get_records(
                 keyword="",
@@ -1084,153 +1059,63 @@ class LocalDatabase:
                 excluded_ids=excl,
                 domain_ids=domain_ids,
                 excludes=excludes,
-                title_only=False,  # Filter in Python layer
+                title_only=False,
                 url_only=False,
                 use_regex=False,
                 bookmarked_only=bookmarked_only,
                 has_annotation=has_annotation,
                 bookmark_tag=bookmark_tag,
             )
+            count = sum(
+                1
+                for r in candidates
+                if (
+                    prog.search(r.title or "")
+                    if title_only
+                    else prog.search(r.url)
+                    if url_only
+                    else (prog.search(r.title or "") or prog.search(r.url))
+                )
+            )
+            return MAX_CANDIDATES if len(candidates) >= MAX_CANDIDATES else count
 
-            count = 0
-            for r in candidates:
-                if title_only:
-                    match = prog.search(r.title or "")
-                elif url_only:
-                    match = prog.search(r.url)
-                else:
-                    match = prog.search(r.title or "") or prog.search(r.url)
-                if match:
-                    count += 1
-
-            # If candidates reached limit, return limit (UI will show "5000+")
-            if len(candidates) >= MAX_CANDIDATES:
-                return MAX_CANDIDATES
-
-            return count
-
-        if keyword:
-            use_fts = len(keyword.replace(" ", "")) >= 3 and not _force_like
-            if use_fts:
-                sql = """
-                    SELECT COUNT(*) FROM history h
-                    JOIN history_fts fts ON h.id = fts.rowid
-                    WHERE history_fts MATCH ?
-                """
-                fts_keyword = keyword
-                if title_only:
-                    fts_keyword = f"title:{keyword}"
-                elif url_only:
-                    fts_keyword = f"url:{keyword}"
-                params: list = [_build_fts_query(fts_keyword)]
-            else:
-                like_pat = f"%{keyword}%"
-                if title_only:
-                    sql = """
-                        SELECT COUNT(*) FROM history h
-                        WHERE h.title LIKE ?
-                    """
-                    params = [like_pat]
-                elif url_only:
-                    sql = """
-                        SELECT COUNT(*) FROM history h
-                        WHERE h.url LIKE ?
-                    """
-                    params = [like_pat]
-                else:
-                    sql = """
-                        SELECT COUNT(*) FROM history h
-                        WHERE (h.url LIKE ? OR h.title LIKE ?)
-                    """
-                    params = [like_pat, like_pat]
-
-            extra: list[str] = []
-            if browser_type:
-                extra.append("h.browser_type = ?")
-                params.append(browser_type)
-            if date_from is not None:
-                extra.append("h.visit_time >= ?")
-                params.append(date_from)
-            if date_to is not None:
-                extra.append("h.visit_time <= ?")
-                params.append(date_to)
-            if domain_ids:
-                placeholders = ",".join("?" * len(domain_ids))
-                extra.append(f"h.domain_id IN ({placeholders})")
-                params.extend(domain_ids)
-            if excludes:
-                for ex in excludes:
-                    extra.append("h.url NOT LIKE ? AND h.title NOT LIKE ?")
-                    params.extend([f"%{ex}%", f"%{ex}%"])
-
-            if extra:
-                sql += " AND " + " AND ".join(extra)
-            # ── Bookmark/annotation join injection ──────────────
-            if bm_joins:
-                sql = sql.replace("FROM history h", f"FROM history h{bm_joins}", 1)
-                if bm_conditions:
-                    sql += " AND " + " AND ".join(bm_conditions)
-                    params = bm_params_prefix + params
-            with self._conn() as conn:
-                self._populate_excl_table(conn, excl)
-                if excl:
-                    sql += f" AND {self._excl_clause('h.')}"
-                try:
-                    row = conn.execute(sql, params).fetchone()
-                except sqlite3.OperationalError as exc:
-                    if "fts5" in str(exc).lower() and not _force_like:
-                        # Fallback to LIKE if FTS fails
-                        return self.get_filtered_count(
-                            keyword=keyword,
-                            browser_type=browser_type,
-                            date_from=date_from,
-                            date_to=date_to,
-                            excluded_ids=excl,
-                            domain_ids=domain_ids,
-                            excludes=excludes,
-                            title_only=title_only,
-                            url_only=url_only,
-                            use_regex=False,
-                            _force_like=True,
-                        )
-                    raise
-                return row[0] if row else 0
-        else:
-            conditions: list[str] = []
-            params = []
-            if browser_type:
-                conditions.append("browser_type = ?")
-                params.append(browser_type)
-            if date_from is not None:
-                conditions.append("visit_time >= ?")
-                params.append(date_from)
-            if date_to is not None:
-                conditions.append("visit_time <= ?")
-                params.append(date_to)
-            if domain_ids:
-                placeholders = ",".join("?" * len(domain_ids))
-                conditions.append(f"domain_id IN ({placeholders})")
-                params.extend(domain_ids)
-            if excludes:
-                for ex in excludes:
-                    conditions.append("url NOT LIKE ? AND title NOT LIKE ?")
-                    params.extend([f"%{ex}%", f"%{ex}%"])
-
-            sql = "SELECT COUNT(*) FROM history"
-            with self._conn() as conn:
-                self._populate_excl_table(conn, excl)
-                if excl:
-                    conditions.append(self._excl_clause())
-                # ── Bookmark/annotation join injection ──────────
-                if bm_joins:
-                    sql = f"SELECT COUNT(*) FROM history h{bm_joins}"
-                    if bm_conditions:
-                        conditions = bm_conditions + conditions
-                        params = bm_params_prefix + params
-                if conditions:
-                    sql += " WHERE " + " AND ".join(conditions)
+        with self._conn() as conn:
+            from_where, params, _use_fts = self._build_query_parts(
+                conn=conn,
+                keyword=keyword,
+                browser_type=browser_type,
+                date_from=date_from,
+                date_to=date_to,
+                excluded_ids=excl,
+                domain_ids=domain_ids,
+                excludes=excludes,
+                title_only=title_only,
+                url_only=url_only,
+                bookmarked_only=bookmarked_only,
+                has_annotation=has_annotation,
+                bookmark_tag=bookmark_tag,
+                _force_like=_force_like,
+            )
+            sql = f"SELECT COUNT(*) {from_where}"
+            try:
                 row = conn.execute(sql, params).fetchone()
-                return row[0] if row else 0
+            except sqlite3.OperationalError as exc:
+                if "fts5" in str(exc).lower() and not _force_like:
+                    return self.get_filtered_count(
+                        keyword=keyword,
+                        browser_type=browser_type,
+                        date_from=date_from,
+                        date_to=date_to,
+                        excluded_ids=excl,
+                        domain_ids=domain_ids,
+                        excludes=excludes,
+                        title_only=title_only,
+                        url_only=url_only,
+                        use_regex=False,
+                        _force_like=True,
+                    )
+                raise
+            return row[0] if row else 0
 
     # ── Bookmark CRUD ─────────────────────────────────────────
 
