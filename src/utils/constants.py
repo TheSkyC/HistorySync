@@ -85,6 +85,12 @@ WEBDAV_DEFAULT_MAX_BACKUPS = 10
 # Filename prefix for remote backup archives, e.g. ``history_1700000000.zip``
 WEBDAV_BACKUP_NAME_PREFIX = "history_"
 
+# Lightweight manifest in WebDAV root — lets clients check "do I need to sync?" cheaply
+WEBDAV_MANIFEST_FILENAME = "sync_manifest.json"
+
+# Metadata file embedded inside each backup ZIP
+SNAPSHOT_INFO_FILENAME = "snapshot_info.json"
+
 # ── Scheduler defaults ────────────────────────────────────────────────────────
 
 DEFAULT_SYNC_INTERVAL_HOURS = 2

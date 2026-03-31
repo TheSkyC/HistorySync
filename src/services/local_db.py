@@ -277,6 +277,21 @@ class LocalDatabase:
                     history_id INTEGER
                 );
                 CREATE INDEX IF NOT EXISTS idx_annotations_url ON annotations(url);
+
+                CREATE TABLE IF NOT EXISTS deleted_records (
+                    url        TEXT    NOT NULL PRIMARY KEY,
+                    deleted_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+                );
+
+                CREATE TABLE IF NOT EXISTS deleted_bookmarks (
+                    url        TEXT    NOT NULL PRIMARY KEY,
+                    deleted_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+                );
+
+                CREATE TABLE IF NOT EXISTS deleted_annotations (
+                    url        TEXT    NOT NULL PRIMARY KEY,
+                    deleted_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+                );
             """)
         self._migrate_schema()
         log.info("Database schema initialized: %s", self.db_path)
@@ -613,6 +628,11 @@ class LocalDatabase:
                 "metadata, typed_count, first_visit_time, transition_type, visit_duration "
                 "FROM history"
             ).fetchall()
+            # Collect remote tombstones so we don't resurrect remotely-deleted records
+            try:
+                remote_deleted = {r[0] for r in src_conn.execute("SELECT url FROM deleted_records").fetchall()}
+            except sqlite3.OperationalError:
+                remote_deleted = set()
         finally:
             src_conn.close()
 
@@ -632,14 +652,166 @@ class LocalDatabase:
                 visit_duration=r["visit_duration"],
             )
             for r in rows
+            if r["url"] not in remote_deleted
         ]
         inserted = self.upsert_records(records)
+
+        # Apply local tombstones — remove any history rows that were hard-deleted on this device
+        with self._conn() as conn:
+            conn.execute("DELETE FROM history WHERE url IN (SELECT url FROM deleted_records)")
+            # Also absorb remote tombstones into local table
+            if remote_deleted:
+                conn.executemany(
+                    "INSERT INTO deleted_records(url, deleted_at) VALUES(?, ?) ON CONFLICT(url) DO UPDATE SET deleted_at = MAX(deleted_at, excluded.deleted_at)",
+                    ((u,) for u in remote_deleted),
+                )
+
         _cb(
             _("Merge complete: {inserted} new records added (of {total} in backup).").format(
                 inserted=inserted, total=len(records)
             )
         )
         return inserted
+
+    def merge_user_data_from_db(
+        self,
+        src_path: Path,
+        progress_cb: Callable[[str], None] | None = None,
+    ) -> None:
+        """Merge bookmarks, annotations, hidden_records, and tombstones from *src_path*.
+
+        All auto-increment IDs (history_id, bookmark_id) are re-resolved against
+        local tables by URL — remote integer IDs are never copied directly.
+        """
+
+        def _cb(msg: str) -> None:
+            if progress_cb:
+                progress_cb(msg)
+            log.info("merge_user_data: %s", msg)
+
+        _cb(_("Merging user data (bookmarks, annotations, hidden records)..."))
+
+        src_conn = sqlite3.connect(str(src_path), timeout=30)
+        src_conn.row_factory = sqlite3.Row
+        try:
+
+            def _safe_fetch(query: str) -> list:
+                try:
+                    return src_conn.execute(query).fetchall()
+                except sqlite3.OperationalError:
+                    return []
+
+            remote_deleted_records = _safe_fetch("SELECT url, deleted_at FROM deleted_records")
+            remote_deleted_bookmarks = _safe_fetch("SELECT url, deleted_at FROM deleted_bookmarks")
+            remote_deleted_annots = _safe_fetch("SELECT url, deleted_at FROM deleted_annotations")
+            remote_hidden = _safe_fetch("SELECT url FROM hidden_records")
+            remote_bookmarks = _safe_fetch("SELECT url, title, tags, bookmarked_at FROM bookmarks")
+            # Build url→tags map from bookmark_tags (preferred) falling back to legacy tags column
+            try:
+                remote_bm_tags = _safe_fetch(
+                    "SELECT b.url, bt.tag FROM bookmark_tags bt JOIN bookmarks b ON b.id = bt.bookmark_id"
+                )
+            except sqlite3.OperationalError:
+                remote_bm_tags = []
+            remote_annotations = _safe_fetch("SELECT url, note, created_at, updated_at FROM annotations")
+        finally:
+            src_conn.close()
+
+        with self._conn() as conn:
+            # 1. Merge tombstones first
+            if remote_deleted_records:
+                conn.executemany(
+                    "INSERT INTO deleted_records(url, deleted_at) VALUES(?, ?) ON CONFLICT(url) DO UPDATE SET deleted_at = MAX(deleted_at, excluded.deleted_at)",
+                    ((r["url"], r["deleted_at"]) for r in remote_deleted_records),
+                )
+            if remote_deleted_bookmarks:
+                conn.executemany(
+                    "INSERT INTO deleted_bookmarks(url, deleted_at) VALUES(?, ?) ON CONFLICT(url) DO UPDATE SET deleted_at = MAX(deleted_at, excluded.deleted_at)",
+                    ((r["url"], r["deleted_at"]) for r in remote_deleted_bookmarks),
+                )
+            if remote_deleted_annots:
+                conn.executemany(
+                    "INSERT INTO deleted_annotations(url, deleted_at) VALUES(?, ?) ON CONFLICT(url) DO UPDATE SET deleted_at = MAX(deleted_at, excluded.deleted_at)",
+                    ((r["url"], r["deleted_at"]) for r in remote_deleted_annots),
+                )
+
+            # 2. Apply history tombstones
+            conn.execute("DELETE FROM history WHERE url IN (SELECT url FROM deleted_records)")
+
+            # 3. Merge hidden_records
+            if remote_hidden:
+                conn.executemany(
+                    "INSERT OR IGNORE INTO hidden_records(url) VALUES(?)",
+                    ((r["url"],) for r in remote_hidden),
+                )
+
+            # 4. Merge bookmarks (skip tombstoned urls, keep newer bookmarked_at)
+            deleted_bm_urls: set[str] = {r[0] for r in conn.execute("SELECT url FROM deleted_bookmarks").fetchall()}
+            # Track urls where remote won (bookmarked_at was newer) so we can replace tags atomically
+            tag_replace_urls: set[str] = set()
+            for bm in remote_bookmarks:
+                url = bm["url"]
+                if url in deleted_bm_urls:
+                    continue
+                # Re-resolve history_id by url
+                h_row = conn.execute("SELECT id FROM history WHERE url=? LIMIT 1", (url,)).fetchone()
+                history_id = h_row[0] if h_row else None
+                existing = conn.execute("SELECT bookmarked_at FROM bookmarks WHERE url=?", (url,)).fetchone()
+                remote_ts = bm["bookmarked_at"]
+                if existing is None or remote_ts > existing[0]:
+                    # Remote is newer (or new insert) — upsert and mark for tag replacement
+                    conn.execute(
+                        """INSERT INTO bookmarks(url, title, tags, bookmarked_at, history_id)
+                           VALUES(?, ?, ?, ?, ?)
+                           ON CONFLICT(url) DO UPDATE SET
+                               title         = excluded.title,
+                               tags          = excluded.tags,
+                               bookmarked_at = excluded.bookmarked_at,
+                               history_id    = COALESCE(excluded.history_id, history_id)""",
+                        (url, bm["title"] or "", bm["tags"] or "", remote_ts, history_id),
+                    )
+                    tag_replace_urls.add(url)
+
+            # 5. Merge bookmark_tags atomically: replace all tags for bookmarks where remote won
+            # Build a map of url -> [tags] from remote
+            remote_tags_by_url: dict[str, list[str]] = {}
+            for bt in remote_bm_tags:
+                remote_tags_by_url.setdefault(bt["url"], []).append(bt["tag"])
+
+            for url in tag_replace_urls:
+                bm_row = conn.execute("SELECT id FROM bookmarks WHERE url=?", (url,)).fetchone()
+                if not bm_row:
+                    continue
+                bm_id = bm_row[0]
+                # Atomically replace: delete existing tags, insert remote tags
+                conn.execute("DELETE FROM bookmark_tags WHERE bookmark_id=?", (bm_id,))
+                for tag in remote_tags_by_url.get(url, []):
+                    conn.execute(
+                        "INSERT OR IGNORE INTO bookmark_tags(bookmark_id, tag) VALUES(?, ?)",
+                        (bm_id, tag),
+                    )
+
+            # 6. Merge annotations (skip tombstoned urls, keep newer updated_at)
+            deleted_ann_urls: set[str] = {r[0] for r in conn.execute("SELECT url FROM deleted_annotations").fetchall()}
+            for ann in remote_annotations:
+                url = ann["url"]
+                if url in deleted_ann_urls:
+                    continue
+                h_row = conn.execute("SELECT id FROM history WHERE url=? LIMIT 1", (url,)).fetchone()
+                history_id = h_row[0] if h_row else None
+                conn.execute(
+                    """INSERT INTO annotations(url, note, created_at, updated_at, history_id)
+                       VALUES(?, ?, ?, ?, ?)
+                       ON CONFLICT(url) DO UPDATE SET
+                           note       = CASE WHEN excluded.updated_at > updated_at
+                                             THEN excluded.note ELSE note END,
+                           updated_at = CASE WHEN excluded.updated_at > updated_at
+                                             THEN excluded.updated_at ELSE updated_at END,
+                           history_id = COALESCE(excluded.history_id, history_id)""",
+                    (url, ann["note"] or "", ann["created_at"], ann["updated_at"], history_id),
+                )
+
+        _cb(_("User data merge complete."))
 
     def upsert_records(self, records: list[HistoryRecord]) -> int:
         if not records:
@@ -1223,6 +1395,10 @@ class LocalDatabase:
     def remove_bookmark(self, url: str) -> bool:
         """Delete a bookmark by URL. Returns True if something was deleted."""
         with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO deleted_bookmarks(url) VALUES(?) ON CONFLICT(url) DO UPDATE SET deleted_at = strftime('%s','now')",
+                (url,),
+            )
             cur = conn.execute("DELETE FROM bookmarks WHERE url=?", (url,))
             return cur.rowcount > 0
 
@@ -1343,6 +1519,10 @@ class LocalDatabase:
 
     def delete_annotation(self, url: str) -> bool:
         with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO deleted_annotations(url) VALUES(?) ON CONFLICT(url) DO UPDATE SET deleted_at = strftime('%s','now')",
+                (url,),
+            )
             cur = conn.execute("DELETE FROM annotations WHERE url=?", (url,))
             return cur.rowcount > 0
 
@@ -1422,12 +1602,25 @@ class LocalDatabase:
             return 0
         placeholders = ",".join("?" * len(ids))
         with self._conn() as conn:
+            # Tombstone before delete
+            urls = conn.execute(f"SELECT url FROM history WHERE id IN ({placeholders})", ids).fetchall()
+            if urls:
+                conn.executemany(
+                    "INSERT INTO deleted_records(url) VALUES(?) ON CONFLICT(url) DO UPDATE SET deleted_at = strftime('%s','now')",
+                    ((r[0],) for r in urls),
+                )
             cursor = conn.execute(f"DELETE FROM history WHERE id IN ({placeholders})", ids)
             return cursor.rowcount
 
     def delete_records_by_browser(self, browser_type: str) -> int:
         """删除指定浏览器的所有历史记录及对应的 backup_stats 条目。"""
         with self._conn() as conn:
+            urls = conn.execute("SELECT url FROM history WHERE browser_type = ?", (browser_type,)).fetchall()
+            if urls:
+                conn.executemany(
+                    "INSERT INTO deleted_records(url) VALUES(?) ON CONFLICT(url) DO UPDATE SET deleted_at = strftime('%s','now')",
+                    ((r[0],) for r in urls),
+                )
             cursor = conn.execute("DELETE FROM history WHERE browser_type = ?", (browser_type,))
             deleted = cursor.rowcount
             conn.execute("DELETE FROM backup_stats WHERE browser_type = ?", (browser_type,))
@@ -1463,6 +1656,12 @@ class LocalDatabase:
             if not ids:
                 return 0
             placeholders = ",".join("?" * len(ids))
+            urls = conn.execute(f"SELECT url FROM history WHERE domain_id IN ({placeholders})", ids).fetchall()
+            if urls:
+                conn.executemany(
+                    "INSERT INTO deleted_records(url) VALUES(?) ON CONFLICT(url) DO UPDATE SET deleted_at = strftime('%s','now')",
+                    ((r[0],) for r in urls),
+                )
             cursor = conn.execute(f"DELETE FROM history WHERE domain_id IN ({placeholders})", ids)
             conn.execute(f"DELETE FROM domains WHERE id IN ({placeholders})", ids)
             return cursor.rowcount

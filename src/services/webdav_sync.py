@@ -18,7 +18,13 @@ if TYPE_CHECKING:
     from src.services.local_db import LocalDatabase
 
 from src.models.app_config import WebDavConfig
-from src.utils.constants import DB_FILENAME, FAVICON_DB_FILENAME, WEBDAV_BACKUP_NAME_PREFIX
+from src.utils.constants import (
+    DB_FILENAME,
+    FAVICON_DB_FILENAME,
+    SNAPSHOT_INFO_FILENAME,
+    WEBDAV_BACKUP_NAME_PREFIX,
+    WEBDAV_MANIFEST_FILENAME,
+)
 from src.utils.i18n_core import _
 from src.utils.logger import get_logger
 
@@ -193,6 +199,20 @@ class WebDavSyncService:
 
             hash_manifest: dict[str, str] = {}
 
+            # Gather snapshot counts from the clean DB
+            import sqlite3 as _sqlite3
+
+            _snap_conn = _sqlite3.connect(str(clean_db_path), timeout=10)
+            try:
+                history_count = _snap_conn.execute("SELECT COUNT(*) FROM history").fetchone()[0]
+                bookmark_count = _snap_conn.execute("SELECT COUNT(*) FROM bookmarks").fetchone()[0]
+                annotation_count = _snap_conn.execute("SELECT COUNT(*) FROM annotations").fetchone()[0]
+                hidden_count = _snap_conn.execute("SELECT COUNT(*) FROM hidden_records").fetchone()[0]
+            except Exception:
+                history_count = bookmark_count = annotation_count = hidden_count = 0
+            finally:
+                _snap_conn.close()
+
             with zipfile.ZipFile(tmp_zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
                 # Add FTS-free DB (stored as DB_FILENAME for restore compatibility)
                 db_hash = _sha256_file(clean_db_path)
@@ -213,6 +233,18 @@ class WebDavSyncService:
                 manifest_json = json.dumps(hash_manifest, indent=2, ensure_ascii=False).encode("utf-8")
                 zf.writestr("manifest.sha256.json", manifest_json)
 
+                # Write snapshot_info.json inside the ZIP
+                snapshot_info = {
+                    "schema_version": 1,
+                    "created_at": int(time.time()),
+                    "history_count": history_count,
+                    "bookmark_count": bookmark_count,
+                    "annotation_count": annotation_count,
+                    "hidden_record_count": hidden_count,
+                    "db_sha256": db_hash,
+                }
+                zf.writestr(SNAPSHOT_INFO_FILENAME, json.dumps(snapshot_info, indent=2, ensure_ascii=False))
+
             zip_size = Path(tmp_zip_path).stat().st_size
             ratio = (1 - zip_size / original_size) * 100 if original_size > 0 else 0
             log.info(
@@ -231,6 +263,35 @@ class WebDavSyncService:
             self._status = SyncStatus.CLEANING
             _cb(_("Cleaning up old backups..."))
             self._cleanup_old_backups(client, remote_dir)
+
+            # ── Upload sync_manifest.json ──
+            sync_manifest = {
+                "schema_version": 1,
+                "latest_backup": remote_filename,
+                "latest_backup_ts": int(time.time()),
+                "history_count": history_count,
+                "bookmark_count": bookmark_count,
+                "annotation_count": annotation_count,
+                "hidden_record_count": hidden_count,
+                "db_sha256": db_hash,
+            }
+            manifest_bytes = json.dumps(sync_manifest, indent=2, ensure_ascii=False).encode("utf-8")
+            remote_manifest = f"{remote_dir.rstrip('/')}/{WEBDAV_MANIFEST_FILENAME}"
+            fd_m, tmp_manifest_path = tempfile.mkstemp(suffix=".json")
+            try:
+                os.write(fd_m, manifest_bytes)
+                os.close(fd_m)
+                client.upload_sync(remote_path=remote_manifest, local_path=tmp_manifest_path)
+                log.info("sync_manifest.json uploaded to %s", remote_manifest)
+            except Exception as exc:
+                raise RuntimeError(
+                    _("Backup ZIP uploaded but sync_manifest.json failed: {error}").format(error=str(exc))
+                ) from exc
+            finally:
+                try:
+                    Path(tmp_manifest_path).unlink(missing_ok=True)
+                except OSError:
+                    pass
 
             self._status = SyncStatus.SUCCESS
             result = SyncResult(
@@ -388,6 +449,35 @@ class WebDavSyncService:
                     Path(tmp_download_path).unlink(missing_ok=True)
                 except OSError:
                     pass
+
+    def fetch_manifest(self) -> dict | None:
+        """Download and parse sync_manifest.json (~1 KB) without touching the ZIP.
+
+        Returns the parsed dict, or None if not found / not configured.
+        """
+        if not _WEBDAV3_AVAILABLE or not self.is_configured():
+            return None
+        try:
+            client = self._make_client()
+            remote_dir = self._normalise_path(self._config.remote_path)
+            remote_manifest = f"{remote_dir.rstrip('/')}/{WEBDAV_MANIFEST_FILENAME}"
+            fd, tmp_path = tempfile.mkstemp(suffix=".json")
+            os.close(fd)
+            try:
+                client.download_sync(remote_path=remote_manifest, local_path=tmp_path)
+                with Path(tmp_path).open("rb") as f:
+                    return json.loads(f.read().decode("utf-8"))
+            except Exception as exc:
+                log.debug("fetch_manifest: %s", exc)
+                return None
+            finally:
+                try:
+                    Path(tmp_path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+        except Exception as exc:
+            log.debug("fetch_manifest outer: %s", exc)
+            return None
 
     def list_backups(self) -> list[dict]:
         """List all available remote backups with metadata."""

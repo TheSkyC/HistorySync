@@ -16,6 +16,7 @@ class WebDavWorker(QObject):
     progress = Signal(str)
     backup_list_ready = Signal(list)  # list of backup dicts
     hash_info_ready = Signal(dict)  # filename -> sha256
+    manifest_ready = Signal(dict)  # sync_manifest.json contents
 
     def __init__(self, action: str, svc: WebDavSyncService, db=None, favicon_cache_dir=None):
         super().__init__()
@@ -51,6 +52,7 @@ class WebDavWorker(QObject):
                 )
                 if res.success and res.downloaded_path:
                     self.db.merge_from_db(res.downloaded_path, progress_cb=self.progress.emit)
+                    self.db.merge_user_data_from_db(res.downloaded_path, progress_cb=self.progress.emit)
                     try:
                         res.downloaded_path.unlink(missing_ok=True)
                     except Exception:
@@ -60,6 +62,14 @@ class WebDavWorker(QObject):
                     self.finished.emit(self.action, True, res.message)
                 else:
                     self.finished.emit(self.action, False, res.message)
+
+            elif self.action == "fetch_manifest":
+                manifest = self.svc.fetch_manifest()
+                if manifest is not None:
+                    self.manifest_ready.emit(manifest)
+                    self.finished.emit(self.action, True, "")
+                else:
+                    self.finished.emit(self.action, False, "")
 
             elif self.action == "list_backups":
                 backups = self.svc.list_backups()
@@ -77,6 +87,7 @@ class SettingsViewModel(QObject):
 
     webdav_action_progress = Signal(str)
     webdav_action_finished = Signal(str, bool, str)  # action, success, message
+    webdav_manifest_ready = Signal(dict)  # sync_manifest.json contents
     language_change_requested = Signal(str)
 
     maintenance_progress = Signal(str)
@@ -126,6 +137,7 @@ class SettingsViewModel(QObject):
         self._wd_worker.finished.connect(self._on_webdav_finished)
         self._wd_worker.hash_info_ready.connect(self._on_hash_info)
         self._wd_worker.backup_list_ready.connect(self._on_backup_list)
+        self._wd_worker.manifest_ready.connect(self.webdav_manifest_ready)
 
         self._wd_worker.finished.connect(self._wd_thread.quit)
         self._wd_thread.finished.connect(self._wd_worker.deleteLater)
