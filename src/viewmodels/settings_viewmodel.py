@@ -50,14 +50,11 @@ class WebDavWorker(QObject):
                     favicon_cache_dir=self.favicon_cache_dir,
                 )
                 if res.success and res.downloaded_path:
-                    self.progress.emit(_("Replacing local database..."))
-                    self.db.replace_database(res.downloaded_path)
+                    self.db.merge_from_db(res.downloaded_path, progress_cb=self.progress.emit)
                     try:
                         res.downloaded_path.unlink(missing_ok=True)
                     except Exception:
                         pass
-                    self.progress.emit(_("Rebuilding search index..."))
-                    self.db.rebuild_fts_index()
                     if res.hash_info:
                         self.hash_info_ready.emit(res.hash_info)
                     self.finished.emit(self.action, True, res.message)

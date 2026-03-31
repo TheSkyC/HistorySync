@@ -592,6 +592,55 @@ class LocalDatabase:
             self._reset_conn()
             log.info("Database successfully replaced")
 
+    def merge_from_db(
+        self,
+        src_path: Path,
+        progress_cb: Callable[[str], None] | None = None,
+    ) -> int:
+        """Merge history records from *src_path* into this database."""
+
+        def _cb(msg: str) -> None:
+            if progress_cb:
+                progress_cb(msg)
+            log.info("merge_from_db: %s", msg)
+
+        _cb(_("Opening backup database for merge..."))
+        src_conn = sqlite3.connect(str(src_path), timeout=30)
+        src_conn.row_factory = sqlite3.Row
+        try:
+            rows = src_conn.execute(
+                "SELECT url, title, visit_time, visit_count, browser_type, profile_name, "
+                "metadata, typed_count, first_visit_time, transition_type, visit_duration "
+                "FROM history"
+            ).fetchall()
+        finally:
+            src_conn.close()
+
+        _cb(_("Merging {n} records from backup...").format(n=len(rows)))
+        records = [
+            HistoryRecord(
+                url=r["url"],
+                title=r["title"] or "",
+                visit_time=r["visit_time"],
+                visit_count=r["visit_count"] or 1,
+                browser_type=r["browser_type"],
+                profile_name=r["profile_name"] or "",
+                metadata=r["metadata"] or "",
+                typed_count=r["typed_count"],
+                first_visit_time=r["first_visit_time"],
+                transition_type=r["transition_type"],
+                visit_duration=r["visit_duration"],
+            )
+            for r in rows
+        ]
+        inserted = self.upsert_records(records)
+        _cb(
+            _("Merge complete: {inserted} new records added (of {total} in backup).").format(
+                inserted=inserted, total=len(records)
+            )
+        )
+        return inserted
+
     def upsert_records(self, records: list[HistoryRecord]) -> int:
         if not records:
             return 0

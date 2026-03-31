@@ -334,7 +334,8 @@ class SettingsPage(QWidget):
                 self,
                 _("Restore Database"),
                 _(
-                    "This will overwrite your current local history database with the one from WebDAV. "
+                    "This will merge the WebDAV backup into your current local history database. "
+                    "Existing records will be kept and new records from the backup will be added. "
                     "Are you sure you want to continue?"
                 ),
                 QMessageBox.Yes | QMessageBox.No,
