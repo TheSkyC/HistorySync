@@ -722,6 +722,9 @@ class HistoryViewModel(QObject):
         else:
             self.table_model._hidden_ids = ids
 
+    def resolve_domain_ids(self, domains: list[str]) -> list[int]:
+        return self._db.resolve_domain_ids(domains)
+
     def _refresh_browser_list(self):
         self.browser_list_changed.emit(self._db.get_browser_types())
 

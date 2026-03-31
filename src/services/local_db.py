@@ -1360,6 +1360,16 @@ class LocalDatabase:
             conn.execute(f"DELETE FROM domains WHERE id IN ({placeholders})", ids)
             return cursor.rowcount
 
+    def resolve_domain_ids(self, domains: list[str]) -> list[int]:
+        """Return the flattened list of domain.id values for all given domain names"""
+        if not domains:
+            return []
+        ids: list[int] = []
+        with self._conn(write=False) as conn:
+            for d in domains:
+                ids.extend(self._domain_ids_for(conn, d))
+        return ids
+
     def get_domain_count(self, domain: str) -> int:
         with self._conn() as conn:
             ids = self._domain_ids_for(conn, domain)

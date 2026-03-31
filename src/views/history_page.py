@@ -872,12 +872,7 @@ class HistoryPage(QWidget):
         # Resolve domain ids if domains are present
         domain_ids = []
         if query.domains:
-            from src.services.local_db import LocalDatabase
-
-            with self._vm._db._lock:
-                conn = self._vm._db._ensure_conn()
-                for d in query.domains:
-                    domain_ids.extend(LocalDatabase._domain_ids_for(conn, d))
+            domain_ids = self._vm.resolve_domain_ids(query.domains)
 
         self._vm.search(
             query.keyword,
