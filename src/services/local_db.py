@@ -261,6 +261,13 @@ class LocalDatabase:
                 CREATE INDEX IF NOT EXISTS idx_bookmarks_url ON bookmarks(url);
                 CREATE INDEX IF NOT EXISTS idx_bookmarks_at  ON bookmarks(bookmarked_at DESC);
 
+                CREATE TABLE IF NOT EXISTS bookmark_tags (
+                    bookmark_id  INTEGER NOT NULL REFERENCES bookmarks(id) ON DELETE CASCADE,
+                    tag          TEXT    NOT NULL,
+                    PRIMARY KEY (bookmark_id, tag)
+                );
+                CREATE INDEX IF NOT EXISTS idx_bookmark_tags_tag ON bookmark_tags(tag);
+
                 CREATE TABLE IF NOT EXISTS annotations (
                     id         INTEGER PRIMARY KEY AUTOINCREMENT,
                     url        TEXT    NOT NULL UNIQUE,
@@ -296,6 +303,17 @@ class LocalDatabase:
                 except sqlite3.OperationalError:
                     # Column already exists — nothing to do.
                     pass
+
+            needs_migration = conn.execute("SELECT COUNT(*) FROM bookmarks WHERE tags != ''").fetchone()[0]
+            already_migrated = conn.execute("SELECT COUNT(*) FROM bookmark_tags").fetchone()[0]
+            if needs_migration and not already_migrated:
+                rows = conn.execute("SELECT id, tags FROM bookmarks WHERE tags != ''").fetchall()
+                tag_rows = [(row["id"], tag.strip()) for row in rows for tag in row["tags"].split(",") if tag.strip()]
+                conn.executemany(
+                    "INSERT OR IGNORE INTO bookmark_tags(bookmark_id, tag) VALUES(?, ?)",
+                    tag_rows,
+                )
+                log.info("Schema migration: populated bookmark_tags from CSV (%d rows)", len(tag_rows))
 
     # ── Hidden records CRUD ───────────────────────────────────
 
@@ -851,8 +869,9 @@ class LocalDatabase:
         if bookmarked_only or bookmark_tag:
             bm_joins = " JOIN bookmarks bm ON h.url = bm.url"
             if bookmark_tag:
-                bm_conditions.append("(',' || bm.tags || ',') LIKE ?")
-                bm_params_prefix.append(f"%,{bookmark_tag},%")
+                bm_joins += " JOIN bookmark_tags bt ON bm.id = bt.bookmark_id"
+                bm_conditions.append("bt.tag = ?")
+                bm_params_prefix.append(bookmark_tag)
         if has_annotation:
             bm_joins += " JOIN annotations ann ON h.url = ann.url AND ann.note != ''"
 
@@ -1121,7 +1140,8 @@ class LocalDatabase:
 
     def add_bookmark(self, url: str, title: str, tags: list[str], history_id: int | None = None) -> BookmarkRecord:
         """Insert or replace a bookmark. Returns the stored record."""
-        tags_str = ",".join(t.strip() for t in tags if t.strip())
+        clean_tags = [t.strip() for t in tags if t.strip()]
+        tags_str = ",".join(clean_tags)  # kept for legacy column only
         now = int(time.time())
         with self._conn() as conn:
             conn.execute(
@@ -1134,11 +1154,19 @@ class LocalDatabase:
                 (url, title, tags_str, now, history_id),
             )
             row = conn.execute("SELECT id, bookmarked_at FROM bookmarks WHERE url=?", (url,)).fetchone()
+            bm_id = row["id"]
+            # Sync bookmark_tags: replace all tags for this bookmark atomically
+            conn.execute("DELETE FROM bookmark_tags WHERE bookmark_id = ?", (bm_id,))
+            if clean_tags:
+                conn.executemany(
+                    "INSERT OR IGNORE INTO bookmark_tags(bookmark_id, tag) VALUES(?, ?)",
+                    ((bm_id, tag) for tag in clean_tags),
+                )
         return BookmarkRecord(
-            id=row["id"],
+            id=bm_id,
             url=url,
             title=title,
-            tags=tags_str.split(",") if tags_str else [],
+            tags=clean_tags,
             bookmarked_at=row["bookmarked_at"],
             history_id=history_id,
         )
@@ -1152,9 +1180,19 @@ class LocalDatabase:
     def get_bookmark(self, url: str) -> BookmarkRecord | None:
         with self._conn(write=False) as conn:
             row = conn.execute(
-                "SELECT id, url, title, tags, bookmarked_at, history_id FROM bookmarks WHERE url=?", (url,)
+                "SELECT id, url, title, bookmarked_at, history_id FROM bookmarks WHERE url=?", (url,)
             ).fetchone()
-        return self._row_to_bookmark(row) if row else None
+            if row is None:
+                return None
+            tag_rows = conn.execute("SELECT tag FROM bookmark_tags WHERE bookmark_id = ?", (row["id"],)).fetchall()
+        return BookmarkRecord(
+            id=row["id"],
+            url=row["url"],
+            title=row["title"],
+            tags=[r["tag"] for r in tag_rows],
+            bookmarked_at=row["bookmarked_at"],
+            history_id=row["history_id"],
+        )
 
     def is_bookmarked(self, url: str) -> bool:
         with self._conn(write=False) as conn:
@@ -1170,40 +1208,60 @@ class LocalDatabase:
         with self._conn(write=False) as conn:
             if tag:
                 rows = conn.execute(
-                    "SELECT id, url, title, tags, bookmarked_at, history_id FROM bookmarks "
-                    "WHERE (',' || tags || ',') LIKE ? ORDER BY bookmarked_at DESC",
-                    (f"%,{tag},%",),
+                    """SELECT b.id, b.url, b.title, b.bookmarked_at, b.history_id
+                       FROM bookmarks b
+                       JOIN bookmark_tags bt ON b.id = bt.bookmark_id
+                       WHERE bt.tag = ?
+                       ORDER BY b.bookmarked_at DESC""",
+                    (tag,),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    "SELECT id, url, title, tags, bookmarked_at, history_id FROM bookmarks ORDER BY bookmarked_at DESC"
+                    "SELECT id, url, title, bookmarked_at, history_id FROM bookmarks ORDER BY bookmarked_at DESC"
                 ).fetchall()
-        return [self._row_to_bookmark(r) for r in rows]
+            if not rows:
+                return []
+            bm_ids = [r["id"] for r in rows]
+            placeholders = ",".join("?" * len(bm_ids))
+            tag_rows = conn.execute(
+                f"SELECT bookmark_id, tag FROM bookmark_tags WHERE bookmark_id IN ({placeholders})",
+                bm_ids,
+            ).fetchall()
+        tags_by_id: dict[int, list[str]] = {}
+        for tr in tag_rows:
+            tags_by_id.setdefault(tr["bookmark_id"], []).append(tr["tag"])
+        return [
+            BookmarkRecord(
+                id=r["id"],
+                url=r["url"],
+                title=r["title"],
+                tags=tags_by_id.get(r["id"], []),
+                bookmarked_at=r["bookmarked_at"],
+                history_id=r["history_id"],
+            )
+            for r in rows
+        ]
 
     def get_all_bookmark_tags(self) -> list[str]:
         with self._conn(write=False) as conn:
-            rows = conn.execute("SELECT tags FROM bookmarks WHERE tags != ''").fetchall()
-
-        tags: set[str] = {t.strip() for r in rows for t in r[0].split(",") if t.strip()}
-        return sorted(tags)
+            rows = conn.execute("SELECT DISTINCT tag FROM bookmark_tags ORDER BY tag").fetchall()
+        return [r[0] for r in rows]
 
     def update_bookmark_tags(self, url: str, tags: list[str]) -> bool:
-        tags_str = ",".join(t.strip() for t in tags if t.strip())
+        clean_tags = [t.strip() for t in tags if t.strip()]
+        tags_str = ",".join(clean_tags)  # kept for legacy column only
         with self._conn() as conn:
             cur = conn.execute("UPDATE bookmarks SET tags=? WHERE url=?", (tags_str, url))
-            return cur.rowcount > 0
-
-    @staticmethod
-    def _row_to_bookmark(row) -> BookmarkRecord:
-        tags_str = row["tags"] or ""
-        return BookmarkRecord(
-            id=row["id"],
-            url=row["url"],
-            title=row["title"],
-            tags=[t.strip() for t in tags_str.split(",") if t.strip()],
-            bookmarked_at=row["bookmarked_at"],
-            history_id=row["history_id"],
-        )
+            if cur.rowcount == 0:
+                return False
+            bm_id = conn.execute("SELECT id FROM bookmarks WHERE url=?", (url,)).fetchone()["id"]
+            conn.execute("DELETE FROM bookmark_tags WHERE bookmark_id = ?", (bm_id,))
+            if clean_tags:
+                conn.executemany(
+                    "INSERT OR IGNORE INTO bookmark_tags(bookmark_id, tag) VALUES(?, ?)",
+                    ((bm_id, tag) for tag in clean_tags),
+                )
+            return True
 
     # ── Annotation CRUD ────────────────────────────────────────
 
@@ -1361,7 +1419,7 @@ class LocalDatabase:
             return cursor.rowcount
 
     def resolve_domain_ids(self, domains: list[str]) -> list[int]:
-        """Return the flattened list of domain.id values for all given domain names"""
+        """Return the flattened list of domain.id values for all given domain names."""
         if not domains:
             return []
         ids: list[int] = []
