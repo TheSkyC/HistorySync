@@ -93,6 +93,7 @@ class WebDavSyncService:
         self._status = SyncStatus.IDLE
         self._last_result: SyncResult | None = None
         self._local_db: LocalDatabase | None = None  # set by caller for FTS ops
+        self._device_id: int | None = None  # set by caller for last_sync_at tracking
 
     @property
     def status(self) -> SyncStatus:
@@ -112,6 +113,10 @@ class WebDavSyncService:
     def set_local_db(self, db: LocalDatabase) -> None:
         """Provide a LocalDatabase reference so sync/restore can manage FTS."""
         self._local_db = db
+
+    def set_device_id(self, device_id: int) -> None:
+        """Provide the local device_id so last_sync_at is updated after backup."""
+        self._device_id = device_id
 
     # ── Connection test ───────────────────────────────────────
 
@@ -294,6 +299,11 @@ class WebDavSyncService:
                     pass
 
             self._status = SyncStatus.SUCCESS
+            if self._local_db is not None and self._device_id is not None:
+                try:
+                    self._local_db.update_device_last_sync(self._device_id)
+                except Exception as exc:
+                    log.warning("Failed to update device last_sync_at: %s", exc)
             result = SyncResult(
                 True,
                 _("Upload successful: {filename} ({size} KB) — SHA-256 verified").format(

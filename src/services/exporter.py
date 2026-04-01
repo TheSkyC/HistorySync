@@ -39,6 +39,7 @@ ALL_COLUMNS: list[str] = [
     "first_visit_time",
     "transition_type",
     "visit_duration",
+    "device_name",
 ]
 
 # Human-readable headers (CSV / HTML)
@@ -56,6 +57,7 @@ _COLUMN_HEADERS: dict[str, str] = {
     "first_visit_time": "First Visit Time",
     "transition_type": "Transition Type",
     "visit_duration": "Visit Duration (s)",
+    "device_name": "Device",
 }
 
 
@@ -101,7 +103,9 @@ def _extract_root_domain(domain: str) -> str:
     return ".".join(parts[-2:])
 
 
-def _record_to_row(record: HistoryRecord, columns: list[str]) -> dict[str, Any]:
+def _record_to_row(
+    record: HistoryRecord, columns: list[str], device_name_map: dict[int, str] | None = None
+) -> dict[str, Any]:
     """Convert a HistoryRecord to a dict keyed by selected columns."""
     # Format first_visit_time the same way as visit_time (UTC string)
     first_visit_str: str | None = None
@@ -129,6 +133,7 @@ def _record_to_row(record: HistoryRecord, columns: list[str]) -> dict[str, Any]:
     if record.transition_type is not None:
         transition_str = _CHROMIUM_TRANSITIONS.get(record.transition_type, str(record.transition_type))
 
+    _dmap = device_name_map or {}
     full: dict[str, Any] = {
         "id": record.id,
         "title": record.title or "",
@@ -143,6 +148,7 @@ def _record_to_row(record: HistoryRecord, columns: list[str]) -> dict[str, Any]:
         "first_visit_time": first_visit_str,
         "transition_type": transition_str,
         "visit_duration": round(record.visit_duration, 2) if record.visit_duration is not None else None,
+        "device_name": _dmap.get(record.device_id, "") if record.device_id is not None else "",
     }
     return {col: full[col] for col in columns if col in full}
 
@@ -185,6 +191,9 @@ class ResolvedExportParams:
     bookmarked_only: bool = False
     has_annotation: bool = False
     bookmark_tag: str = ""
+
+    # Device filter
+    device_ids: list[int] | None = None
 
 
 # ── Exporter ──────────────────────────────────────────────────────────────────
@@ -263,6 +272,7 @@ class Exporter:
                     bookmarked_only=params.bookmarked_only,
                     has_annotation=params.has_annotation,
                     bookmark_tag=params.bookmark_tag,
+                    device_ids=params.device_ids,
                 )
                 exported = self._write_batched(
                     params,
@@ -315,6 +325,7 @@ class Exporter:
             bookmarked_only=params.bookmarked_only,
             has_annotation=params.has_annotation,
             bookmark_tag=params.bookmark_tag,
+            device_ids=params.device_ids,
         )
 
         matched_ids: list[int] = []
@@ -368,6 +379,7 @@ class Exporter:
                     bookmarked_only=params.bookmarked_only,
                     has_annotation=params.has_annotation,
                     bookmark_tag=params.bookmark_tag,
+                    device_ids=params.device_ids,
                 )
                 if not batch:
                     break
@@ -429,6 +441,11 @@ class _FormatWriter:
         self._writer = None
 
     def __enter__(self):
+        self._device_name_map: dict[int, str] = {}
+        try:
+            self._device_name_map = self._db.get_device_name_map()
+        except Exception:
+            pass
         self._fh = self._path.open("w", encoding="utf-8", newline="")
         if self._fmt == "csv":
             self._writer = _CsvWriter(self._fh, self._columns)
@@ -444,7 +461,7 @@ class _FormatWriter:
         return self
 
     def write_record(self, record: HistoryRecord) -> None:
-        self._writer.write(record)
+        self._writer.write(record, self._device_name_map)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._writer:
@@ -473,8 +490,8 @@ class _CsvWriter:
     def begin(self) -> None:
         self._csv.writeheader()
 
-    def write(self, record: HistoryRecord) -> None:
-        row = _record_to_row(record, self._columns)
+    def write(self, record: HistoryRecord, device_name_map: dict[int, str] | None = None) -> None:
+        row = _record_to_row(record, self._columns, device_name_map)
         # Rename keys to human-readable headers
         renamed = {_COLUMN_HEADERS.get(k, k): v for k, v in row.items()}
         self._csv.writerow(renamed)
@@ -492,8 +509,8 @@ class _JsonWriter:
     def begin(self) -> None:
         self._fh.write("[\n")
 
-    def write(self, record: HistoryRecord) -> None:
-        row = _record_to_row(record, self._columns)
+    def write(self, record: HistoryRecord, device_name_map: dict[int, str] | None = None) -> None:
+        row = _record_to_row(record, self._columns, device_name_map)
         if not self._first:
             self._fh.write(",\n")
         self._fh.write("  " + json.dumps(row, ensure_ascii=False))
@@ -637,8 +654,8 @@ class _HtmlWriter:
             meta[bt] = {"name": _browser_display_name(bt), "svg": svg_content}
         return meta
 
-    def write(self, record: HistoryRecord) -> None:
-        row = _record_to_row(record, self._columns)
+    def write(self, record: HistoryRecord, device_name_map: dict[int, str] | None = None) -> None:
+        row = _record_to_row(record, self._columns, device_name_map)
 
         item = {}
         if "title" in row:

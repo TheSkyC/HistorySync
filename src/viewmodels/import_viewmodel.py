@@ -62,10 +62,11 @@ class ImportWorker(QObject):
     finished = Signal(int, int)  # total_extracted, total_inserted
     error = Signal(str)
 
-    def __init__(self, tasks: list[ImportTask], db: LocalDatabase):
+    def __init__(self, tasks: list[ImportTask], db: LocalDatabase, local_device_id: int | None = None):
         super().__init__()
         self._tasks = tasks
         self._db = db
+        self._local_device_id = local_device_id
         self._cancelled = False
 
     def cancel(self):
@@ -109,6 +110,10 @@ class ImportWorker(QObject):
 
                 if self._cancelled:
                     break
+
+                if self._local_device_id is not None:
+                    for r in records:
+                        r.device_id = self._local_device_id
 
                 self.progress.emit(
                     idx, total, task.file_path.name, _("Saving {n} records…").format(n=f"{len(records):,}")
@@ -178,9 +183,10 @@ class ImportViewModel(QObject):
     import_finished = Signal(int, int)  # total_extracted, total_inserted
     import_error = Signal(str)
 
-    def __init__(self, db: LocalDatabase, parent=None):
+    def __init__(self, db: LocalDatabase, local_device_id: int | None = None, parent=None):
         super().__init__(parent)
         self._db = db
+        self._local_device_id = local_device_id
         self._thread: QThread | None = None
         self._worker: ImportWorker | None = None
 
@@ -193,7 +199,7 @@ class ImportViewModel(QObject):
             return
 
         self._thread = QThread()
-        self._worker = ImportWorker(tasks, self._db)
+        self._worker = ImportWorker(tasks, self._db, self._local_device_id)
         self._worker.moveToThread(self._thread)
 
         # 信号连接

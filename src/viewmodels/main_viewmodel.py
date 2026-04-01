@@ -9,6 +9,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 
 from src.models.app_config import AppConfig
 from src.services.browser_monitor import BrowserMonitor
+from src.services.device_manager import ensure_local_device
 from src.services.extractor_manager import ExtractorManager
 from src.services.favicon_manager import FaviconManager
 from src.services.local_db import LocalDatabase
@@ -43,12 +44,15 @@ class MainViewModel(QObject):
 
         db_path = config.get_db_path()
         self._db = LocalDatabase(db_path)
+        self._local_device_id: int = ensure_local_device(config, self._db)
         self._webdav = WebDavSyncService(config.webdav, db_path)
         self._webdav.set_local_db(self._db)
+        self._webdav.set_device_id(self._local_device_id)
         self._em = ExtractorManager(
             self._db,
             disabled_browsers=config.extractor.disabled_browsers,
             blacklisted_domains=config.privacy.blacklisted_domains,
+            device_id=self._local_device_id,
         )
         self._favicon_manager = FaviconManager(config, parent=self)
 

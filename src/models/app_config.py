@@ -107,6 +107,9 @@ class AppConfig:
     last_sync_ts: int = 0
     master_password_hash: str = ""  # bcrypt hash; empty = no password set
     first_run_completed: bool = False
+    # ── 设备标识 ─────────────────────────────────────────────────────────────
+    device_uuid: str = ""  # 程序首次运行时生成，永久唯一
+    device_name: str = ""  # 用户可修改的设备昵称
 
     # ── 运行时标志（不持久化）─────────────────────────────────────────────────
     # fresh 模式
@@ -171,6 +174,8 @@ class AppConfig:
             "last_sync_ts": self.last_sync_ts,
             "master_password_hash": self.master_password_hash,
             "first_run_completed": self.first_run_completed,
+            "device_uuid": self.device_uuid,
+            "device_name": self.device_name,
         }
 
     @classmethod
@@ -215,6 +220,8 @@ class AppConfig:
             "last_sync_ts",
             "master_password_hash",
             "first_run_completed",
+            "device_uuid",
+            "device_name",
         ):
             if key in d:
                 setattr(cfg, key, d[key])

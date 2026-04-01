@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QSpinBox,
@@ -164,6 +165,27 @@ class _SyncPage(_PageBase):
         backup_row.addStretch()
         layout.addLayout(backup_row)
 
+        layout.addSpacing(8)
+
+        device_row = QHBoxLayout()
+        device_lbl = QLabel(_("Device name:"))
+        device_lbl.setMinimumWidth(140)
+        self._device_name_edit = QLineEdit()
+        self._device_name_edit.setPlaceholderText(_("e.g. My Laptop"))
+        import platform as _platform
+
+        self._device_name_edit.setText(config.device_name or _platform.node() or "")
+        self._device_name_edit.setMinimumWidth(200)
+        device_row.addWidget(device_lbl)
+        device_row.addWidget(self._device_name_edit)
+        device_row.addStretch()
+        layout.addLayout(device_row)
+
+        device_hint = QLabel(_("Used to identify this machine in multi-device history views."))
+        device_hint.setWordWrap(True)
+        device_hint.setStyleSheet("color: #888; font-size: 11px; margin-left: 144px;")
+        layout.addWidget(device_hint)
+
         note_row = QHBoxLayout()
         note_row.setSpacing(6)
         note_icon = QLabel()
@@ -184,6 +206,9 @@ class _SyncPage(_PageBase):
         self._config.scheduler.auto_sync_enabled = self._auto_sync_cb.isChecked()
         self._config.scheduler.sync_interval_hours = self._interval_spin.value()
         self._config.scheduler.auto_backup_interval_hours = self._backup_spin.value()
+        name = self._device_name_edit.text().strip()
+        if name:
+            self._config.device_name = name
 
 
 # ── Page 3: Browser sync selection ────────────────────────────────────────────

@@ -35,6 +35,9 @@ class HistoryRecord:
     # 数据库自增 id（从 DB 读出时填充）
     id: int | None = field(default=None, compare=False)
 
+    # 产生该记录的设备 id（对应 devices.id），None 表示来源不明
+    device_id: int | None = field(default=None, compare=False)
+
     def dedup_key(self) -> str:
         """
         去重键：同一浏览器 + 同一 URL + 同一时间戳视为重复

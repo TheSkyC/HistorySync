@@ -25,6 +25,8 @@ class SearchQuery:
     bookmarked_only: bool = False
     has_annotation: bool = False
     bookmark_tag: str = ""
+    # Device filter (name substring or UUID prefix)
+    device: str = ""
 
 
 def parse_query(text: str) -> SearchQuery:
@@ -53,6 +55,7 @@ def parse_query(text: str) -> SearchQuery:
         "title": r"\btitle:([^\s]+)",
         "url": r"\burl:([^\s]+)",
         "browser": r"\bbrowser:([^\s]+)",
+        "device": r"\bdevice:([^\s]+)",
         "exclude": r"(?<!\S)-([^\s]+)",
         "is": r"\bis:(bookmarked|starred|favorite)",
         "has": r"\bhas:(note|annotation)",
@@ -119,6 +122,8 @@ def parse_query(text: str) -> SearchQuery:
                 continue
             elif token == "browser":
                 query.browser = val.lower()
+            elif token == "device":
+                query.device = val
             remaining_text = re.sub(pattern, "", remaining_text)
 
     query.keyword = " ".join(remaining_text.split()).strip()

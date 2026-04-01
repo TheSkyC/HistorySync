@@ -54,6 +54,7 @@ ALL_COLUMNS = {
     "first_visit_time": {"index": 9, "label_key": "First Visit Time", "align": Qt.AlignCenter},
     "transition_type": {"index": 10, "label_key": "Transition Type", "align": Qt.AlignCenter},
     "visit_duration": {"index": 11, "label_key": "Visit Duration (s)", "align": Qt.AlignCenter},
+    "device_name": {"index": 12, "label_key": "Device", "align": Qt.AlignLeft},
 }
 
 # Default visible columns
@@ -93,6 +94,10 @@ class HistoryTableModel(QAbstractTableModel):
         self._bookmarked_only: bool = False
         self._has_annotation: bool = False
         self._bookmark_tag: str = ""
+        self._device_ids: list[int] | None = None
+
+        # Device name map for display
+        self._device_name_map: dict[int, str] = {}
 
         # 虚拟化状态
         self._total_count = 0
@@ -230,6 +235,10 @@ class HistoryTableModel(QAbstractTableModel):
                 if record.visit_duration is not None:
                     return f"{record.visit_duration:.1f}s"
                 return ""
+            if col_key == "device_name":
+                if record.device_id is not None:
+                    return self._device_name_map.get(record.device_id, "")
+                return ""
 
         elif role == Qt.DecorationRole:
             if col_key == "title":
@@ -315,6 +324,7 @@ class HistoryTableModel(QAbstractTableModel):
         bookmarked_only: bool = False,
         has_annotation: bool = False,
         bookmark_tag: str = "",
+        device_ids: list[int] | None = None,
     ):
         self._keyword = keyword
         self._browser_type = browser_type
@@ -329,6 +339,7 @@ class HistoryTableModel(QAbstractTableModel):
         self._bookmarked_only = bookmarked_only
         self._has_annotation = has_annotation
         self._bookmark_tag = bookmark_tag
+        self._device_ids = device_ids
 
         self.reload()
 
@@ -343,6 +354,7 @@ class HistoryTableModel(QAbstractTableModel):
         # Load badge URL sets for O(1) lookup during rendering
         self._bookmarked_urls = self._db.get_bookmarked_urls()
         self._annotated_urls = self._db.get_annotated_urls()
+        self._device_name_map = self._db.get_device_name_map()
 
         if self._use_regex and self._keyword:
             # Regex 增量模式：扫描第一批候选，不阻塞在全量 COUNT 上
@@ -363,6 +375,7 @@ class HistoryTableModel(QAbstractTableModel):
                 bookmarked_only=self._bookmarked_only,
                 has_annotation=self._has_annotation,
                 bookmark_tag=self._bookmark_tag,
+                device_ids=self._device_ids,
             )
 
         self.beginResetModel()
@@ -406,6 +419,7 @@ class HistoryTableModel(QAbstractTableModel):
             bookmarked_only=self._bookmarked_only,
             has_annotation=self._has_annotation,
             bookmark_tag=self._bookmark_tag,
+            device_ids=self._device_ids,
         )
 
         before = len(self._regex_results)
@@ -577,6 +591,7 @@ class HistoryTableModel(QAbstractTableModel):
             bookmarked_only=self._bookmarked_only,
             has_annotation=self._has_annotation,
             bookmark_tag=self._bookmark_tag,
+            device_ids=self._device_ids,
         )
 
         self._page_cache[page_index] = records
@@ -674,6 +689,7 @@ class HistoryViewModel(QObject):
         bookmarked_only: bool = False,
         has_annotation: bool = False,
         bookmark_tag: str = "",
+        device_ids: list[int] | None = None,
     ):
         self._use_regex = use_regex  # Save for status message formatting
         self.table_model.set_filter(
@@ -689,6 +705,7 @@ class HistoryViewModel(QObject):
             bookmarked_only=bookmarked_only,
             has_annotation=has_annotation,
             bookmark_tag=bookmark_tag,
+            device_ids=device_ids,
         )
         count = self.table_model.total_count
         has_more = self.table_model.can_load_more
@@ -724,6 +741,9 @@ class HistoryViewModel(QObject):
 
     def resolve_domain_ids(self, domains: list[str]) -> list[int]:
         return self._db.resolve_domain_ids(domains)
+
+    def resolve_device_ids(self, name_or_uuid: str) -> list[int]:
+        return self._db.resolve_device_ids(name_or_uuid)
 
     def _refresh_browser_list(self):
         self.browser_list_changed.emit(self._db.get_browser_types())

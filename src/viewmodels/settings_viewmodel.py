@@ -123,6 +123,9 @@ class SettingsViewModel(QObject):
 
         svc = WebDavSyncService(wd_config, self._main_vm._db.db_path)
         svc.set_local_db(self._main_vm._db)
+        _device_id = getattr(self._main_vm, "_local_device_id", None)
+        if _device_id is not None:
+            svc.set_device_id(_device_id)
 
         from src.utils.path_helper import get_config_dir
 

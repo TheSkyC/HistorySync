@@ -140,7 +140,8 @@ class SearchLineEdit(QLineEdit):
             "• <code>-keyword</code> - Exclude term<br>"
             "• <code>title:keyword</code> - Search only titles<br>"
             "• <code>url:keyword</code> - Search only URLs<br>"
-            "• <code>browser:chrome</code> - Filter by browser type<br><br>"
+            "• <code>browser:chrome</code> - Filter by browser type<br>"
+            "• <code>device:laptop</code> - Filter by device name<br><br>"
             "<b>Bookmark Filters:</b><br>"
             "• <code>is:bookmarked</code> - Only bookmarked records<br>"
             "• <code>has:note</code> - Only records with annotations<br>"
@@ -874,6 +875,11 @@ class HistoryPage(QWidget):
         if query.domains:
             domain_ids = self._vm.resolve_domain_ids(query.domains)
 
+        # Resolve device ids if device token is present
+        device_ids = []
+        if query.device:
+            device_ids = self._vm.resolve_device_ids(query.device)
+
         self._vm.search(
             query.keyword,
             browser,
@@ -887,6 +893,7 @@ class HistoryPage(QWidget):
             bookmarked_only=query.bookmarked_only,
             has_annotation=query.has_annotation,
             bookmark_tag=query.bookmark_tag,
+            device_ids=list(set(device_ids)) if device_ids else None,
         )
 
     def _reset_filters(self):

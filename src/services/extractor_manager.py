@@ -45,10 +45,12 @@ class ExtractorManager:
         disabled_browsers: list[str] | None = None,
         blacklisted_domains: list[str] | None = None,
         learned_browsers: dict | None = None,
+        device_id: int | None = None,
     ):
         self._db = db
         self._disabled: set[str] = set(disabled_browsers or [])
         self._blacklisted_domains: set[str] = set(blacklisted_domains or [])
+        self._device_id: int | None = device_id
         self._registry: dict[str, BaseExtractor] = {}
         self._register_builtin()
         self._register_learned(learned_browsers or {})
@@ -131,6 +133,9 @@ class ExtractorManager:
 
     def set_blacklisted_domains(self, domains: list[str]) -> None:
         self._blacklisted_domains = set(domains)
+
+    def set_device_id(self, device_id: int) -> None:
+        self._device_id = device_id
 
     # ── Query ─────────────────────────────────────────────────
 
@@ -221,6 +226,11 @@ class ExtractorManager:
             progress_callback(browser_type, "extracting", 0)
 
         records = extractor.extract(since_map=since_map)
+
+        # Stamp all records with this device's id
+        if self._device_id is not None:
+            for r in records:
+                r.device_id = self._device_id
 
         # Filter out blacklisted domains
         if self._blacklisted_domains:

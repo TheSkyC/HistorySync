@@ -197,7 +197,8 @@ class LocalDatabase:
                     typed_count       INTEGER,
                     first_visit_time  INTEGER,
                     transition_type   INTEGER,
-                    visit_duration    REAL
+                    visit_duration    REAL,
+                    device_id         INTEGER REFERENCES devices(id)
                 );
 
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_history_dedup
@@ -292,6 +293,17 @@ class LocalDatabase:
                     url        TEXT    NOT NULL PRIMARY KEY,
                     deleted_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
                 );
+
+                CREATE TABLE IF NOT EXISTS devices (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    uuid          TEXT    NOT NULL UNIQUE,
+                    name          TEXT    NOT NULL,
+                    platform      TEXT,
+                    app_version   TEXT,
+                    last_sync_at  INTEGER,
+                    created_at    INTEGER DEFAULT (strftime('%s','now'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_devices_uuid ON devices(uuid);
             """)
         self._migrate_schema()
         log.info("Database schema initialized: %s", self.db_path)
@@ -307,6 +319,7 @@ class LocalDatabase:
             ("first_visit_time", "INTEGER"),
             ("transition_type", "INTEGER"),
             ("visit_duration", "REAL"),
+            ("device_id", "INTEGER"),
         ]
         with self._conn() as conn:
             for col_name, col_type in _new_columns:
@@ -329,6 +342,92 @@ class LocalDatabase:
                     tag_rows,
                 )
                 log.info("Schema migration: populated bookmark_tags from CSV (%d rows)", len(tag_rows))
+
+    # ═══════════════════════════════════════════════════════════
+    # Device registry CRUD
+    # ═══════════════════════════════════════════════════════════
+
+    def upsert_device(
+        self,
+        uuid: str,
+        name: str,
+        plat: str | None = None,
+        app_version: str | None = None,
+    ) -> int:
+        """Insert or update a device row by UUID. Returns devices.id."""
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO devices(uuid, name, platform, app_version)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(uuid) DO UPDATE SET
+                    name        = excluded.name,
+                    platform    = COALESCE(excluded.platform, platform),
+                    app_version = COALESCE(excluded.app_version, app_version)
+                """,
+                (uuid, name, plat, app_version),
+            )
+            row = conn.execute("SELECT id FROM devices WHERE uuid = ?", (uuid,)).fetchone()
+        return row[0]
+
+    def get_all_devices(self) -> list[dict]:
+        """Return all device rows as plain dicts, newest first."""
+        with self._conn(write=False) as conn:
+            rows = conn.execute(
+                "SELECT id, uuid, name, platform, app_version, last_sync_at, created_at "
+                "FROM devices ORDER BY created_at DESC"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_device_by_uuid(self, uuid: str) -> dict | None:
+        with self._conn(write=False) as conn:
+            row = conn.execute(
+                "SELECT id, uuid, name, platform, app_version, last_sync_at, created_at FROM devices WHERE uuid = ?",
+                (uuid,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def get_device_by_id(self, device_id: int) -> dict | None:
+        with self._conn(write=False) as conn:
+            row = conn.execute(
+                "SELECT id, uuid, name, platform, app_version, last_sync_at, created_at FROM devices WHERE id = ?",
+                (device_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def rename_device(self, device_id: int, new_name: str) -> None:
+        with self._conn() as conn:
+            conn.execute("UPDATE devices SET name = ? WHERE id = ?", (new_name, device_id))
+
+    def update_device_last_sync(self, device_id: int) -> None:
+        import time as _time
+
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE devices SET last_sync_at = ? WHERE id = ?",
+                (int(_time.time()), device_id),
+            )
+
+    def merge_device_records(self, from_id: int, to_id: int) -> int:
+        """Re-assign all history rows from *from_id* to *to_id*. Returns rows updated."""
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE history SET device_id = ? WHERE device_id = ?",
+                (to_id, from_id),
+            )
+            return cur.rowcount
+
+    def delete_device(self, device_id: int) -> None:
+        """Remove a device row; history rows get device_id=NULL."""
+        with self._conn() as conn:
+            conn.execute("UPDATE history SET device_id = NULL WHERE device_id = ?", (device_id,))
+            conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
+
+    def get_device_name_map(self) -> dict[int, str]:
+        """Return {device_id: device_name} for all known devices."""
+        with self._conn(write=False) as conn:
+            rows = conn.execute("SELECT id, name FROM devices").fetchall()
+        return {r[0]: r[1] for r in rows}
 
     # ── Hidden records CRUD ───────────────────────────────────
 
@@ -625,18 +724,38 @@ class LocalDatabase:
         try:
             rows = src_conn.execute(
                 "SELECT url, title, visit_time, visit_count, browser_type, profile_name, "
-                "metadata, typed_count, first_visit_time, transition_type, visit_duration "
+                "metadata, typed_count, first_visit_time, transition_type, visit_duration, "
+                "device_id "
                 "FROM history"
             ).fetchall()
             # Collect remote tombstones so we don't resurrect remotely-deleted records
             try:
-                remote_deleted = {r[0] for r in src_conn.execute("SELECT url FROM deleted_records").fetchall()}
+                remote_deleted = src_conn.execute("SELECT url, deleted_at FROM deleted_records").fetchall()
             except sqlite3.OperationalError:
-                remote_deleted = set()
+                remote_deleted = []
+            # Collect remote devices for ID remapping
+            try:
+                remote_devices = src_conn.execute(
+                    "SELECT id, uuid, name, platform, app_version FROM devices"
+                ).fetchall()
+            except sqlite3.OperationalError:
+                remote_devices = []
         finally:
             src_conn.close()
 
+        # Build remote_device_id -> local_device_id map
+        remote_to_local_id: dict[int, int] = {}
+        for dev in remote_devices:
+            local_id = self.upsert_device(
+                uuid=dev["uuid"],
+                name=dev["name"],
+                plat=dev["platform"],
+                app_version=dev["app_version"],
+            )
+            remote_to_local_id[dev["id"]] = local_id
+
         _cb(_("Merging {n} records from backup...").format(n=len(rows)))
+        _remote_deleted_urls = {r[0] for r in remote_deleted}
         records = [
             HistoryRecord(
                 url=r["url"],
@@ -650,9 +769,10 @@ class LocalDatabase:
                 first_visit_time=r["first_visit_time"],
                 transition_type=r["transition_type"],
                 visit_duration=r["visit_duration"],
+                device_id=remote_to_local_id.get(r["device_id"]) if r["device_id"] is not None else None,
             )
             for r in rows
-            if r["url"] not in remote_deleted
+            if r["url"] not in _remote_deleted_urls
         ]
         inserted = self.upsert_records(records)
 
@@ -663,7 +783,7 @@ class LocalDatabase:
             if remote_deleted:
                 conn.executemany(
                     "INSERT INTO deleted_records(url, deleted_at) VALUES(?, ?) ON CONFLICT(url) DO UPDATE SET deleted_at = MAX(deleted_at, excluded.deleted_at)",
-                    ((u,) for u in remote_deleted),
+                    ((r[0], r[1]) for r in remote_deleted),
                 )
 
         _cb(
@@ -860,8 +980,9 @@ class LocalDatabase:
                 INSERT INTO history
                     (url, title, visit_time, visit_count,
                      browser_type, profile_name, metadata, domain_id,
-                     typed_count, first_visit_time, transition_type, visit_duration)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     typed_count, first_visit_time, transition_type, visit_duration,
+                     device_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(browser_type, url, visit_time) DO UPDATE SET
                     title            = CASE WHEN excluded.title != '' THEN excluded.title
                                            ELSE title END,
@@ -870,7 +991,8 @@ class LocalDatabase:
                     typed_count      = COALESCE(excluded.typed_count, typed_count),
                     first_visit_time = COALESCE(excluded.first_visit_time, first_visit_time),
                     transition_type  = COALESCE(excluded.transition_type, transition_type),
-                    visit_duration   = COALESCE(excluded.visit_duration, visit_duration)
+                    visit_duration   = COALESCE(excluded.visit_duration, visit_duration),
+                    device_id        = COALESCE(device_id, excluded.device_id)
             """
             _BULK = 2000  # larger batches amortise per-executemany overhead
             for i in range(0, len(records), _BULK):
@@ -889,6 +1011,7 @@ class LocalDatabase:
                         r.first_visit_time,
                         r.transition_type,
                         r.visit_duration,
+                        r.device_id,
                     )
                     for j, r in enumerate(batch)
                 ]
@@ -1001,6 +1124,7 @@ class LocalDatabase:
         bookmarked_only: bool = False,
         has_annotation: bool = False,
         bookmark_tag: str = "",
+        device_ids: list[int] | None = None,
     ) -> Iterator[HistoryRecord]:
         """Incremental regex search iterator.
 
@@ -1035,6 +1159,7 @@ class LocalDatabase:
                 bookmarked_only=bookmarked_only,
                 has_annotation=has_annotation,
                 bookmark_tag=bookmark_tag,
+                device_ids=device_ids,
             )
 
             if not candidates:
@@ -1073,6 +1198,7 @@ class LocalDatabase:
         has_annotation: bool,
         bookmark_tag: str,
         _force_like: bool,
+        device_ids: list[int] | None = None,
     ) -> tuple[str, list, bool]:
         """Build the shared FROM/WHERE fragment used by both get_records and get_filtered_count.
 
@@ -1143,6 +1269,10 @@ class LocalDatabase:
             placeholders = ",".join("?" * len(domain_ids))
             extra_conditions.append(f"h.domain_id IN ({placeholders})")
             params.extend(domain_ids)
+        if device_ids:
+            placeholders = ",".join("?" * len(device_ids))
+            extra_conditions.append(f"h.device_id IN ({placeholders})")
+            params.extend(device_ids)
         if excludes:
             for ex in excludes:
                 extra_conditions.append("h.url NOT LIKE ? AND h.title NOT LIKE ?")
@@ -1183,6 +1313,7 @@ class LocalDatabase:
         bookmarked_only: bool = False,
         has_annotation: bool = False,
         bookmark_tag: str = "",
+        device_ids: list[int] | None = None,
         _force_like: bool = False,  # Internal use for FTS fallback
     ) -> list[HistoryRecord]:
         excl = excluded_ids or set()
@@ -1208,6 +1339,7 @@ class LocalDatabase:
                 bookmarked_only=bookmarked_only,
                 has_annotation=has_annotation,
                 bookmark_tag=bookmark_tag,
+                device_ids=device_ids,
             )
             results = []
             for record in iter_obj:
@@ -1219,7 +1351,8 @@ class LocalDatabase:
         _COLS = (
             "h.id, h.url, h.title, h.visit_time, h.visit_count, "
             "h.browser_type, h.profile_name, h.metadata, "
-            "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration"
+            "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
+            "h.device_id"
         )
         with self._conn() as conn:
             from_where, params, _use_fts = self._build_query_parts(
@@ -1237,6 +1370,7 @@ class LocalDatabase:
                 has_annotation=has_annotation,
                 bookmark_tag=bookmark_tag,
                 _force_like=_force_like,
+                device_ids=device_ids,
             )
             sql = f"SELECT {_COLS} {from_where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
             params += [limit, offset]
@@ -1257,6 +1391,7 @@ class LocalDatabase:
                         title_only=title_only,
                         url_only=url_only,
                         use_regex=False,
+                        device_ids=device_ids,
                         _force_like=True,
                     )
                 raise
@@ -1278,6 +1413,7 @@ class LocalDatabase:
         bookmarked_only: bool = False,
         has_annotation: bool = False,
         bookmark_tag: str = "",
+        device_ids: list[int] | None = None,
         _force_like: bool = False,  # Internal use for FTS fallback
     ) -> int:
         excl = excluded_ids or set()
@@ -1305,6 +1441,7 @@ class LocalDatabase:
                 bookmarked_only=bookmarked_only,
                 has_annotation=has_annotation,
                 bookmark_tag=bookmark_tag,
+                device_ids=device_ids,
             )
             count = sum(
                 1
@@ -1335,6 +1472,7 @@ class LocalDatabase:
                 has_annotation=has_annotation,
                 bookmark_tag=bookmark_tag,
                 _force_like=_force_like,
+                device_ids=device_ids,
             )
             sql = f"SELECT COUNT(*) {from_where}"
             try:
@@ -1352,6 +1490,7 @@ class LocalDatabase:
                         title_only=title_only,
                         url_only=url_only,
                         use_regex=False,
+                        device_ids=device_ids,
                         _force_like=True,
                     )
                 raise
@@ -1692,7 +1831,7 @@ class LocalDatabase:
         with self._conn() as conn:
             rows = conn.execute(
                 f"SELECT id, url, title, visit_time, visit_count, browser_type, profile_name, metadata, "
-                f"typed_count, first_visit_time, transition_type, visit_duration "
+                f"typed_count, first_visit_time, transition_type, visit_duration, device_id "
                 f"FROM history WHERE id IN ({placeholders})",
                 ids,
             ).fetchall()
@@ -1721,6 +1860,7 @@ class LocalDatabase:
 
     @staticmethod
     def _row_to_record(row) -> HistoryRecord:
+        keys = row.keys() if hasattr(row, "keys") else []
         return HistoryRecord(
             id=row["id"],
             url=row["url"],
@@ -1734,7 +1874,19 @@ class LocalDatabase:
             first_visit_time=row["first_visit_time"],
             transition_type=row["transition_type"],
             visit_duration=row["visit_duration"],
+            device_id=row["device_id"] if "device_id" in keys else None,
         )
+
+    def resolve_device_ids(self, name_or_uuid: str) -> list[int]:
+        """Return device.id values whose name contains or uuid starts with the given string."""
+        if not name_or_uuid:
+            return []
+        with self._conn(write=False) as conn:
+            rows = conn.execute(
+                "SELECT id FROM devices WHERE name LIKE ? OR uuid LIKE ?",
+                (f"%{name_or_uuid}%", f"{name_or_uuid}%"),
+            ).fetchall()
+        return [r[0] for r in rows]
 
 
 def _is_fts_special(keyword: str) -> bool:

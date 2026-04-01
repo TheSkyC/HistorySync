@@ -30,6 +30,7 @@ from src.views.settings.countdown import (
     fmt_countdown,
 )
 from src.views.settings.custom_paths_section import CustomPathsSection
+from src.views.settings.devices_section import DevicesSection
 from src.views.settings.import_section import ImportSection
 from src.views.settings.language_section import LanguageSection
 from src.views.settings.maintenance_section import MaintenanceSection
@@ -95,6 +96,7 @@ class SettingsPage(QWidget):
         self._sec_webdav = WebDavSection()
         self._sec_privacy = PrivacySection()
         self._sec_security = SecuritySection()
+        self._sec_devices = DevicesSection()
         self._sec_paths = CustomPathsSection()
         self._sec_import = ImportSection()
         self._sec_maint = MaintenanceSection()
@@ -105,6 +107,7 @@ class SettingsPage(QWidget):
         self._add_card(_("WEBDAV CLOUD BACKUP"), self._sec_webdav)
         self._add_card(_("PRIVACY & BLACKLIST"), self._sec_privacy)
         self._add_card(_("SECURITY"), self._sec_security)
+        self._add_card(_("CONNECTED DEVICES"), self._sec_devices)
         self._add_card(_("CUSTOM BROWSER PATHS"), self._sec_paths)
         self._add_card(_("IMPORT HISTORY DATABASE"), self._sec_import)
         self._add_card(_("DATABASE MAINTENANCE"), self._sec_maint)
@@ -212,6 +215,12 @@ class SettingsPage(QWidget):
         self._sec_security.load(cfg.master_password_hash)
         self._sec_security.password_changed.connect(self._on_master_password_changed)
         self._sec_security.lock_session_requested.connect(self._on_session_locked)
+
+        # Devices
+        self._load_devices()
+        self._sec_devices.rename_requested.connect(self._on_device_rename)
+        self._sec_devices.adopt_requested.connect(self._on_device_adopt)
+        self._sec_devices.delete_requested.connect(self._on_device_delete)
 
         self._compute_next_times()
         self._update_countdowns()
@@ -353,6 +362,8 @@ class SettingsPage(QWidget):
         hash_info = getattr(self._vm, "_last_hash_info", None)
         backups = getattr(self._vm, "_last_backup_list", []) if action == "list_backups" else None
         self._sec_webdav.on_action_finished(action, success, msg, hash_info, backups)
+        if action == "backup" and success:
+            self._load_devices()
 
     # ── Language handlers ─────────────────────────────────────
 
@@ -455,7 +466,8 @@ class SettingsPage(QWidget):
 
             db = self._vm._main_vm._db
             importer = DatabaseImporter(db)
-            import_vm = ImportViewModel(db, self)
+            local_device_id = getattr(self._vm._main_vm, "_local_device_id", None)
+            import_vm = ImportViewModel(db, local_device_id=local_device_id, parent=self)
             dlg = ImportDialog(import_vm, importer, self)
             dlg.import_finished.connect(self._on_import_finished)
             dlg.exec()
@@ -561,6 +573,57 @@ class SettingsPage(QWidget):
         self._sec_maint.set_resync_error(msg)
         self._set_status(_("✗ Full resync failed — check log"), "error")
 
+    # ── Device handlers ───────────────────────────────────────
+
+    def _load_devices(self) -> None:
+        try:
+            db = self._vm._main_vm._db
+            devices = db.get_all_devices()
+            current_id = getattr(self._vm._main_vm, "_local_device_id", None)
+            self._sec_devices.load(devices, current_id)
+        except Exception as exc:
+            log.warning("Failed to load devices: %s", exc)
+
+    def _on_device_rename(self, device_id: int, new_name: str) -> None:
+        try:
+            db = self._vm._main_vm._db
+            db.rename_device(device_id, new_name)
+            cfg = self._vm.get_config()
+            if device_id == getattr(self._vm._main_vm, "_local_device_id", None):
+                cfg.device_name = new_name
+                self._vm.save(cfg)
+            self._load_devices()
+            self._set_status(_("✓ Device renamed"), "success")
+        except Exception as exc:
+            log.error("Failed to rename device: %s", exc)
+            self._set_status(_("✗ Failed to rename device"), "error")
+
+    def _on_device_adopt(self, target_uuid: str) -> None:
+        try:
+            from src.services.device_manager import adopt_device
+
+            cfg = self._vm.get_config()
+            db = self._vm._main_vm._db
+            new_id = adopt_device(cfg, db, target_uuid)
+            self._vm._main_vm._local_device_id = new_id
+            self._vm._main_vm._webdav.set_device_id(new_id)
+            self._vm._main_vm._em.set_device_id(new_id)
+            self._load_devices()
+            self._set_status(_("✓ Device identity adopted"), "success")
+        except Exception as exc:
+            log.error("Failed to adopt device: %s", exc)
+            self._set_status(_("✗ Failed to adopt device identity"), "error")
+
+    def _on_device_delete(self, device_id: int) -> None:
+        try:
+            db = self._vm._main_vm._db
+            db.delete_device(device_id)
+            self._load_devices()
+            self._set_status(_("✓ Device deleted"), "success")
+        except Exception as exc:
+            log.error("Failed to delete device: %s", exc)
+            self._set_status(_("✗ Failed to delete device"), "error")
+
     # ── External API (called from main_window) ────────────────
 
     def add_blacklist_domain(self, domain: str):
@@ -581,6 +644,7 @@ class SettingsPage(QWidget):
             return
         self._next_backup_ts = compute_next_backup_ts(self._vm.get_config())
         self._update_countdowns()
+        self._load_devices()
 
     def _open_export_dialog(self):
         """Entry B: open ExportDialog with no pre-filled filter (export all)."""
