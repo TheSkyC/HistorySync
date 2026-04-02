@@ -208,7 +208,7 @@ def _cli_export_main(args: argparse.Namespace) -> int:
         fmt = args.format.lower()
     else:
         ext = output_path.suffix.lower()
-        fmt = {"json": "json", ".json": "json", ".html": "html", ".htm": "html"}.get(ext, "csv")
+        fmt = {".json": "json", ".html": "html", ".htm": "html"}.get(ext, "csv")
 
     # ── Columns ───────────────────────────────────────────────────────────────
     if args.columns:
