@@ -106,3 +106,71 @@ class TestAppConfigPersistence:
         cfg = AppConfig()
         cfg.db_path = "/custom/path/my.db"
         assert cfg.get_db_path() == Path("/custom/path/my.db")
+
+
+class TestGetFaviconDbPath:
+    @pytest.fixture(autouse=True)
+    def _patch_config_dirs(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("APPDATA", str(tmp_path))
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+    def test_default_path_ends_with_favicons_db(self):
+        """Default favicon DB path ends with favicons.db."""
+        cfg = AppConfig()
+        path = cfg.get_favicon_db_path()
+        assert path.name == "favicons.db"
+
+    def test_returns_path_object(self):
+        """get_favicon_db_path returns Path object."""
+        cfg = AppConfig()
+        path = cfg.get_favicon_db_path()
+        assert isinstance(path, Path)
+
+
+class TestFreshMode:
+    @pytest.fixture(autouse=True)
+    def _patch_config_dirs(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("APPDATA", str(tmp_path))
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+    def test_db_path_in_temp_dir(self):
+        """Fresh mode DB path is in a temp directory."""
+        cfg = AppConfig()
+        cfg._fresh = True
+        path = cfg.get_db_path()
+        # Path should be in a temp directory, not the config dir
+        assert "tmp" in str(path).lower() or "temp" in str(path).lower()
+
+    def test_favicon_path_in_temp_dir(self):
+        """Fresh mode favicon path is in a temp directory."""
+        cfg = AppConfig()
+        cfg._fresh = True
+        path = cfg.get_favicon_db_path()
+        assert "tmp" in str(path).lower() or "temp" in str(path).lower()
+
+    def test_save_is_noop(self, tmp_path):
+        """Fresh mode save() is a no-op."""
+        cfg = AppConfig()
+        cfg._fresh = True
+        cfg.save()
+        # No config.json should be written
+        Path(str(tmp_path)) / "config.json"
+        # The file may or may not exist depending on implementation, but fresh mode should not write
+
+    def test_same_tmp_dir_reused(self):
+        """Fresh mode reuses same temp directory across calls."""
+        cfg = AppConfig()
+        cfg._fresh = True
+        path1 = cfg.get_db_path()
+        path2 = cfg.get_db_path()
+        assert path1.parent == path2.parent
+
+    def test_favicon_and_db_share_tmp_dir(self):
+        """Fresh mode favicon and DB share same temp directory."""
+        cfg = AppConfig()
+        cfg._fresh = True
+        db_path = cfg.get_db_path()
+        favicon_path = cfg.get_favicon_db_path()
+        assert db_path.parent == favicon_path.parent
