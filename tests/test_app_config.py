@@ -136,19 +136,22 @@ class TestFreshMode:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
     def test_db_path_in_temp_dir(self):
-        """Fresh mode DB path is in a temp directory."""
+        """Fresh mode DB path is inside the system temp directory."""
+        import tempfile
+
         cfg = AppConfig()
         cfg._fresh = True
         path = cfg.get_db_path()
-        # Path should be in a temp directory, not the config dir
-        assert "tmp" in str(path).lower() or "temp" in str(path).lower()
+        assert str(path).startswith(tempfile.gettempdir())
 
     def test_favicon_path_in_temp_dir(self):
-        """Fresh mode favicon path is in a temp directory."""
+        """Fresh mode favicon path is inside the system temp directory."""
+        import tempfile
+
         cfg = AppConfig()
         cfg._fresh = True
         path = cfg.get_favicon_db_path()
-        assert "tmp" in str(path).lower() or "temp" in str(path).lower()
+        assert str(path).startswith(tempfile.gettempdir())
 
     def test_save_is_noop(self, tmp_path):
         """Fresh mode save() is a no-op."""
