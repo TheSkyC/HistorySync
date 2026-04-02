@@ -17,6 +17,7 @@ from src.models.history_record import AnnotationRecord, BackupStats, BookmarkRec
 from src.utils.constants import DB_BATCH_SIZE
 from src.utils.i18n_core import _
 from src.utils.logger import get_logger
+from src.utils.url_utils import extract_host as _extract_url_host
 
 log = get_logger("local_db")
 
@@ -81,26 +82,6 @@ class DbStats:
         if self.page_count == 0:
             return 0.0
         return self.free_page_count / self.page_count * 100
-
-
-def _extract_url_host(url: str) -> str | None:
-    """Extract the hostname from a URL string, stripping scheme, port, path, and query.
-
-    Returns ``None`` for empty, malformed, or non-HTTP URLs so callers can
-    safely skip those rows without extra guards.
-    """
-    if not url:
-        return None
-    try:
-        s = url
-        if "://" in s:
-            s = s.split("://", 1)[1]
-        host = s.split("/")[0].split("?")[0].split("#")[0]
-        if ":" in host and not host.startswith("["):
-            host = host.rsplit(":", 1)[0]
-        return host.lower() or None
-    except Exception:
-        return None
 
 
 class LocalDatabase:

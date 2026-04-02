@@ -20,6 +20,7 @@ from src.utils.constants import APP_NAME, APP_VERSION
 from src.utils.i18n_core import _
 from src.utils.logger import get_logger
 from src.utils.path_helper import get_templates_dir
+from src.utils.url_utils import extract_display_domain as _extract_domain
 
 log = get_logger("exporter")
 
@@ -59,25 +60,6 @@ _COLUMN_HEADERS: dict[str, str] = {
     "visit_duration": "Visit Duration (s)",
     "device_name": "Device",
 }
-
-
-def _extract_domain(url: str) -> str:
-    """Quick domain extractor — mirrors LocalDatabase._extract_url_host logic."""
-    if not url:
-        return ""
-    try:
-        s = url
-        if "://" in s:
-            s = s.split("://", 1)[1]
-        host = s.split("/")[0].split("?")[0].split("#")[0]
-        if ":" in host and not host.startswith("["):
-            host = host.rsplit(":", 1)[0]
-        host = host.lower()
-        if host.startswith("www."):
-            host = host[4:]
-        return host
-    except Exception:
-        return ""
 
 
 def _extract_root_domain(domain: str) -> str:
