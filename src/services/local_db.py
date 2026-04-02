@@ -1177,8 +1177,13 @@ class LocalDatabase:
         if not excl:
             return False
         conn.execute("CREATE TEMP TABLE IF NOT EXISTS _excl_ids (id INTEGER PRIMARY KEY)")
-        conn.execute("DELETE FROM _excl_ids")
-        conn.executemany("INSERT OR IGNORE INTO _excl_ids VALUES(?)", ((i,) for i in excl))
+        # Skip the expensive DELETE + re-insert when the set hasn't changed since
+        # the last call on this connection (common in UI scroll / pagination).
+        cached: set[int] | None = getattr(conn, "_excl_ids_cache", None)
+        if cached != excl:
+            conn.execute("DELETE FROM _excl_ids")
+            conn.executemany("INSERT OR IGNORE INTO _excl_ids VALUES(?)", ((i,) for i in excl))
+            conn._excl_ids_cache = excl  # type: ignore[attr-defined]
         return True
 
     @staticmethod
