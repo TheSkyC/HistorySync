@@ -1485,7 +1485,6 @@ class LocalDatabase:
         excludes: list[str] | None = None,
         title_only: bool = False,
         url_only: bool = False,
-        use_regex: bool = False,
         bookmarked_only: bool = False,
         has_annotation: bool = False,
         bookmark_tag: str = "",
@@ -1493,44 +1492,6 @@ class LocalDatabase:
         _force_like: bool = False,  # Internal use for FTS fallback
     ) -> int:
         excl = excluded_ids or set()
-
-        if use_regex and keyword:
-            try:
-                prog = re.compile(keyword, re.IGNORECASE)
-            except Exception:
-                return 0
-
-            MAX_CANDIDATES = 5000
-            candidates = self.get_records(
-                keyword="",
-                browser_type=browser_type,
-                date_from=date_from,
-                date_to=date_to,
-                limit=MAX_CANDIDATES,
-                offset=0,
-                excluded_ids=excl,
-                domain_ids=domain_ids,
-                excludes=excludes,
-                title_only=False,
-                url_only=False,
-                use_regex=False,
-                bookmarked_only=bookmarked_only,
-                has_annotation=has_annotation,
-                bookmark_tag=bookmark_tag,
-                device_ids=device_ids,
-            )
-            count = sum(
-                1
-                for r in candidates
-                if (
-                    prog.search(r.title or "")
-                    if title_only
-                    else prog.search(r.url)
-                    if url_only
-                    else (prog.search(r.title or "") or prog.search(r.url))
-                )
-            )
-            return MAX_CANDIDATES if len(candidates) >= MAX_CANDIDATES else count
 
         with self._conn() as conn:
             from_where, params, _use_fts = self._build_query_parts(
@@ -1565,7 +1526,6 @@ class LocalDatabase:
                         excludes=excludes,
                         title_only=title_only,
                         url_only=url_only,
-                        use_regex=False,
                         device_ids=device_ids,
                         _force_like=True,
                     )

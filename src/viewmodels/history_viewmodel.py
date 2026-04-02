@@ -369,7 +369,6 @@ class HistoryTableModel(QAbstractTableModel):
                 excludes=self._excludes,
                 title_only=self._title_only,
                 url_only=self._url_only,
-                use_regex=False,  # Non-regex path
                 bookmarked_only=self._bookmarked_only,
                 has_annotation=self._has_annotation,
                 bookmark_tag=self._bookmark_tag,

@@ -406,7 +406,6 @@ class ExportDialog(QDialog):
                 excludes=params.excludes,
                 title_only=params.title_only,
                 url_only=params.url_only,
-                use_regex=params.use_regex,
                 bookmarked_only=params.bookmarked_only,
                 has_annotation=params.has_annotation,
                 bookmark_tag=params.bookmark_tag,
