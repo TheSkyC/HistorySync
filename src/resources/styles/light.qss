@@ -244,6 +244,38 @@ QLineEdit#search_box[regex="true"]:focus {
     border-color: #b45309;
 }
 
+/* QPlainTextEdit used as single-line search box */
+QPlainTextEdit#search_box {
+    background-color: #ffffff;
+    border: 1px solid #c8ccd8;
+    border-radius: 7px;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+
+QPlainTextEdit#search_box:focus {
+    border-color: #2563eb;
+}
+
+QPlainTextEdit#search_box[regex="true"] {
+    border-color: #d97706;
+    background-color: #fffbf0;
+}
+
+QPlainTextEdit#search_box[regex="true"]:focus {
+    border-color: #b45309;
+}
+
+QWidget#search_box_container {
+    background: transparent;
+    border: none;
+}
+
+QWidget#search_box_container QToolButton {
+    background: transparent;
+    border: none;
+}
+
 /* ── 下拉框 ────────────────────────────────────────── */
 QComboBox {
     background-color: #ffffff;
@@ -787,4 +819,61 @@ QLabel#sidebar_section_title {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 1px;
+}
+
+/* ── Suggestion dropdown ─────────────────────────────── */
+QListView#suggestion_dropdown {
+    background-color: #ffffff;
+    border: 1px solid #c8ccd8;
+    border-radius: 6px;
+    padding: 2px 0px;
+    outline: none;
+}
+
+QListView#suggestion_dropdown::item {
+    padding: 0px;
+    border: none;
+    border-radius: 4px;
+    margin: 1px 4px;
+}
+
+QListView#suggestion_dropdown::item:hover,
+QListView#suggestion_dropdown::item:selected {
+    background-color: #eef0f5;
+}
+
+/* ── Operator footer ─────────────────────────────────── */
+QWidget#operator_footer {
+    background-color: #f5f6fa;
+    border-top: 1px solid #d0d4de;
+}
+
+QLabel#footer_label {
+    color: #9098b0;
+    font-size: 11px;
+    padding-left: 2px;
+}
+
+QPushButton#operator_chip {
+    background-color: #eaecf2;
+    color: #5a6070;
+    border: 1px solid #c8ccd8;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 11px;
+    min-height: 20px;
+    max-height: 20px;
+}
+
+QPushButton#operator_chip:hover {
+    background-color: #ede9fe;
+    color: #6d28d9;
+    border-color: #a855f7;
+}
+
+QPushButton#operator_chip:focus {
+    background-color: #f3e8ff;
+    color: #7c3aed;
+    border-color: #a855f7;
+    outline: none;
 }

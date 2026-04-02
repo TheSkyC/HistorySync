@@ -1746,6 +1746,22 @@ class LocalDatabase:
             rows = conn.execute("SELECT DISTINCT browser_type FROM history ORDER BY browser_type").fetchall()
             return [r[0] for r in rows]
 
+    def get_top_domains(self, limit: int = 30) -> list[tuple[str, int]]:
+        """Return [(host, visit_count), ...] ordered by visit count descending."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT d.host, COUNT(h.id) AS cnt
+                FROM history h
+                JOIN domains d ON h.domain_id = d.id
+                GROUP BY d.id
+                ORDER BY cnt DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [(r[0], r[1]) for r in rows]
+
     def get_all_backup_stats(self) -> list[BackupStats]:
         with self._conn() as conn:
             rows = conn.execute("""

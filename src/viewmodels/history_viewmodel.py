@@ -14,6 +14,7 @@ from PySide6.QtCore import (
     QModelIndex,
     QObject,
     Qt,
+    QThread,
     QTimer,
     Signal,
     Slot,
@@ -655,6 +656,7 @@ class HistoryViewModel(QObject):
     browser_list_changed = Signal(list)
     status_message = Signal(str)
     ui_config_changed = Signal(list, dict)
+    top_domains_loaded = Signal(list)  # list[tuple[str, int]]
 
     def __init__(self, db: LocalDatabase, favicon_manager: FaviconManager, visible_columns=None, parent=None):
         super().__init__(parent)
@@ -669,6 +671,25 @@ class HistoryViewModel(QObject):
         self.table_model.reload()
         self._refresh_browser_list()
         self.model_ready.emit()
+        self._load_top_domains_async()
+
+    def _load_top_domains_async(self):
+        """Fetch top domains in a background thread and emit top_domains_loaded."""
+        db = self._db
+
+        class _Worker(QThread):
+            done = Signal(list)
+
+            def run(self):
+                try:
+                    self.done.emit(db.get_top_domains(30))
+                except Exception:
+                    self.done.emit([])
+
+        self._domain_worker = _Worker(self)
+        self._domain_worker.done.connect(self.top_domains_loaded)
+        self._domain_worker.done.connect(self._domain_worker.deleteLater)
+        self._domain_worker.start()
 
     def search(
         self,

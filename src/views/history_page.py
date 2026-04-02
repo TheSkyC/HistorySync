@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QMenu,
     QMessageBox,
     QPushButton,
@@ -39,6 +38,7 @@ from src.utils.search_parser import parse_query
 from src.utils.theme_manager import ThemeManager
 from src.viewmodels.history_viewmodel import ANNOTATION_ROLE, BOOKMARK_ROLE, HistoryViewModel
 from src.views.annotation_dialog import AnnotationDialog
+from src.views.search_autocomplete import SmartSearchLineEdit
 
 log = get_logger("view.history")
 
@@ -95,64 +95,6 @@ class _IconHeaderView(QHeaderView):
         """Show column visibility configuration menu."""
         if self._page:
             self._page._show_column_config_menu(self.mapToGlobal(pos), self.logicalIndexAt(pos))
-
-
-class SearchLineEdit(QLineEdit):
-    """Custom search box with regex toggle and help icons."""
-
-    regex_toggled = Signal(bool)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._use_regex = False
-        self.setClearButtonEnabled(True)
-        self.setPlaceholderText(_("Search title or URL..."))
-
-        # Regex action
-        self._regex_act = self.addAction(get_icon("regex"), QLineEdit.TrailingPosition)
-        self._regex_act.setCheckable(True)
-        self._regex_act.setToolTip(_("Regex Mode"))
-        self._regex_act.toggled.connect(self._toggle_regex)
-
-        # Help action
-        self._help_act = self.addAction(get_icon("help-circle"), QLineEdit.TrailingPosition)
-        self._help_act.setToolTip(_("Search Syntax Help"))
-        self._help_act.triggered.connect(self._show_help)
-
-    def _toggle_regex(self, checked: bool):
-        self._use_regex = checked
-        if checked:
-            self.setPlaceholderText(_("Regex: e.g. github\\.com.*release"))
-            self.setProperty("regex", True)
-        else:
-            self.setPlaceholderText(_("Search title or URL..."))
-            self.setProperty("regex", False)
-        self.style().unpolish(self)
-        self.style().polish(self)
-        self.regex_toggled.emit(checked)
-
-    def _show_help(self):
-        msg = _(
-            "<b>Advanced Search Syntax:</b><br><br>"
-            "• <code>domain:example.com</code> - Filter by domain<br>"
-            "• <code>after:2023-01-01</code> - Visit after date<br>"
-            "• <code>before:2023-12-31</code> - Visit before date<br>"
-            "• <code>-keyword</code> - Exclude term<br>"
-            "• <code>title:keyword</code> - Search only titles<br>"
-            "• <code>url:keyword</code> - Search only URLs<br>"
-            "• <code>browser:chrome</code> - Filter by browser type<br>"
-            "• <code>device:laptop</code> - Filter by device name<br><br>"
-            "<b>Bookmark Filters:</b><br>"
-            "• <code>is:bookmarked</code> - Only bookmarked records<br>"
-            "• <code>has:note</code> - Only records with annotations<br>"
-            "• <code>tag:work</code> - Filter by bookmark tag<br><br>"
-            "<i>Tip: You can combine these tokens with regular text.</i>"
-        )
-        QMessageBox.information(self, _("Search Help"), msg)
-
-    @property
-    def use_regex(self) -> bool:
-        return self._use_regex
 
 
 class BookmarkBadgeDelegate(QStyledItemDelegate):
@@ -428,10 +370,11 @@ class HistoryPage(QWidget):
 
         row1 = QHBoxLayout()
         row1.setSpacing(0)
-        self._search = SearchLineEdit()
+        self._search = SmartSearchLineEdit()
         self._search.setObjectName("search_box")
         self._search.textChanged.connect(lambda _: self._debounce.start(_DEBOUNCE_MS))
         self._search.regex_toggled.connect(self._do_search)
+        self._search.search_submitted.connect(self._do_search)
         row1.addWidget(self._search)
 
         row2 = QHBoxLayout()
@@ -647,6 +590,8 @@ class HistoryPage(QWidget):
         self._vm.browser_list_changed.connect(self._update_browser_combo)
         self._vm.status_message.connect(self._status_label.setText)
         self._vm.table_model.columns_changed.connect(self._on_columns_changed)
+        self._vm.top_domains_loaded.connect(self._search.set_top_domains)
+        self._vm.browser_list_changed.connect(self._search.set_available_browsers)
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
         # Trigger regex incremental loading when scrolling to the bottom
         self._table.verticalScrollBar().valueChanged.connect(self._on_scroll_check_load_more)
@@ -898,7 +843,7 @@ class HistoryPage(QWidget):
 
     def _reset_filters(self):
         self._search.clear()
-        self._search._regex_act.setChecked(False)
+        self._search._btn_regex.setChecked(False)
         self._browser_combo.setCurrentIndex(0)
         self._date_from.setDate(QDate(2020, 1, 1))
         self._date_to.setDate(QDate.currentDate())
