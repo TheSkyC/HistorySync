@@ -737,7 +737,12 @@ class LocalDatabase:
         src_path: Path,
         progress_cb: Callable[[str], None] | None = None,
     ) -> int:
-        """Merge history records from *src_path* into this database."""
+        """Merge history records from *src_path* into this database.
+
+        Rows are streamed from the source in batches of ``_MERGE_BATCH`` to
+        avoid loading the entire backup into memory at once.
+        """
+        _MERGE_BATCH = 5000
 
         def _cb(msg: str) -> None:
             if progress_cb:
@@ -748,12 +753,6 @@ class LocalDatabase:
         src_conn = sqlite3.connect(str(src_path), timeout=30)
         src_conn.row_factory = sqlite3.Row
         try:
-            rows = src_conn.execute(
-                "SELECT url, title, visit_time, visit_count, browser_type, profile_name, "
-                "metadata, typed_count, first_visit_time, transition_type, visit_duration, "
-                "device_id "
-                "FROM history"
-            ).fetchall()
             # Collect remote tombstones so we don't resurrect remotely-deleted records
             try:
                 remote_deleted = src_conn.execute("SELECT url, deleted_at FROM deleted_records").fetchall()
@@ -766,41 +765,56 @@ class LocalDatabase:
                 ).fetchall()
             except sqlite3.OperationalError:
                 remote_devices = []
+
+            # Build remote_device_id -> local_device_id map before streaming rows
+            remote_to_local_id: dict[int, int] = {}
+            for dev in remote_devices:
+                local_id = self.upsert_device(
+                    uuid=dev["uuid"],
+                    name=dev["name"],
+                    plat=dev["platform"],
+                    app_version=dev["app_version"],
+                )
+                remote_to_local_id[dev["id"]] = local_id
+
+            total_src: int = src_conn.execute("SELECT COUNT(*) FROM history").fetchone()[0]
+            _cb(_("Merging {n} records from backup...").format(n=total_src))
+
+            _remote_deleted_urls = {r[0] for r in remote_deleted}
+            cursor = src_conn.execute(
+                "SELECT url, title, visit_time, visit_count, browser_type, profile_name, "
+                "metadata, typed_count, first_visit_time, transition_type, visit_duration, "
+                "device_id "
+                "FROM history"
+            )
+
+            inserted = 0
+            while True:
+                raw_batch = cursor.fetchmany(_MERGE_BATCH)
+                if not raw_batch:
+                    break
+                records = [
+                    HistoryRecord(
+                        url=r["url"],
+                        title=r["title"] or "",
+                        visit_time=r["visit_time"],
+                        visit_count=r["visit_count"] or 1,
+                        browser_type=r["browser_type"],
+                        profile_name=r["profile_name"] or "",
+                        metadata=r["metadata"] or "",
+                        typed_count=r["typed_count"],
+                        first_visit_time=r["first_visit_time"],
+                        transition_type=r["transition_type"],
+                        visit_duration=r["visit_duration"],
+                        device_id=remote_to_local_id.get(r["device_id"]) if r["device_id"] is not None else None,
+                    )
+                    for r in raw_batch
+                    if r["url"] not in _remote_deleted_urls
+                ]
+                inserted += self.upsert_records(records)
+
         finally:
             src_conn.close()
-
-        # Build remote_device_id -> local_device_id map
-        remote_to_local_id: dict[int, int] = {}
-        for dev in remote_devices:
-            local_id = self.upsert_device(
-                uuid=dev["uuid"],
-                name=dev["name"],
-                plat=dev["platform"],
-                app_version=dev["app_version"],
-            )
-            remote_to_local_id[dev["id"]] = local_id
-
-        _cb(_("Merging {n} records from backup...").format(n=len(rows)))
-        _remote_deleted_urls = {r[0] for r in remote_deleted}
-        records = [
-            HistoryRecord(
-                url=r["url"],
-                title=r["title"] or "",
-                visit_time=r["visit_time"],
-                visit_count=r["visit_count"] or 1,
-                browser_type=r["browser_type"],
-                profile_name=r["profile_name"] or "",
-                metadata=r["metadata"] or "",
-                typed_count=r["typed_count"],
-                first_visit_time=r["first_visit_time"],
-                transition_type=r["transition_type"],
-                visit_duration=r["visit_duration"],
-                device_id=remote_to_local_id.get(r["device_id"]) if r["device_id"] is not None else None,
-            )
-            for r in rows
-            if r["url"] not in _remote_deleted_urls
-        ]
-        inserted = self.upsert_records(records)
 
         # Apply local tombstones — remove any history rows that were hard-deleted on this device
         with self._conn() as conn:
@@ -814,7 +828,7 @@ class LocalDatabase:
 
         _cb(
             _("Merge complete: {inserted} new records added (of {total} in backup).").format(
-                inserted=inserted, total=len(records)
+                inserted=inserted, total=total_src
             )
         )
         return inserted
