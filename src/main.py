@@ -425,7 +425,9 @@ def _headless_main(args: argparse.Namespace) -> int:
         log.warning("Headless shutdown error: %s", exc)
 
     if errors:
-        pass
+        log.error("Headless: %d operation(s) failed:", len(errors))
+        for i, err in enumerate(errors, 1):
+            log.error("  [%d] %s", i, err)
 
     log.info("HistorySync headless exit, code=%d", exit_code[0])
     return exit_code[0]
