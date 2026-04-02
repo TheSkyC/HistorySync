@@ -512,7 +512,7 @@ class LocalDatabase:
         """Return a snapshot of size and content metrics (read-only)."""
         file_size = self.db_path.stat().st_size if self.db_path.exists() else 0
 
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             ps = conn.execute("PRAGMA page_size").fetchone()[0]
             pc = conn.execute("PRAGMA page_count").fetchone()[0]
             fpc = conn.execute("PRAGMA freelist_count").fetchone()[0]
