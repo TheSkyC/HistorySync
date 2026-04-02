@@ -649,17 +649,51 @@ def _gui_main(args: argparse.Namespace) -> None:
 
 
 def _is_startup_launch() -> bool:
+    """Detect whether this process was launched automatically at system startup.
+
+    Covers:
+    - Windows: Task Scheduler / winlogon parent process
+    - macOS:   launchd (LAUNCH_DAEMON / LAUNCH_AGENT env vars)
+    - Linux:   systemd (INVOCATION_ID), OpenRC (/run/openrc/softlevel),
+               runit/s6/dinit (parent PID 1 with matching process name),
+               and generic XDG autostart (DESKTOP_AUTOSTART_ID)
+    """
     try:
         if sys.platform == "win32":
             import psutil
 
             parent_name = psutil.Process(os.getpid()).parent().name().lower()
             return any(k in parent_name for k in ("taskeng", "svchost", "winlogon", "taskschd"))
-        # Both systemd and launchd set these variables
-        return (
-            "INVOCATION_ID" in os.environ  # systemd
-            or "LAUNCH_DAEMON" in os.environ  # launchd
-        )
+
+        if sys.platform == "darwin":
+            return "LAUNCH_DAEMON" in os.environ or "LAUNCH_AGENT" in os.environ
+
+        # Linux: try each init system in order of cheapness
+        # 1. systemd
+        if "INVOCATION_ID" in os.environ:
+            return True
+
+        # 2. XDG autostart (desktop session autostart via .desktop files)
+        if "DESKTOP_AUTOSTART_ID" in os.environ:
+            return True
+
+        # 3. OpenRC — sets RUNLEVEL or writes /run/openrc/softlevel
+        if Path("/run/openrc/softlevel").exists():
+            return True
+
+        # 4. runit / s6 / dinit — PID 1 is the supervision suite itself
+        try:
+            import psutil
+
+            parent = psutil.Process(os.getpid()).parent()
+            if parent is not None and parent.pid == 1:
+                parent_name = parent.name().lower()
+                if any(k in parent_name for k in ("runit", "s6", "dinit", "shepherd")):
+                    return True
+        except Exception:
+            pass
+
+        return False
     except Exception:
         return False
 

@@ -24,6 +24,8 @@ more-itertools==10.8.0
     # via
     #   jaraco-classes
     #   jaraco-functools
+psutil==7.2.2
+    # via -r requirements.in
 pyside6==6.10.2
     # via -r requirements.in
 pyside6-addons==6.10.2
