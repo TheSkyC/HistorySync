@@ -1828,7 +1828,7 @@ class LocalDatabase:
             return cursor.rowcount
 
     def delete_records_by_browser(self, browser_type: str) -> int:
-        """删除指定浏览器的所有历史记录及对应的 backup_stats 条目。"""
+        """Delete all history records for a specific browser and corresponding backup_stats entries."""
         with self._conn() as conn:
             urls = conn.execute("SELECT url FROM history WHERE browser_type = ?", (browser_type,)).fetchall()
             if urls:

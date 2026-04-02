@@ -25,11 +25,11 @@ def setup_logger(log_dir: Path, level: int = logging.INFO) -> logging.Logger:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # 文件 Handler：最大 5MB，保留 3 个滚动文件
+    # File handler: max 5MB, keep 3 rotating backup files
     fh = RotatingFileHandler(log_file, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT, encoding="utf-8")
     fh.setFormatter(fmt)
 
-    # 控制台 Handler
+    # Console handler
     sh = logging.StreamHandler(sys.stdout)
     sh.setFormatter(fmt)
 
@@ -41,7 +41,7 @@ def setup_logger(log_dir: Path, level: int = logging.INFO) -> logging.Logger:
 
 
 def get_logger(name: str = "") -> logging.Logger:
-    """获取子 logger"""
+    """Get a child logger."""
     if name:
         return logging.getLogger(f"{APP_NAME}.{name}")
     return _logger

@@ -16,16 +16,16 @@ from src.utils.logger import get_logger
 
 log = get_logger("browser_scanner")
 
-# 扫描深度限制
+# Maximum scan depth
 MAX_SCAN_DEPTH = 5
 
-# 向上查找父目录的最大层数
+# Maximum number of parent directories to look up
 MAX_PARENT_LOOKUP = MAX_SCAN_DEPTH
 
 # SQLite magic header
 SQLITE_MAGIC = b"SQLite format 3\x00"
 
-# 通用目录名称（跳过这些作为浏览器名称）
+# Generic directory names (skipped when extracting browser names)
 GENERIC_NAMES = {
     "local",
     "appdata",
@@ -44,7 +44,7 @@ GENERIC_NAMES = {
     "tmp",
 }
 
-# 跳过的目录（不扫描）
+# Directories to skip during scanning
 SKIP_DIRS = {
     "temp",
     "tmp",
@@ -65,29 +65,29 @@ SKIP_DIRS = {
     "build",
 }
 
-# 浏览器数据特征词（优先处理）
+# Keywords indicating browser data (prioritized during scan)
 BROWSER_KEYWORDS = {"user data", "profiles", "user", "browser", "application support"}
 
 
 @dataclass
 class DetectedBrowser:
-    """扫描发现的浏览器"""
+    """Represents a detected browser."""
 
-    browser_type: str  # 自动生成ID，如"detected_liebao"
-    display_name: str  # 从路径提取，如"Liebao Browser"
+    browser_type: str  # Auto-generated ID, e.g., "detected_liebao"
+    display_name: str  # Extracted from path, e.g., "Liebao Browser"
     engine: str  # "chromium" | "firefox" | "safari"
-    data_dir: Path  # 数据目录路径
-    history_path: Path  # History文件路径
-    profiles: list[str] = field(default_factory=list)  # profile列表
-    confidence: float = 1.0  # 置信度（0-1）
+    data_dir: Path  # Path to the data directory
+    history_path: Path  # Path to the History/places.sqlite file
+    profiles: list[str] = field(default_factory=list)  # List of profile names
+    confidence: float = 1.0  # Detection confidence (0.0 - 1.0)
 
 
 ProgressCallback = Callable[[str, int, int], None]  # (status, current, total)
-BrowserFoundCallback = Callable[[DetectedBrowser], None]  # 发现浏览器时的回调
+BrowserFoundCallback = Callable[[DetectedBrowser], None]  # Callback when a browser is found
 
 
 class BrowserScanner:
-    """智能浏览器扫描器"""
+    """Smart browser scanner."""
 
     def __init__(self):
         self._found_browsers: list[DetectedBrowser] = []
@@ -95,17 +95,17 @@ class BrowserScanner:
         self._browser_found_callback: BrowserFoundCallback | None = None
         self._stop_event = threading.Event()
 
-        # 根据平台设置扫描深度
+        # Set scan depth based on the platform
         system = platform.system()
         if system == "Windows":
-            self._max_scan_depth = 4  # Windows 需要 depth=4
+            self._max_scan_depth = 4  # Windows requires depth=4
         else:
-            self._max_scan_depth = 3  # macOS/Linux 使用 depth=3
+            self._max_scan_depth = 3  # macOS/Linux uses depth=3
 
         self._max_parent_lookup = self._max_scan_depth
 
     def request_stop(self) -> None:
-        """请求停止扫描"""
+        """Request to stop the scanning process."""
         self._stop_event.set()
 
     def scan(
@@ -114,23 +114,23 @@ class BrowserScanner:
         browser_found_callback: BrowserFoundCallback | None = None,
     ) -> list[DetectedBrowser]:
         """
-        扫描常见目录，发现浏览器
+        Scans common directories to discover browsers.
 
         Returns:
-            发现的浏览器列表
+            A list of detected browsers.
         """
         self._found_browsers = []
         self._scanned_paths = set()
         self._browser_found_callback = browser_found_callback
         self._stop_event.clear()
 
-        # 获取扫描起点
+        # Get scan root directories
         scan_roots = self._get_scan_roots()
         log.info(f"Starting browser scan in {len(scan_roots)} root directories")
 
         scanned_dirs = 0
 
-        # BFS扫描每个根目录
+        # BFS scan for each root directory
         for root in scan_roots:
             if not root.exists():
                 continue
@@ -149,19 +149,19 @@ class BrowserScanner:
             )
             scanned_dirs += scanned
 
-        # 去重：合并同一浏览器的不同profile
+        # Deduplicate: merge different profiles of the same browser
         self._deduplicate_browsers()
 
         log.info(f"Scan complete: found {len(self._found_browsers)} browsers")
         return self._found_browsers
 
     def _get_scan_roots(self) -> list[Path]:
-        """获取扫描起点目录"""
+        """Get root directories to start scanning."""
         roots = []
         system = platform.system()
 
         if system == "Windows":
-            # Windows: %LOCALAPPDATA% 和 %APPDATA%
+            # Windows: %LOCALAPPDATA% and %APPDATA%
             if localappdata := os.environ.get("LOCALAPPDATA"):
                 roots.append(Path(localappdata))
             if appdata := os.environ.get("APPDATA"):
@@ -171,7 +171,7 @@ class BrowserScanner:
             home = Path.home()
             roots.append(home / "Library" / "Application Support")
         else:
-            # Linux: ~/.config 和 ~/.local/share
+            # Linux: ~/.config and ~/.local/share
             home = Path.home()
             roots.append(home / ".config")
             roots.append(home / ".local" / "share")
@@ -179,7 +179,7 @@ class BrowserScanner:
         return roots
 
     def _scan_directory_bfs(self, root: Path, progress_callback: Callable[[int, int], None] | None = None) -> int:
-        """BFS扫描目录"""
+        """Perform BFS scan on a directory."""
         queue = deque([(root, 0)])  # (path, depth)
         scanned_count = 0
 
@@ -202,16 +202,15 @@ class BrowserScanner:
                 continue
             self._scanned_paths.add(resolved)
 
-            # 检查是否包含浏览器数据库
+            # Check if the directory contains a browser database
             self._check_for_browser_db(current_path)
 
-            # 深度限制
+            # Apply depth limit
             if depth >= self._max_scan_depth:
                 continue
 
-            # 继续扫描子目录
+            # Continue scanning subdirectories
             try:
-                # 优先处理包含浏览器关键词的目录
                 subdirs = []
                 priority_subdirs = []
 
@@ -222,19 +221,20 @@ class BrowserScanner:
                     if item.is_symlink():
                         continue
 
-                    # 跳过隐藏目录和特定目录
+                    # Skip hidden and specific directories
                     if item.name.startswith("."):
                         continue
                     if item.name.lower() in SKIP_DIRS:
                         continue
 
                     item_lower = item.name.lower()
+                    # Prioritize directories containing browser keywords
                     if any(kw in item_lower for kw in BROWSER_KEYWORDS):
                         priority_subdirs.append((item, depth + 1))
                     else:
                         subdirs.append((item, depth + 1))
 
-                # 优先队列：先处理包含关键词的目录
+                # Priority queue: process directories with keywords first
                 for item in priority_subdirs + subdirs:
                     queue.append(item)
 
@@ -244,19 +244,19 @@ class BrowserScanner:
         return scanned_count
 
     def _check_for_browser_db(self, path: Path) -> None:
-        """检查目录是否包含浏览器数据库"""
-        # 检查 Chromium History 文件
+        """Check if the directory contains a browser database."""
+        # Check for Chromium History file
         history_file = path / "History"
         if history_file.exists() and self._is_valid_sqlite(history_file):
             self._process_chromium_browser(history_file)
 
-        # 检查 Firefox places.sqlite 文件
+        # Check for Firefox places.sqlite file
         places_file = path / "places.sqlite"
         if places_file.exists() and self._is_valid_sqlite(places_file):
             self._process_firefox_browser(places_file)
 
     def _is_valid_sqlite(self, file_path: Path) -> bool:
-        """验证文件是否为有效的SQLite数据库"""
+        """Verify if the file is a valid SQLite database."""
         try:
             with file_path.open("rb") as f:
                 header = f.read(16)
@@ -265,14 +265,14 @@ class BrowserScanner:
             return False
 
     def _process_chromium_browser(self, history_path: Path) -> None:
-        """处理发现的Chromium浏览器"""
+        """Process a detected Chromium browser."""
         try:
-            # 向上查找 User Data 目录
+            # Look up for the User Data directory
             profile_dir = history_path.parent
             user_data_dir = self._find_user_data_dir(profile_dir)
 
             if not user_data_dir:
-                # 无法确定User Data目录，使用单个profile
+                # Cannot determine User Data directory, use a single profile
                 browser_name = self._extract_browser_name(history_path)
                 browser_type = self._generate_browser_id(browser_name)
 
@@ -291,7 +291,7 @@ class BrowserScanner:
                 log.info(f"Found Chromium browser: {browser_name} at {profile_dir}")
                 return
 
-            # 枚举所有profiles
+            # Enumerate all profiles
             profiles = self._enumerate_chromium_profiles(user_data_dir)
             if not profiles:
                 return
@@ -317,15 +317,15 @@ class BrowserScanner:
             log.warning(f"Error processing Chromium browser at {history_path}: {e}")
 
     def _process_firefox_browser(self, places_path: Path) -> None:
-        """处理发现的Firefox浏览器"""
+        """Process a detected Firefox browser."""
         try:
             profile_dir = places_path.parent
 
-            # 向上查找Profiles目录
+            # Look up for the Profiles directory
             profiles_dir = self._find_firefox_profiles_dir(profile_dir)
 
             if not profiles_dir:
-                # 单个profile
+                # Single profile
                 browser_name = self._extract_browser_name(places_path)
                 browser_type = self._generate_browser_id(browser_name)
 
@@ -344,7 +344,7 @@ class BrowserScanner:
                 log.info(f"Found Firefox browser: {browser_name} at {profile_dir}")
                 return
 
-            # 枚举所有profiles
+            # Enumerate all profiles
             profiles = self._enumerate_firefox_profiles(profiles_dir)
             if not profiles:
                 return
@@ -370,7 +370,7 @@ class BrowserScanner:
             log.warning(f"Error processing Firefox browser at {places_path}: {e}")
 
     def _find_user_data_dir(self, start_path: Path) -> Path | None:
-        """向上查找Chromium的User Data目录"""
+        """Look up for the Chromium User Data directory."""
         current = start_path
         for _ in range(self._max_parent_lookup):
             if current.name.lower() in ("user data", "user"):
@@ -381,7 +381,7 @@ class BrowserScanner:
         return None
 
     def _find_firefox_profiles_dir(self, start_path: Path) -> Path | None:
-        """向上查找Firefox的Profiles目录"""
+        """Look up for the Firefox Profiles directory."""
         current = start_path
         for _ in range(self._max_parent_lookup):
             if current.name.lower() == "profiles":
@@ -392,13 +392,13 @@ class BrowserScanner:
         return None
 
     def _enumerate_chromium_profiles(self, user_data_dir: Path) -> list[str]:
-        """枚举Chromium的所有profiles"""
+        """Enumerate all Chromium profiles."""
         profiles = []
         try:
             for item in user_data_dir.iterdir():
                 if not item.is_dir():
                     continue
-                # 检查是否包含History文件
+                # Check if it contains a History file
                 history_file = item / "History"
                 if history_file.exists() and self._is_valid_sqlite(history_file):
                     profiles.append(item.name)
@@ -407,13 +407,13 @@ class BrowserScanner:
         return profiles
 
     def _enumerate_firefox_profiles(self, profiles_dir: Path) -> list[str]:
-        """枚举Firefox的所有profiles"""
+        """Enumerate all Firefox profiles."""
         profiles = []
         try:
             for item in profiles_dir.iterdir():
                 if not item.is_dir():
                     continue
-                # 检查是否包含places.sqlite文件
+                # Check if it contains a places.sqlite file
                 places_file = item / "places.sqlite"
                 if places_file.exists() and self._is_valid_sqlite(places_file):
                     profiles.append(item.name)
@@ -422,63 +422,61 @@ class BrowserScanner:
         return profiles
 
     def _extract_browser_name(self, path: Path) -> str:
-        """从路径提取浏览器名称"""
+        """Extract the browser name from the path."""
         parts = path.parts
 
-        # 向上查找，跳过通用目录名称
+        # Look up and skip generic directory names
         for i in range(len(parts) - 1, -1, -1):
             part_lower = parts[i].lower()
 
-            # 跳过通用名称
             if part_lower in GENERIC_NAMES:
                 continue
 
-            # 找到第一个非通用名称
+            # Found the first non-generic name
             name = parts[i]
             return self._clean_browser_name(name)
 
-        # fallback
+        # Fallback
         return "Unknown Browser"
 
     def _clean_browser_name(self, name: str) -> str:
-        """清理浏览器名称"""
-        # 移除版本号 (如 "Chrome 120")
+        """Clean up the extracted browser name."""
+        # Remove version numbers (e.g., "Chrome 120")
         name = re.sub(r"\s+\d+(\.\d+)*$", "", name)
 
-        # 移除常见后缀
+        # Remove common suffixes
         name = re.sub(r"(?i)\s*(browser|web|app)$", "", name)
 
-        # 首字母大写
         name = name.strip()
         if name:
-            # 处理驼峰命名 (如 "2345Explorer" -> "2345 Explorer")
+            # Handle camel case (e.g., "2345Explorer" -> "2345 Explorer")
             name = re.sub(r"([a-z])([A-Z])", r"\1 \2", name)
-            # 首字母大写
+            # Capitalize words
             name = " ".join(word.capitalize() for word in name.split())
 
         return name or "Unknown Browser"
 
     def _generate_browser_id(self, display_name: str) -> str:
-        """生成浏览器ID"""
-        # 转换为小写，移除特殊字符
+        """Generate a unique browser ID."""
+        # Convert to lowercase and remove special characters
         browser_id = re.sub(r"[^a-z0-9]+", "_", display_name.lower())
         browser_id = browser_id.strip("_")
         return f"detected_{browser_id}"
 
     def _deduplicate_browsers(self) -> None:
-        """去重：合并同一浏览器的不同profile，过滤已知浏览器"""
+        """Deduplicate browsers by merging profiles and filtering known ones."""
         from src.services.browser_defs import BUILTIN_BROWSERS
 
-        # 获取已知浏览器的数据目录
+        # Get data directories of known browsers
         known_data_dirs = set()
         for bdef in BUILTIN_BROWSERS:
             for data_dir in bdef.get_data_dirs():
                 known_data_dirs.add(str(data_dir).lower())
 
-        # 按data_dir分组
+        # Group by data_dir
         grouped: dict[str, list[DetectedBrowser]] = {}
         for browser in self._found_browsers:
-            # 跳过已知浏览器
+            # Skip known browsers
             data_dir_str = str(browser.data_dir).lower()
             if any(
                 data_dir_str.startswith(known_dir.lower()) or known_dir.lower().startswith(data_dir_str)
@@ -491,16 +489,16 @@ class BrowserScanner:
                 grouped[key] = []
             grouped[key].append(browser)
 
-        # 合并同一data_dir的浏览器
+        # Merge browsers with the same data_dir
         deduplicated = []
         for browsers in grouped.values():
             if not browsers:
                 continue
 
-            # 取第一个作为代表
+            # Use the first one as the representative
             main = browsers[0]
 
-            # 合并所有profiles
+            # Merge all profiles
             all_profiles = set()
             for b in browsers:
                 all_profiles.update(b.profiles)

@@ -45,7 +45,7 @@ _LETTER_PALETTE = [
 
 
 class _LRUPixmapCache:
-    """基于 OrderedDict 的简单 LRU 缓存，key = (domain, size)。"""
+    """Simple LRU cache based on OrderedDict, key = (domain, size)."""
 
     def __init__(self, max_size: int = _LRU_MAX_SIZE):
         self._cache: OrderedDict[tuple[str, int], QPixmap] = OrderedDict()
@@ -74,15 +74,16 @@ class _LRUPixmapCache:
             del self._cache[k]
 
 
-# ── 后台 Worker ───────────────────────────────────────────────
+# ── Background Worker ─────────────────────────────────────────
 
 
 class FaviconWorker(QObject):
     """
-    在后台 QThread 中并发提取各浏览器图标并写入 FaviconCache。
+    Concurrently extracts browser favicons in a background QThread
+    and writes them to FaviconCache.
     """
 
-    # 发送已更新的 domain 集合，供主线程精确失效 LRU 缓存
+    # Emits a set of updated domains for the main thread to precisely invalidate the LRU cache
     finished = Signal(object)  # set[str] of updated domains
 
     def __init__(
@@ -96,7 +97,7 @@ class FaviconWorker(QObject):
         self._cancelled = False
 
     def cancel(self) -> None:
-        """请求取消（尽力而为）。"""
+        """Requests cancellation (best-effort)."""
         self._cancelled = True
 
     @Slot()
@@ -168,16 +169,16 @@ class FaviconWorker(QObject):
 
 class FaviconManager(QObject):
     """
-    图标系统主控制器（在主线程中运行）。
+    Main controller for the favicon system (runs in the main thread).
 
-    用法：
-        favicon_manager.schedule_extraction()       # 触发后台提取（非阻塞）
-        pixmap = favicon_manager.get_pixmap(url)    # 获取图标（同步，非阻塞）
-        favicon_manager.prefetch_pixmaps(records)   # 批量预热 LRU
+    Usage:
+        favicon_manager.schedule_extraction()       # Trigger background extraction (non-blocking)
+        pixmap = favicon_manager.get_pixmap(url)    # Get icon (synchronous, non-blocking)
+        favicon_manager.prefetch_pixmaps(records)   # Batch prefetch LRU
 
-    信号：
+    Signals:
         favicons_updated(domains: set[str])
-            后台提取完成后发出，携带本次更新的 domain 集合。
+            Emitted when background extraction completes, carrying the set of updated domains.
     """
 
     favicons_updated = Signal(object)  # set[str] — updated domains
@@ -191,7 +192,7 @@ class FaviconManager(QObject):
         self._lru = _LRUPixmapCache()
         self._svg_renderer_cache: dict[bytes, object] = {}
 
-        # 持有 FaviconExtractorManager 注册表，而非裸 list
+        # Holds the FaviconExtractorManager registry instead of a bare list
         self._ext_manager = FaviconExtractorManager(
             disabled_browsers=config.extractor.disabled_browsers,
             custom_paths=config.extractor.custom_paths,
@@ -201,21 +202,21 @@ class FaviconManager(QObject):
         self._worker: FaviconWorker | None = None
         self._is_running = False
 
-    # ── 后台提取调度 ──────────────────────────────────────────
+    # ── Background Extraction Scheduling ──────────────────────
 
     def schedule_extraction(
         self,
         target_browsers: list[str] | None = None,
     ) -> None:
         """
-        在后台 QThread 中异步提取浏览器图标并写入缓存。
-        若上一次提取还未结束，本次调用会被静默忽略（避免并发写入缓存）。
+        Asynchronously extracts browser favicons in a background QThread and writes them to the cache.
+        If the previous extraction is still running, this call is silently ignored to prevent concurrent writes.
 
         Parameters
         ----------
         target_browsers:
-            限定本次只提取指定浏览器的图标。传入 None（默认）表示提取
-            所有已注册且可用的浏览器图标。
+            Limits extraction to the specified browsers. None (default) means all registered
+            and available browsers.
         """
         if self._is_running or (self._thread is not None and self._thread.isRunning()):
             log.debug("FaviconManager: extraction already running or previous thread not yet cleaned up, skipping")
@@ -237,7 +238,8 @@ class FaviconManager(QObject):
         worker.moveToThread(thread)
 
         thread.started.connect(worker.run)
-        # DirectConnection：确保槽在信号发出时立即执行，避免 deleteLater 后访问已销毁对象
+        # DirectConnection: Ensure the slot executes immediately when the signal is emitted
+        # to avoid accessing a destroyed object after deleteLater.
         worker.finished.connect(self._on_worker_finished, Qt.DirectConnection)
         worker.finished.connect(thread.quit)
         worker.finished.connect(worker.deleteLater)
@@ -249,8 +251,8 @@ class FaviconManager(QObject):
 
     def shutdown(self, timeout_ms: int = 10000) -> None:
         """
-        优雅关闭：取消正在运行的提取任务，等待线程退出。
-        应在 QApplication.quit() 之前调用。
+        Graceful shutdown: cancels running extraction tasks and waits for the thread to exit.
+        Should be called before QApplication.quit().
         """
         if self._thread is None or not self._thread.isRunning():
             return
@@ -282,7 +284,7 @@ class FaviconManager(QObject):
             self._lru.invalidate_domains(updated_domains | extra)
             self.favicons_updated.emit(updated_domains)
 
-    # ── 配置热更新 ────────────────────────────────────────────
+    # ── Configuration Hot Reload ──────────────────────────────
 
     def update_config(self, config: AppConfig) -> None:
         self._config = config
@@ -295,15 +297,15 @@ class FaviconManager(QObject):
             len(self._ext_manager.get_all_registered()),
         )
 
-    # ── 主线程 QPixmap 获取 ───────────────────────────────────
+    # ── Main Thread QPixmap Retrieval ─────────────────────────
 
     def get_pixmap(self, url: str, size: int = 16) -> QPixmap:
         """
-        返回 URL 对应域名的图标 QPixmap。
-        必须从主线程调用。
+        Returns the QPixmap icon for the given URL's domain.
+        Must be called from the main thread.
 
-        查找链路：
-          内存 LRU → FaviconCache (SQLite 持久连接) → 字母占位图
+        Lookup chain:
+          In-memory LRU -> FaviconCache (Persistent SQLite connection) -> Letter placeholder
         """
         domain = extract_domain(url)
         cache_key = (domain or url, size)
@@ -320,7 +322,7 @@ class FaviconManager(QObject):
                     self._lru.put(cache_key, pixmap)
                     return pixmap
 
-            # 子域名未命中时，尝试根域名回退（如 tieba.baidu.com -> baidu.com）
+            # If subdomain misses, attempt fallback to root domain (e.g., tieba.baidu.com -> baidu.com)
             root = extract_root_domain(domain)
             if root and root != domain:
                 root_key = (root, size)
@@ -342,9 +344,10 @@ class FaviconManager(QObject):
 
     def prefetch_pixmaps(self, records: list[HistoryRecord], size: int = 16) -> None:
         """
-        为一批历史记录批量预热 LRU 图标缓存。必须从主线程调用。
-        将多次单独 SQLite get() 合并为一次 get_many()，
-        避免 Qt 在 data(DecorationRole) 中逐行触发 SQLite 连接。
+        Batch prefetches LRU icon cache for a list of history records.
+        Must be called from the main thread.
+        Combines multiple individual SQLite get() calls into a single get_many(),
+        avoiding triggering SQLite connections row-by-row in data(DecorationRole).
         """
         domain_to_url: dict[str, str] = {}
         true_domains: set[str] = set()
@@ -360,7 +363,7 @@ class FaviconManager(QObject):
         if not domain_to_url:
             return
 
-        # 同时查询所有涉及的根域名，供回退使用
+        # Query all involved root domains simultaneously for fallback use
         root_domains: set[str] = set()
         for d in true_domains:
             root = extract_root_domain(d)
@@ -382,7 +385,7 @@ class FaviconManager(QObject):
                     self._lru.put(cache_key, pixmap)
                     continue
 
-            # 子域名未命中，尝试根域名
+            # Subdomain miss, attempt root domain
             root = extract_root_domain(domain_or_url)
             if root and root != domain_or_url:
                 root_rec = db_records.get(root)
@@ -397,10 +400,10 @@ class FaviconManager(QObject):
             self._lru.put(cache_key, pixmap)
 
     def get_favicon_count(self) -> int:
-        """返回缓存中已有图标的域名数量（用于统计显示）。"""
+        """Returns the number of domains with cached icons (used for statistics display)."""
         return self._cache.get_total_count()
 
-    # ── 渲染工具 ──────────────────────────────────
+    # ── Rendering Utilities ───────────────────────────────────
 
     def _render_record(self, record: FaviconRecord, size: int) -> QPixmap:
         try:
@@ -447,8 +450,9 @@ class FaviconManager(QObject):
 
     def _letter_pixmap(self, letter: str, size: int, seed: str = "") -> QPixmap:
         """
-        生成以单个字母为内容的彩色圆角方块 QPixmap，作为图标缺失时的占位符。
-        通过 seed（域名）的哈希值从调色板中确定性地选取颜色，同域名颜色稳定。
+        Generates a colored rounded square QPixmap containing a single letter as a placeholder
+        for missing icons. The color is deterministically chosen from a palette based on the
+        hash of the seed (domain), ensuring consistent colors for the same domain.
         """
         idx = int(hashlib.md5(seed.encode()).hexdigest()[:4], 16) % len(_LETTER_PALETTE)
         bg_color = QColor(_LETTER_PALETTE[idx])

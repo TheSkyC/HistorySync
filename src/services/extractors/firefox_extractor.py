@@ -12,10 +12,10 @@ from src.utils.logger import get_logger
 
 log = get_logger("extractor.firefox")
 
-# Firefox 时间戳：PRTime（微秒），需除以 1e6 转为 Unix 秒
+# Firefox timestamp: PRTime (microseconds), divide by 1e6 to convert to Unix seconds
 _FIREFOX_PRTIME_FACTOR = 1_000_000
 
-# 过滤浏览器内部 scheme
+# Filter internal browser schemes
 _FILTERED_SCHEMES = ("about:", "place:", "moz-extension://", "data:")
 
 
@@ -29,13 +29,13 @@ def _is_internal_url(url: str) -> bool:
 
 class FirefoxExtractor(BaseExtractor):
     """
-    Firefox 历史记录提取器（places.sqlite）。
+    Firefox history extractor (places.sqlite).
 
-    额外提取字段（通过 JOIN moz_historyvisits 表）：
-      - typed_count      moz_places.typed 标志位（0/1，表示是否曾手动输入过）
-      - first_visit_time 首次访问时间（MIN(moz_historyvisits.visit_date)）
-      - transition_type  最近一次访问的 visit_type（1=LINK, 2=TYPED, 3=BOOKMARK 等）
-      - visit_duration   Firefox 无此字段，始终为 None
+    Extra fields extracted (via JOIN with moz_historyvisits):
+      - typed_count      moz_places.typed flag (0/1, indicating if it was ever manually typed)
+      - first_visit_time First visit time (MIN(moz_historyvisits.visit_date))
+      - transition_type  visit_type of the last visit (1=LINK, 2=TYPED, 3=BOOKMARK, etc.)
+      - visit_duration   Always None for Firefox (not tracked)
     """
 
     def __init__(self, defn: BrowserDef):

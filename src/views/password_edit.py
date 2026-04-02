@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QAbstractButton, QLineEdit
 from src.utils.i18n import _
 from src.utils.theme_manager import ThemeManager
 
-# 颜色配置
+# Color Configuration
 _DARK_COLOR = QColor("#8a9098")
 _DARK_COLOR_HOVER = QColor("#c8d0dc")
 _LIGHT_COLOR = QColor("#6b7280")
@@ -18,7 +18,7 @@ _LIGHT_COLOR_HOVER = QColor("#1e2840")
 
 
 class EyeButton(QAbstractButton):
-    """密码可见性切换按钮，带动画效果，支持亮/暗主题。"""
+    """Password visibility toggle button with animation, supporting light/dark themes."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -26,20 +26,20 @@ class EyeButton(QAbstractButton):
         self.setCursor(Qt.PointingHandCursor)
         self.setFixedSize(24, 24)
 
-        # 初始颜色
+        # Initial colors
         self._update_colors(ThemeManager.instance().current)
 
         self._is_hovered = False
 
-        # 动画参数：0.0 = 显示密码（眼睛睁开），1.0 = 隐藏密码（眼睛闭合+斜线）
-        self._anim_progress = 1.0  # 初始状态：隐藏密码
+        # Animation parameter: 0.0 = show password (eye open), 1.0 = hide password (eye closed with slash)
+        self._anim_progress = 1.0  # Initial state: hide password
         self._anim = QPropertyAnimation(self, b"anim_progress", self)
         self._anim.setDuration(250)
         self._anim.setEasingCurve(QEasingCurve.OutCubic)
 
         self.toggled.connect(self._start_animation)
 
-        # 订阅主题变化
+        # Subscribe to theme changes
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
 
     def _update_colors(self, theme: str) -> None:
@@ -79,7 +79,7 @@ class EyeButton(QAbstractButton):
         self._anim.start()
 
     def set_checked_silent(self, checked: bool) -> None:
-        """无动画地设置按钮状态。"""
+        """Set the button state without animation."""
         self.blockSignals(True)
         self.setChecked(checked)
         self._anim_progress = 0.0 if checked else 1.0
@@ -98,21 +98,21 @@ class EyeButton(QAbstractButton):
         center_x = rect.width() / 2
         center_y = rect.height() / 2
 
-        # 眼睛外轮廓
+        # Eye outline
         eye_width = 16
         eye_height = 10
         eye_rect = QRectF(center_x - eye_width / 2, center_y - eye_height / 2, eye_width, eye_height)
 
-        painter.drawArc(eye_rect, 0 * 16, 180 * 16)  # 上弧
-        painter.drawArc(eye_rect, 180 * 16, 180 * 16)  # 下弧
+        painter.drawArc(eye_rect, 0 * 16, 180 * 16)  # Upper arc
+        painter.drawArc(eye_rect, 180 * 16, 180 * 16)  # Lower arc
 
-        # 瞳孔：随动画缩小
+        # Pupil: shrinks with animation
         pupil_size = 4 * (1 - self._anim_progress * 0.7)
         if pupil_size > 0.5:
             painter.setBrush(color)
             painter.drawEllipse(QPointF(center_x, center_y), pupil_size / 2, pupil_size / 2)
 
-        # 斜线：随动画淡入
+        # Slash: fades in with animation
         if self._anim_progress > 0.01:
             line_color = QColor(color)
             line_color.setAlphaF(self._anim_progress)
@@ -130,7 +130,7 @@ class EyeButton(QAbstractButton):
 
 
 class PasswordEdit(QLineEdit):
-    """带眼睛切换按钮的密码输入框，自动适配亮色/暗色主题。"""
+    """Password input field with an eye toggle button, automatically adapting to light/dark themes."""
 
     def __init__(self, parent=None):
         super().__init__(parent)

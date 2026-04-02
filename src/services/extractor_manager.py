@@ -35,8 +35,8 @@ def _make_extractor(defn) -> BaseExtractor:
 
 class ExtractorManager:
     """
-    统一管理和调度所有浏览器历史提取器。
-    现支持黑名单域名过滤 + Safari 提取器。
+    Centrally manages and schedules all browser history extractors.
+    Supports blacklisted domain filtering and Safari extraction.
     """
 
     def __init__(
@@ -64,7 +64,7 @@ class ExtractorManager:
             self._registry[defn.browser_type] = _make_extractor(defn)
 
     def _register_learned(self, learned_browsers: dict) -> None:
-        """注册从智能扫描发现的浏览器"""
+        """Registers browsers discovered from smart scanning."""
         from src.services.browser_defs import create_learned_browser_def, register_learned_browser
 
         for browser_type, info in learned_browsers.items():
@@ -72,7 +72,7 @@ class ExtractorManager:
                 continue
 
             try:
-                # 创建浏览器定义
+                # Create browser definition
                 browser_def = create_learned_browser_def(
                     browser_type=browser_type,
                     display_name=info.get("display_name", "Unknown Browser"),
@@ -80,10 +80,10 @@ class ExtractorManager:
                     data_dir=info.get("data_dir", ""),
                 )
 
-                # 注册到全局映射表
+                # Register to the global mapping table
                 register_learned_browser(browser_def)
 
-                # 创建提取器
+                # Create extractor
                 self._registry[browser_type] = _make_extractor(browser_def)
                 log.info(f"Registered learned browser: {browser_def.display_name}")
 
@@ -95,7 +95,7 @@ class ExtractorManager:
         log.info("Registered extractor: %s", extractor.display_name)
 
     def register_new_learned(self, learned_browsers: dict) -> None:
-        """运行时注册新发现的浏览器。"""
+        """Registers newly discovered browsers at runtime."""
         self._register_learned(learned_browsers)
 
     def register_custom_path(self, browser_type: str, display_name: str, db_path: Path) -> None:
@@ -149,7 +149,7 @@ class ExtractorManager:
         return iter(self._registry.items())
 
     def unregister_browser(self, browser_type: str) -> None:
-        """从运行时注册表中移除浏览器提取器。"""
+        """Removes a browser extractor from the runtime registry."""
         if browser_type in self._registry:
             self._registry.pop(browser_type)
             log.info("Unregistered browser extractor: %s", browser_type)
@@ -175,7 +175,7 @@ class ExtractorManager:
             Optional callback ``(browser_type, status, count)``.
         force_full:
             When ``True``, skip the incremental ``since_map`` watermark and
-            re-extract **all** records from the browser databases.  Existing
+            re-extract **all** records from the browser databases. Existing
             records are upserted (ON CONFLICT DO UPDATE), so this is safe to
             run at any time — it will back-fill any fields (e.g. ``visit_count``,
             ``typed_count``) that were not captured during earlier syncs.

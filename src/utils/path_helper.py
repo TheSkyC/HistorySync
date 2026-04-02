@@ -16,23 +16,23 @@ def set_runtime_paths(
     config_dir: Path | None = None,
     data_dir: Path | None = None,
 ) -> None:
-    """在 main() 解析参数后立即调用，注入自定义路径。
+    """Called immediately after argument parsing in main() to inject custom paths.
 
     Parameters
     ----------
     config_dir:
-        覆盖配置目录（config.json、secret.key 等）。
-        传 None 表示不覆盖，使用平台默认值。
+        Overrides the configuration directory (config.json, secret.key, etc.).
+        Passing None means no override, using platform defaults.
     data_dir:
-        覆盖数据目录（history.db、logs、favicon_cache 等）。
-        若未单独指定但 config_dir 有值，则与 config_dir 相同（Portable 语义）。
+        Overrides the data directory (history.db, logs, favicon_cache, etc.).
+        If not specified but config_dir is provided, it defaults to config_dir (Portable semantics).
     """
     _runtime_paths["config_dir"] = config_dir
-    # 若 data_dir 未单独指定但 config_dir 有值，则让数据与配置同目录（portable 语义）
+    # If data_dir is not explicitly specified but config_dir has a value, make data and config share the same directory (portable semantics)
     _runtime_paths["data_dir"] = data_dir if data_dir is not None else config_dir
 
 
-# ── 平台默认路径计算 ───────────────────────────────
+# ── Platform Default Path Calculations ────────────────────────
 def _default_config_dir() -> Path:
     if sys.platform == "win32":
         base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
@@ -53,16 +53,16 @@ def _default_data_dir() -> Path:
     return base / APP_NAME
 
 
-# ── 公共接口 ──────────────────────────────────────────────────────────────────
+# ── Public Interfaces ─────────────────────────────────────────
 
 
 def get_config_dir() -> Path:
-    """返回配置目录（config.json、secret.key 等所在位置）。"""
+    """Returns the configuration directory (where config.json, secret.key, etc., are located)."""
     return _runtime_paths["config_dir"] if _runtime_paths["config_dir"] is not None else _default_config_dir()
 
 
 def get_app_data_dir() -> Path:
-    """返回应用数据根目录（DB、日志、favicon 缓存等）。"""
+    """Returns the application data root directory (DB, logs, favicon cache, etc.)."""
     return _runtime_paths["data_dir"] if _runtime_paths["data_dir"] is not None else _default_data_dir()
 
 
@@ -85,7 +85,7 @@ def get_locales_dir() -> Path:
 
 
 def get_templates_dir() -> Path:
-    """返回 HTML 模板目录。"""
+    """Returns the HTML templates directory."""
     base = Path(sys._MEIPASS) if hasattr(sys, "_MEIPASS") else Path(__file__).parent.parent
     return base / "resources" / "templates"
 
@@ -98,7 +98,7 @@ def get_username() -> str:
     return os.environ.get("USERNAME") or os.environ.get("USER") or "User"
 
 
-# ── 浏览器数据目录 ────────────────────────
+# ── Browser Data Directories ──────────────────────────────────
 
 
 def get_chrome_data_dirs() -> list[Path]:

@@ -62,9 +62,9 @@ def _recolor_svg_bytes(svg_path: str, color: str) -> bytes:
 
 
 class ThemeManager(QObject):
-    """全局主题管理器。"""
+    """Global theme manager."""
 
-    # 发射解析后的 "dark" | "light"
+    # Emits resolved "dark" | "light"
     theme_changed = Signal(str)
 
     _instance: ThemeManager | None = None
@@ -87,21 +87,21 @@ class ThemeManager(QObject):
             cls._instance = cls()
         return cls._instance
 
-    # ── 公开 API ──────────────────────────────────────────────
+    # ── Public API ────────────────────────────────────────────
 
     @property
     def current(self) -> str:
-        """当前已应用的主题：'dark' 或 'light'。"""
+        """Currently applied theme: 'dark' or 'light'."""
         return self._current
 
     @property
     def raw(self) -> str:
-        """用户设置的原始值：'dark' | 'light' | 'system'。"""
+        """Original value set by the user: 'dark' | 'light' | 'system'."""
         return self._raw
 
     def apply(self, app: QApplication, theme: str) -> None:
         """
-        异步应用主题：把 setStyleSheet 推到事件循环空闲后执行。
+        Applies the theme asynchronously: defers setStyleSheet until the event loop is idle.
         """
         if theme not in _VALID_THEMES:
             log.warning("Unknown theme '%s', falling back to dark", theme)
@@ -109,7 +109,7 @@ class ThemeManager(QObject):
 
         resolved = _detect_system_theme() if theme == THEME_SYSTEM else theme
 
-        # 状态立即更新
+        # Update state immediately
         self._raw = theme
         self._current = resolved
         self._pending = resolved
@@ -123,7 +123,7 @@ class ThemeManager(QObject):
             self._do_apply(self._pending_app, self._pending)
 
     def apply_sync(self, app: QApplication, theme: str) -> None:
-        """同步立即应用主题——仅供程序启动时使用。"""
+        """Applies the theme synchronously immediately — for use during application startup only."""
         if theme not in _VALID_THEMES:
             theme = THEME_DARK
         resolved = _detect_system_theme() if theme == THEME_SYSTEM else theme
@@ -176,7 +176,7 @@ class ThemeManager(QObject):
 
             app.setStyleSheet(qss)
 
-            deferred_hscroll: list[tuple] = []  # (hbar, scroll_h) 延迟恢复水平滚动
+            deferred_hscroll: list[tuple] = []  # (hbar, scroll_h) Deferred restoration of horizontal scrolling
 
             for w, model, col_info, scroll_v, scroll_h in saved_state:
                 hbar = w.horizontalScrollBar()
@@ -214,7 +214,7 @@ class ThemeManager(QObject):
         self.theme_changed.emit(resolved)
         log.info("Theme applied: raw=%s resolved=%s", self._raw, resolved)
 
-    # ── 辅助 ──────────────────────────────────────────────────
+    # ── Helpers ───────────────────────────────────────────────
 
     def recolor_svg(self, svg_path: str) -> bytes:
         color = "#a0a8b8" if self._current == THEME_DARK else "#6b7280"

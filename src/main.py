@@ -608,7 +608,7 @@ def _gui_main(args: argparse.Namespace) -> None:
             main_vm.start_scheduler()
             log.info("First-run wizard: scheduler started")
 
-            # 如果用户勾选了"立即同步"，延迟触发一次同步
+            # If user checked "sync immediately", trigger sync after a short delay
             if wizard.should_sync_on_finish:
                 log.info("First-run wizard: triggering initial sync")
                 QTimer.singleShot(500, main_vm.trigger_sync)

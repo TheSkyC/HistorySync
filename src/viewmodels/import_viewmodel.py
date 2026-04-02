@@ -22,17 +22,17 @@ log = get_logger("viewmodel.import")
 
 @dataclass
 class ImportTask:
-    """描述单个文件的导入配置"""
+    """Import configuration for a single file."""
 
     file_path: Path
     db_type: DbType
-    browser_type: str  # 写入记录时使用的 browser_type 标识
-    profile_name: str  # 写入记录时使用的 profile_name
+    browser_type: str  # browser_type label written to each record
+    profile_name: str  # profile_name label written to each record
 
 
 @dataclass
 class TaskResult:
-    """单个文件的导入结果"""
+    """Import result for a single file."""
 
     file_path: Path
     extracted: int
@@ -48,7 +48,7 @@ class TaskResult:
 
 class ImportWorker(QObject):
     """
-    实际执行导入的 Worker，通过 moveToThread 移入子线程。
+    Worker that performs the actual import, moved to a background thread via moveToThread.
 
     Signals:
         progress(current_idx, total, filename, status_msg)
@@ -135,7 +135,7 @@ class ImportWorker(QObject):
                     )
                     continue
 
-                # 按 (browser_type, profile_name) 分组更新 backup_stats
+                # Update backup_stats grouped by (browser_type, profile_name)
                 if records:
                     profile_counts: dict[tuple[str, str], int] = {}
                     for r in records:
@@ -174,9 +174,7 @@ class ImportWorker(QObject):
 
 
 class ImportViewModel(QObject):
-    """
-    线程生命周期管理器。对外暴露信号，隔离 UI 与线程细节。
-    """
+    """Thread lifecycle manager. Exposes signals to the UI, hiding threading details."""
 
     progress_updated = Signal(int, int, str, str)  # current, total, filename, msg
     task_done = Signal(object)  # TaskResult
@@ -202,14 +200,14 @@ class ImportViewModel(QObject):
         self._worker = ImportWorker(tasks, self._db, self._local_device_id)
         self._worker.moveToThread(self._thread)
 
-        # 信号连接
+        # Wire signals
         self._thread.started.connect(self._worker.run)
         self._worker.progress.connect(self.progress_updated)
         self._worker.task_done.connect(self.task_done)
         self._worker.finished.connect(self._on_finished)
         self._worker.error.connect(self._on_error)
 
-        # 线程自清理
+        # Auto-cleanup when the thread finishes
         self._worker.finished.connect(self._thread.quit)
         self._worker.error.connect(self._thread.quit)
         self._thread.finished.connect(self._worker.deleteLater)

@@ -226,7 +226,7 @@ class SettingsPage(QWidget):
         self._update_countdowns()
 
     def _save(self):
-        # ── 主密码保护 ────────────────────────────────────────
+        # ── Master password protection ────────────────────────
         from src.views.master_password_dialog import require_master_password
 
         cfg = self._vm.get_config()

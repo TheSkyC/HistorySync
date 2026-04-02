@@ -213,7 +213,7 @@ class ExportDialog(QDialog):
         combo_row.addStretch()
         fmt_layout.addLayout(combo_row)
 
-        # 移动到下方，并默认设为不可见
+        # Move below and hide by default
         self._embed_icons_chk = QCheckBox(_("Embed favicons"))
         self._embed_icons_chk.setVisible(False)
         fmt_layout.addWidget(self._embed_icons_chk)

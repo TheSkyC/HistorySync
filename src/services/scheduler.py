@@ -20,7 +20,7 @@ log = get_logger("scheduler")
 
 
 class SyncWorker(QObject):
-    """在后台线程中执行提取 + 可选 WebDAV 同步。"""
+    """Execute extraction + optional WebDAV sync in a background thread."""
 
     finished = Signal(dict)  # {browser_type: inserted_count}
     progress = Signal(str, str, int)  # browser_type, status, count
@@ -111,7 +111,7 @@ class BackupWorker(QObject):
 
 class Scheduler(QObject):
     """
-    主线程定时器，将 I/O 工作派发到 QThread。
+    Main thread timer that dispatches I/O work to QThread.
     """
 
     sync_started = Signal()
@@ -417,7 +417,7 @@ class Scheduler(QObject):
 
 
 class StartupManager:
-    """跨平台开机自启管理。"""
+    """Cross-platform startup/autostart management."""
 
     @classmethod
     def enable(cls, executable_path: str) -> bool:

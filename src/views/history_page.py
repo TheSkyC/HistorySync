@@ -570,7 +570,7 @@ class HistoryPage(QWidget):
         self._search.selectAll()
 
     def filter_by_url(self, url: str):
-        """从书签页"在历史记录中定位"跳转过来时，清空过滤器并定位到该 URL 所在行。"""
+        """When navigating from 'Locate in History' in the bookmarks page, clear filters and scroll to the row containing the URL."""
         # Step 1: clear all filters so the full list is shown
         self._search.blockSignals(True)
         self._search.clear()
@@ -607,7 +607,7 @@ class HistoryPage(QWidget):
         self._focus_search()
 
     def filter_by_browser(self, browser_type: str):
-        """从 DashboardPage 右键菜单跳转过来时，按浏览器类型过滤列表。"""
+        """When navigating from the DashboardPage context menu, filter the list by browser type."""
         for i in range(self._browser_combo.count()):
             if self._browser_combo.itemData(i) == browser_type:
                 self._browser_combo.setCurrentIndex(i)
@@ -623,7 +623,7 @@ class HistoryPage(QWidget):
             self._status_label.setText(_("Sync triggered..."))
 
     def _sync_column_order(self):
-        """将拖拽后的视觉顺序同步到模型并保存，确保下次启动时顺序一致。"""
+        """Synchronize the visual column order after dragging to the model and save it, ensuring consistency on the next startup."""
         hh = self._table.horizontalHeader()
         new_order = []
 
@@ -648,22 +648,22 @@ class HistoryPage(QWidget):
         self._vm.status_message.connect(self._status_label.setText)
         self._vm.table_model.columns_changed.connect(self._on_columns_changed)
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
-        # 滚动到底部时触发 regex 增量加载
+        # Trigger regex incremental loading when scrolling to the bottom
         self._table.verticalScrollBar().valueChanged.connect(self._on_scroll_check_load_more)
 
     def _on_scroll_check_load_more(self, value: int):
-        """当滚动条接近底部时，触发 regex 模式的增量加载。"""
+        """Trigger regex incremental loading when the scrollbar approaches the bottom."""
         if not self._vm.table_model.can_load_more:
             return
         sb = self._table.verticalScrollBar()
-        # 距底部不足 3 行高度时触发
+        # Trigger when less than 3 row heights away from the bottom
         row_h = max(self._table.verticalHeader().defaultSectionSize(), 1)
         threshold = sb.maximum() - row_h * 3
         if value >= threshold:
             self._vm.load_more()
 
     def _on_theme_changed(self, _theme: str) -> None:
-        """主题切换后只重绘可见视口，完全绕开 dataChanged 全表回调。"""
+        """Only repaint the visible viewport on theme change, bypassing full table dataChanged callbacks."""
         self._table.viewport().update()
 
     def _on_columns_changed(self):
@@ -678,7 +678,7 @@ class HistoryPage(QWidget):
 
     @contextmanager
     def _batch_header_update(self):
-        """批量修改列头时屏蔽信号，结束后强制刷新滚动条几何。"""
+        """Block signals during batch header modifications, and force a geometry update for scrollbars afterwards."""
         hh = self._table.horizontalHeader()
         hh.blockSignals(True)
         try:
@@ -729,7 +729,7 @@ class HistoryPage(QWidget):
             idx = self._vm.table_model.index(row, logical_index)
             text = self._vm.table_model.data(idx, Qt.DisplayRole)
             if text:
-                w = fm.horizontalAdvance(str(text)) + 24  # 预留左右边距
+                w = fm.horizontalAdvance(str(text)) + 24  # Reserve left and right margins
                 max_w = max(max_w, w)
 
         max_w = min(max_w, 600)
@@ -772,7 +772,7 @@ class HistoryPage(QWidget):
         all_cols = self._vm.table_model.get_all_columns()
         visible_cols = self._vm.table_model.get_visible_columns()
 
-        # ── 1. 列显示/隐藏开关 ──
+        # ── 1. Column visibility toggles ──
         for col_key, col_def in all_cols.items():
             label = _(col_def.get("label_key", col_key.title()))
             action = menu.addAction(label)
@@ -780,13 +780,13 @@ class HistoryPage(QWidget):
             action.setChecked(col_key in visible_cols)
             action.setData(col_key)
 
-            # 至少保留一列可见
+            # Keep at least one column visible
             if len(visible_cols) == 1 and col_key in visible_cols:
                 action.setEnabled(False)
 
         menu.addSeparator()
 
-        # ── 2. 自动适应列宽 ──
+        # ── 2. Auto-fit column widths ──
         fit_this_act = menu.addAction(get_icon("maximize-2"), _("Auto-fit This Column"))
         if clicked_logical_index < 0:
             fit_this_act.setEnabled(False)
@@ -795,10 +795,10 @@ class HistoryPage(QWidget):
 
         menu.addSeparator()
 
-        # ── 3. 恢复默认 ──
+        # ── 3. Restore defaults ──
         reset_act = menu.addAction(get_icon("rotate-ccw"), _("Restore Default View"))
 
-        # ── 处理用户点击 ──
+        # ── Handle user clicks ──
         action = menu.exec(global_pos)
         if not action:
             return
@@ -811,7 +811,7 @@ class HistoryPage(QWidget):
         elif action == reset_act:
             self._reset_table_view()
         else:
-            # 处理列的显示/隐藏切换
+            # Handle column visibility toggling
             col_key = action.data()
             new_visible = visible_cols.copy()
             is_first_time_add = False

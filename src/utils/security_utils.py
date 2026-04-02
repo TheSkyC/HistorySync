@@ -22,7 +22,7 @@ _COLOR_RESET = "\033[0m"
 
 
 def _init_keyring_backend() -> None:
-    """锁定平台特定的后端以加速启动，失败时回退至自动扫描。"""
+    """Locks a platform-specific backend to speed up startup, falling back to auto-scan on failure."""
     try:
         system = platform.system()
         if system == "Windows":
@@ -42,15 +42,15 @@ _init_keyring_backend()
 
 def _get_or_create_master_key() -> bytes:
     """
-    获取或创建主密钥。
+    Gets or creates the master key.
 
-    优先级策略：
-    1. 从系统 Keyring 读取（Windows Credential Manager / macOS Keychain / libsecret）。
-    2. Keyring 不可用时，回退到本地 secret.key 文件。
-    3. 两者均不存在时，生成新的随机密钥。
-    4. 写回时优先存入 Keyring；失败则写入本地文件（并记录安全警告）。
+    Priority strategy:
+    1. Read from system Keyring (Windows Credential Manager / macOS Keychain / libsecret).
+    2. Fallback to local secret.key file if Keyring is unavailable.
+    3. Generate a new random key if neither exists.
+    4. Write back prioritizing Keyring; if it fails, write to local file (and log a security warning).
     """
-    # 1. 尝试从 Keyring 读取
+    # 1. Attempt to read from Keyring
     try:
         key_hex = keyring.get_password(KEYRING_SERVICE, KEYRING_USER)
         if key_hex:
@@ -58,7 +58,7 @@ def _get_or_create_master_key() -> bytes:
     except Exception as e:
         logger.warning(f"Keyring lookup failed (will try local file): {e}")
 
-    # 2. 回退：尝试读取本地文件
+    # 2. Fallback: attempt to read local file
     key_path = get_config_dir() / SECRET_FILENAME
     key: bytes | None = None
 
@@ -72,12 +72,12 @@ def _get_or_create_master_key() -> bytes:
         except Exception as e:
             logger.error(f"Failed to read local key file: {e}")
 
-    # 3. 新建密钥
+    # 3. Generate new key
     if not key:
         logger.info("Generating new master key.")
         key = os.urandom(32)
 
-    # 4. 写回：优先 Keyring，失败则写文件
+    # 4. Write back: prioritize Keyring, fallback to file
     saved_to_keyring = False
     try:
         keyring.set_password(KEYRING_SERVICE, KEYRING_USER, key.hex())
@@ -107,10 +107,10 @@ def _get_or_create_master_key() -> bytes:
 
 def encrypt_text(text: str) -> str:
     """
-    加密明文字符串，返回 "ENC:<base64>" 格式的密文。
-    空字符串直接返回空字符串（不加密）。
+    Encrypts a plaintext string, returning ciphertext in "ENC:<base64>" format.
+    Empty strings are returned as-is (unencrypted).
 
-    算法：SHAKE-256 密钥流 XOR + HMAC-SHA256 认证标签。
+    Algorithm: SHAKE-256 keystream XOR + HMAC-SHA256 authentication tag.
     """
     if not text:
         return ""
@@ -132,8 +132,8 @@ def encrypt_text(text: str) -> str:
 
 def decrypt_text(text: str) -> str:
     """
-    解密 "ENC:<base64>" 格式的密文，返回原始明文。
-    若输入不是加密格式（不含 "ENC:" 前缀），原样返回（兼容迁移场景）。
+    Decrypts ciphertext in "ENC:<base64>" format, returning the original plaintext.
+    If the input is not in encrypted format (missing "ENC:" prefix), it is returned as-is (for migration compatibility).
     """
     if not text or not text.startswith(ENCRYPTION_PREFIX):
         return text

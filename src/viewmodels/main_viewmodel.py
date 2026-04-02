@@ -122,7 +122,7 @@ class MainViewModel(QObject):
         self._scheduler.trigger_backup_now()
 
     def set_auto_sync_enabled(self, enabled: bool) -> None:
-        """启用或暂停自动同步（持久化到 config）。"""
+        """Enable or disable auto-sync and persist to config."""
         self._config.scheduler.auto_sync_enabled = enabled
         self._scheduler.set_auto_sync_enabled(enabled)
         try:
@@ -132,7 +132,7 @@ class MainViewModel(QObject):
         log.info("Auto sync set to: %s", enabled)
 
     def toggle_browser_sync(self, browser_type: str, enabled: bool) -> None:
-        """启用或禁用某个浏览器的同步（修改 disabled_browsers 列表）。"""
+        """Enable or disable sync for a specific browser by modifying disabled_browsers list."""
         disabled = list(self._config.extractor.disabled_browsers)
         if enabled:
             if browser_type in disabled:
@@ -149,7 +149,7 @@ class MainViewModel(QObject):
         self._monitor.force_check()
 
     def reload_extractor_config(self) -> None:
-        """向导完成后重新应用 extractor 配置（disabled_browsers 等）。"""
+        """Reapply extractor config (disabled_browsers, etc.) after wizard completion."""
         self._em.update_config(
             self._config.extractor.disabled_browsers,
             blacklisted_domains=self._config.privacy.blacklisted_domains,
@@ -157,19 +157,18 @@ class MainViewModel(QObject):
         log.info("Extractor config reloaded after wizard")
 
     def force_redetect_browsers(self) -> None:
-        """强制立即重新检测浏览器（由仪表板设置对话框触发）。"""
+        """Force immediate browser re-detection (triggered by dashboard settings dialog)."""
         self._monitor.force_check()
         log.info("Browser re-detection triggered by user")
 
     def on_learned_browsers_added(self, browsers: list) -> None:
-        """深度扫描完成后，将新发现的浏览器即时注入运行时。
+        """Inject newly discovered browsers into runtime after deep scan completion.
 
-        流程：
-        1. 写入内存 config 并调用 config.save() 持久化
-        2. 调用 register_learned_browser() 注册到全局 BROWSER_DEF_MAP（修复6：保证
-           下次深度扫描时 get_all_known_data_dirs() 能正确过滤已添加的浏览器）
-        3. 调用 ExtractorManager.register_new_learned() 把提取器加入 _registry
-        4. 触发 BrowserMonitor 立即重检，刷新仪表板卡片
+        Process:
+        1. Write to in-memory config and call config.save() to persist
+        2. Register to global BROWSER_DEF_MAP (ensures next deep scan correctly filters added browsers)
+        3. Register extractors to ExtractorManager._registry
+        4. Trigger BrowserMonitor to refresh dashboard cards
         """
         from datetime import datetime
 
@@ -185,10 +184,10 @@ class MainViewModel(QObject):
                 "profiles": browser.profiles,
             }
             new_entries[browser.browser_type] = entry
-            # 写入内存 config
+            # Write to in-memory config
             self._config.extractor.learned_browsers[browser.browser_type] = entry
 
-            # 注册到全局 BROWSER_DEF_MAP
+            # Register to global BROWSER_DEF_MAP
             browser_def = create_learned_browser_def(
                 browser_type=browser.browser_type,
                 display_name=browser.display_name,
@@ -204,24 +203,24 @@ class MainViewModel(QObject):
         log.info("Learned browsers added at runtime: %s", list(new_entries.keys()))
 
     def on_browser_remove(self, browser_type: str, clear_data: bool) -> None:
-        """处理用户从仪表板右键菜单删除深度扫描浏览器的请求。
+        """Handle user request to remove a learned browser from dashboard context menu.
 
-        流程：
-        1. 从内存 config 中移除（View 层已做 config.save()）
-        2. 从 ExtractorManager 注销提取器（如果支持）
-        3. 若 clear_data=True，删除该浏览器在本地数据库中的所有历史记录
-        4. 触发 BrowserMonitor 重检以刷新仪表板
+        Process:
+        1. Remove from in-memory config (View layer already called config.save())
+        2. Unregister extractor from ExtractorManager (if supported)
+        3. If clear_data=True, delete all history records for this browser from local DB
+        4. Trigger BrowserMonitor to refresh dashboard cards
         """
-        # 从内存 config 同步（View 层已调用 config.save()，这里保持内存一致）
+        # Sync in-memory config (View layer already called config.save())
         self._config.extractor.learned_browsers.pop(browser_type, None)
         if browser_type in self._config.extractor.disabled_browsers:
             self._config.extractor.disabled_browsers.remove(browser_type)
 
-        # 从 ExtractorManager 注销（若接口存在）
+        # Unregister from ExtractorManager (if interface exists)
         if hasattr(self._em, "unregister_browser"):
             self._em.unregister_browser(browser_type)
 
-        # 可选：清除数据库历史记录
+        # Optional: clear history records from database
         if clear_data:
             try:
                 deleted = self._db.delete_records_by_browser(browser_type)
@@ -229,7 +228,7 @@ class MainViewModel(QObject):
             except Exception as exc:
                 log.warning("Could not delete history for %s: %s", browser_type, exc)
 
-        # 刷新仪表板卡片
+        # Refresh dashboard cards
         self._monitor.force_check()
         log.info("Browser removed from config: %s (clear_data=%s)", browser_type, clear_data)
 
@@ -316,7 +315,7 @@ class MainViewModel(QObject):
         )
         self._favicon_manager.update_config(config)
         self._monitor.force_check()
-        # Reload hidden IDs from DB (source of truth is now the hidden_records table)
+        # Reload hidden IDs from DB (source of truth is the hidden_records table)
         self.history_vm.set_hidden_ids(self._db.get_hidden_ids())
         log.info("Config saved and applied")
 

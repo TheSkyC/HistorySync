@@ -202,7 +202,7 @@ class BrowserCard(QFrame):
 
     # Windows browser registry paths and common install locations
     _WINDOWS_BROWSERS: dict[str, list[str]] = {
-        # ── Google Chrome 各渠道 ──────────────────────────────────────────
+        # -- Google Chrome Channels --
         "chrome": [
             r"C:\Program Files\Google\Chrome\Application\chrome.exe",
             r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -225,13 +225,13 @@ class BrowserCard(QFrame):
             r"%LOCALAPPDATA%\chrome-for-testing\chrome-win64\chrome.exe",
             r"%LOCALAPPDATA%\ms-playwright\chromium-*\chrome-win\chrome.exe",
         ],
-        # ── Chromium ──────────────────────────────────────────────────────
+        # -- Chromium --
         "chromium": [
             r"C:\Program Files\Chromium\Application\chrome.exe",
             r"C:\Program Files (x86)\Chromium\Application\chrome.exe",
             r"%LOCALAPPDATA%\Chromium\Application\chrome.exe",
         ],
-        # ── Microsoft Edge 各渠道 ─────────────────────────────────────────
+        # -- Microsoft Edge Channels --
         "edge": [
             r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
             r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
@@ -246,7 +246,7 @@ class BrowserCard(QFrame):
         "edge_canary": [
             r"%LOCALAPPDATA%\Microsoft\Edge SxS\Application\msedge.exe",
         ],
-        # ── Brave 各渠道 ──────────────────────────────────────────────────
+        # -- Brave Channels --
         "brave": [
             r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
             r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
@@ -261,13 +261,13 @@ class BrowserCard(QFrame):
         "brave_nightly": [
             r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser-Nightly\Application\brave.exe",
         ],
-        # ── Vivaldi ───────────────────────────────────────────────────────
+        # -- Vivaldi --
         "vivaldi": [
             r"C:\Program Files\Vivaldi\Application\vivaldi.exe",
             r"C:\Program Files (x86)\Vivaldi\Application\vivaldi.exe",
             r"%LOCALAPPDATA%\Vivaldi\Application\vivaldi.exe",
         ],
-        # ── Opera ─────────────────────────────────────────────────────────
+        # -- Opera --
         "opera": [
             r"C:\Program Files\Opera\launcher.exe",
             r"C:\Program Files (x86)\Opera\launcher.exe",
@@ -278,35 +278,35 @@ class BrowserCard(QFrame):
             r"C:\Program Files (x86)\Opera GX\launcher.exe",
             r"%LOCALAPPDATA%\Programs\Opera GX\launcher.exe",
         ],
-        # ── Arc  ──────────────────────────────────────────────────────────
+        # -- Arc --
         "arc": [
             r"%LOCALAPPDATA%\Programs\Arc\Arc.exe",
             r"%LOCALAPPDATA%\Packages\TheBrowserCompany.Arc_ttt1ap7aakyb4\LocalCache\Roaming\Arc\bin\Arc.exe",
         ],
-        # ── Yandex Browser ────────────────────────────────────────────────
+        # -- Yandex Browser --
         "yandex": [
             r"%LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe",
             r"C:\Program Files\Yandex\YandexBrowser\Application\browser.exe",
             r"C:\Program Files (x86)\Yandex\YandexBrowser\Application\browser.exe",
         ],
-        # ── Naver Whale ───────────────────────────────────────────────────
+        # -- Naver Whale --
         "whale": [
             r"C:\Program Files\Naver\Naver Whale\Application\whale.exe",
             r"%LOCALAPPDATA%\Naver\Naver Whale\Application\whale.exe",
         ],
-        # ── CocCoc ────────────────────────────────────────────────────────
+        # -- CocCoc --
         "coccoc": [
             r"%LOCALAPPDATA%\CocCoc\Browser\Application\browser.exe",
             r"C:\Program Files\CocCoc\Browser\Application\browser.exe",
             r"C:\Program Files (x86)\CocCoc\Browser\Application\browser.exe",
         ],
-        # ── Thorium ───────────────────────────────────────────────────────
+        # -- Thorium --
         "thorium": [
             r"%LOCALAPPDATA%\Thorium\Application\thorium.exe",
             r"C:\Program Files\Thorium\Application\thorium.exe",
             r"C:\Program Files (x86)\Thorium\Application\thorium.exe",
         ],
-        # ── Firefox 系列 ──────────────────────────────────────────────────
+        # -- Firefox Family --
         "firefox": [
             r"C:\Program Files\Mozilla Firefox\firefox.exe",
             r"C:\Program Files (x86)\Mozilla Firefox\firefox.exe",
@@ -335,48 +335,48 @@ class BrowserCard(QFrame):
             r"C:\Program Files\Mozilla SeaMonkey\seamonkey.exe",
             r"C:\Program Files (x86)\Mozilla SeaMonkey\seamonkey.exe",
         ],
-        # ── 国产 / 区域浏览器 ─────────────────────────────────────────────
-        # QQ浏览器
+        # -- Chinese / Regional Browsers --
+        # QQ Browser
         "qq_browser": [
             r"C:\Program Files (x86)\Tencent\QQBrowser\QQBrowser.exe",
             r"C:\Program Files\Tencent\QQBrowser\QQBrowser.exe",
             r"%LOCALAPPDATA%\Tencent\QQBrowser\Application\QQBrowser.exe",
         ],
-        # 搜狗高速浏览器
+        # Sogou Explorer
         "sogou": [
             r"C:\Program Files (x86)\SogouExplorer\SogouExplorer.exe",
             r"C:\Program Files\SogouExplorer\SogouExplorer.exe",
         ],
-        # 星愿浏览器 (Twinkstar)
+        # Twinkstar Browser
         "twinkstar": [
             r"C:\Program Files (x86)\Twinkstar\twchrome.exe",
             r"C:\Program Files\Twinkstar\twchrome.exe",
             r"%LOCALAPPDATA%\Twinkstar\Application\twchrome.exe",
         ],
-        # 百分浏览器 (Cent Browser)
+        # Cent Browser
         "centbrowser": [
             r"%LOCALAPPDATA%\CentBrowser\Application\chrome.exe",
             r"C:\Program Files\CentBrowser\Application\chrome.exe",
             r"C:\Program Files (x86)\CentBrowser\Application\chrome.exe",
         ],
-        # 2345加速浏览器
+        # 2345 Explorer
         "browser_2345": [
             r"C:\Program Files (x86)\2345Soft\2345Explorer\2345Explorer.exe",
             r"C:\Program Files\2345Soft\2345Explorer\2345Explorer.exe",
         ],
-        # 猎豹安全浏览器 (Cheetah / Liebao)
+        # Cheetah / Liebao Browser
         "liebao": [
             r"C:\Program Files (x86)\liebao\liebao.exe",
             r"C:\Program Files\liebao\liebao.exe",
             r"%LOCALAPPDATA%\liebao\liebao.exe",
         ],
-        # UC浏览器电脑版
+        # UC Browser (Desktop)
         "uc": [
             r"%LOCALAPPDATA%\UCBrowser\Application\UCBrowser.exe",
             r"C:\Program Files (x86)\UCBrowser\Application\UCBrowser.exe",
             r"C:\Program Files\UCBrowser\Application\UCBrowser.exe",
         ],
-        # 傲游浏览器 (Maxthon)
+        # Maxthon Browser
         "maxthon": [
             r"C:\Program Files\Maxthon\Bin\Maxthon.exe",
             r"C:\Program Files (x86)\Maxthon\Bin\Maxthon.exe",
@@ -385,40 +385,40 @@ class BrowserCard(QFrame):
     }
 
     _LAUNCH_HINTS: dict[str, list[str]] = {
-        # ── Google Chrome 各渠道 ──────────────────────────────────────────
+        # -- Google Chrome Channels --
         "chrome": ["google-chrome", "chrome", "chromium-browser", "chromium"],
         "chrome_beta": ["google-chrome-beta"],
         "chrome_dev": ["google-chrome-dev", "google-chrome-unstable"],
         "chrome_canary": ["google-chrome-canary"],
         "chrome_for_testing": ["chrome-for-testing"],
-        # ── Chromium ──────────────────────────────────────────────────────
+        # -- Chromium --
         "chromium": ["chromium-browser", "chromium", "google-chrome"],
-        # ── Microsoft Edge 各渠道 ─────────────────────────────────────────
+        # -- Microsoft Edge Channels --
         "edge": ["microsoft-edge", "msedge"],
         "edge_beta": ["microsoft-edge-beta"],
         "edge_dev": ["microsoft-edge-dev"],
         "edge_canary": ["microsoft-edge-canary"],
-        # ── Brave 各渠道 ──────────────────────────────────────────────────
+        # -- Brave Channels --
         "brave": ["brave-browser", "brave"],
         "brave_beta": ["brave-browser-beta", "brave-beta"],
         "brave_dev": ["brave-browser-dev", "brave-dev"],
         "brave_nightly": ["brave-browser-nightly", "brave-nightly"],
-        # ── Vivaldi ───────────────────────────────────────────────────────
+        # -- Vivaldi --
         "vivaldi": ["vivaldi-stable", "vivaldi"],
-        # ── Opera ─────────────────────────────────────────────────────────
+        # -- Opera --
         "opera": ["opera"],
         "opera_gx": ["opera"],
-        # ── Arc ───────────────────────────────────────────────────────────
+        # -- Arc --
         "arc": ["arc"],
-        # ── Yandex Browser ────────────────────────────────────────────────
+        # -- Yandex Browser --
         "yandex": ["yandex-browser", "yandex-browser-stable"],
-        # ── Naver Whale ───────────────────────────────────────────────────
+        # -- Naver Whale --
         "whale": ["naver-whale", "whale"],
-        # ── CocCoc ────────────────────────────────────────────────────────
+        # -- CocCoc --
         "coccoc": ["coccoc"],
-        # ── Thorium ───────────────────────────────────────────────────────
+        # -- Thorium --
         "thorium": ["thorium-browser", "thorium"],
-        # ── Firefox 系列 ──────────────────────────────────────────────────
+        # -- Firefox Family --
         "firefox": ["firefox", "firefox-esr"],
         "librewolf": ["librewolf"],
         "waterfox": ["waterfox"],
@@ -427,7 +427,7 @@ class BrowserCard(QFrame):
         "safari": ["open", "-a", "Safari"],
         "tor_browser": ["torbrowser-launcher", "tor-browser"],
         "seamonkey": ["seamonkey"],
-        # ── 国产 / 区域浏览器 ─────────────────────────────────────────────
+        # -- Chinese / Regional Browsers --
         "qq_browser": ["qqbrowser"],
         "sogou": ["sogouexplorer", "sogou-explorer"],
         "twinkstar": ["twinkstar", "twchrome"],
@@ -519,7 +519,7 @@ class BrowserCard(QFrame):
 
     def _apply_status(self):
         if not self._sync_enabled:
-            # 浏览器同步已禁用，显示灰色覆盖提示
+            # Browser sync is disabled; show gray overlay indicator
             is_light = ThemeManager.instance().current == "light"
             dot_color = "#9ca3af" if is_light else "#6b7280"
             bg_color = "#f3f4f6" if is_light else "#1e2028"
@@ -561,7 +561,7 @@ class BrowserCard(QFrame):
 
         menu.addSeparator()
 
-        # 启用/禁用该浏览器的同步
+        # Enable/disable sync for this browser
         if self._sync_enabled:
             toggle_action = menu.addAction(get_icon("pause", 14), _("Disable Sync for This Browser"))
             toggle_action.triggered.connect(lambda: self._on_toggle_sync(False))
@@ -593,7 +593,7 @@ class BrowserCard(QFrame):
         self.sync_toggle_requested.emit(self._browser_type, enabled)
 
     def set_sync_enabled(self, enabled: bool):
-        """由外部调用以同步浏览器启用状态。"""
+        """Called externally to synchronize the browser's enabled state."""
         self._sync_enabled = enabled
         self._apply_status()
 
@@ -603,7 +603,7 @@ class BrowserCard(QFrame):
         QApplication.clipboard().setText(self._display_name)
 
     def _on_rename(self):
-        """重命名浏览器"""
+        """Rename the browser."""
         from PySide6.QtWidgets import QInputDialog
 
         from src.models.app_config import AppConfig
@@ -614,13 +614,13 @@ class BrowserCard(QFrame):
         )
 
         if ok and new_name and new_name != self._display_name:
-            # 更新配置
+            # Update configuration
             config = AppConfig.load()
             if self._browser_type in config.extractor.learned_browsers:
                 config.extractor.learned_browsers[self._browser_type]["display_name"] = new_name
                 config.save()
 
-                # 更新浏览器定义
+                # Update browser definition
                 info = config.extractor.learned_browsers[self._browser_type]
                 browser_def = create_learned_browser_def(
                     browser_type=self._browser_type,
@@ -630,12 +630,12 @@ class BrowserCard(QFrame):
                 )
                 register_learned_browser(browser_def)
 
-                # 更新UI
+                # Update UI
                 self._display_name = new_name
                 self._name_label.setText(new_name)
 
     def _on_remove_browser(self):
-        """从配置中删除深度扫描添加的浏览器"""
+        """Remove a browser added via deep scan from the configuration."""
         from PySide6.QtWidgets import QCheckBox, QDialogButtonBox, QLabel, QVBoxLayout
 
         dlg = QDialog(self)
@@ -712,11 +712,11 @@ class _EmptyState(QWidget):
 
 
 class BrowserSettingsDialog(QDialog):
-    """浏览器同步设置对话框：启用/禁用各浏览器，支持重新检测。"""
+    """Browser sync settings dialog: enable/disable browsers and support re-detection."""
 
     browser_sync_changed = Signal(str, bool)  # (browser_type, enabled)
     redetect_requested = Signal()
-    browsers_discovered = Signal(list)  # list[DetectedBrowser] — 深度扫描后新增
+    browsers_discovered = Signal(list)  # list[DetectedBrowser] — Newly added after deep scan
 
     def __init__(self, disabled_browsers: set[str], parent=None):
         super().__init__(parent)
@@ -803,14 +803,14 @@ class BrowserSettingsDialog(QDialog):
         root.addWidget(btns)
 
     def _populate_browsers(self):
-        """构建或重新构建浏览器列表"""
+        """Build or rebuild the browser list."""
         from src.services.browser_defs import BROWSER_DEF_MAP
 
-        # 清空现有的checkboxes和dots
+        # Clear existing checkboxes and dots
         self._checkboxes.clear()
         self._dots.clear()
 
-        # 创建新的inner widget
+        # Create a new inner widget
         inner = QWidget()
         cb_layout = QVBoxLayout(inner)
         cb_layout.setSpacing(6)
@@ -869,7 +869,7 @@ class BrowserSettingsDialog(QDialog):
 
         cb_layout.addStretch()  # absorb extra vertical space so items stay compact
 
-        # 替换scroll area的widget
+        # Replace the scroll area's widget
         old_widget = self._scroll_area.widget()
         self._scroll_area.setWidget(inner)
         if old_widget:
@@ -908,7 +908,7 @@ class BrowserSettingsDialog(QDialog):
         self.redetect_requested.emit()
 
     def _on_deep_scan(self):
-        """启动深度扫描"""
+        """Start deep scan."""
         from src.services.browser_defs import get_all_known_data_dirs
         from src.views.dialogs.browser_scan_dialog import BrowserScanDialog
 
@@ -919,7 +919,7 @@ class BrowserSettingsDialog(QDialog):
         dialog.exec()
 
     def _on_browsers_added(self, browsers):
-        """添加扫描发现的浏览器"""
+        """Add browsers discovered during the scan."""
         self._populate_browsers()
         self.browsers_discovered.emit(browsers)
 
@@ -945,7 +945,7 @@ class DashboardPage(QWidget):
     view_history_requested = Signal(str)
     browser_sync_toggle_requested = Signal(str, bool)  # (browser_type, enabled)
     redetect_browsers_requested = Signal()
-    learned_browsers_added = Signal(list)  # list[DetectedBrowser] — 深度扫描新增浏览器
+    learned_browsers_added = Signal(list)  # list[DetectedBrowser] — Newly discovered browsers from deep scan
     browser_remove_requested = Signal(str, bool)  # (browser_type, clear_data)
 
     def __init__(self, parent=None):
@@ -1127,33 +1127,33 @@ class DashboardPage(QWidget):
     # ── Per-browser actions ────────────────────────────────────
 
     def _on_browser_remove(self, browser_type: str, clear_data: bool):
-        """处理从配置中删除深度扫描浏览器的请求。"""
+        """Handle request to remove a deep-scanned browser from the configuration."""
         from src.models.app_config import AppConfig
         from src.services.browser_defs import BROWSER_DEF_MAP
 
-        # 从配置中移除
+        # Remove from configuration
         config = AppConfig.load()
         config.extractor.learned_browsers.pop(browser_type, None)
         if browser_type in config.extractor.disabled_browsers:
             config.extractor.disabled_browsers.remove(browser_type)
         config.save()
 
-        # 从全局浏览器定义表中移除
+        # Remove from global browser definition map
         BROWSER_DEF_MAP.pop(browser_type, None)
 
-        # 转发给 ViewModel 处理（清除数据、刷新状态等）
+        # Forward to ViewModel for processing (clear data, refresh state, etc.)
         self.browser_remove_requested.emit(browser_type, clear_data)
 
     def _on_browser_settings(self):
-        """打开浏览器同步设置对话框。"""
+        """Open the browser sync settings dialog."""
         dlg = BrowserSettingsDialog(self._disabled_browsers, parent=self)
         dlg.browser_sync_changed.connect(self._on_browser_sync_changed_from_dialog)
         dlg.redetect_requested.connect(self.redetect_browsers_requested)
-        dlg.browsers_discovered.connect(self.learned_browsers_added)  # 深度扫描结果透传给 MainViewModel
+        dlg.browsers_discovered.connect(self.learned_browsers_added)
         if dlg.exec() == QDialog.Accepted:
-            # 批量应用所有更改
+            # Apply all changes in bulk
             new_disabled = set(dlg.get_disabled_browsers())
-            # 对每个状态发生变化的浏览器发出信号
+            # Emit signal for each browser whose state has changed
             all_browsers = set(self._browser_cards.keys()) | new_disabled | self._disabled_browsers
             for bt in all_browsers:
                 was_disabled = bt in self._disabled_browsers
@@ -1165,8 +1165,8 @@ class DashboardPage(QWidget):
             self._disabled_browsers = new_disabled
 
     def _on_browser_sync_changed_from_dialog(self, browser_type: str, enabled: bool):
-        """对话框内实时点击重新检测时的回调（不等 OK）。"""
-        pass  # 仅在 OK 时批量提交，此处留空
+        """Callback for real-time re-detect clicks inside the dialog (does not wait for OK)."""
+        pass  # Bulk submit only on OK, leave empty here
 
     def _on_sync_browser(self, browser_type: str):
         self.sync_browser_requested.emit(browser_type)

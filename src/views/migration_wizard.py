@@ -50,7 +50,7 @@ def _make_colored_circle(color: str, size: int = 10) -> QPixmap:
     p.setRenderHint(QPainter.Antialiasing)
     p.setBrush(QColor(color))
     p.setPen(Qt.NoPen)
-    # 使用 1 像素的边距确保圆形完全在 pixmap 内且居中
+    # Use 1-pixel margin to ensure circle is fully within pixmap and centered
     p.drawEllipse(1, 1, size - 2, size - 2)
     p.end()
     return px
@@ -146,7 +146,7 @@ class _StepIndicator(QWidget):
         self._refresh()
 
     def _get_inactive_colors(self) -> tuple[str, str]:
-        """返回未激活步骤的 (背景色, 文字色)"""
+        """Return (background_color, text_color) for inactive steps."""
         theme = ThemeManager.instance().current
         if theme == "light":
             return "#d8dce8", "#8892a4"

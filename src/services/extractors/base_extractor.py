@@ -20,16 +20,17 @@ from src.utils.logger import get_logger
 log = get_logger("extractor")
 
 _BACKUP_TIMEOUT_SEC = 10
-_LOCK_PROBE_TIMEOUT_SEC = 0.5  # 500ms 内拿不到锁立即切换文件拷贝
+_LOCK_PROBE_TIMEOUT_SEC = 0.5  # Switch to file copy immediately if lock isn't acquired within 500ms
 
 
 def copy_db_with_wal(src: Path, dst: Path) -> None:
     """
-    文件级拷贝 SQLite 数据库。
+    File-level copy of an SQLite database.
 
-    拷贝顺序：先 WAL/SHM，后主文件。
-    先拷 WAL 可使副本的 "主文件 + WAL" 在时间轴上更接近一致点，
-    减小不一致窗口。WAL / SHM 文件可能不存在，缺失时跳过。
+    Copy order: WAL/SHM first, then the main file.
+    Copying WAL first makes the replica's "main file + WAL" closer to a consistent
+    point in time, reducing the inconsistency window. WAL/SHM files might not exist;
+    skip them if missing.
     """
     for suffix in ("-wal", "-shm"):
         side = src.with_name(src.name + suffix)
@@ -39,7 +40,7 @@ def copy_db_with_wal(src: Path, dst: Path) -> None:
 
 
 def _close_quietly(conn: sqlite3.Connection | None) -> None:
-    """静默关闭 SQLite 连接，忽略所有异常。"""
+    """Silently close the SQLite connection, ignoring all exceptions."""
     if conn is not None:
         try:
             conn.close()
@@ -50,13 +51,13 @@ def _close_quietly(conn: sqlite3.Connection | None) -> None:
 @contextmanager
 def open_db_snapshot(db_path: Path, display_name: str = "", timeout_sec: float = _BACKUP_TIMEOUT_SEC):
     """
-    上下文管理器：将 SQLite 数据库备份到内存快照并 yield 连接。
-    退出时无论是否异常都会关闭连接。
+    Context manager: Backs up an SQLite database to an in-memory snapshot and yields the connection.
+    Ensures the connection is closed upon exit, regardless of exceptions.
 
-    优先使用 SQLite backup() API（完整处理 WAL，无文件竞态）；
-    backup() 失败时自动降级为文件拷贝方案。
+    Prioritizes the SQLite backup() API (handles WAL properly, no file race conditions);
+    falls back to file copying if backup() fails.
 
-    用法：
+    Usage:
         with open_db_snapshot(db_path, display_name) as conn:
             rows = conn.execute(sql).fetchall()
     """
@@ -74,7 +75,7 @@ def _open_snapshot(
     display_name: str,
     timeout_sec: float,
 ) -> sqlite3.Connection | None:
-    """尝试 backup() → 降级文件拷贝，返回内存连接或 None。"""
+    """Attempts backup() -> falls back to file copy. Returns an in-memory connection or None."""
     conn = _try_backup(db_path, display_name, timeout_sec)
     if conn is not None:
         return conn
@@ -86,7 +87,7 @@ def _try_backup(
     display_name: str,
     timeout_sec: float,
 ) -> sqlite3.Connection | None:
-    """尝试 SQLite backup() API，超时后返回 None 以降级到文件拷贝。"""
+    """Attempts the SQLite backup() API. Returns None on timeout to trigger file copy fallback."""
     src_conn = mem_conn = None
     _start = time.monotonic()
     cancel_event = threading.Event()
@@ -96,7 +97,7 @@ def _try_backup(
         _last_log = [_start]
 
         def _progress(status: int, remaining: int, total: int) -> None:
-            # 若主线程已超时并设置取消标志，抛出异常中断 backup()
+            # If the main thread has timed out and set the cancel flag, raise an exception to interrupt backup()
             if cancel_event.is_set():
                 raise sqlite3.OperationalError("backup() cancelled: lock probe timed out")
             now = time.monotonic()
@@ -114,7 +115,7 @@ def _try_backup(
             src_conn = sqlite3.connect(str(db_path), timeout=0)
             src_conn.execute("SELECT 1")
             mem_conn = sqlite3.connect(":memory:", check_same_thread=False)
-            # pages=1：每传输 1 页触发一次 progress，确保 cancel_event 能被快速响应
+            # pages=1: Trigger progress callback every 1 page to ensure cancel_event is responded to quickly
             src_conn.backup(mem_conn, pages=1, progress=_progress)
             mem_conn.row_factory = sqlite3.Row
             return mem_conn
@@ -132,7 +133,7 @@ def _try_backup(
                 elapsed = time.monotonic() - _start
                 log.debug("[%s] backup() OK in %.2fs", display_name, elapsed)
                 return result
-            # backup() 本身报错（非锁问题）
+            # backup() failed due to an error (not a lock issue)
             log.warning(
                 "[%s] backup() failed for '%s' — will try file copy",
                 display_name,
@@ -140,7 +141,7 @@ def _try_backup(
             )
             return None
         except concurrent.futures.TimeoutError:
-            # 超时：通知子线程通过 progress 回调抛出异常来退出
+            # Timeout: Notify the child thread to exit by raising an exception via the progress callback
             cancel_event.set()
             elapsed = time.monotonic() - _start
             log.debug(
@@ -149,8 +150,7 @@ def _try_backup(
                 elapsed * 1000,
                 db_path.name,
             )
-            # 等待子线程清理（cancel_event 已设，下次 progress 触发时会退出）
-            # 等待子线程响应 cancel_event（最多等一个 progress 周期 ~2s + 余量）
+            # Wait for child thread cleanup (cancel_event is set, it will exit on the next progress trigger)
             try:
                 future.result(timeout=3.0)
             except Exception:
@@ -165,7 +165,7 @@ def _try_file_copy(
     retry: int = 3,
     delay: float = 0.5,
 ) -> sqlite3.Connection | None:
-    """文件级拷贝降级方案。"""
+    """File copy fallback strategy."""
     for attempt in range(1, retry + 1):
         file_conn = mem_conn = None
         _start = time.monotonic()
@@ -173,7 +173,7 @@ def _try_file_copy(
             with tempfile.TemporaryDirectory(prefix="historysync_") as tmp_dir:
                 dst = Path(tmp_dir) / db_path.name
                 copy_db_with_wal(db_path, dst)
-                # immutable=1：告知 SQLite 文件不会被外部修改，完全跳过文件锁逻辑
+                # immutable=1: Informs SQLite that the file will not be modified externally, bypassing file lock logic
                 file_conn = sqlite3.connect(f"file:{dst}?immutable=1", uri=True)
                 file_conn.execute("PRAGMA query_only = ON")
                 mem_conn = sqlite3.connect(":memory:", check_same_thread=False)
@@ -212,8 +212,8 @@ class BaseExtractor(ABC):
     def __init__(self, defn: BrowserDef, custom_db_path: Path | None = None):
         """
         Args:
-            defn:           浏览器定义，提供路径策略与元数据。
-            custom_db_path: 用户手动指定的单一数据库路径（仅自定义 Chromium 使用）。
+            defn:           Browser definition providing path strategies and metadata.
+            custom_db_path: Manually specified single database path (used only for custom Chromium).
         """
         self._defn = defn
         self._custom_db_path = custom_db_path
@@ -226,16 +226,16 @@ class BaseExtractor(ABC):
     def display_name(self) -> str:
         return self._defn.display_name
 
-    # ── 公开接口 ──────────────────────────────────────────────
+    # ── Public Interfaces ─────────────────────────────────────
 
     def extract(self, since_map: dict[str, int] | None = None) -> list[HistoryRecord]:
         """
-        公开入口：发现所有 Profile 数据库，安全拷贝后提取。
+        Public entry point: Discovers all Profile databases, safely copies them, and extracts records.
 
         Args:
             since_map: {profile_name: last_known_unix_timestamp}
-                       只提取 visit_time > timestamp 的新记录；
-                       None 或未命中的 profile 视为 0（全量提取）。
+                       Only extracts records where visit_time > timestamp;
+                       None or missing profiles are treated as 0 (full extraction).
         """
         all_records: list[HistoryRecord] = []
         since_map = since_map or {}
@@ -272,17 +272,17 @@ class BaseExtractor(ABC):
         return all_records
 
     def is_available(self) -> bool:
-        """检测该浏览器在当前系统是否有可用的历史数据库文件。"""
+        """Checks if the browser has available history database files on the current system."""
         return self._defn.is_history_available(self._custom_db_path)
 
     def get_all_db_paths(self) -> list[tuple[str, Path]]:
         """
-        返回所有 Profile 的历史数据库路径列表。
-        供 BrowserMonitor 监控文件修改时间使用。
+        Returns a list of history database paths for all profiles.
+        Used by BrowserMonitor to track file modification times.
         """
         return list(self._defn.iter_history_db_paths(self._custom_db_path))
 
-    # ── 子类实现 ──────────────────────────────────────────────
+    # ── Subclass Implementation ───────────────────────────────
 
     @abstractmethod
     def _extract_from_db(
@@ -292,15 +292,15 @@ class BaseExtractor(ABC):
         since_unix_time: int = 0,
     ) -> list[HistoryRecord]:
         """
-        从已打开的 SQLite 内存快照中提取记录。
+        Extracts records from an opened SQLite in-memory snapshot.
 
         Args:
-            conn:            指向内存快照数据库的连接（只读）。
-            profile_name:    Profile 名称，用于填充 HistoryRecord。
-            since_unix_time: 仅返回 visit_time > 此值的记录（0 = 全量）。
+            conn:            Connection to the in-memory snapshot database (read-only).
+            profile_name:    Profile name, used to populate HistoryRecord.
+            since_unix_time: Only returns records where visit_time > this value (0 = full extraction).
         """
 
-    # ── 内部实现 ──────────────────────────────────────────────
+    # ── Internal Implementation ───────────────────────────────
 
     def _safe_extract(
         self,
@@ -309,8 +309,8 @@ class BaseExtractor(ABC):
         since_unix_time: int = 0,
     ) -> list[HistoryRecord]:
         """
-        将数据库备份到内存快照，再调用 _extract_from_db()。
-        连接生命周期完全内聚于此方法，调用方无需关心连接管理。
+        Backs up the database to an in-memory snapshot, then calls _extract_from_db().
+        Connection lifecycle is fully encapsulated here; callers do not need to manage connections.
         """
         try:
             with open_db_snapshot(db_path, self.display_name) as conn:

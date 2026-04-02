@@ -22,14 +22,14 @@ from src.utils.constants import (
 
 
 def _resolve_config_dir() -> Path:
-    """运行时解析配置目录。"""
+    """Resolve config directory at runtime."""
     from src.utils.path_helper import get_config_dir
 
     return get_config_dir()
 
 
 def _resolve_data_dir() -> Path:
-    """运行时解析数据目录。"""
+    """Resolve application data directory at runtime."""
     from src.utils.path_helper import get_app_data_dir
 
     return get_app_data_dir()
@@ -61,8 +61,8 @@ class SchedulerConfig:
 class ExtractorConfig:
     custom_paths: dict = field(default_factory=dict)
     disabled_browsers: list = field(default_factory=list)
-    learned_browsers: dict = field(default_factory=dict)  # 智能扫描发现的浏览器
-    # learned_browsers 格式：
+    learned_browsers: dict = field(default_factory=dict)  # Browsers discovered by smart scan
+    # learned_browsers format:
     # {
     #   "detected_liebao": {
     #     "display_name": "Liebao Browser",
@@ -107,19 +107,17 @@ class AppConfig:
     last_sync_ts: int = 0
     master_password_hash: str = ""  # bcrypt hash; empty = no password set
     first_run_completed: bool = False
-    # ── 设备标识 ─────────────────────────────────────────────────────────────
-    device_uuid: str = ""  # 程序首次运行时生成，永久唯一
-    device_name: str = ""  # 用户可修改的设备昵称
+    # ── Device identity ───────────────────────────────────────────────────────
+    device_uuid: str = ""  # Generated on first run; permanently unique
+    device_name: str = ""  # User-editable device nickname
 
-    # ── 运行时标志（不持久化）─────────────────────────────────────────────────
-    # fresh 模式
+    # ── Runtime flags (not persisted) ────────────────────────────────────────
+    # Fresh mode: uses a temporary directory, no disk reads or writes
     _fresh: bool = field(default=False, init=False, repr=False, compare=False)
     _fresh_tmp_dir: object = field(default=None, init=False, repr=False, compare=False)
 
     def get_db_path(self) -> Path:
-        """
-        返回数据库文件路径。
-        """
+        """Return the database file path."""
         if self._fresh:
             if self._fresh_tmp_dir is None:
                 import tempfile as _tempfile
@@ -131,9 +129,7 @@ class AppConfig:
         return _resolve_data_dir() / DB_FILENAME
 
     def get_favicon_db_path(self) -> Path:
-        """
-        返回 favicon 数据库路径。
-        """
+        """Return the favicon database path."""
         from src.utils.constants import FAVICON_DB_FILENAME
 
         if self._fresh:
@@ -229,7 +225,7 @@ class AppConfig:
 
     @classmethod
     def load(cls) -> AppConfig:
-        """从磁盘加载配置。"""
+        """Load configuration from disk."""
         config_dir = _resolve_config_dir()
         config_file = config_dir / CONFIG_FILENAME
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -250,7 +246,7 @@ class AppConfig:
             return cls()
 
     def save(self) -> None:
-        """持久化配置到磁盘。"""
+        """Persist configuration to disk."""
         if self._fresh:
             return
 

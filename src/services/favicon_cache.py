@@ -15,36 +15,37 @@ from src.utils.logger import get_logger
 
 log = get_logger("favicon_cache")
 
-# 缓存有效期：30 天后认为过期，下次同步时重新从浏览器数据库提取
+# Cache TTL: Considered stale after 30 days, will be re-extracted during next sync
 _TTL_DAYS = 30
 
 
 @dataclass
 class FaviconRecord:
-    """单条归一化图标缓存记录。"""
+    """A single normalized favicon cache record."""
 
     domain: str
-    data: bytes  # PNG/ICO/WebP/GIF 的二进制数据，或 SVG 的 UTF-8 字节
+    data: bytes  # Binary data for PNG/ICO/WebP/GIF, or UTF-8 bytes for SVG
     data_type: str  # 'png' | 'ico' | 'svg' | 'webp' | 'jpeg' | 'gif'
-    width: int  # SVG 统一为 0（矢量，无固定尺寸）
-    updated_at: int  # Unix 时间戳（秒）
+    width: int  # 0 for SVG (vector, no fixed size)
+    updated_at: int  # Unix timestamp (seconds)
 
 
 class FaviconCache:
     """
-    管理 favicons.db 独立 SQLite 数据库。
+    Manages the independent SQLite database for favicons (favicons.db).
 
-    职责边界：
-    - 只负责图标数据的持久化存取，不做任何渲染。
-    - 完全独立于 history.db，永远不参与 WebDAV 同步。
-    - 以 domain（注册域名）为主键，缓存对应的最优图标。
+    Responsibilities:
+    - Exclusively handles persistence and retrieval of favicon data; no rendering.
+    - Completely independent of history.db; never participates in WebDAV sync.
+    - Uses the domain (registered domain) as the primary key to cache the best available icon.
 
-    性能优化：
-    - 使用持久化连接（check_same_thread=False），避免每次 get/get_many
-      调用都重新 open/close 连接，大幅降低 UI 线程在图标渲染时的延迟。
-    - 写操作（upsert_many、prune_stale）显式 commit；
-      读操作（get、get_many）不触发多余的 commit。
-    - 所有操作均通过 RLock 序列化，保证主线程读 + 后台线程写的安全性。
+    Performance Optimizations:
+    - Uses a persistent connection (check_same_thread=False) to avoid open/close overhead
+      on every get/get_many call, significantly reducing UI thread latency during rendering.
+    - Write operations (upsert_many, prune_stale) explicitly commit;
+      read operations (get, get_many) do not trigger unnecessary commits.
+    - All operations are serialized via RLock to ensure safety between main thread reads
+      and background thread writes.
     """
 
     _SCHEMA = """
@@ -66,12 +67,12 @@ class FaviconCache:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_schema()
 
-    # ── 持久化连接管理 ────────────────────────────────────────
+    # ── Persistent Connection Management ────────────────────────
 
     def _ensure_conn(self) -> sqlite3.Connection:
         """
-        返回持久化连接，不存在时创建。
-        调用方必须已持有 self._lock。
+        Returns a persistent connection, creating it if necessary.
+        Caller must hold self._lock.
         """
         if self._pconn is None:
             conn = sqlite3.connect(
@@ -87,7 +88,7 @@ class FaviconCache:
         return self._pconn
 
     def _reset_conn(self) -> None:
-        """连接出错后重置，下次 _ensure_conn 会重新打开。"""
+        """Resets the connection after an error. _ensure_conn will reopen it next time."""
         if self._pconn is not None:
             try:
                 self._pconn.close()
@@ -98,9 +99,9 @@ class FaviconCache:
     @contextmanager
     def _conn(self, write: bool = False) -> Iterator[sqlite3.Connection]:
         """
-        线程安全的连接上下文管理器。
-        write=True：yield 后 commit，出错则 rollback。
-        write=False（只读）：不触发任何事务操作，减少锁竞争。
+        Thread-safe connection context manager.
+        write=True: yields and commits, rolls back on error.
+        write=False (read-only): avoids transaction overhead, reducing lock contention.
         """
         with self._lock:
             conn = self._ensure_conn()
@@ -114,12 +115,12 @@ class FaviconCache:
                         conn.rollback()
                     except Exception:
                         pass
-                # 连接状态可能已损坏，重置以便下次重建
+                # Connection state might be corrupted, reset for next recreation
                 self._reset_conn()
                 raise
 
     def close(self) -> None:
-        """显式关闭持久化连接（应用退出时调用）。"""
+        """Explicitly closes the persistent connection (called on app exit)."""
         with self._lock:
             self._reset_conn()
 
@@ -138,12 +139,13 @@ class FaviconCache:
 
     def upsert_many(self, records: list[FaviconRecord]) -> int:
         """
-        批量写入图标记录。冲突时（同一 domain）按以下优先级覆盖：
-        - SVG 始终优先（矢量可无损缩放）
-        - 同为位图时，较大尺寸覆盖较小尺寸
-        - 两者尺寸相同时，更新时间较新的获胜
-        Python 层的 _select_best_per_domain() 已在入库前完成同批次去重，
-        此处 SQL 条件仅防御已有缓存被低质量数据降级。
+        Batch inserts/updates icon records. On conflict (same domain), overwrites based on priority:
+        - SVG is always preferred (lossless scaling).
+        - For bitmaps, larger sizes overwrite smaller sizes.
+        - If sizes are equal, the newer updated_at timestamp wins.
+
+        Note: Deduplication within the same batch is handled in Python by _select_best_per_domain().
+        The SQL conditions here prevent existing high-quality cache from being downgraded.
         """
         if not records:
             return 0
@@ -157,12 +159,12 @@ class FaviconCache:
                 width      = excluded.width,
                 updated_at = excluded.updated_at
             WHERE
-                -- 新数据是 SVG，旧数据不是 → 升级
+                -- Upgrade if new data is SVG and old data is not
                 (excluded.data_type = 'svg' AND favicon_cache.data_type != 'svg')
-                -- 新旧都是位图，新的分辨率更高 → 升级
+                -- Upgrade if both are bitmaps but new has higher resolution
                 OR (excluded.data_type != 'svg' AND favicon_cache.data_type != 'svg'
                     AND excluded.width > favicon_cache.width)
-                -- 同尺寸但数据更新（重新提取的新鲜度更高）
+                -- Same size but newer data (higher freshness)
                 OR (excluded.width = favicon_cache.width
                     AND excluded.updated_at > favicon_cache.updated_at)
         """
@@ -193,7 +195,7 @@ class FaviconCache:
         )
 
     def get_many(self, domains: set[str]) -> dict[str, FaviconRecord]:
-        """批量查询，返回 {domain: FaviconRecord} 字典（仅命中的条目）。"""
+        """Batch query, returns a {domain: FaviconRecord} dict (only for cache hits)."""
         if not domains:
             return {}
         placeholders = ",".join("?" * len(domains))
@@ -215,7 +217,7 @@ class FaviconCache:
         }
 
     def get_stale_domains(self) -> list[str]:
-        """返回超过 TTL、需要重新提取的 domain 列表。"""
+        """Returns a list of domains that exceed the TTL and need re-extraction."""
         threshold = int(time.time()) - _TTL_DAYS * 86_400
         with self._conn() as conn:
             rows = conn.execute(
@@ -225,7 +227,7 @@ class FaviconCache:
         return [r["domain"] for r in rows]
 
     def prune_stale(self) -> int:
-        """删除超过 TTL 的缓存条目，返回删除数量。"""
+        """Deletes cache entries exceeding the TTL and returns the number of deleted records."""
         threshold = int(time.time()) - _TTL_DAYS * 86_400
         with self._conn(write=True) as conn:
             cursor = conn.execute(

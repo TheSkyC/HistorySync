@@ -24,7 +24,7 @@ class BrowserSyncStatus(Enum):
 
 
 class BrowserMonitor(QObject):
-    # 信号传递字典：{ browser_type: status_name_str }
+    # Signal payload dictionary: { browser_type: status_name_str }
     statuses_changed = Signal(dict)
 
     def __init__(self, em: ExtractorManager, db: LocalDatabase, parent=None):
@@ -35,7 +35,7 @@ class BrowserMonitor(QObject):
         self._syncing_browsers: set[str] = set()
 
         self._timer = QTimer(self)
-        self._timer.setInterval(3000)  # 每 3 秒检测一次
+        self._timer.setInterval(3000)  # Check every 3 seconds
         self._timer.timeout.connect(self._check_statuses)
 
     def start(self):
@@ -46,7 +46,7 @@ class BrowserMonitor(QObject):
         self._timer.stop()
 
     def set_syncing(self, browser_type: str, is_syncing: bool):
-        """外部通知某浏览器正在提取中。"""
+        """Externally notifies that a browser is currently being extracted."""
         if is_syncing:
             self._syncing_browsers.add(browser_type)
         else:
@@ -54,16 +54,16 @@ class BrowserMonitor(QObject):
         self._check_statuses()
 
     def clear_syncing(self):
-        """清除所有正在同步状态（例如同步发生错误时重置）。"""
+        """Clears all syncing states (e.g., reset when a sync error occurs)."""
         self._syncing_browsers.clear()
         self._check_statuses()
 
     def force_check(self):
-        """强制立刻检测一次（如设置页修改了配置后调用）。"""
+        """Forces an immediate check (e.g., called after configuration changes in settings)."""
         self._check_statuses()
 
     def _get_max_mtime(self, db_path: Path) -> float:
-        """获取数据库及 WAL/SHM 的最大修改时间，解决 SQLite 的延迟落盘问题。"""
+        """Gets the maximum modification time of the database and its WAL/SHM files to account for SQLite's delayed disk writes."""
         max_mtime = 0.0
         for suffix in ("", "-wal", "-shm"):
             p = db_path.with_name(db_path.name + suffix)
@@ -86,7 +86,7 @@ class BrowserMonitor(QObject):
                 new_statuses[bt] = BrowserSyncStatus.NOT_FOUND.name
                 continue
 
-            # 最高优先级：正在同步中
+            # Highest priority: currently syncing
             if bt in self._syncing_browsers:
                 new_statuses[bt] = BrowserSyncStatus.SYNCING.name
                 continue
@@ -103,7 +103,7 @@ class BrowserMonitor(QObject):
             has_unsynced = False
             has_needs_sync = False
 
-            # Profile 状态向上冒泡
+            # Bubble up profile status
             for profile_name, db_path in paths:
                 if not db_path.exists():
                     continue
@@ -111,10 +111,10 @@ class BrowserMonitor(QObject):
                 last_sync = last_sync_map.get((bt, profile_name), 0)
                 if last_sync == 0:
                     has_unsynced = True
-                    break  # 只要有一个未同步，整体即为未同步
+                    break  # If any profile is unsynced, the entire browser is considered unsynced
 
                 mtime = self._get_max_mtime(db_path)
-                # 加 2 秒缓冲时间以抵消文件系统的时间戳精度截断问题
+                # Add a 2-second buffer to offset filesystem timestamp precision truncation
                 if mtime > last_sync + 2:
                     has_needs_sync = True
 

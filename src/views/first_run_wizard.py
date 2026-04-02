@@ -215,9 +215,9 @@ class _SyncPage(_PageBase):
 
 
 class _BrowserSyncPage(_PageBase):
-    """让用户选择哪些已检测到的浏览器参与同步。"""
+    """Allows the user to select which detected browsers should be synced."""
 
-    learned_browsers_added = Signal(list)  # list[DetectedBrowser] — 深度扫描新增浏览器
+    learned_browsers_added = Signal(list)  # list[DetectedBrowser] — Newly discovered browsers from deep scan
 
     def __init__(self, config: AppConfig, parent=None):
         super().__init__(parent)
@@ -269,7 +269,7 @@ class _BrowserSyncPage(_PageBase):
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
-        # 深度扫描提示
+        # Deep scan hint
         from src.utils.icon_helper import get_icon
 
         scan_hint_layout = QHBoxLayout()
@@ -334,11 +334,11 @@ class _BrowserSyncPage(_PageBase):
 
         disabled = set(self._config.extractor.disabled_browsers)
 
-        # 检测已安装的浏览器
+        # Detect installed browsers
         all_defs = list(BROWSER_DEF_MAP.values())
         detected = {bdef.browser_type for bdef in all_defs if bdef.is_history_available()}
 
-        # 排序
+        # Sort
         sorted_browsers = sorted(
             all_defs,
             key=lambda b: (0 if b.browser_type in detected else 1, b.display_name),
@@ -362,7 +362,7 @@ class _BrowserSyncPage(_PageBase):
             row.addWidget(icon_lbl)
 
             cb = QCheckBox(bdef.display_name)
-            # 恢复用户改过的状态；新浏览器默认勾选
+            # Restore user-modified state; new browsers are checked by default
             if bdef.browser_type in previous_checked:
                 cb.setChecked(previous_checked[bdef.browser_type])
             else:
@@ -395,7 +395,7 @@ class _BrowserSyncPage(_PageBase):
             cb.setChecked(False)
 
     def _on_deep_scan(self):
-        """启动深度扫描"""
+        """Start deep scan"""
         from src.services.browser_defs import get_all_known_data_dirs
         from src.views.dialogs.browser_scan_dialog import BrowserScanDialog
 
@@ -406,9 +406,9 @@ class _BrowserSyncPage(_PageBase):
         dialog.exec()
 
     def _on_browsers_added(self, browsers):
-        """添加扫描发现的浏览器"""
+        """Add browsers discovered by the scan"""
         for browser in browsers:
-            # 写入内存 config
+            # Write to in-memory config
             self._config.extractor.learned_browsers[browser.browser_type] = {
                 "display_name": browser.display_name,
                 "engine": browser.engine,
@@ -688,7 +688,7 @@ class _DonePage(_PageBase):
 class FirstRunWizard(QDialog):
     """Multi-page first-run setup wizard."""
 
-    learned_browsers_added = Signal(list)  # list[DetectedBrowser] — 深度扫描新增浏览器
+    learned_browsers_added = Signal(list)  # list[DetectedBrowser] — Newly discovered browsers from deep scan
 
     def __init__(self, config: AppConfig, parent: QWidget | None = None) -> None:
         super().__init__(parent)

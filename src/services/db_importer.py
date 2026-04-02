@@ -1,22 +1,6 @@
 # Copyright (c) 2026, TheSkyC
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-db_importer.py — 游离数据库导入服务
-
-支持导入以下类型的浏览器历史数据库：
-  - Chromium 系（Chrome、Edge、Brave 等）的 History 文件
-  - Firefox / LibreWolf 等的 places.sqlite 文件
-  - Safari 的 History.db 文件
-  - Edge WebAssistDatabase（navigation_history 表）
-  - HistorySync 自身的 history.db 备份文件
-
-核心流程：
-  1. detect_db_type()   — 通过查询 SQLite 表结构自动识别文件类型
-  2. preview_import()   — 读取元数据（时间范围、记录数、前 N 条样本）
-  3. run_import()       — 提取记录并写入本地数据库，返回 ImportResult
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -43,20 +27,20 @@ if TYPE_CHECKING:
 log = get_logger("db_importer")
 
 
-# ── 枚举：数据库类型 ──────────────────────────────────────────
+# ── Enum: Database Types ──────────────────────────────────────────
 
 
 class DbType(Enum):
-    CHROMIUM = auto()  # Chrome / Edge / Brave 等 Chromium 内核
-    FIREFOX = auto()  # Firefox / LibreWolf 等
+    CHROMIUM = auto()  # Chromium-based browsers (Chrome, Edge, Brave, etc.)
+    FIREFOX = auto()  # Firefox / LibreWolf, etc.
     SAFARI = auto()  # Safari History.db
-    HISTORYSYNC = auto()  # HistorySync 自身的 history.db
-    WEBASSIST = auto()  # Edge WebAssistDatabase (navigation_history 表)
-    UNKNOWN = auto()  # 无法识别
+    HISTORYSYNC = auto()  # HistorySync's own history.db
+    WEBASSIST = auto()  # Edge WebAssistDatabase (navigation_history table)
+    UNKNOWN = auto()  # Unrecognized format
 
 
-# Chromium 系浏览器的 browser_type 标识 → 显示名映射
-# 用于 UI 下拉框选项
+# Chromium browser browser_type identifier -> display name mapping
+# Used for UI dropdown options
 CHROMIUM_BROWSER_OPTIONS: list[tuple[str, str]] = [
     ("chrome", "Google Chrome"),
     ("edge", "Microsoft Edge"),
@@ -77,29 +61,29 @@ FIREFOX_BROWSER_OPTIONS: list[tuple[str, str]] = [
 ]
 
 
-# ── 数据类：预览 & 结果 ───────────────────────────────────────
+# ── Data Classes: Preview & Results ───────────────────────────────────────
 
 
 @dataclass
 class SampleRecord:
-    """用于 UI 预览的精简记录"""
+    """Simplified record for UI preview."""
 
     url: str
     title: str
-    visit_time: int  # Unix 秒时间戳
+    visit_time: int  # Unix seconds timestamp
     visit_count: int
 
 
 @dataclass
 class ImportPreview:
-    """预览导入的元数据，供 UI 展示"""
+    """Preview metadata for import, used for UI display."""
 
     db_type: DbType
     total_records: int
-    min_visit_time: int  # Unix 秒，0 表示未知
-    max_visit_time: int  # Unix 秒，0 表示未知
+    min_visit_time: int  # Unix seconds, 0 means unknown
+    max_visit_time: int  # Unix seconds, 0 means unknown
     sample_records: list[SampleRecord] = field(default_factory=list)
-    error: str = ""  # 非空时表示预览失败
+    error: str = ""  # Non-empty indicates preview failure
 
     @property
     def ok(self) -> bool:
@@ -108,7 +92,7 @@ class ImportPreview:
 
 @dataclass
 class ImportResult:
-    """导入操作的结果"""
+    """Result of the import operation."""
 
     inserted: int = 0
     skipped: int = 0
@@ -121,41 +105,42 @@ class ImportResult:
         return not self.error
 
 
-# ── 核心服务类 ───────────────────────────────────────────────
+# ── Core Service Class ───────────────────────────────────────────────
 
 
 class DatabaseImporter:
     """
-    游离数据库导入器。
+    Standalone database importer.
 
-    使用方式（在 UI 线程之外的 QThread 中调用）：
+    Usage (call from QThread outside UI thread):
         importer = DatabaseImporter(local_db)
         db_type = importer.detect_db_type(path)
         preview = importer.preview_import(path, db_type)
         result  = importer.run_import(path, db_type, browser_type, profile_name)
     """
 
-    SAMPLE_SIZE = 5  # 预览显示的样本记录数
+    SAMPLE_SIZE = 5  # Number of sample records to display in preview
 
     def __init__(self, local_db: LocalDatabase):
         self._local_db = local_db
 
-    # ── 1. 类型识别 ───────────────────────────────────────────
+    # ── 1. Type Detection ───────────────────────────────────────────
 
     def detect_db_type(self, path: Path) -> DbType:
         """
-        通过查询 SQLite 内部表结构自动识别数据库类型。
-        不依赖文件名，健壮应对用户重命名的情况。
+        Auto-detect database type by querying SQLite table structure.
+        Does not depend on filename, making it robust against user-renamed files.
 
-        优先级：
+        Priority:
           Firefox > Safari > HistorySync > Chromium > UNKNOWN
-        （因为 Chromium 的 urls 表名最通用，放在最后）
+        (Chromium's urls table is the most generic, hence placed last)
         """
         try:
             conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=5)
             conn.row_factory = sqlite3.Row
             tables: set[str] = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            # 进一步验证 HistorySync 特征列
+
+            # Further verify HistorySync characteristic columns
             has_browser_type_col = False
             if "history" in tables:
                 cols = {r[1] for r in conn.execute("PRAGMA table_info(history)")}
@@ -168,29 +153,29 @@ class DatabaseImporter:
             log.warning("detect_db_type: unexpected error for %s: %s", path, exc)
             return DbType.UNKNOWN
 
-        # Firefox: moz_places 是唯一特征
+        # Firefox: moz_places is the unique characteristic
         if "moz_places" in tables:
             return DbType.FIREFOX
 
-        # Safari: history_visits + history_items 两表联查
+        # Safari: history_visits + history_items tables
         if "history_visits" in tables and "history_items" in tables:
             return DbType.SAFARI
 
-        # HistorySync: history 表且含 browser_type 列
+        # HistorySync: history table with browser_type column
         if "history" in tables and has_browser_type_col:
             return DbType.HISTORYSYNC
 
-        # Edge WebAssistDatabase: navigation_history 表
+        # Edge WebAssistDatabase: navigation_history table
         if "navigation_history" in tables:
             return DbType.WEBASSIST
 
-        # Chromium: urls 表
+        # Chromium: urls table
         if "urls" in tables:
             return DbType.CHROMIUM
 
         return DbType.UNKNOWN
 
-    # ── 2. 预览 ───────────────────────────────────────────────
+    # ── 2. Preview ───────────────────────────────────────────────
 
     def preview_import(
         self,
@@ -200,8 +185,8 @@ class DatabaseImporter:
         profile_name: str = "imported",
     ) -> ImportPreview:
         """
-        读取目标数据库的元数据，用于 UI 展示。
-        不修改本地数据库。
+        Read target database metadata for UI display.
+        Does not modify the local database.
         """
         if db_type == DbType.UNKNOWN:
             return ImportPreview(
@@ -351,7 +336,7 @@ class DatabaseImporter:
         )
 
     def _preview_webassist(self, conn: sqlite3.Connection, db_type: DbType) -> ImportPreview:
-        """Edge WebAssistDatabase — navigation_history 表，时间戳为直接的 Unix 秒。"""
+        """Edge WebAssistDatabase — navigation_history table, timestamps are direct Unix seconds."""
         try:
             row = conn.execute(
                 "SELECT COUNT(*), MIN(last_visited_time), MAX(last_visited_time) "
@@ -418,7 +403,7 @@ class DatabaseImporter:
             sample_records=samples,
         )
 
-    # ── 3. 执行导入 ───────────────────────────────────────────
+    # ── 3. Execute Import ───────────────────────────────────────────
 
     def run_import(
         self,
@@ -429,17 +414,17 @@ class DatabaseImporter:
         progress_callback=None,  # Optional[Callable[[int, int], None]]
     ) -> ImportResult:
         """
-        执行实际的导入操作。
+        Execute the actual import operation.
 
         Args:
-            path:              源数据库文件路径
-            db_type:           已识别的数据库类型
-            browser_type:      写入记录时使用的 browser_type 标识
-            profile_name:      写入记录时使用的 profile_name
-            progress_callback: 可选进度回调 (current: int, total: int)
+            path:              Source database file path
+            db_type:           Detected database type
+            browser_type:      browser_type identifier to use when writing records
+            profile_name:      profile_name to use when writing records
+            progress_callback: Optional progress callback (current: int, total: int)
 
         Returns:
-            ImportResult 包含 inserted/skipped/total/elapsed
+            ImportResult containing inserted/skipped/total/elapsed metrics
         """
         if db_type == DbType.UNKNOWN:
             return ImportResult(error="Unknown database type, cannot import.")
@@ -475,7 +460,7 @@ class DatabaseImporter:
         skipped = total - inserted
         elapsed = time.monotonic() - t0
 
-        # 更新 backup_stats，记录一条「手动导入」记录
+        # Update backup_stats to record a manual import entry
         try:
             self._local_db.update_backup_stats(browser_type, profile_name, inserted)
         except Exception as exc:
@@ -506,7 +491,7 @@ class DatabaseImporter:
         browser_type: str,
         profile_name: str,
     ) -> list[HistoryRecord]:
-        """根据类型分派给对应提取器，复用现有提取逻辑。"""
+        """Dispatch to the corresponding extractor based on database type, reusing existing logic."""
         if db_type == DbType.CHROMIUM:
             return self._extract_chromium(path, browser_type, profile_name)
         if db_type == DbType.FIREFOX:
@@ -522,7 +507,7 @@ class DatabaseImporter:
     def _extract_chromium(self, path: Path, browser_type: str, profile_name: str) -> list[HistoryRecord]:
         defn = make_custom_chromium_def(browser_type, browser_type, path.parent)
         extractor = ChromiumExtractor(defn, custom_db_path=path)
-        # _safe_extract 内部会做 snapshot，这里直接调用
+        # _safe_extract takes a snapshot internally, so we call it directly here
         return extractor._safe_extract(profile_name, path, since_unix_time=0)
 
     def _extract_firefox(self, path: Path, browser_type: str, profile_name: str) -> list[HistoryRecord]:
@@ -547,16 +532,16 @@ class DatabaseImporter:
 
     def _extract_webassist(self, path: Path, browser_type: str, profile_name: str) -> list[HistoryRecord]:
         """
-        从 Edge WebAssistDatabase 的 navigation_history 表提取记录。
+        Extract records from the navigation_history table of Edge WebAssistDatabase.
 
-        字段映射：
-          url               → HistoryRecord.url
-          title             → HistoryRecord.title
-          last_visited_time → HistoryRecord.visit_time  (已是 Unix 秒，无需换算)
-          num_visits        → HistoryRecord.visit_count
-          metadata          → HistoryRecord.metadata    (搜索词/摘要，可能为空)
-          locale            → 附加到 metadata (如 "zh-cn")
-          page_profile      → 附加到 metadata
+        Field Mapping:
+          url               -> HistoryRecord.url
+          title             -> HistoryRecord.title
+          last_visited_time -> HistoryRecord.visit_time (already in Unix seconds)
+          num_visits        -> HistoryRecord.visit_count
+          metadata          -> HistoryRecord.metadata (search terms/snippets, may be empty)
+          locale            -> Appended to metadata (e.g., "zh-cn")
+          page_profile      -> Appended to metadata
         """
         _FILTERED_SCHEMES = ("edge://", "chrome://", "about:", "data:", "chrome-extension://")
 
@@ -578,13 +563,13 @@ class DatabaseImporter:
             if not url or any(url.startswith(s) for s in _FILTERED_SCHEMES):
                 continue
 
-            # 组合 metadata：原始 metadata + locale 信息
+            # Combine metadata: original metadata + locale + profile
             meta_parts = []
-            if row[4]:  # metadata 字段
+            if row[4]:
                 meta_parts.append(row[4])
-            if row[5]:  # locale，如 "zh-cn"
+            if row[5]:
                 meta_parts.append(f"locale:{row[5]}")
-            if row[6]:  # page_profile
+            if row[6]:
                 meta_parts.append(f"profile:{row[6]}")
             metadata = " ".join(meta_parts)
 
@@ -610,8 +595,8 @@ class DatabaseImporter:
         target_profile_name: str,
     ) -> list[HistoryRecord]:
         """
-        从 HistorySync 自身的 history.db 导入。
-        若 target_browser_type/profile_name 为 "" 则保留原始值（直接合并）。
+        Import from HistorySync's own history.db.
+        If target_browser_type or target_profile_name is empty, retain original values (direct merge).
         """
         records: list[HistoryRecord] = []
         try:
@@ -651,34 +636,37 @@ class DatabaseImporter:
             raise
         return records
 
-    # ── 工具方法 ──────────────────────────────────────────────
+    # ── Utility Methods ───────────────────────────────────────────────
 
     @staticmethod
     def guess_profile_name(path: Path) -> str:
         """
-        从文件路径推断 profile_name。
+        Infer profile_name from the file path.
 
-        规则：
-          - 如果父目录名是已知的 Chromium profile 命名（Default、Profile N），直接使用
-          - 如果父目录名含有 profile 关键词，使用父目录名
-          - 否则返回空字符串，让用户手动填写
+        Rules:
+          - If the parent directory is a known Chromium profile name (Default, Profile N), use it directly.
+          - If the parent directory contains the "profile" keyword, use it.
+          - Otherwise, return an empty string to prompt manual user input.
         """
         parent_name = path.parent.name
-        # Chromium 标准 profile 目录名
+
+        # Standard Chromium profile directory names
         if parent_name.lower() in ("default", "guest profile"):
             return parent_name
         if parent_name.lower().startswith("profile "):
             return parent_name
-        # Firefox: default-release, default-esr 等
+
+        # Firefox standard profile directories (e.g., default-release, default-esr)
         if "default" in parent_name.lower():
             return parent_name
+
         return ""
 
     @staticmethod
     def guess_browser_type_from_path(path: Path) -> str:
         """
-        根据路径中的目录名关键词猜测 browser_type。
-        仅作预选建议，用户可覆盖。
+        Guess browser_type based on directory name keywords in the file path.
+        This serves as a pre-selection suggestion and can be overridden by the user.
         """
         path_lower = str(path).lower()
         mapping = {

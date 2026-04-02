@@ -15,14 +15,14 @@ from src.utils.path_helper import get_icons_dir
 
 _ICONS_DIR = get_icons_dir()
 
-# 默认图标着色
+# Default Icon Colors
 _DEFAULT_COLOR = "#a0a8b8"
 _ACTIVE_COLOR = "#5b9cf6"
 
 
 def _recolor_svg_content(svg_path: str | Path, color: str) -> QByteArray:
     """
-    读取 SVG 并将 stroke/fill 属性颜色替换为 color，返回 QByteArray。
+    Reads an SVG file, replaces stroke/fill colors with the specified color, and returns a QByteArray.
     """
     try:
         with Path(svg_path).open(encoding="utf-8") as f:
@@ -36,7 +36,7 @@ def _recolor_svg_content(svg_path: str | Path, color: str) -> QByteArray:
 
 def _svg_to_pixmap(svg_path: str | Path, size: int, color: str) -> QPixmap:
     """
-    将 SVG 渲染为指定颜色、指定尺寸的 QPixmap。
+    Renders an SVG into a QPixmap with the specified color and size.
     """
     svg_bytes = _recolor_svg_content(svg_path, color)
     if svg_bytes.isEmpty():
@@ -57,7 +57,7 @@ def _svg_to_pixmap(svg_path: str | Path, size: int, color: str) -> QPixmap:
 
 @lru_cache(maxsize=128)
 def _load_svg_icon(name: str, size: int, color: str) -> QIcon:
-    """带缓存的 SVG 图标加载，同名+尺寸+颜色组合唯一缓存。"""
+    """Cached SVG icon loader. Caches uniquely by name, size, and color combination."""
     path = _ICONS_DIR / f"{name}.svg"
     if not path.is_file():
         return QIcon()
@@ -77,21 +77,21 @@ def _load_svg_icon(name: str, size: int, color: str) -> QIcon:
 
 def get_icon(name: str, size: int = 20, color: str = _DEFAULT_COLOR) -> QIcon:
     """
-    按名称加载图标（不含扩展名）。
+    Loads an icon by name (excluding extension).
 
-    参数
-    ----
-    name  : 图标文件名（不含 .svg），如 "home"、"settings"
-    size  : 像素尺寸，默认 20
-    color : Normal 状态的颜色，默认跟随主题灰色
+    Parameters
+    ----------
+    name  : Icon filename (without .svg), e.g., "home", "settings"
+    size  : Pixel size, default is 20
+    color : Color for the Normal state, defaults to theme gray
 
-    返回空 QIcon 表示文件不存在（不会抛异常）。
+    Returns an empty QIcon if the file does not exist (does not raise an exception).
     """
     return _load_svg_icon(name, size, color)
 
 
 def get_themed_icon(name: str, size: int = 20) -> QIcon:
-    """根据当前主题自动选择合适的图标颜色。"""
+    """Automatically selects the appropriate icon color based on the current theme."""
     try:
         from src.utils.theme_manager import ThemeManager
 
@@ -102,7 +102,7 @@ def get_themed_icon(name: str, size: int = 20) -> QIcon:
 
 
 def _svg_to_pixmap_colorful(svg_path: str | Path, size: int) -> QPixmap:
-    """将 SVG 渲染为原色 QPixmap，不做任何着色处理。"""
+    """Renders an SVG into its original colored QPixmap without any recoloring."""
     renderer = QSvgRenderer(str(svg_path))
     if not renderer.isValid():
         return QPixmap()
@@ -123,11 +123,11 @@ _BROWSER_ICON_ALIASES: dict[str, str] = {
 
 def _find_browser_icon_path(browser_type: str) -> Path | None:
     """
-    按优先级查找浏览器图标文件：
+    Finds the browser icon file by priority:
     1. browsers/{type}.svg
     2. browsers/{type}.png
     3. browsers/web.svg
-    返回找到的第一个路径，否则 None。
+    Returns the first found path, otherwise None.
     """
     browsers_dir = _ICONS_DIR / "browsers"
     browser_type_hyphen = browser_type.replace("_", "-")
@@ -142,7 +142,7 @@ def _find_browser_icon_path(browser_type: str) -> Path | None:
 
 
 def _load_browser_pixmap_raw(path: Path, size: int) -> QPixmap:
-    """根据扩展名用合适的方式加载图标为 QPixmap。"""
+    """Loads the icon as a QPixmap using the appropriate method based on its extension."""
     if path.suffix.lower() == ".svg":
         return _svg_to_pixmap_colorful(path, size)
     px = QPixmap(str(path))
@@ -158,8 +158,8 @@ def _load_browser_pixmap_raw(path: Path, size: int) -> QPixmap:
 @lru_cache(maxsize=32)
 def get_browser_pixmap(browser_type: str, size: int = 20) -> QPixmap:
     """
-    返回浏览器品牌图标的原色 QPixmap，专供 DecorationRole 使用。
-    支持 SVG 和 PNG 格式，优先 SVG。
+    Returns the original colored QPixmap of the browser brand icon, specifically for DecorationRole.
+    Supports SVG and PNG formats, prioritizing SVG.
     """
     path = _find_browser_icon_path(browser_type)
     if not path:
@@ -170,7 +170,7 @@ def get_browser_pixmap(browser_type: str, size: int = 20) -> QPixmap:
 @lru_cache(maxsize=32)
 def get_browser_icon(browser_type: str, size: int = 20) -> QIcon:
     """
-    返回浏览器品牌图标的 QIcon，供 QComboBox 等控件使用。
+    Returns the QIcon of the browser brand icon, for use in controls like QComboBox.
     """
     px = get_browser_pixmap(browser_type, size)
     if px.isNull():
@@ -191,7 +191,7 @@ def make_transparent_icon() -> QIcon:
 
 def get_app_icon() -> QIcon:
     """
-    加载应用主图标。
+    Loads the main application icon.
     """
     ico_path = _ICONS_DIR / "app-icon.ico"
     if ico_path.is_file():

@@ -13,10 +13,10 @@ from src.utils.logger import get_logger
 
 log = get_logger("extractor.chromium")
 
-# Chromium 时间戳：从 1601-01-01 00:00:00 UTC 起的微秒数
+# Chromium timestamp: Microseconds since 1601-01-01 00:00:00 UTC.
 _CHROMIUM_EPOCH_DELTA_US = 11_644_473_600 * 1_000_000
 
-# 过滤浏览器内部 URL（不记入用户历史）
+# Filter internal browser URLs (do not record in user history)
 _FILTERED_SCHEMES = (
     "chrome://",
     "edge://",
@@ -30,18 +30,18 @@ _FILTERED_SCHEMES = (
 _TRANSITION_MASK = 0xFF
 
 
-# ── 时间戳工具 ────────────────────────────────────────────────
+# ── Timestamp Utilities ───────────────────────────────────────
 
 
 def chromium_time_to_unix(chromium_us: int) -> int:
-    """将 Chromium WebKit 微秒时间戳转换为 10 位 Unix 秒时间戳。"""
+    """Converts a Chromium WebKit microsecond timestamp to a 10-digit Unix second timestamp."""
     if chromium_us <= 0:
         return 0
     return max(0, (chromium_us - _CHROMIUM_EPOCH_DELTA_US) // 1_000_000)
 
 
 def unix_to_chromium_time(unix_sec: int) -> int:
-    """将 10 位 Unix 秒时间戳转换为 Chromium WebKit 微秒时间戳。"""
+    """Converts a 10-digit Unix second timestamp to a Chromium WebKit microsecond timestamp."""
     if unix_sec <= 0:
         return 0
     return unix_sec * 1_000_000 + _CHROMIUM_EPOCH_DELTA_US
@@ -56,12 +56,12 @@ def _is_internal_url(url: str) -> bool:
 
 class ChromiumExtractor(BaseExtractor):
     """
-    Chromium 通用历史记录提取器。
+    Generic history extractor for Chromium-based browsers.
 
-    由 BrowserDef 驱动路径，支持所有 Chromium 内核浏览器
-    （Chrome、Edge、Brave 以及用户自定义路径的浏览器）。
+    Path-driven by BrowserDef, supports all Chromium engine browsers
+    (Chrome, Edge, Brave, and custom paths).
 
-    使用工厂函数创建实例：
+    Use factory methods to create instances:
         extractor = ChromiumExtractor.from_def(defn)
         custom    = ChromiumExtractor.for_custom_path("myBrowser", "My Browser", db_path)
     """
@@ -77,12 +77,12 @@ class ChromiumExtractor(BaseExtractor):
         db_path: Path,
     ) -> ChromiumExtractor:
         """
-        为用户手动指定路径的 Chromium 浏览器创建提取器。
+        Creates an extractor for a Chromium browser with a manually specified path.
 
         Args:
-            browser_type: 自定义浏览器标识符。
-            display_name: UI 展示名。
-            db_path:      直接指向 History 数据库文件的路径。
+            browser_type: Custom browser identifier.
+            display_name: UI display name.
+            db_path:      Direct path to the History database file.
         """
         defn = make_custom_chromium_def(browser_type, display_name, db_path.parent)
         return cls(defn, custom_db_path=db_path)
@@ -94,16 +94,16 @@ class ChromiumExtractor(BaseExtractor):
         since_unix_time: int = 0,
     ) -> list[HistoryRecord]:
         """
-        从 Chromium History 数据库提取记录。
+        Extracts records from the Chromium History database.
 
-        增量模式：将 since_unix_time 转换回 Chromium 微秒时间戳，
-        通过 WHERE last_visit_time > ? 只读取新记录。
+        Incremental mode: Converts since_unix_time back to Chromium microseconds
+        and reads only new records via WHERE last_visit_time > ?.
 
-        额外提取字段（通过 JOIN visits 表）：
-          - typed_count      手动输入 URL 次数（urls.typed_count）
-          - first_visit_time 首次访问时间（MIN(visits.visit_time)）
-          - transition_type  最近一次访问的跳转类型低 8 位（visits.transition & 0xFF）
-          - visit_duration   最近一次访问的页面停留秒数（visits.visit_duration / 1e6）
+        Extra fields extracted (via JOIN with visits table):
+          - typed_count      Number of times the URL was manually typed (urls.typed_count)
+          - first_visit_time First visit time (MIN(visits.visit_time))
+          - transition_type  Transition type of the last visit, low 8 bits (visits.transition & 0xFF)
+          - visit_duration   Duration of the last visit in seconds (visits.visit_duration / 1e6)
         """
         where_clauses = [
             "u.url IS NOT NULL",

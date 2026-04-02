@@ -32,12 +32,12 @@ log = get_logger("viewmodel.history")
 BOOKMARK_ROLE = Qt.UserRole + 1
 ANNOTATION_ROLE = Qt.UserRole + 2
 
-# 每次从数据库预取的页面大小
+# Page size for each database prefetch
 PAGE_SIZE = 200
 CACHE_PAGE_SIZE = PAGE_SIZE
-# 最多在内存中保留多少页
+# Maximum number of pages to keep in memory
 MAX_CACHED_PAGES = 10
-# regex 增量加载：每批扫描的候选记录数
+# Batch size for regex incremental scanning: number of candidate records per pass
 REGEX_SCAN_BATCH = 5000
 
 # Column definitions - all available columns
@@ -62,9 +62,7 @@ DEFAULT_VISIBLE_COLUMNS = ["title", "url", "browser", "visit_time", "visit_count
 
 
 class HistoryTableModel(QAbstractTableModel):
-    """
-    虚拟化历史记录表格模型（Virtual Scrolling）。
-    """
+    """Virtualised history table model with virtual scrolling support."""
 
     total_count_changed = Signal(int, bool)  # (count, has_more)
     columns_changed = Signal()
@@ -78,7 +76,7 @@ class HistoryTableModel(QAbstractTableModel):
         self._visible_columns = visible_columns or DEFAULT_VISIBLE_COLUMNS
         self._update_column_mapping()
 
-        # 过滤参数
+        # Filter parameters
         self._keyword = ""
         self._browser_type = ""
         self._date_from: int | None = None
@@ -99,15 +97,15 @@ class HistoryTableModel(QAbstractTableModel):
         # Device name map for display
         self._device_name_map: dict[int, str] = {}
 
-        # 虚拟化状态
+        # Virtualization state
         self._total_count = 0
         self._page_cache: dict[int, list[HistoryRecord]] = {}
         self._page_lru: OrderedDict[int, None] = OrderedDict()
 
-        # Regex 增量加载状态
-        self._regex_results: list[HistoryRecord] = []  # 已匹配的记录（内存缓存）
-        self._regex_scan_offset: int = 0  # 已扫描的 DB 偏移量（未过滤）
-        self._regex_has_more: bool = False  # 是否还有更多候选待扫描
+        # Regex incremental load state
+        self._regex_results: list[HistoryRecord] = []  # Matched records (in-memory cache)
+        self._regex_scan_offset: int = 0  # DB offset of already-scanned candidates
+        self._regex_has_more: bool = False  # Whether more candidates remain to be scanned
 
         # Badge URL caches — bulk-loaded on each reload(), O(1) per-row lookup
         self._bookmarked_urls: set[str] = set()
@@ -344,7 +342,7 @@ class HistoryTableModel(QAbstractTableModel):
         self.reload()
 
     def reload(self):
-        """重置缓存并重新查询总数，触发视图完整刷新。"""
+        """Reset cache, re-query total count, and trigger a full view refresh."""
         self._page_cache.clear()
         self._page_lru.clear()
         self._regex_results.clear()
@@ -357,7 +355,7 @@ class HistoryTableModel(QAbstractTableModel):
         self._device_name_map = self._db.get_device_name_map()
 
         if self._use_regex and self._keyword:
-            # Regex 增量模式：扫描第一批候选，不阻塞在全量 COUNT 上
+            # Regex incremental mode: scan the first batch without blocking on a full COUNT query
             self._scan_regex_batch()
             new_count = len(self._regex_results)
         else:
@@ -371,7 +369,7 @@ class HistoryTableModel(QAbstractTableModel):
                 excludes=self._excludes,
                 title_only=self._title_only,
                 url_only=self._url_only,
-                use_regex=False,  # 非 regex 路径
+                use_regex=False,  # Non-regex path
                 bookmarked_only=self._bookmarked_only,
                 has_annotation=self._has_annotation,
                 bookmark_tag=self._bookmark_tag,
@@ -384,18 +382,18 @@ class HistoryTableModel(QAbstractTableModel):
 
         self.total_count_changed.emit(self._total_count, self._regex_has_more)
 
-        # 非 regex 模式：预取第一页
+        # Non-regex mode: prefetch the first page
         if not (self._use_regex and self._keyword) and self._total_count > 0:
             self._fetch_page(0, defer_pixmaps=True)
 
     def load_more(self) -> bool:
-        """虚拟化模式下委托给 load_more_regex（regex 模式），否则无需手动加载。"""
+        """In virtualised mode, delegate to load_more_regex() for regex searches; otherwise no manual loading needed."""
         if self._use_regex and self._keyword:
             return self.load_more_regex()
         return False
 
     def _scan_regex_batch(self) -> None:
-        """扫描下一批 REGEX_SCAN_BATCH 条候选，将匹配结果追加到 _regex_results。"""
+        """Scan the next REGEX_SCAN_BATCH candidates and append any matches to _regex_results."""
         try:
             prog = re.compile(self._keyword, re.IGNORECASE)
         except Exception as exc:
@@ -413,7 +411,7 @@ class HistoryTableModel(QAbstractTableModel):
             excluded_ids=self._hidden_ids,
             domain_ids=self._domain_ids,
             excludes=self._excludes,
-            title_only=False,  # 在 Python 层过滤
+            title_only=False,  # Filter applied in the Python layer
             url_only=False,
             use_regex=False,
             bookmarked_only=self._bookmarked_only,
@@ -434,7 +432,7 @@ class HistoryTableModel(QAbstractTableModel):
                 self._regex_results.append(r)
 
         self._regex_scan_offset += len(candidates)
-        # 如果本批拿满了，说明还可能有更多
+        # If this batch was full, there may be more candidates remaining
         self._regex_has_more = len(candidates) >= REGEX_SCAN_BATCH
 
         new_matches = self._regex_results[before:]
@@ -442,7 +440,7 @@ class HistoryTableModel(QAbstractTableModel):
             QTimer.singleShot(0, lambda r=new_matches: self._favicon_manager.prefetch_pixmaps(r, size=16))
 
     def load_more_regex(self) -> bool:
-        """加载下一批 regex 匹配结果，插入到模型末尾。返回 True 表示有新行追加。"""
+        """Load the next batch of regex matches and append them to the model. Returns True if new rows were added."""
         if not self.can_load_more:
             return False
 
@@ -457,15 +455,16 @@ class HistoryTableModel(QAbstractTableModel):
             self.total_count_changed.emit(self._total_count, self._regex_has_more)
             return True
 
-        # 本批无新匹配，但扫描偏移已更新；通知视图 has_more 状态变化
+        # No new matches in this batch, but scan offset has advanced; notify view of has_more change
         self.total_count_changed.emit(self._total_count, self._regex_has_more)
         return False
 
     def refresh_icons(self, view=None) -> None:
-        """主题切换后仅失效图标列，不触发 beginResetModel。
+        """Invalidate only icon columns after a theme change, without triggering beginResetModel.
 
-        传入 QTableView 时只通知当前可见行范围；未传入时限制在前 200 行。
-        禁止对全表发射 dataChanged，否则 Qt 会对数十万行逐行回调 data()。
+        When a QTableView is provided, only the currently visible row range is notified.
+        Without one, the range is capped at the first 200 rows.
+        Never emit dataChanged for the entire table — Qt would invoke data() for every row.
         """
         if self._total_count == 0:
             return
@@ -539,7 +538,7 @@ class HistoryTableModel(QAbstractTableModel):
 
     @property
     def can_load_more(self) -> bool:
-        """True 时视图可在滚动到底部后调用 load_more_regex() 加载更多。"""
+        """True when the view can call load_more_regex() after scrolling to the bottom."""
         return self._regex_has_more and bool(self._use_regex and self._keyword)
 
     def get_record_at(self, row: int) -> HistoryRecord | None:
@@ -550,12 +549,12 @@ class HistoryTableModel(QAbstractTableModel):
     def _get_record_at(self, row: int) -> HistoryRecord | None:
         if row < 0 or row >= self._total_count:
             return None
-        # Regex 增量模式：直接从内存结果列表取
+        # Regex incremental mode: read directly from the in-memory results list
         if self._use_regex and self._keyword:
             if row < len(self._regex_results):
                 return self._regex_results[row]
             return None
-        # 普通模式：走分页缓存
+        # Normal mode: use the page cache
         page_index = row // CACHE_PAGE_SIZE
         page = self._get_or_fetch_page(page_index)
         local_row = row % CACHE_PAGE_SIZE
@@ -565,15 +564,13 @@ class HistoryTableModel(QAbstractTableModel):
 
     def _get_or_fetch_page(self, page_index: int) -> list[HistoryRecord]:
         if page_index in self._page_cache:
-            # O(1) LRU 更新：移到末尾表示最近使用
+            # O(1) LRU update: move to end to mark as most-recently used
             self._page_lru.move_to_end(page_index)
             return self._page_cache[page_index]
         return self._fetch_page(page_index)
 
     def _fetch_page(self, page_index: int, defer_pixmaps: bool = False) -> list[HistoryRecord]:
-        """
-        从数据库拉取一页，写入 LRU 缓存。
-        """
+        """Fetch one page from the database and write it into the LRU cache."""
         offset = page_index * CACHE_PAGE_SIZE
         records = self._db.get_records(
             keyword=self._keyword,
@@ -595,7 +592,7 @@ class HistoryTableModel(QAbstractTableModel):
         )
 
         self._page_cache[page_index] = records
-        # LRU 写入
+        # LRU write: evict after inserting so the newest page counts toward the limit
         self._page_lru.pop(page_index, None)
         self._page_lru[page_index] = None
 
@@ -709,17 +706,17 @@ class HistoryViewModel(QObject):
         )
         count = self.table_model.total_count
         has_more = self.table_model.can_load_more
-        # regex 且还有更多未扫描时显示「N+」，否则显示精确数量
+        # When regex search has more unscanned results, show "N+" instead of an exact count
         if use_regex and has_more:
             self.status_message.emit(_("{total}+ records").format(total=f"{count:,}"))
         else:
             self.status_message.emit(_("{total} records").format(total=f"{count:,}"))
 
     def load_more(self) -> bool:
-        """滚动到底部时调用，触发 regex 增量加载。非 regex 模式下无需手动加载。"""
+        """Called when the user scrolls to the bottom; triggers regex incremental loading.
+        No manual loading is needed in non-regex mode."""
         if self._use_regex:
             result = self.table_model.load_more_regex()
-            # 同步更新左下角状态栏的记录数
             count = self.table_model.total_count
             has_more = self.table_model.can_load_more
             if has_more:

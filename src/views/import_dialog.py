@@ -41,7 +41,7 @@ from src.viewmodels.import_viewmodel import ImportTask, ImportViewModel, TaskRes
 log = get_logger("view.import_dialog")
 
 
-# ── 常量 ─────────────────────────────────────────────────────
+# ── Constants ─────────────────────────────────────────────────
 
 _DB_TYPE_LABELS: dict[DbType, str] = {
     DbType.CHROMIUM: N_("Chromium History"),
@@ -65,11 +65,11 @@ _COLOR_ERROR = "#e07070"
 _COLOR_RUNNING = "#e0a030"
 
 
-# ── 主题色板 ──────────────────────────────────────────────────
+# ── Theme Palette ─────────────────────────────────────────────
 
 
 class _Palette:
-    """根据 ThemeManager 当前主题返回一组 UI 颜色。"""
+    """Returns a set of UI colors based on the current theme from ThemeManager."""
 
     def __init__(self, theme: str):
         self._dark = theme == "dark"
@@ -178,7 +178,7 @@ def _get_palette() -> _Palette:
     return _Palette(ThemeManager.instance().current)
 
 
-# ── 工具 ──────────────────────────────────────────────────────
+# ── Utilities ─────────────────────────────────────────────────
 
 
 def _cell_wrap(widget: QWidget) -> QWidget:
@@ -209,7 +209,7 @@ def _status_lbl(text: str, color: str) -> QLabel:
     return lbl
 
 
-# ── 主对话框 ──────────────────────────────────────────────────
+# ── Main Dialog ───────────────────────────────────────────────
 
 
 class ImportDialog(QDialog):
@@ -230,7 +230,7 @@ class ImportDialog(QDialog):
         self._vm.import_finished.connect(self._on_import_finished)
         self._vm.import_error.connect(self._on_import_error)
 
-        # 监听主题切换，实时重绘
+        # Listen for theme changes and redraw in real-time
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
 
         self._setup_ui()
@@ -242,7 +242,7 @@ class ImportDialog(QDialog):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # ── 顶部标题 ──
+        # ── Header ──
         self._header = QFrame()
         self._header.setFixedHeight(56)
         hl = QHBoxLayout(self._header)
@@ -254,7 +254,7 @@ class ImportDialog(QDialog):
         hl.addStretch()
         root.addWidget(self._header)
 
-        # ── 内容区 ──
+        # ── Body ──
         self._body = QWidget()
         bl = QVBoxLayout(self._body)
         bl.setContentsMargins(20, 14, 20, 14)
@@ -340,7 +340,7 @@ class ImportDialog(QDialog):
         self._refresh_empty_state()
         self._apply_theme(p)
 
-    # ── 主题应用 ──────────────────────────────────────────────
+    # ── Theme Application ─────────────────────────────────────
 
     def _apply_theme(self, p: _Palette):
         self._header.setStyleSheet(f"QFrame {{ background: {p.bg_surface}; border-bottom: 1px solid {p.border}; }}")
@@ -379,7 +379,7 @@ class ImportDialog(QDialog):
             f"QPushButton:disabled {{ background: {p.bg_input}; color: {p.text_hint}; "
             f"border: 1px solid {p.border_input}; }}"
         )
-        # 刷新已有行中的子控件样式
+        # Refresh styles for child widgets in existing rows
         combo_style = p.combo_style()
         line_style = p.line_style()
         rm_style = (
@@ -411,7 +411,7 @@ class ImportDialog(QDialog):
     def _on_theme_changed(self, theme: str):
         self._apply_theme(_Palette(theme))
 
-    # ── 拖拽 ──────────────────────────────────────────────────
+    # ── Drag and Drop ─────────────────────────────────────────
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -422,7 +422,7 @@ class ImportDialog(QDialog):
         paths = [Path(u.toLocalFile()) for u in event.mimeData().urls() if u.isLocalFile()]
         self._add_files(paths)
 
-    # ── 文件管理 ──────────────────────────────────────────────
+    # ── File Management ───────────────────────────────────────
 
     def _browse_files(self):
         files, _selected_filter = QFileDialog.getOpenFileNames(
@@ -549,7 +549,7 @@ class ImportDialog(QDialog):
         self._table.setVisible(has)
         self._empty_lbl.setVisible(not has)
 
-    # ── 导入 ──────────────────────────────────────────────────
+    # ── Import ────────────────────────────────────────────────
 
     def _start_import(self):
         tasks: list[ImportTask] = []
@@ -597,7 +597,7 @@ class ImportDialog(QDialog):
         self._progress_lbl.setText(_("Starting import…"))
         self._vm.start_import(tasks)
 
-    # ── 信号回调 ──────────────────────────────────────────────
+    # ── Signal Callbacks ──────────────────────────────────────
 
     def _on_progress(self, current: int, total: int, filename: str, msg: str):
         if total > 0:

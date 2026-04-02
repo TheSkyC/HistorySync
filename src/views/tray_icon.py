@@ -21,7 +21,7 @@ def _make_tray_icon(syncing: bool = False) -> QIcon:
     ico_path = _ICONS_DIR / f"{icon_name}.ico"
     if ico_path.is_file():
         return QIcon(str(ico_path))
-    # 降级：绘制字母图标（颜色跟随主题）
+    # Fallback: draw letter icon (color follows theme)
     size = 64
     from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
 
@@ -66,7 +66,7 @@ class TrayIcon(QObject):
         self._build_menu()
         self._tray.setContextMenu(self._menu)
         self._tray.activated.connect(self._on_activated)
-        self._main_vm = None  # 由外部注入，用于退出时检查同步/备份状态
+        self._main_vm = None  # Injected externally to check sync/backup status on exit
 
     def set_main_vm(self, vm) -> None:
         self._main_vm = vm

@@ -165,7 +165,7 @@ class UCBrowserDef(BrowserDef):
 
 @dataclass(frozen=True)
 class SogouBrowserDef(BrowserDef):
-    """搜狗浏览器：历史文件为独立 HistoryUrl3.db，不在 User Data 标准布局下。"""
+    """Sogou Browser: The history file is an independent HistoryUrl3.db, not under the standard User Data layout."""
 
     def _iter_chromium_history(self) -> Iterator[tuple[str, Path]]:
         for data_dir in self._data_dirs:
@@ -467,7 +467,7 @@ def _make_sogou_def() -> SogouBrowserDef:
     dirs = _resolve_chromium_dirs("sogou")
     return SogouBrowserDef(
         browser_type="sogou",
-        display_name="搜狗浏览器 (Sogou)",
+        display_name="Sogou Explorer",
         engine="chromium",
         _data_dirs=dirs,
     )
@@ -486,7 +486,7 @@ def make_custom_chromium_def(
     )
 
 
-# ── 内置浏览器列表 ─────────────────────────────
+# ── Built-in Browser List ─────────────────────────────────────
 
 BUILTIN_BROWSERS: list[BrowserDef] = [
     # Chromium-based
@@ -522,14 +522,14 @@ BUILTIN_BROWSERS: list[BrowserDef] = [
     # Safari
     _make_def("safari", "Safari", "safari"),
     # Chinese / regional browsers (Windows-only)
-    _make_def("qq_browser", "QQ浏览器 (QQ Browser)", "chromium"),
+    _make_def("qq_browser", "QQ Browser", "chromium"),
     _make_sogou_def(),
-    _make_custom_filename_def("twinkstar", "星愿浏览器 (Twinkstar)", history_filename="History2"),
-    _make_def("centbrowser", "百分浏览器 (CentBrowser)", "chromium"),
-    _make_def("browser_2345", "2345浏览器 (2345 Explorer)", "chromium"),
-    _make_def("liebao", "猎豹浏览器 (Liebao)", "chromium"),
+    _make_custom_filename_def("twinkstar", "Twinkstar Browser", history_filename="History2"),
+    _make_def("centbrowser", "Cent Browser", "chromium"),
+    _make_def("browser_2345", "2345 Explorer", "chromium"),
+    _make_def("liebao", "Cheetah / Liebao Browser", "chromium"),
     _make_uc_def(),
-    _make_def("maxthon", "傲游浏览器 (Maxthon)", "chromium"),
+    _make_def("maxthon", "Maxthon Browser", "chromium"),
 ]
 
 BROWSER_DEF_MAP: dict[str, BrowserDef] = {d.browser_type: d for d in BUILTIN_BROWSERS}
@@ -546,16 +546,16 @@ def create_learned_browser_def(
     data_dir: str | Path,
 ) -> BrowserDef:
     """
-    创建从智能扫描发现的浏览器定义
+    Create a browser definition discovered from smart scanning.
 
     Args:
-        browser_type: 浏览器类型ID（如"detected_liebao"）
-        display_name: 显示名称（如"Liebao Browser"）
-        engine: 浏览器引擎（"chromium" | "firefox" | "safari"）
-        data_dir: 数据目录路径
+        browser_type: Browser type ID (e.g., "detected_liebao")
+        display_name: Display name (e.g., "Liebao Browser")
+        engine: Browser engine ("chromium" | "firefox" | "safari")
+        data_dir: Data directory path
 
     Returns:
-        BrowserDef实例
+        BrowserDef instance
     """
     data_dir_path = Path(data_dir) if isinstance(data_dir, str) else data_dir
 
@@ -564,10 +564,10 @@ def create_learned_browser_def(
 
 def register_learned_browser(browser_def: BrowserDef) -> None:
     """
-    注册学习到的浏览器定义到全局映射表
+    Register a learned browser definition to the global map.
 
     Args:
-        browser_def: 浏览器定义
+        browser_def: Browser definition
     """
     BROWSER_DEF_MAP[browser_def.browser_type] = browser_def
     log.info(f"Registered learned browser: {browser_def.display_name} ({browser_def.browser_type})")
@@ -575,8 +575,8 @@ def register_learned_browser(browser_def: BrowserDef) -> None:
 
 def get_all_known_data_dirs() -> set[str]:
     """
-    返回所有已知浏览器（内置 + 已学习）的数据目录路径集合（小写）。
-    用于深度扫描时过滤掉已添加的浏览器。
+    Returns a set of data directory paths (lowercase) for all known browsers (built-in + learned).
+    Used during deep scans to filter out already added browsers.
     """
     dirs: set[str] = set()
     for bdef in BROWSER_DEF_MAP.values():

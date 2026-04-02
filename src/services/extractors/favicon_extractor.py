@@ -19,27 +19,27 @@ from src.utils.logger import get_logger
 log = get_logger("favicon_extractor")
 
 
-# ── 原始数据结构 ──────────────────────────────────────────────
+# ── Raw Data Structures ───────────────────────────────────────
 
 
 @dataclass
 class _RawEntry:
-    """从浏览器数据库读取的原始行，提取后立即归一化。"""
+    """Raw row read from the browser database, normalized immediately after extraction."""
 
-    domain: str  # 已提取好的注册域名（空字符串表示无效，应丢弃）
-    data: bytes  # 已归一化为 bytes 的图标数据
-    data_type: str  # 已检测好的格式类型
-    width: int  # SVG 统一为 0
+    domain: str  # Extracted registered domain (empty string means invalid and should be discarded)
+    data: bytes  # Normalized icon data as bytes
+    data_type: str  # Detected format type
+    width: int  # Uniformly 0 for SVG
 
 
-# ── 工具函数 ──────────────────────────────────────────────────
+# ── Utilities ─────────────────────────────────────────────────
 
 
 def extract_domain(url: str) -> str:
     """
-    从 URL 中提取可用作缓存键的注册域名。
-    只处理 http/https，其他 scheme 返回空串。
-    剥除 www. 前缀以合并同站图标。
+    Extracts the registered domain from a URL to use as a cache key.
+    Only processes http/https; returns an empty string for other schemes.
+    Strips the 'www.' prefix to merge icons from the same site.
     """
     try:
         parsed = urlparse(url)
@@ -57,10 +57,10 @@ def extract_domain(url: str) -> str:
 
 def extract_root_domain(domain: str) -> str:
     """
-    从完整域名中提取根域名（注册域名），用于 favicon 回退查找。
-    例如：tieba.baidu.com -> baidu.com，www.zhihu.com -> zhihu.com
-    使用简单的"倒数两段"策略，对常见的二级 ccTLD（co.uk、com.cn 等）
-    进行特殊处理以取三段。
+    Extracts the root domain (registered domain) from a full domain for favicon fallback lookup.
+    Example: tieba.baidu.com -> baidu.com, www.zhihu.com -> zhihu.com.
+    Uses a simple 'last two segments' strategy, with special handling for common
+    second-level ccTLDs (e.g., co.uk, com.cn) to take three segments.
     """
     if not domain:
         return ""
@@ -85,8 +85,8 @@ def extract_root_domain(domain: str) -> str:
 
 def _normalize_data(raw: bytes | str | memoryview | None) -> bytes:
     """
-    将 SQLite 返回的 BLOB 值统一转为 bytes。
-    Firefox 将 SVG 文本存入 BLOB 列，Python sqlite3 会以 str 返回。
+    Unifies BLOB values returned by SQLite into bytes.
+    Firefox stores SVG text in BLOB columns, which Python's sqlite3 returns as str.
     """
     if raw is None:
         return b""
@@ -99,13 +99,13 @@ def _normalize_data(raw: bytes | str | memoryview | None) -> bytes:
 
 def _detect_data_type(data: bytes) -> str:
     """
-    通过魔数字节或文本特征检测图标格式。
-    SVG 检测放在最前面，因为 Firefox 以 TEXT 存储 SVG。
+    Detects icon format via magic bytes or text signatures.
+    SVG detection is prioritized because Firefox stores SVGs as TEXT.
     """
     if not data:
         return "unknown"
 
-    # SVG：检查前 300 字节是否包含 XML/SVG 标记
+    # SVG: Check if the first 300 bytes contain XML/SVG tags
     try:
         snippet = data[:300].decode("utf-8", errors="replace").lstrip()
         if snippet.startswith("<svg") or snippet.startswith("<?xml"):
@@ -128,8 +128,8 @@ def _detect_data_type(data: bytes) -> str:
 
 def _select_best_per_domain(entries: list[_RawEntry]) -> list[FaviconRecord]:
     """
-    将同一 domain 的多条原始记录折叠为一条最优记录。
-    优先级：SVG（无损缩放）> 高分辨率位图 > 低分辨率位图。
+    Collapses multiple raw records for the same domain into a single optimal record.
+    Priority: SVG (lossless scaling) > high-resolution bitmap > low-resolution bitmap.
     """
     by_domain: dict[str, list[_RawEntry]] = defaultdict(list)
     for e in entries:
@@ -152,7 +152,7 @@ def _select_best_per_domain(entries: list[_RawEntry]) -> list[FaviconRecord]:
     ]
 
 
-# ── 基类 ──────────────────────────────────────────────────────
+# ── Base Class ────────────────────────────────────────────────
 
 
 class BaseFaviconExtractor(ABC):
@@ -171,7 +171,7 @@ class BaseFaviconExtractor(ABC):
         return self._defn.is_favicon_available()
 
     def extract(self) -> list[FaviconRecord]:
-        """提取该浏览器全部 Profile 的图标，返回去重后的 FaviconRecord 列表。"""
+        """Extracts icons for all profiles of this browser, returning a deduplicated list of FaviconRecords."""
         all_entries: list[_RawEntry] = []
 
         for profile_name, favicon_db in self._defn.iter_favicon_db_paths():
@@ -206,28 +206,28 @@ class BaseFaviconExtractor(ABC):
         log.info("[%s] Total: %d unique domains", self.browser_type, len(records))
         return records
 
-    # ── 子类实现 ──────────────────────────────────────────────
+    # ── Subclass Implementation ───────────────────────────────
 
     @abstractmethod
     def _extract_entries(self, conn: sqlite3.Connection) -> list[_RawEntry]:
-        """从已打开的内存快照连接中提取原始条目。连接为只读，无需手动关闭。"""
+        """Extracts raw entries from an opened in-memory snapshot connection. The connection is read-only."""
 
 
-# ── Chromium 图标提取器 ───────────────────────────────────────
+# ── Chromium Favicon Extractor ────────────────────────────────
 
 
 class ChromiumFaviconExtractor(BaseFaviconExtractor):
     """
-    适用于 Chrome / Edge / Brave 等 Chromium 系浏览器。
-    图标数据库：<Profile Dir>/Favicons（无扩展名）
+    Suitable for Chromium-based browsers like Chrome / Edge / Brave.
+    Icon database: <Profile Dir>/Favicons (no extension)
 
-    表关系：
+    Table relations:
         icon_mapping (page_url → icon_id)
           → favicon_bitmaps (icon_id, image_data BLOB, width)
-    Chromium 统一将图标转存为 PNG，image_data 始终为二进制。
+    Chromium uniformly converts icons to PNG, so image_data is always binary.
 
-    override_dir：若提供，则使用该目录替换 BrowserDef 的 User Data 目录，
-    用于支持 ExtractorConfig.custom_paths 自定义路径。
+    override_dir: If provided, replaces the BrowserDef's User Data directory
+    to support custom paths via ExtractorConfig.custom_paths.
     """
 
     _SQL = """
@@ -247,7 +247,7 @@ class ChromiumFaviconExtractor(BaseFaviconExtractor):
 
     def __init__(self, defn: BrowserDef, override_dir: Path | None = None):
         if override_dir is not None:
-            # 用覆盖目录替换原有路径，创建新的 BrowserDef
+            # Replace the original path with the override directory, creating a new BrowserDef
             from src.services.browser_defs import BrowserDef as _BrowserDef
 
             defn = _BrowserDef(
@@ -281,24 +281,24 @@ class ChromiumFaviconExtractor(BaseFaviconExtractor):
         return entries
 
 
-# ── Firefox 图标提取器 ────────────────────────────────────────
+# ── Firefox Favicon Extractor ─────────────────────────────────
 
 
 class FirefoxFaviconExtractor(BaseFaviconExtractor):
     """
-    适用于 Mozilla Firefox。
-    图标数据库：<Profile Dir>/favicons.sqlite
+    Suitable for Mozilla Firefox.
+    Icon database: <Profile Dir>/favicons.sqlite
 
-    表关系：
+    Table relations:
         moz_pages_w_icons (page_url → id)
           → moz_icons_to_pages (page_id → icon_id)
           → moz_icons (id, data BLOB|TEXT, width)
 
-    特殊处理：
-        - Firefox 有时将 SVG 以 TEXT 类型存入 BLOB 列，
-          Python sqlite3 读取时返回 str，_normalize_data() 统一处理。
-        - width=65535 是 Firefox 标记 SVG 的约定值，归一化为 0。
-        - icon_url 以 fake-favicon-uri: 开头的条目是占位符，data 字段仍有效。
+    Special handling:
+        - Firefox sometimes stores SVGs as TEXT in BLOB columns.
+          Python's sqlite3 returns this as str, which _normalize_data() handles.
+        - width=65535 is Firefox's convention for SVGs, normalized to 0.
+        - icon_url starting with fake-favicon-uri: are placeholders, but the data field remains valid.
     """
 
     _SQL = """
@@ -328,7 +328,7 @@ class FirefoxFaviconExtractor(BaseFaviconExtractor):
             dtype = _detect_data_type(data)
             if dtype == "unknown":
                 continue
-            # width=65535 是 Firefox SVG 的标记值，归一化为 0
+            # width=65535 is Firefox's marker for SVG, normalized to 0
             raw_width = row["width"] or 0
             width = 0 if raw_width == 65535 else raw_width
             entries.append(

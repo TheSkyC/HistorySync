@@ -1,8 +1,6 @@
 # Copyright (c) 2026, TheSkyC
 # SPDX-License-Identifier: Apache-2.0
 
-"""Security section for Settings page — master password management."""
-
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
@@ -23,11 +21,11 @@ log = get_logger("view.settings.security")
 
 class SecuritySection(QWidget):
     """
-    主密码管理面板。
-    发出 password_changed(new_hash) 信号，由 SettingsPage 负责写入 config。
+    Master password management panel.
+    Emits password_changed(new_hash) signal, which SettingsPage handles to write to config.
     """
 
-    password_changed = Signal(str)  # new_hash (可能为空字符串 = 已移除)
+    password_changed = Signal(str)  # new_hash (empty string = removed)
     lock_session_requested = Signal()
 
     def __init__(self, parent=None):
@@ -40,7 +38,7 @@ class SecuritySection(QWidget):
         layout.setContentsMargins(16, 12, 16, 16)
         layout.setSpacing(10)
 
-        # ── 状态行 ─────────────────────────────────────────────
+        # ── Status Row ─────────────────────────────────────────
         status_row = QHBoxLayout()
         self._status_icon = QLabel()
         self._status_icon.setFixedSize(24, 24)
@@ -51,7 +49,7 @@ class SecuritySection(QWidget):
         status_row.addStretch()
         layout.addLayout(status_row)
 
-        # ── 说明 ───────────────────────────────────────────────
+        # ── Description ────────────────────────────────────────
         self._desc_label = QLabel(
             _(
                 "A master password protects sensitive settings from unauthorized changes.\n"
@@ -62,7 +60,7 @@ class SecuritySection(QWidget):
         self._desc_label.setStyleSheet("color: #888; font-size: 12px;")
         layout.addWidget(self._desc_label)
 
-        # ── 按钮行 ─────────────────────────────────────────────
+        # ── Button Row ─────────────────────────────────────────
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
 
@@ -91,15 +89,15 @@ class SecuritySection(QWidget):
         btn_row.addWidget(self._lock_btn)
         layout.addLayout(btn_row)
 
-        # ── 会话状态提示 ───────────────────────────────────────
+        # ── Session Status Hint ────────────────────────────────
         self._session_label = QLabel("")
         self._session_label.setStyleSheet("font-size: 11px; color: #888;")
         layout.addWidget(self._session_label)
 
-    # ── 公共接口 ──────────────────────────────────────────────
+    # ── Public Interfaces ─────────────────────────────────────
 
     def load(self, stored_hash: str):
-        """从 config 加载当前主密码哈希（空字符串 = 未设置）。"""
+        """Load the current master password hash from config (empty string = not set)."""
         self._stored_hash = stored_hash
         self._refresh_ui()
 
@@ -138,7 +136,7 @@ class SecuritySection(QWidget):
             self._lock_btn.setVisible(False)
             self._session_label.setText("")
 
-    # ── 按钮处理 ──────────────────────────────────────────────
+    # ── Button Handlers ───────────────────────────────────────
 
     def _on_set_password(self):
         from src.views.master_password_dialog import MasterPasswordSetDialog

@@ -28,7 +28,7 @@ _BROWSER_ROLE = Qt.UserRole
 
 
 class ScanWorker(QThread):
-    """扫描工作线程"""
+    """Worker thread for scanning."""
 
     progress = Signal(str, int, int)  # (status, current, total)
     browser_found = Signal(object)  # DetectedBrowser
@@ -52,13 +52,13 @@ class ScanWorker(QThread):
             self.error.emit(str(e))
 
     def request_stop(self):
-        """请求扫描器停止"""
+        """Request the scanner to stop."""
         if self._scanner is not None:
             self._scanner.request_stop()
 
 
 class BrowserScanDialog(QDialog):
-    """浏览器深度扫描对话框"""
+    """Deep browser scan dialog."""
 
     browsers_selected = Signal(list)  # list[DetectedBrowser]
 
@@ -68,7 +68,7 @@ class BrowserScanDialog(QDialog):
         self.setModal(True)
         self.resize(600, 500)
 
-        # 已添加的浏览器数据目录
+        # Already added browser data directories
         self._known_data_dirs: set[str] = {d.lower() for d in (known_data_dirs or set())}
 
         self._detected_browsers: list[DetectedBrowser] = []
@@ -79,26 +79,26 @@ class BrowserScanDialog(QDialog):
     def _build_ui(self):
         layout = QVBoxLayout(self)
 
-        # 标题
+        # Title
         title = QLabel(_("Scanning for browsers..."))
         title.setStyleSheet("font-size: 14pt; font-weight: bold;")
         layout.addWidget(title)
 
-        # 状态标签
+        # Status label
         self._status_label = QLabel(_("Initializing scan..."))
         layout.addWidget(self._status_label)
 
-        # 进度条
+        # Progress bar
         self._progress_bar = QProgressBar()
         self._progress_bar.setRange(0, 100)
         layout.addWidget(self._progress_bar)
 
-        # 结果列表
+        # Result list
         self._result_label = QLabel(_("Found browsers:"))
         self._result_label.hide()
         layout.addWidget(self._result_label)
 
-        # 全选/全不选按钮
+        # Select all / Deselect all buttons
         self._select_btn_layout = QHBoxLayout()
         self._select_btn_layout.setSpacing(8)
         self._select_btn_layout.setContentsMargins(0, 0, 0, 0)
@@ -128,7 +128,7 @@ class BrowserScanDialog(QDialog):
         self._browser_list.itemClicked.connect(self._on_item_clicked)
         layout.addWidget(self._browser_list)
 
-        # 按钮
+        # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
@@ -144,8 +144,8 @@ class BrowserScanDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def start_scan(self):
-        """开始扫描"""
-        # 立即显示结果区域
+        """Start scanning."""
+        # Show result area immediately
         self._result_label.setText(_("Scanning for browsers..."))
         self._result_label.show()
         self._browser_list.show()
@@ -159,22 +159,22 @@ class BrowserScanDialog(QDialog):
         self._worker.start()
 
     def _on_progress(self, status: str, current: int, total: int):
-        """更新进度"""
-        # 使用不确定进度条
+        """Update progress."""
+        # Use indeterminate progress bar
         if self._progress_bar.maximum() != 0:
-            self._progress_bar.setMaximum(0)  # 设置为不确定模式
+            self._progress_bar.setMaximum(0)  # Set to indeterminate mode
 
         self._status_label.setText(_("Scanning... ({} directories)").format(current))
 
     def _is_already_known(self, browser: DetectedBrowser) -> bool:
-        """判断此浏览器是否已被添加"""
+        """Check if this browser is already known/added."""
         if not self._known_data_dirs:
             return False
         data_dir_str = str(browser.data_dir).lower()
         return any(data_dir_str.startswith(known) or known.startswith(data_dir_str) for known in self._known_data_dirs)
 
     def _on_browser_found(self, browser: DetectedBrowser):
-        """实时添加发现的浏览器"""
+        """Add discovered browsers in real-time."""
         if self._is_already_known(browser):
             return
         self._detected_browsers.append(browser)
@@ -182,20 +182,20 @@ class BrowserScanDialog(QDialog):
         item = QListWidgetItem()
         item.setData(_BROWSER_ROLE, browser)
         checkbox = QCheckBox(f"{browser.display_name} ({browser.engine}) - {browser.data_dir}")
-        checkbox.setChecked(False)  # 默认不选中
+        checkbox.setChecked(False)  # Unchecked by default
         item.setSizeHint(QSize(0, 36))
         self._browser_list.addItem(item)
         self._browser_list.setItemWidget(item, checkbox)
         self._result_label.setText(_("Found {} browser(s)...").format(len(self._detected_browsers)))
 
     def _on_scan_finished(self, browsers: list[DetectedBrowser]):
-        """扫描完成"""
+        """Scan finished."""
         browsers = [b for b in browsers if not self._is_already_known(b)]
         self._detected_browsers = browsers
         self._progress_bar.setValue(100)
-        self._progress_bar.setMaximum(100)  # 恢复确定模式
+        self._progress_bar.setMaximum(100)  # Restore determinate mode
 
-        # 更新窗口标题
+        # Update window title
         self.setWindowTitle(_("Deep Browser Scan - Complete"))
 
         if not browsers:
@@ -205,7 +205,7 @@ class BrowserScanDialog(QDialog):
             self._cancel_btn.setText(_("Close"))
             return
 
-        # 清空列表并重新填充
+        # Clear list and repopulate
         self._browser_list.clear()
         for browser in browsers:
             item = QListWidgetItem()
@@ -216,20 +216,20 @@ class BrowserScanDialog(QDialog):
             self._browser_list.addItem(item)
             self._browser_list.setItemWidget(item, checkbox)
 
-        # 显示最终结果
+        # Show final results
         self._status_label.setText(_("Scan complete! Found {} browser(s).").format(len(browsers)))
         self._result_label.setText(_("Found browsers:"))
         self._add_btn.show()
         self._cancel_btn.setText(_("Close"))
 
     def _on_scan_error(self, error: str):
-        """扫描错误"""
+        """Scan error."""
         self._status_label.setText(_("Scan failed: {}").format(error))
         self._cancel_btn.setText(_("Close"))
         QMessageBox.warning(self, _("Scan Error"), _("Failed to scan for browsers:\n{}").format(error))
 
     def _on_cancel(self):
-        """取消/关闭"""
+        """Cancel / Close."""
         if self._worker and self._worker.isRunning():
             self._worker.request_stop()
             if not self._worker.wait(3000):
@@ -237,7 +237,7 @@ class BrowserScanDialog(QDialog):
         self.reject()
 
     def _on_add_selected(self):
-        """添加选中的浏览器"""
+        """Add selected browsers."""
         selected = []
         for i in range(self._browser_list.count()):
             item = self._browser_list.item(i)
@@ -255,7 +255,7 @@ class BrowserScanDialog(QDialog):
         self.accept()
 
     def _on_select_all(self):
-        """全选"""
+        """Select all."""
         for i in range(self._browser_list.count()):
             item = self._browser_list.item(i)
             checkbox = self._browser_list.itemWidget(item)
@@ -263,7 +263,7 @@ class BrowserScanDialog(QDialog):
                 checkbox.setChecked(True)
 
     def _on_deselect_all(self):
-        """全不选"""
+        """Deselect all."""
         for i in range(self._browser_list.count()):
             item = self._browser_list.item(i)
             checkbox = self._browser_list.itemWidget(item)

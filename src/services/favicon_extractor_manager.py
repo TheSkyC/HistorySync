@@ -20,7 +20,7 @@ def _make_extractor(
     defn: BrowserDef,
     custom_paths: dict[str, Path],
 ) -> BaseFaviconExtractor:
-    """根据 BrowserDef 和自定义路径字典创建图标提取器实例。"""
+    """Creates a favicon extractor instance based on BrowserDef and custom paths."""
     override = custom_paths.get(defn.browser_type)
     if defn.engine == "chromium":
         return ChromiumFaviconExtractor(defn, override_dir=override)
@@ -38,37 +38,39 @@ class FaviconExtractorManager:
         self._registry: dict[str, BaseFaviconExtractor] = {}
         self._register_builtin()
 
-    # ── 注册表操作 ────────────────────────────────────────────
+    # ── Registry Operations ───────────────────────────────────
 
     def _register_builtin(self) -> None:
-        """注册所有内置浏览器的图标提取器（跳过已禁用的）。"""
+        """Registers favicon extractors for all built-in browsers (skipping disabled ones)."""
         for defn in BUILTIN_BROWSERS:
             if defn.browser_type not in self._disabled:
                 self._registry[defn.browser_type] = _make_extractor(defn, self._custom)
 
     def register(self, extractor: BaseFaviconExtractor) -> None:
-        """注册或覆盖一个图标提取器。"""
+        """Registers or overrides a favicon extractor."""
         self._registry[extractor.browser_type] = extractor
         log.info("FaviconExtractorManager: registered '%s'", extractor.browser_type)
 
     def unregister(self, browser_type: str) -> None:
-        """注销指定浏览器的图标提取器。"""
+        """Unregisters the favicon extractor for a specific browser."""
         self._registry.pop(browser_type, None)
         log.info("FaviconExtractorManager: unregistered '%s'", browser_type)
 
-    # ── 查询接口 ──────────────────────────────────────────────
+    # ── Query Interfaces ──────────────────────────────────────
 
     def get_available(
         self,
         target_browsers: list[str] | None = None,
     ) -> list[BaseFaviconExtractor]:
-        """返回可用的图标提取器列表。
+        """
+        Returns a list of available favicon extractors.
 
         Parameters
         ----------
         target_browsers:
-            若提供，则只返回列表中指定浏览器的提取器（同时仍需通过
-            is_available() 检查）。传入 None 表示返回所有已注册的可用提取器。
+            If provided, only returns extractors for the specified browsers
+            (still checked via is_available()). None means return all
+            registered and available extractors.
         """
         candidates = (
             [self._registry[bt] for bt in target_browsers if bt in self._registry]
@@ -78,13 +80,13 @@ class FaviconExtractorManager:
         return [ext for ext in candidates if ext.is_available()]
 
     def get_all_registered(self) -> dict[str, str]:
-        """返回 {browser_type: display_name} 字典（含已禁用的浏览器）。"""
+        """Returns a {browser_type: display_name} dict (including disabled browsers)."""
         return {bt: ext.display_name for bt, ext in self._registry.items()}
 
     def is_browser_disabled(self, browser_type: str) -> bool:
         return browser_type in self._disabled
 
-    # ── 配置热更新 ────────────────────────────────────────────
+    # ── Configuration Hot Reload ──────────────────────────────
 
     def update_config(
         self,
@@ -92,18 +94,19 @@ class FaviconExtractorManager:
         custom_paths: dict[str, str],
     ) -> None:
         """
-        增量热更新配置，只重建真正发生变化的提取器条目。
+        Incrementally updates the configuration, rebuilding only the extractors
+        that have actually changed.
         """
         new_disabled = set(disabled_browsers)
         new_custom: dict[str, Path] = {bt: Path(p) for bt, p in (custom_paths or {}).items() if p}
 
-        # 新增禁用：从注册表移除
+        # Newly disabled: remove from registry
         newly_disabled = new_disabled - self._disabled
         for bt in newly_disabled:
             self._registry.pop(bt, None)
             log.info("FaviconExtractorManager: disabled '%s'", bt)
 
-        # 取消禁用：重新注册
+        # Newly enabled: re-register
         newly_enabled = self._disabled - new_disabled
         for bt in newly_enabled:
             defn = get_browser_def(bt)

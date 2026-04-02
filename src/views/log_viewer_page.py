@@ -77,7 +77,7 @@ class LogViewerPage(QWidget):
         self._pause_btn.setText(_("Resume"))
         self._pause_btn.setIcon(get_icon("play"))
 
-        # 主题切换时重新着色日志
+        # Re-color logs when theme changes
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
 
         # _load_full_log() is deferred to showEvent so it does NOT run during
