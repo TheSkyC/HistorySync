@@ -241,12 +241,8 @@ def _cli_export_main(args: argparse.Namespace) -> int:
     db = LocalDatabase(config.get_db_path())
     domain_ids: list[int] | None = None
     if args.domain:
-        ids: list[int] = []
-        with db._lock:
-            conn = db._ensure_conn()
-            for d in args.domain:
-                ids.extend(LocalDatabase._domain_ids_for(conn, d))
-        domain_ids = list(set(ids)) if ids else None
+        ids = db.get_domain_ids(list(args.domain))
+        domain_ids = ids if ids else None
 
     # ── Favicon cache (needed only for HTML + embed-icons) ────────────────────
     favicon_cache: FaviconCache | None = None

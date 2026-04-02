@@ -1884,6 +1884,20 @@ class LocalDatabase:
         ).fetchall()
         return [r[0] for r in rows]
 
+    def get_domain_ids(self, domains: list[str]) -> list[int]:
+        """Return all domain.id values matching *domains* and their subdomains.
+
+        Public interface used by CLI export and other callers that need to
+        resolve domain names to IDs without accessing internal connection state.
+        """
+        if not domains:
+            return []
+        with self._conn(write=False) as conn:
+            ids: list[int] = []
+            for d in domains:
+                ids.extend(self._domain_ids_for(conn, d))
+        return list(set(ids))
+
     def delete_records_by_domain(self, domain: str) -> int:
         with self._conn() as conn:
             ids = self._domain_ids_for(conn, domain)
