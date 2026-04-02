@@ -29,8 +29,8 @@ ENCRYPTION_PREFIX = "ENC:"
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
-#: Number of records inserted per SQLite transaction batch
-DB_BATCH_SIZE = 500
+# Number of records inserted per SQLite executemany batch.
+DB_BATCH_SIZE = 2000
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 

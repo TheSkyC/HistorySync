@@ -14,6 +14,7 @@ import threading
 import time
 
 from src.models.history_record import AnnotationRecord, BackupStats, BookmarkRecord, HistoryRecord
+from src.utils.constants import DB_BATCH_SIZE
 from src.utils.i18n_core import _
 from src.utils.logger import get_logger
 
@@ -739,10 +740,9 @@ class LocalDatabase:
     ) -> int:
         """Merge history records from *src_path* into this database.
 
-        Rows are streamed from the source in batches of ``_MERGE_BATCH`` to
+        Rows are streamed from the source in batches of ``DB_BATCH_SIZE`` to
         avoid loading the entire backup into memory at once.
         """
-        _MERGE_BATCH = 5000
 
         def _cb(msg: str) -> None:
             if progress_cb:
@@ -790,7 +790,7 @@ class LocalDatabase:
 
             inserted = 0
             while True:
-                raw_batch = cursor.fetchmany(_MERGE_BATCH)
+                raw_batch = cursor.fetchmany(DB_BATCH_SIZE)
                 if not raw_batch:
                     break
                 records = [
@@ -1034,9 +1034,8 @@ class LocalDatabase:
                     visit_duration   = COALESCE(excluded.visit_duration, visit_duration),
                     device_id        = COALESCE(device_id, excluded.device_id)
             """
-            _BULK = 2000  # larger batches amortise per-executemany overhead
-            for i in range(0, len(records), _BULK):
-                batch = records[i : i + _BULK]
+            for i in range(0, len(records), DB_BATCH_SIZE):
+                batch = records[i : i + DB_BATCH_SIZE]
                 params = [
                     (
                         r.url,
