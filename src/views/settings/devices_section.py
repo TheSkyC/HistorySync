@@ -72,7 +72,7 @@ class DevicesSection(QWidget):
 
         self._rename_this_btn = QPushButton(_("Rename…"))
         self._rename_this_btn.setIcon(get_icon("edit-2", 14))
-        self._rename_this_btn.setFixedHeight(28)
+        self._rename_this_btn.setMinimumHeight(32)
         self._rename_this_btn.clicked.connect(self._on_rename_this)
         this_row.addWidget(self._rename_this_btn)
 
@@ -185,7 +185,7 @@ class DevicesSection(QWidget):
         else:
             # Adopt button
             adopt_btn = QPushButton(_("Adopt"))
-            adopt_btn.setFixedHeight(26)
+            adopt_btn.setMinimumHeight(30)
             adopt_btn.setIcon(get_icon("log-in", 12))
             adopt_btn.setToolTip(_("Adopt this device identity: your UUID will be changed to match this device."))
             adopt_btn.clicked.connect(lambda _checked, d=dev: self._on_adopt(d))
@@ -193,14 +193,14 @@ class DevicesSection(QWidget):
 
             # Rename button
             rename_btn = QPushButton(_("Rename"))
-            rename_btn.setFixedHeight(26)
+            rename_btn.setMinimumHeight(30)
             rename_btn.setIcon(get_icon("edit-2", 12))
             rename_btn.clicked.connect(lambda _checked, d=dev: self._on_rename(d))
             row.addWidget(rename_btn)
 
             # Delete button
             del_btn = QPushButton(_("Delete"))
-            del_btn.setFixedHeight(26)
+            del_btn.setMinimumHeight(30)
             del_btn.setObjectName("danger_btn")
             del_btn.setIcon(get_icon("trash-2", 12))
             del_btn.setToolTip(_("Remove this device and all its history records from the database."))
