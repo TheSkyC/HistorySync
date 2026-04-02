@@ -306,6 +306,7 @@ class LocalDatabase:
                 CREATE INDEX IF NOT EXISTS idx_devices_uuid ON devices(uuid);
             """)
         self._migrate_schema()
+        self._verify_fts_integrity()
         log.info("Database schema initialized: %s", self.db_path)
 
     def _migrate_schema(self) -> None:
@@ -342,6 +343,31 @@ class LocalDatabase:
                     tag_rows,
                 )
                 log.info("Schema migration: populated bookmark_tags from CSV (%d rows)", len(tag_rows))
+
+    def _verify_fts_integrity(self) -> None:
+        """Run an FTS5 integrity check on startup and auto-rebuild if corrupt.
+
+        If the process previously crashed during ``upsert_records`` — after
+        the FTS triggers were DROPped but before they were restored and the
+        catch-up INSERT was executed — the FTS index will be silently out of
+        sync with the ``history`` table.  SQLite's built-in integrity-check
+        command detects this without requiring any user action; we simply
+        trigger a full rebuild whenever it fails.
+
+        This check is cheap (milliseconds on typical databases) and runs once
+        per process start inside the existing schema-init call.
+        """
+        try:
+            with self._conn() as conn:
+                conn.execute("INSERT INTO history_fts(history_fts) VALUES('integrity-check')")
+            log.debug("FTS integrity check passed.")
+        except sqlite3.DatabaseError as exc:
+            log.warning("FTS integrity check failed (%s) — triggering automatic rebuild.", exc)
+            try:
+                self.rebuild_fts_index()
+                log.info("FTS index successfully rebuilt after integrity failure.")
+            except Exception as rebuild_exc:
+                log.error("FTS rebuild failed: %s", rebuild_exc)
 
     # ═══════════════════════════════════════════════════════════
     # Device registry CRUD
@@ -1022,6 +1048,7 @@ class LocalDatabase:
             inserted: int = conn.execute("SELECT COUNT(*) FROM history WHERE id > ?", (max_id_before,)).fetchone()[0]
 
             # 7. Commit the history inserts, then restore FTS triggers.
+            #    executescript issues an implicit COMMIT, which is intentional.
             conn.commit()
             conn.executescript("""
                 CREATE TRIGGER IF NOT EXISTS history_ai AFTER INSERT ON history BEGIN
@@ -1040,13 +1067,63 @@ class LocalDatabase:
                 END;
             """)
 
-            # 7. Batch-sync FTS for every row inserted during the trigger-free
-            #    window.  Using an id watermark is reliable and avoids any
-            #    FTS shadow-table internals.
+            # 8. Batch-sync FTS for the trigger-free window.
+            #
+            #    Two populations need to be covered:
+            #      a) Newly inserted rows  (id > max_id_before): simple INSERT into FTS.
+            #      b) Updated rows         (id <= max_id_before, touched by DO UPDATE):
+            #         FTS still holds the old content — we must delete the stale entry
+            #         and re-insert the current one.
+            #
+            #    We identify updated rows by matching on the dedup key
+            #    (browser_type, url, visit_time) from the input batch against
+            #    pre-existing history rows.  This is precise and avoids a full
+            #    FTS rebuild.
+
+            # 8a. Insert FTS entries for genuinely new rows.
             conn.execute(
                 "INSERT INTO history_fts(rowid, url, title) SELECT id, url, title FROM history WHERE id > ?",
                 (max_id_before,),
             )
+
+            # 8b. Refresh FTS for updated rows (pre-existing rows whose content
+            #     may have changed due to DO UPDATE).  We gather their ids via
+            #     a join on the dedup key, then do a delete+re-insert in FTS.
+            if records:
+                # Build a temp table of (browser_type, url, visit_time) tuples
+                # for all input records to identify which pre-existing rows
+                # were touched by the DO UPDATE clause.
+                conn.execute(
+                    "CREATE TEMP TABLE IF NOT EXISTS _upsert_keys "
+                    "(browser_type TEXT, url TEXT, visit_time INTEGER, "
+                    " PRIMARY KEY (browser_type, url, visit_time))"
+                )
+                conn.execute("DELETE FROM _upsert_keys")
+                conn.executemany(
+                    "INSERT OR IGNORE INTO _upsert_keys VALUES (?, ?, ?)",
+                    ((r.browser_type, r.url, r.visit_time) for r in records),
+                )
+                updated_rows = conn.execute(
+                    "SELECT h.id, h.url, h.title FROM history h "
+                    "JOIN _upsert_keys k "
+                    "  ON h.browser_type = k.browser_type "
+                    " AND h.url          = k.url "
+                    " AND h.visit_time   = k.visit_time "
+                    "WHERE h.id <= ?",
+                    (max_id_before,),
+                ).fetchall()
+                conn.execute("DROP TABLE IF EXISTS _upsert_keys")
+
+                if updated_rows:
+                    # Delete stale FTS entries, then re-insert current content.
+                    conn.executemany(
+                        "INSERT INTO history_fts(history_fts, rowid, url, title) VALUES('delete', ?, ?, ?)",
+                        ((row[0], row[1], row[2]) for row in updated_rows),
+                    )
+                    conn.executemany(
+                        "INSERT INTO history_fts(rowid, url, title) VALUES (?, ?, ?)",
+                        ((row[0], row[1], row[2]) for row in updated_rows),
+                    )
 
         log.info("Upserted %d / %d records", inserted, len(records))
         return inserted
