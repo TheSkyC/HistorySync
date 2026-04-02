@@ -238,7 +238,15 @@ class AppConfig:
         try:
             with config_file.open(encoding="utf-8") as f:
                 return cls.from_dict(json.load(f))
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError) as exc:
+            import logging
+
+            logging.getLogger(__name__).error(
+                "Config file '%s' is corrupt or unreadable (%s); starting with defaults. "
+                "Original file preserved at its current path.",
+                config_file,
+                exc,
+            )
             return cls()
 
     def save(self) -> None:
