@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import ctypes as _ctypes
+from datetime import date, timedelta
 import json
 import re
-from datetime import date, timedelta
 
 from PySide6.QtCore import (
     QAbstractListModel,
@@ -132,9 +132,16 @@ _FIELD_VALUES: dict[str, tuple[str, ...]] = {
 }
 
 # Tokens that accept only one value — suppress from trailing-space list when already used.
-_SINGLE_VALUE_TOKENS: frozenset[str] = frozenset({
-    "is:bookmarked", "has:note", "after:", "before:", "title:", "url:",
-})
+_SINGLE_VALUE_TOKENS: frozenset[str] = frozenset(
+    {
+        "is:bookmarked",
+        "has:note",
+        "after:",
+        "before:",
+        "title:",
+        "url:",
+    }
+)
 
 
 def _used_single_tokens(text: str) -> set[str]:
@@ -334,23 +341,23 @@ class SearchSuggestionModel(QAbstractListModel):
         elif prefix.startswith("after:") or prefix.startswith("before:"):
             is_after = prefix.startswith("after:")
             token_key = "after:" if is_after else "before:"
-            sub = prefix[len(token_key):]
+            sub = prefix[len(token_key) :]
             today = date.today()
             if is_after:
                 shortcuts = [
-                    (_("Today"),        today),
-                    (_("Last 7 days"),  today - timedelta(days=7)),
+                    (_("Today"), today),
+                    (_("Last 7 days"), today - timedelta(days=7)),
                     (_("Last 30 days"), today - timedelta(days=30)),
                     (_("Last 90 days"), today - timedelta(days=90)),
-                    (_("Last year"),    today - timedelta(days=365)),
+                    (_("Last year"), today - timedelta(days=365)),
                 ]
             else:
                 shortcuts = [
-                    (_("Before today"),        today),
-                    (_("Before 7 days ago"),   today - timedelta(days=7)),
-                    (_("Before 30 days ago"),  today - timedelta(days=30)),
-                    (_("Before 90 days ago"),  today - timedelta(days=90)),
-                    (_("Before last year"),    today - timedelta(days=365)),
+                    (_("Before today"), today),
+                    (_("Before 7 days ago"), today - timedelta(days=7)),
+                    (_("Before 30 days ago"), today - timedelta(days=30)),
+                    (_("Before 90 days ago"), today - timedelta(days=90)),
+                    (_("Before last year"), today - timedelta(days=365)),
                 ]
             for label, d in shortcuts:
                 full = token_key + d.isoformat()
