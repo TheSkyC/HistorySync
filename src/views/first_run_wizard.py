@@ -101,7 +101,60 @@ class _WelcomePage(_PageBase):
         layout.addStretch()
 
 
-# ── Page 2: Browser sync settings ─────────────────────────────────────────────
+# ── Page 2: Quick-access overlay ──────────────────────────────────────────────
+
+
+class _OverlayPage(_PageBase):
+    def __init__(self, config: AppConfig, parent=None):
+        super().__init__(parent)
+        self._config = config
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(32, 24, 32, 24)
+        layout.setSpacing(16)
+        layout.addStretch()
+
+        icon_lbl = QLabel()
+        icon_lbl.setFixedSize(64, 64)
+        icon_lbl.setAlignment(Qt.AlignCenter)
+        px = _svg_icon_pixmap("search", 52, "#5b9cf6")
+        if not px.isNull():
+            icon_lbl.setPixmap(px)
+        layout.addWidget(icon_lbl, 0, Qt.AlignCenter)
+
+        title = QLabel(_("Instant History Search"))
+        title.setStyleSheet("font-size: 20px; font-weight: 700;")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+
+        desc = QLabel(
+            _(
+                "Press Ctrl+Shift+H anywhere to instantly search your browser history\n"
+                "and open any URL — without switching to the main window."
+            )
+        )
+        desc.setWordWrap(True)
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet("font-size: 13px; color: #aaa;")
+        layout.addWidget(desc)
+
+        layout.addSpacing(8)
+
+        cb_row = QHBoxLayout()
+        cb_row.addStretch()
+        self._enable_cb = QCheckBox(_("Enable global hotkey (Ctrl+Shift+H)"))
+        self._enable_cb.setChecked(True)
+        self._enable_cb.setStyleSheet("font-size: 13px;")
+        cb_row.addWidget(self._enable_cb)
+        cb_row.addStretch()
+        layout.addLayout(cb_row)
+
+        layout.addStretch()
+
+    def apply(self) -> None:
+        self._config.overlay.enabled = self._enable_cb.isChecked()
+
+
+# ── Page 3: Browser sync settings ─────────────────────────────────────────────
 
 
 class _SyncPage(_PageBase):
@@ -711,13 +764,14 @@ class FirstRunWizard(QDialog):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Progress indicator (5 steps)
-        self._progress_bar = _ProgressIndicator(5, self)
+        # Progress indicator (6 steps)
+        self._progress_bar = _ProgressIndicator(6, self)
         root.addWidget(self._progress_bar)
 
         # Page stack
         self._stack = QStackedWidget()
         self._page_welcome = _WelcomePage()
+        self._page_overlay = _OverlayPage(self._config)
         self._page_sync = _SyncPage(self._config)
         self._page_browser_sync = _BrowserSyncPage(self._config)
         self._page_password = _MasterPasswordPage(self._config)
@@ -727,6 +781,7 @@ class FirstRunWizard(QDialog):
 
         for page in (
             self._page_welcome,
+            self._page_overlay,
             self._page_sync,
             self._page_browser_sync,
             self._page_password,
@@ -864,6 +919,7 @@ class _ProgressIndicator(QWidget):
 
         labels = [
             _("Welcome"),
+            _("Quick Access"),
             _("Sync"),
             _("Browsers"),
             _("Security"),

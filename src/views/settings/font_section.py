@@ -229,7 +229,7 @@ class FontPickerWidget(QWidget):
 
     def _update_preview(self):
         size_px = self._size_spin.value()
-        # 用 QSS 设置字体，避免 setFont() 被 stylesheet 引擎覆盖的 Qt 已知问题
+        # Use QSS to set font, avoiding the known Qt issue where setFont() is overridden by stylesheet engine
         families = ", ".join(f'"{f}"' for f in self._families) if self._families else "inherit"
         self._preview.setStyleSheet(
             f"border: 1px solid #3a3d4a; border-radius: 4px; padding: 4px;"
@@ -340,10 +340,10 @@ class FontDialog(QDialog):
         )
         root.addWidget(self._mono_picker)
 
-        # ── 预览 label 各自独立更新，不全局应用 ──────────────────────────────
-        # 字体变化只刷新对话框内对应的预览框，点 OK 后才全局生效。
-        # 这样两个预览框互不干扰，也不会在取消时需要回滚。
-        self._ui_picker.font_changed.connect(lambda: None)  # 内部已自行刷新
+        # Preview labels update independently, not applied globally
+        # Font changes only refresh the corresponding preview box in the dialog, taking effect globally after clicking OK.
+        # This way the two preview boxes don't interfere with each other, and no rollback is needed on cancel.
+        self._ui_picker.font_changed.connect(lambda: None)  # Already refreshes internally
         self._mono_picker.font_changed.connect(lambda: None)
 
         root.addStretch()

@@ -90,6 +90,17 @@ class UIConfig:
 
 
 @dataclass
+class OverlayConfig:
+    """Quick-access overlay (Spotlight-style) settings."""
+
+    enabled: bool = True
+    filter_browsers: str = "auto"  # "auto" | "all" | browser_type
+    open_with: str = "auto"  # "auto" | browser_type
+    pos_offset_x: int = 0  # px offset from active-screen center
+    pos_offset_y: int = 0
+
+
+@dataclass
 class FontConfig:
     """Custom font overrides for UI and monospace (log/code) elements."""
 
@@ -109,6 +120,7 @@ class AppConfig:
     privacy: PrivacyConfig = field(default_factory=PrivacyConfig)
     ui: UIConfig = field(default_factory=UIConfig)
     font: FontConfig = field(default_factory=FontConfig)
+    overlay: OverlayConfig = field(default_factory=OverlayConfig)
     window_x: int = -1
     window_y: int = -1
     window_width: int = DEFAULT_WINDOW_WIDTH
@@ -175,6 +187,7 @@ class AppConfig:
             "privacy": asdict(self.privacy),
             "ui": asdict(self.ui),
             "font": asdict(self.font),
+            "overlay": asdict(self.overlay),
             "window_x": self.window_x,
             "window_y": self.window_y,
             "window_width": self.window_width,
@@ -222,6 +235,10 @@ class AppConfig:
             cfg.ui = UIConfig(**{k: v for k, v in d["ui"].items() if k in UIConfig.__dataclass_fields__})
         if "font" in d:
             cfg.font = FontConfig(**{k: v for k, v in d["font"].items() if k in FontConfig.__dataclass_fields__})
+        if "overlay" in d:
+            cfg.overlay = OverlayConfig(
+                **{k: v for k, v in d["overlay"].items() if k in OverlayConfig.__dataclass_fields__}
+            )
         for key in (
             "window_x",
             "window_y",

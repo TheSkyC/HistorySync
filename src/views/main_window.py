@@ -195,6 +195,7 @@ class MainWindow(QMainWindow):
         vm.domain_blacklisted.connect(self._on_domain_blacklisted)
         # backup_finished → settings page is guarded in _on_backup_finished
         vm.backup_finished.connect(self._on_backup_finished)
+        vm.open_settings_requested.connect(lambda: (self.show_and_raise(), self._switch_page(PAGE_SETTINGS)))
 
         # DashboardPage is always eager — connect directly.
         self._page_dashboard.sync_requested.connect(vm.trigger_sync)

@@ -35,6 +35,7 @@ from src.views.settings.font_section import FontSection
 from src.views.settings.import_section import ImportSection
 from src.views.settings.language_section import LanguageSection
 from src.views.settings.maintenance_section import MaintenanceSection
+from src.views.settings.overlay_section import OverlaySection
 from src.views.settings.privacy_section import PrivacySection
 from src.views.settings.scheduler_section import SchedulerSection
 from src.views.settings.security_section import SecuritySection
@@ -102,6 +103,7 @@ class SettingsPage(QWidget):
         self._sec_import = ImportSection()
         self._sec_maint = MaintenanceSection()
         self._sec_font = FontSection()
+        self._sec_overlay = OverlaySection()
 
         self._add_card(_("LANGUAGE"), self._sec_language)
         self._add_card(_("AUTO SYNC"), self._sec_scheduler)
@@ -114,6 +116,7 @@ class SettingsPage(QWidget):
         self._add_card(_("IMPORT HISTORY DATABASE"), self._sec_import)
         self._add_card(_("DATABASE MAINTENANCE"), self._sec_maint)
         self._add_card(_("FONTS"), self._sec_font)
+        self._add_card(_("QUICK ACCESS OVERLAY"), self._sec_overlay)
 
         self._content_layout.addStretch()
         scroll.setWidget(content)
@@ -223,6 +226,9 @@ class SettingsPage(QWidget):
         self._sec_font.load(cfg.font)
         self._sec_font.font_config_changed.connect(self._on_font_config_changed)
 
+        # Overlay
+        self._sec_overlay.load(cfg, self._vm._main_vm._db)
+
         # Devices
         self._load_devices()
         self._sec_devices.rename_requested.connect(self._on_device_rename)
@@ -273,6 +279,12 @@ class SettingsPage(QWidget):
         from src.utils.font_manager import FontManager
 
         FontManager.instance().apply(cfg.font)
+
+        # Overlay settings (pos_offset preserved from in-memory config)
+        oc = self._sec_overlay.get_overlay_config()
+        cfg.overlay.enabled = oc.enabled
+        cfg.overlay.filter_browsers = oc.filter_browsers
+        cfg.overlay.open_with = oc.open_with
 
         self._vm.save(cfg)
         self._compute_next_times()

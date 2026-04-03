@@ -105,6 +105,15 @@ Headless export examples (no GUI launched):
         action="store_true",
         help="Trigger a WebDAV backup immediately after startup completes",
     )
+    action_group.add_argument(
+        "--quick",
+        action="store_true",
+        help=(
+            "Show the quick-access overlay in a running HistorySync instance. "
+            "On Linux/macOS, bind this to a system hotkey as an alternative to the "
+            "Windows-only Ctrl+Shift+H global hotkey."
+        ),
+    )
 
     # ── Headless ─────────────────────────────────────────────────────────────
     parser.add_argument(
@@ -573,6 +582,37 @@ def _gui_main(args: argparse.Namespace) -> None:
         log.warning("SingleInstanceServer failed to start; single-instance protection is inactive")
     _single_instance_server.request_activation.connect(window.show_and_raise)
 
+    # ── Overlay hotkey (Windows) + --quick cross-platform path ──────────────
+    def _on_overlay_hotkey():
+        overlay = main_vm.ensure_overlay()
+        if overlay is not None:
+            overlay.toggle()
+
+    _single_instance_server.request_quick_overlay.connect(_on_overlay_hotkey)
+
+    _hotkey_mgr = None
+    if sys.platform == "win32" and config.overlay.enabled:
+        from src.services.hotkey_manager import HotkeyManager
+
+        _hotkey_mgr = HotkeyManager()
+        if _hotkey_mgr.register():
+            _hotkey_mgr.triggered.connect(_on_overlay_hotkey)
+            app.installNativeEventFilter(_hotkey_mgr)
+            log.debug("Global hotkey Ctrl+Shift+H registered")
+        else:
+            log.warning("Failed to register global hotkey Ctrl+Shift+H")
+
+    if _hotkey_mgr is not None:
+
+        def _on_settings_saved():
+            if main_vm._config.overlay.enabled:
+                if not _hotkey_mgr._registered:
+                    _hotkey_mgr.register()
+            else:
+                _hotkey_mgr.unregister()
+
+        window._settings_vm.saved.connect(_on_settings_saved)
+
     # ── 7. System tray ───────────────────────────────────────────────────────
     tray = TrayIcon()
 
@@ -791,6 +831,13 @@ def main():
         sys.exit(_cli_export_main(args))
     elif args.headless:
         sys.exit(_headless_main(args))
+    elif getattr(args, "quick", False):
+        # --quick: send ACTIVATE_QUICK_MSG to a running instance via stdlib
+        # socket (no Qt import needed — keeps startup time ~70ms).
+        from src.utils.single_instance import send_quick_overlay
+
+        sent = send_quick_overlay()
+        sys.exit(0 if sent else 1)
     else:
         _gui_main(args)
 

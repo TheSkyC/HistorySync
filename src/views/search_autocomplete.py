@@ -1706,7 +1706,7 @@ class SmartSearchLineEdit(QWidget):
 
         if obj is self._editor:
             etype = event.type()
-            # 字体变化（FontManager/QSS 修改后）时重算搜索框高度
+            # Recalculate search box height when font changes (after FontManager/QSS modification)
             if etype == QEvent.Type.FontChange:
                 self._editor.setFixedHeight(self._editor.fontMetrics().height() + 18)
             if etype == QEvent.KeyPress:

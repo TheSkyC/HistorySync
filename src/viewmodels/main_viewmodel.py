@@ -38,9 +38,13 @@ class MainViewModel(QObject):
     domain_blacklisted = Signal(str)  # domain just blacklisted
     records_hidden = Signal(list)  # list of hidden IDs
 
+    # Overlay signal
+    open_settings_requested = Signal()
+
     def __init__(self, config: AppConfig, parent=None):
         super().__init__(parent)
         self._config = config
+        self._overlay = None  # OverlayWindow, created lazily on first hotkey press
 
         db_path = config.get_db_path()
         self._db = LocalDatabase(db_path)
@@ -97,6 +101,22 @@ class MainViewModel(QObject):
             last_sync_ts=self._config.last_sync_ts,
             last_backup_ts=self._config.last_backup_ts,
         )
+
+    def ensure_overlay(self):
+        """Return the OverlayWindow, creating it on first call (lazy init).
+
+        Safe to call from the hotkey handler before the window has been
+        pre-warmed — first invocation takes ~100ms, subsequent ones are instant.
+        Returns None if the overlay feature is disabled.
+        """
+        if not self._config.overlay.enabled:
+            return None
+        if self._overlay is None:
+            from src.views.overlay_window import OverlayWindow
+
+            self._overlay = OverlayWindow(self._db, self._config, favicon_cache=self._favicon_manager.favicon_cache)
+            self._overlay.open_settings_requested.connect(self.open_settings_requested)
+        return self._overlay
 
     # ── Public sync operations ─────────────────────────────────
 

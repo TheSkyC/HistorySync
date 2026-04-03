@@ -204,6 +204,11 @@ class FaviconManager(QObject):
         self._worker: FaviconWorker | None = None
         self._is_running = False
 
+    @property
+    def favicon_cache(self) -> FaviconCache:
+        """Expose the underlying FaviconCache for direct domain lookups (e.g. overlay)."""
+        return self._cache
+
     def set_local_db(self, local_db: LocalDatabase) -> None:
         """
         Provides a reference to the history database.
