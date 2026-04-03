@@ -190,6 +190,9 @@ class RecentSearchStore:
         except Exception:
             log.debug("Failed to save recent searches")
 
+    def _save_deferred(self) -> None:
+        QTimer.singleShot(0, self._save)
+
     def add(self, query: str) -> None:
         query = query.strip()
         if not query:
@@ -199,7 +202,7 @@ class RecentSearchStore:
             self._items.remove(query)
         self._items.insert(0, query)
         self._items = self._items[: self._max]
-        self._save()
+        self._save_deferred()
 
     def items(self) -> list[str]:
         return self._items.copy()
@@ -207,11 +210,11 @@ class RecentSearchStore:
     def remove(self, query: str) -> None:
         if query in self._items:
             self._items.remove(query)
-            self._save()
+            self._save_deferred()
 
     def clear(self) -> None:
         self._items.clear()
-        self._save()
+        self._save_deferred()
 
 
 # ── Suggestion item roles ────────────────────────────────
@@ -222,8 +225,64 @@ _ROLE_BROWSER_TYPE = Qt.UserRole + 3  # str: browser_type for brand icon renderi
 _ROLE_DELETABLE = Qt.UserRole + 4  # bool: show × delete button (recent items)
 _ROLE_PINNED = Qt.UserRole + 5  # bool: browser exists in DB (pinned at top)
 _ROLE_HEADER = Qt.UserRole + 6  # bool: non-selectable section header row
+_ROLE_MATCH_SPANS = Qt.UserRole + 7  # list[int]: char indices in display text to highlight
 
 _DELETE_ZONE_WIDTH = 28  # px width of the delete button hit area on the right
+
+
+# ── Fuzzy matching ───────────────────────────────────────
+
+_FUZZY_SEPARATORS = frozenset("_-:. /")
+
+
+def _fuzzy_score_match(pattern: str, text: str) -> tuple[float, list[int]]:
+    """Subsequence fuzzy match *pattern* against *text*.
+
+    Returns ``(score, matched_indices)`` where *matched_indices* are the
+    positions inside *text* that correspond to each character of *pattern*.
+    Returns ``(-∞, [])`` when no subsequence match is possible.
+
+    Scoring heuristics (higher = better):
+    * Large bonus when *text* starts with *pattern* (prefix match).
+    * Bonus for each consecutive run of matched chars.
+    * Bonus for matching right after a separator (word-boundary start).
+    * Mild penalty for total span (prefer tight matches).
+    """
+    if not pattern:
+        return 0.0, []
+
+    p = pattern.lower()
+    t = text.lower()
+
+    # ── greedy subsequence scan ──────────────────────────
+    indices: list[int] = []
+    pi = 0
+    for ti, ch in enumerate(t):
+        if pi < len(p) and ch == p[pi]:
+            indices.append(ti)
+            pi += 1
+    if pi < len(p):
+        return float("-inf"), []
+
+    # ── scoring ──────────────────────────────────────────
+    score = 0.0
+    for k, ti in enumerate(indices):
+        if k > 0 and ti == indices[k - 1] + 1:
+            score += 15  # consecutive run bonus
+        if ti == 0 or t[ti - 1] in _FUZZY_SEPARATORS:
+            score += 10  # word-boundary start bonus
+        if ti == k:
+            score += 5  # aligned-position bonus
+
+    # Penalty for spread → prefer compact matches
+    if len(indices) > 1:
+        score -= (indices[-1] - indices[0]) * 0.5
+
+    # Large bonus when the whole pattern is a prefix of the text
+    if t.startswith(p):
+        score += 60
+
+    return score, indices
 
 
 # ── SearchSuggestionModel ────────────────────────────────
@@ -268,40 +327,65 @@ class SearchSuggestionModel(QAbstractListModel):
             prefix = parts[-1].lower() if parts else ""
 
         # ── Group 1: Field token completions ─────────────
-        _field_rows: list[dict] = []
+        # Each candidate: (score, row_dict)
+        _field_scored: list[tuple[float, dict]] = []
         _seen_field: set[str] = set()
 
-        # Partial token completions (e.g. user typed "dom" → "domain:")
+        # Partial token completions: fuzzy match prefix against token names
+        # e.g. "dm" → "domain:", "dmn" → "domain:"
         if prefix and ":" not in prefix:
             for tok in _FIELD_TOKENS:
-                if tok.startswith(prefix) and tok != prefix:
-                    if tok not in _seen_field:
-                        _seen_field.add(tok)
-                        _field_rows.append({"display": tok, "type": "field", "insert": tok, "icon": "filter"})
+                if tok == prefix:
+                    continue
+                score, spans = _fuzzy_score_match(prefix, tok)
+                if score == float("-inf"):
+                    continue
+                if tok not in _seen_field:
+                    _seen_field.add(tok)
+                    _field_scored.append(
+                        (
+                            score,
+                            {"display": tok, "type": "field", "insert": tok, "icon": "filter", "match_spans": spans},
+                        )
+                    )
 
         # Browser sub-value completions
         if prefix.startswith("browser:"):
             sub = prefix[8:]
-            for val in self._available_browsers:
-                if sub and sub not in val:
-                    continue
-                full = "browser:" + val
-                if full == prefix or full in _seen_field:
-                    continue
-                _seen_field.add(full)
-                _field_rows.append(
-                    {"display": full, "type": "browser", "insert": full, "browser_type": val, "pinned": True}
-                )
-            for val in _FIELD_VALUES["browser:"]:
-                if sub and sub not in val:
-                    continue
-                full = "browser:" + val
-                if full == prefix or full in _seen_field:
-                    continue
-                _seen_field.add(full)
-                _field_rows.append(
-                    {"display": full, "type": "browser", "insert": full, "browser_type": val, "pinned": False}
-                )
+            _browser_scored: list[tuple[float, dict]] = []
+            _process = [
+                (self._available_browsers, True),
+                (_FIELD_VALUES["browser:"], False),
+            ]
+            for source, pinned in _process:
+                for val in source:
+                    score, val_spans = _fuzzy_score_match(sub, val) if sub else (0.0, [])
+                    if sub and score == float("-inf"):
+                        continue
+                    full = "browser:" + val
+                    if full == prefix or full in _seen_field:
+                        continue
+                    _seen_field.add(full)
+                    # Offset span indices by len("browser:") so they map to display text
+                    offset = len("browser:")
+                    display_spans = [i + offset for i in val_spans]
+                    _browser_scored.append(
+                        (
+                            -score,
+                            {
+                                "display": full,
+                                "type": "browser",
+                                "insert": full,
+                                "browser_type": val,
+                                "pinned": pinned,
+                                "match_spans": display_spans,
+                            },
+                        )
+                    )
+            # pinned browsers first, then by score
+            _browser_scored.sort(key=lambda t: (not t[1]["pinned"], t[0]))
+            _field_scored.extend((-s, r) for s, r in _browser_scored)
+
         elif prefix.startswith("is:") or prefix.startswith("has:"):
             for token_key, values in _FIELD_VALUES.items():
                 if token_key == "browser:":
@@ -310,34 +394,73 @@ class SearchSuggestionModel(QAbstractListModel):
                     continue
                 sub = prefix[len(token_key) :]
                 for val in values:
-                    if sub and sub not in val:
+                    score, val_spans = _fuzzy_score_match(sub, val) if sub else (0.0, [])
+                    if sub and score == float("-inf"):
                         continue
                     full = token_key + val
                     if full == prefix or full in _seen_field:
                         continue
                     _seen_field.add(full)
-                    _field_rows.append({"display": full, "type": "field", "insert": full, "icon": "filter"})
+                    offset = len(token_key)
+                    display_spans = [i + offset for i in val_spans]
+                    _field_scored.append(
+                        (
+                            score,
+                            {
+                                "display": full,
+                                "type": "field",
+                                "insert": full,
+                                "icon": "filter",
+                                "match_spans": display_spans,
+                            },
+                        )
+                    )
                 break
+
         elif prefix.startswith("device:"):
             sub = prefix[7:]
             for val in self._available_devices:
-                if sub and sub not in val.lower():
+                score, val_spans = _fuzzy_score_match(sub, val.lower()) if sub else (0.0, [])
+                if sub and score == float("-inf"):
                     continue
                 full = "device:" + val
                 if full == prefix or full in _seen_field:
                     continue
                 _seen_field.add(full)
-                _field_rows.append({"display": full, "type": "field", "insert": full, "icon": "filter"})
+                offset = len("device:")
+                display_spans = [i + offset for i in val_spans]
+                _field_scored.append(
+                    (
+                        score,
+                        {
+                            "display": full,
+                            "type": "field",
+                            "insert": full,
+                            "icon": "filter",
+                            "match_spans": display_spans,
+                        },
+                    )
+                )
+
         elif prefix.startswith("tag:"):
             sub = prefix[4:]
             for val in self._available_tags:
-                if sub and sub not in val.lower():
+                score, val_spans = _fuzzy_score_match(sub, val.lower()) if sub else (0.0, [])
+                if sub and score == float("-inf"):
                     continue
                 full = "tag:" + val
                 if full == prefix or full in _seen_field:
                     continue
                 _seen_field.add(full)
-                _field_rows.append({"display": full, "type": "tag", "insert": full, "icon": "tag"})
+                offset = len("tag:")
+                display_spans = [i + offset for i in val_spans]
+                _field_scored.append(
+                    (
+                        score,
+                        {"display": full, "type": "tag", "insert": full, "icon": "tag", "match_spans": display_spans},
+                    )
+                )
+
         elif prefix.startswith("after:") or prefix.startswith("before:"):
             is_after = prefix.startswith("after:")
             token_key = "after:" if is_after else "before:"
@@ -366,13 +489,23 @@ class SearchSuggestionModel(QAbstractListModel):
                 if full == prefix or full in _seen_field:
                     continue
                 _seen_field.add(full)
-                _field_rows.append({"display": label, "type": "date", "insert": full, "icon": "clock"})
+                _field_scored.append(
+                    (0.0, {"display": label, "type": "date", "insert": full, "icon": "clock", "match_spans": []})
+                )
+
         elif not prefix and stripped:
             _used = _used_single_tokens(text)
             for tok in _FIELD_TOKENS:
                 if tok in _used:
                     continue
-                _field_rows.append({"display": tok, "type": "field", "insert": tok, "icon": "filter"})
+                _field_scored.append(
+                    (0.0, {"display": tok, "type": "field", "insert": tok, "icon": "filter", "match_spans": []})
+                )
+
+        # Sort field rows by score descending (browser rows already sorted above)
+        if prefix and ":" not in prefix:
+            _field_scored.sort(key=lambda t: -t[0])
+        _field_rows = [r for __, r in _field_scored]
 
         # ── Group 2: Recent searches ─────────────────────
         _recent_rows: list[dict] = []
@@ -385,7 +518,7 @@ class SearchSuggestionModel(QAbstractListModel):
                 continue
             if q not in _seen_recent:
                 _seen_recent.add(q)
-                _recent_rows.append({"display": q, "type": "recent", "insert": q, "icon": "clock"})
+                _recent_rows.append({"display": q, "type": "recent", "insert": q, "icon": "clock", "match_spans": []})
             if len(_recent_rows) >= 5:
                 break
 
@@ -394,23 +527,32 @@ class SearchSuggestionModel(QAbstractListModel):
         _seen_domain: set[str] = set()
         if prefix.startswith("domain:"):
             domain_prefix = prefix[7:]
+            _domain_scored: list[tuple[float, dict]] = []
             for host, count in self._top_domains:
-                if domain_prefix and domain_prefix not in host:
+                score, host_spans = _fuzzy_score_match(domain_prefix, host) if domain_prefix else (0.0, [])
+                if domain_prefix and score == float("-inf"):
                     continue
                 key = f"domain:{host}"
-                if key not in _seen_domain:
-                    _seen_domain.add(key)
-                    _domain_rows.append(
+                if key in _seen_domain:
+                    continue
+                _seen_domain.add(key)
+                offset = len("domain:")
+                display_spans = [i + offset for i in host_spans]
+                _domain_scored.append(
+                    (
+                        score,
                         {
                             "display": key,
                             "type": "domain",
                             "insert": key,
                             "count": count,
                             "icon": "globe",
-                        }
+                            "match_spans": display_spans,
+                        },
                     )
-                if len(_domain_rows) >= 6:
-                    break
+                )
+            _domain_scored.sort(key=lambda t: -t[0])
+            _domain_rows = [r for __, r in _domain_scored[:6]]
 
         # ── Assemble rows with section headers ───────────
         if _field_rows:
@@ -451,6 +593,8 @@ class SearchSuggestionModel(QAbstractListModel):
             return row.get("type") == "recent" and not row.get("header", False)
         if role == _ROLE_PINNED:
             return row.get("pinned", False)
+        if role == _ROLE_MATCH_SPANS:
+            return row.get("match_spans", [])
         if row.get("header"):
             return None
         if role == Qt.DecorationRole:
@@ -468,6 +612,53 @@ class SearchSuggestionModel(QAbstractListModel):
         return None
 
 
+# ── Fuzzy highlight painter helper ──────────────────────
+
+
+def _draw_fuzzy_highlighted_text(
+    painter: QPainter,
+    rect,
+    text: str,
+    match_indices: list[int],
+    normal_color: QColor,
+    highlight_color: QColor,
+) -> None:
+    """Draw *text* inside *rect* with characters at *match_indices* painted in
+    *highlight_color*; all other characters use *normal_color*.
+
+    Characters are rendered in contiguous runs to minimise painter state changes
+    and avoid per-glyph sub-pixel misalignment.
+    """
+    if not match_indices:
+        painter.setPen(normal_color)
+        painter.drawText(rect, Qt.AlignLeft | Qt.AlignVCenter, text)
+        return
+
+    match_set = set(match_indices)
+    fm = painter.fontMetrics()
+    x = rect.left()
+    top = rect.top()
+    h = rect.height()
+    clip_right = rect.right()
+
+    i = 0
+    while i < len(text) and x < clip_right:
+        is_highlighted = i in match_set
+        # Extend the run as long as highlight status doesn't change
+        j = i + 1
+        while j < len(text) and (j in match_set) == is_highlighted:
+            j += 1
+
+        segment = text[i:j]
+        seg_w = fm.horizontalAdvance(segment)
+
+        painter.setPen(highlight_color if is_highlighted else normal_color)
+        # Draw into a tight rect starting at current x; Qt clips automatically
+        painter.drawText(x, top, min(seg_w + 2, clip_right - x), h, Qt.AlignLeft | Qt.AlignVCenter, segment)
+        x += seg_w
+        i = j
+
+
 # ── SuggestionDelegate ───────────────────────────────────
 
 
@@ -483,12 +674,11 @@ class _SuggestionDelegate(QStyledItemDelegate):
             painter.save()
             text = index.data(Qt.DisplayRole) or ""
             palette = opt.widget.palette() if opt.widget else None
-            is_dark = palette and palette.window().color().lightness() < 128
             font = opt.font
             font.setBold(True)
             font.setPointSizeF(font.pointSizeF() - 1)
             painter.setFont(font)
-            painter.setPen(QColor("#8892a8") if is_dark else QColor("#6B7280"))
+            painter.setPen(palette.placeholderText().color() if palette else QColor("#6B7280"))
             fm = painter.fontMetrics()
             text_width = fm.horizontalAdvance(text)
             text_rect = opt.rect.adjusted(10, 0, 0, 0)
@@ -497,7 +687,7 @@ class _SuggestionDelegate(QStyledItemDelegate):
             line_end_x = opt.rect.right() - 10
             line_y = opt.rect.center().y()
             if line_start_x < line_end_x:
-                painter.setPen(QColor("#303540") if is_dark else QColor("#d0d4de"))
+                painter.setPen(palette.mid().color() if palette else QColor("#d0d4de"))
                 painter.drawLine(line_start_x, line_y, line_end_x, line_y)
             painter.restore()
             return
@@ -505,7 +695,7 @@ class _SuggestionDelegate(QStyledItemDelegate):
         painter.save()
 
         # Draw background (selection highlight)
-        style = opt.widget.style() if opt.widget else QListView().style()
+        style = opt.widget.style() if opt.widget else QApplication.style()
         style.drawPrimitive(QStyle.PE_PanelItemViewItem, opt, painter, opt.widget)
 
         rect = opt.rect
@@ -514,9 +704,6 @@ class _SuggestionDelegate(QStyledItemDelegate):
 
         # Use palette to adapt to light/dark theme
         palette = opt.widget.palette() if opt.widget else None
-        is_dark = False
-        if palette:
-            is_dark = palette.window().color().lightness() < 128
 
         # Draw icon — browser items use brand pixmap, others use generic QIcon
         icon_size = 16
@@ -546,41 +733,33 @@ class _SuggestionDelegate(QStyledItemDelegate):
         if is_deletable:
             # Draw × delete button in the right zone
             del_x = true_right - _DELETE_ZONE_WIDTH
-            del_color = QColor("#ef4444") if is_dark else QColor("#dc2626")
+            del_color = QColor("#ef4444")
             painter.setPen(del_color)
             fm = painter.fontMetrics()
             painter.drawText(del_x, rect.y(), _DELETE_ZONE_WIDTH, rect.height(), Qt.AlignCenter, "×")
             right_margin = _DELETE_ZONE_WIDTH + 4
         elif stype:
-            # Draw type badge
-            if stype == "field":
-                bg_color = QColor("#1e2d4a") if is_dark else QColor("#dbeafe")
-                fg_color = QColor("#93c5fd") if is_dark else QColor("#1d4ed8")
-                badge = _("Filter")
-            elif stype == "domain":
-                bg_color = QColor("#1e2d4a") if is_dark else QColor("#dbeafe")
-                fg_color = QColor("#93c5fd") if is_dark else QColor("#1d4ed8")
-                badge = _("Domain")
-            elif stype == "browser" and is_pinned:
-                bg_color = QColor("#1e2d4a") if is_dark else QColor("#dbeafe")
-                fg_color = QColor("#93c5fd") if is_dark else QColor("#1d4ed8")
-                badge = _("Available")
-            elif stype == "browser":
-                bg_color = QColor("#2d3448") if is_dark else QColor("#f1f5f9")
-                fg_color = QColor("#8892a8") if is_dark else QColor("#475569")
-                badge = _("Browser")
+            # Draw type badge — accent color with alpha=40 background, no dark/light branching
+            if stype in ("field", "domain") or (stype == "browser" and is_pinned):
+                accent = QColor("#3B82F6")
+                badge = _("Filter") if stype == "field" else _("Domain") if stype == "domain" else _("Available")
             elif stype == "date":
-                bg_color = QColor("#1a2d3a") if is_dark else QColor("#dcfce7")
-                fg_color = QColor("#6ee7b7") if is_dark else QColor("#15803d")
+                accent = QColor("#22C55E")
                 badge = _("Date")
             elif stype == "tag":
-                bg_color = QColor("#2d1f3a") if is_dark else QColor("#fef3c7")
-                fg_color = QColor("#c084fc") if is_dark else QColor("#92400e")
+                accent = QColor("#A855F7")
                 badge = _("Bookmark")
-            else:  # recent (non-deletable fallback)
-                bg_color = QColor("#2d3448") if is_dark else QColor("#f1f5f9")
-                fg_color = QColor("#8892a8") if is_dark else QColor("#475569")
-                badge = _("Recent")
+            else:  # browser (not pinned) or recent fallback
+                accent = None
+                badge = _("Browser") if stype == "browser" else _("Recent")
+
+            if accent is not None:
+                bg_color = QColor(accent)
+                bg_color.setAlpha(40)
+                fg_color = accent
+            else:
+                bg_color = palette.button().color() if palette else QColor("#f1f5f9")
+                fg_color = palette.buttonText().color() if palette else QColor("#475569")
 
             fm = painter.fontMetrics()
             badge_w = fm.horizontalAdvance(badge) + 12
@@ -596,11 +775,18 @@ class _SuggestionDelegate(QStyledItemDelegate):
             painter.drawText(badge_x, badge_y, badge_w, badge_h, Qt.AlignCenter, badge)
             right_margin = badge_w + 12
 
-        # Draw display text (clipped to avoid overlapping right-side element)
+        # Draw display text with fuzzy-match highlights
         display = index.data(Qt.DisplayRole) or ""
+        match_spans: list[int] = index.data(_ROLE_MATCH_SPANS) or []
         text_rect = rect.adjusted(x - rect.x(), 0, -right_margin, 0)
-        painter.setPen(opt.palette.text().color())
-        painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, display)
+        normal_color = opt.palette.text().color()
+
+        if match_spans:
+            highlight_color = QColor("#3B82F6")
+            _draw_fuzzy_highlighted_text(painter, text_rect, display, match_spans, normal_color, highlight_color)
+        else:
+            painter.setPen(normal_color)
+            painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, display)
 
         painter.restore()
 
@@ -646,11 +832,10 @@ class _KeyHintBar(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         palette = self.palette()
-        is_dark = palette.window().color().lightness() < 128
 
-        key_bg = QColor("#2d3448") if is_dark else QColor("#e5e7eb")
-        key_fg = QColor("#c8cdd8") if is_dark else QColor("#374151")
-        desc_fg = QColor("#6b7280")
+        key_bg = palette.button().color()
+        key_fg = palette.buttonText().color()
+        desc_fg = palette.placeholderText().color()
 
         fm = painter.fontMetrics()
         h = self.height()
@@ -955,7 +1140,7 @@ class SuggestionDropdown(QFrame):
         else:
             idx += delta
         # Skip header rows with wrap-around so Up at the first item wraps to last
-        for _ in range(count):
+        for __ in range(count):
             if idx < 0:
                 idx = count - 1
             elif idx >= count:
@@ -1063,10 +1248,9 @@ class _GhostTextEditor(QPlainTextEdit):
 class _SearchHighlighter(QSyntaxHighlighter):
     """Attaches to QPlainTextEdit's document; colorizes field tokens etc."""
 
-    _KIND_FMT: dict[str, QTextCharFormat] = {}
-
     def __init__(self, document):
         super().__init__(document)
+        self._KIND_FMT: dict[str, QTextCharFormat] = {}
         self._build_formats()
 
     def _build_formats(self) -> None:
