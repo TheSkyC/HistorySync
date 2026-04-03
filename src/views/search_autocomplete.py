@@ -306,6 +306,9 @@ class SearchSuggestionModel(QAbstractListModel):
                     continue
                 _seen_field.add(full)
                 _field_rows.append({"display": full, "type": "field", "insert": full, "icon": "tag"})
+        elif not prefix and stripped:
+            for tok in _FIELD_TOKENS:
+                _field_rows.append({"display": tok, "type": "field", "insert": tok, "icon": "filter"})
 
         # ── Group 2: Recent searches ─────────────────────
         _recent_rows: list[dict] = []
@@ -1066,8 +1069,12 @@ class SmartSearchLineEdit(QWidget):
             # Replace the partial token at cursor, preserve text after cursor
             text_before = full_text[:cursor_pos]
             text_after = full_text[cursor_pos:]
-            parts = text_before.rsplit(None, 1)
-            prefix = parts[0] + " " if len(parts) > 1 else ""
+            if text_before.endswith(" "):
+                # Cursor is after a space — append new token without disturbing existing content
+                prefix = text_before
+            else:
+                parts = text_before.rsplit(None, 1)
+                prefix = parts[0] + " " if len(parts) > 1 else ""
             suffix = " " if not insert_text.endswith(":") else ""
             new_text = prefix + insert_text + suffix + text_after.lstrip()
             new_cursor_pos = len(prefix) + len(insert_text) + len(suffix)
@@ -1083,16 +1090,16 @@ class SmartSearchLineEdit(QWidget):
 
         self._suggest_timer.stop()
         self._dropdown.hide()
-        if insert_text.endswith(":"):
+        if stype in ("field", "domain", "browser"):
 
-            def _show_sub():
+            def _show_next():
                 cp = self._editor.textCursor().position()
                 self._suggestion_model.update_suggestions(self.text()[:cp])
                 if self._suggestion_model.has_suggestions():
                     self._dropdown.show_below(self)
 
             QTimer.singleShot(0, self._editor.setFocus)
-            QTimer.singleShot(0, _show_sub)
+            QTimer.singleShot(0, _show_next)
         else:
             QTimer.singleShot(0, self._editor.setFocus)
 
