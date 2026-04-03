@@ -90,12 +90,25 @@ class UIConfig:
 
 
 @dataclass
+class FontConfig:
+    """Custom font overrides for UI and monospace (log/code) elements."""
+
+    enabled: bool = False
+    # Comma-separated fallback family list, e.g. "Segoe UI, Microsoft YaHei"
+    ui_family: str = "Segoe UI, PingFang SC, Microsoft YaHei, Noto Sans CJK SC"
+    ui_size: int = 13  # px (QSS units)
+    mono_family: str = "Consolas, Courier New, monospace"
+    mono_size: int = 11  # px (QSS units)
+
+
+@dataclass
 class AppConfig:
     webdav: WebDavConfig = field(default_factory=WebDavConfig)
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
     extractor: ExtractorConfig = field(default_factory=ExtractorConfig)
     privacy: PrivacyConfig = field(default_factory=PrivacyConfig)
     ui: UIConfig = field(default_factory=UIConfig)
+    font: FontConfig = field(default_factory=FontConfig)
     window_x: int = -1
     window_y: int = -1
     window_width: int = DEFAULT_WINDOW_WIDTH
@@ -161,6 +174,7 @@ class AppConfig:
             "extractor": asdict(self.extractor),
             "privacy": asdict(self.privacy),
             "ui": asdict(self.ui),
+            "font": asdict(self.font),
             "window_x": self.window_x,
             "window_y": self.window_y,
             "window_width": self.window_width,
@@ -206,6 +220,8 @@ class AppConfig:
             )
         if "ui" in d:
             cfg.ui = UIConfig(**{k: v for k, v in d["ui"].items() if k in UIConfig.__dataclass_fields__})
+        if "font" in d:
+            cfg.font = FontConfig(**{k: v for k, v in d["font"].items() if k in FontConfig.__dataclass_fields__})
         for key in (
             "window_x",
             "window_y",

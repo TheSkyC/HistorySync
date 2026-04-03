@@ -260,10 +260,8 @@ class _BrowserSyncPage(_PageBase):
         btn_row.setContentsMargins(0, 0, 0, 0)
         self._btn_all = QPushButton(_("Select All"))
         self._btn_all.setFixedHeight(30)
-        self._btn_all.setStyleSheet("font-size: 12px;")
         self._btn_none = QPushButton(_("Deselect All"))
         self._btn_none.setFixedHeight(30)
-        self._btn_none.setStyleSheet("font-size: 12px;")
         btn_row.addWidget(self._btn_all)
         btn_row.addWidget(self._btn_none)
         btn_row.addStretch()
@@ -856,7 +854,7 @@ class _ProgressIndicator(QWidget):
         super().__init__(parent)
         self._steps = steps
         self._current = 0
-        self.setFixedHeight(44)
+        self.setMinimumHeight(44)
         self._build()
 
     def _build(self) -> None:

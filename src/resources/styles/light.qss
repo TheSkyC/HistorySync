@@ -804,7 +804,7 @@ QPushButton#icon_btn:hover {
 QPushButton#filter_chip {
     background: #f5f6fa;
     border: 1px solid #d0d4e8;
-    border-radius: 14px;
+    border-radius: 6px;
     padding: 3px 12px;
     color: #5a6070;
 }

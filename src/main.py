@@ -526,6 +526,10 @@ def _gui_main(args: argparse.Namespace) -> None:
     from src.utils.theme_manager import ThemeManager
 
     ThemeManager.instance().apply_sync(app, config.theme)
+
+    from src.utils.font_manager import FontManager
+
+    FontManager.instance().apply(config.font, app)
     app.setQuitOnLastWindowClosed(False)
 
     from src.utils.icon_helper import get_app_icon as _get_app_icon

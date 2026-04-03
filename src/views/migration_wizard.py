@@ -118,10 +118,8 @@ class _StepIndicator(QWidget):
         super().__init__(parent)
         self._count = count
         self._current = 0
-        self.setFixedHeight(32)
-
+        self.setMinimumHeight(32)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(20, 4, 20, 4)
         layout.setSpacing(0)
         layout.addStretch()
 

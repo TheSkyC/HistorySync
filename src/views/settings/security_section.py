@@ -43,7 +43,7 @@ class SecuritySection(QWidget):
         self._status_icon = QLabel()
         self._status_icon.setFixedSize(24, 24)
         self._status_label = QLabel(_("No master password set"))
-        self._status_label.setStyleSheet("font-size: 13px;")
+        self._status_label.setStyleSheet("")
         status_row.addWidget(self._status_icon)
         status_row.addWidget(self._status_label)
         status_row.addStretch()
@@ -57,7 +57,7 @@ class SecuritySection(QWidget):
             )
         )
         self._desc_label.setWordWrap(True)
-        self._desc_label.setStyleSheet("color: #888; font-size: 12px;")
+        self._desc_label.setStyleSheet("color: #888;")
         layout.addWidget(self._desc_label)
 
         # ── Button Row ─────────────────────────────────────────
@@ -91,7 +91,7 @@ class SecuritySection(QWidget):
 
         # ── Session Status Hint ────────────────────────────────
         self._session_label = QLabel("")
-        self._session_label.setStyleSheet("font-size: 11px; color: #888;")
+        self._session_label.setStyleSheet("color: #888;")
         layout.addWidget(self._session_label)
 
     # ── Public Interfaces ─────────────────────────────────────
@@ -113,23 +113,23 @@ class SecuritySection(QWidget):
             if not px.isNull():
                 self._status_icon.setPixmap(px)
             self._status_label.setText(_("Master password is set"))
-            self._status_label.setStyleSheet("font-size: 13px; color: #34a853;")
+            self._status_label.setStyleSheet("color: #34a853;")
             self._set_btn.setVisible(False)
             self._change_btn.setVisible(True)
             self._remove_btn.setVisible(True)
             self._lock_btn.setVisible(unlocked)
             if unlocked:
                 self._session_label.setText(_("Session unlocked — no password required until you lock or restart"))
-                self._session_label.setStyleSheet("font-size: 11px; color: #34a853;")
+                self._session_label.setStyleSheet("color: #34a853;")
             else:
                 self._session_label.setText(_("Session locked — password will be requested on next protected action"))
-                self._session_label.setStyleSheet("font-size: 11px; color: #888;")
+                self._session_label.setStyleSheet("color: #888;")
         else:
             px = get_icon("shield", 20).pixmap(20, 20)
             if not px.isNull():
                 self._status_icon.setPixmap(px)
             self._status_label.setText(_("No master password set"))
-            self._status_label.setStyleSheet("font-size: 13px; color: #888;")
+            self._status_label.setStyleSheet("color: #888;")
             self._set_btn.setVisible(True)
             self._change_btn.setVisible(False)
             self._remove_btn.setVisible(False)

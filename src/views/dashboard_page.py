@@ -756,9 +756,9 @@ class BrowserSettingsDialog(QDialog):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
         btn_all = QPushButton(_("Select All"))
-        btn_all.setFixedHeight(30)
+        btn_all.setMinimumHeight(30)
         btn_none = QPushButton(_("Deselect All"))
-        btn_none.setFixedHeight(30)
+        btn_none.setMinimumHeight(30)
         btn_all.clicked.connect(self._on_select_all)
         btn_none.clicked.connect(self._on_deselect_all)
         btn_row.addWidget(btn_all)
@@ -785,14 +785,14 @@ class BrowserSettingsDialog(QDialog):
         # Re-detect button
         redetect_btn = QPushButton(_("Re-detect Browsers Now"))
         redetect_btn.setIcon(get_icon("search", 16))
-        redetect_btn.setFixedHeight(32)
+        redetect_btn.setMinimumHeight(32)
         redetect_btn.clicked.connect(self._on_redetect)
         root.addWidget(redetect_btn)
 
         # Deep scan button
         deep_scan_btn = QPushButton(_("Deep Scan for Browsers"))
         deep_scan_btn.setIcon(get_icon("search", 16))
-        deep_scan_btn.setFixedHeight(32)
+        deep_scan_btn.setMinimumHeight(32)
         deep_scan_btn.clicked.connect(self._on_deep_scan)
         root.addWidget(deep_scan_btn)
 
@@ -996,7 +996,7 @@ class DashboardPage(QWidget):
         self._sync_btn = QPushButton(_("Sync Now"))
         self._sync_btn.setObjectName("primary_btn")
         self._sync_btn.setMinimumWidth(120)
-        self._sync_btn.setFixedHeight(36)
+        self._sync_btn.setMinimumHeight(36)
         self._sync_btn.setIcon(get_icon("refresh"))
         self._sync_btn.clicked.connect(self.sync_requested)
 

@@ -569,7 +569,7 @@ class _OperatorFooter(QWidget):
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setFocusPolicy(Qt.NoFocus)
-        scroll.setFixedHeight(28)
+        scroll.setMinimumHeight(28)
         scroll.wheelEvent = lambda e: scroll.horizontalScrollBar().setValue(
             scroll.horizontalScrollBar().value() - e.angleDelta().y() // 2
         )
@@ -1151,6 +1151,9 @@ class SmartSearchLineEdit(QWidget):
 
         if obj is self._editor:
             etype = event.type()
+            # 字体变化（FontManager/QSS 修改后）时重算搜索框高度
+            if etype == QEvent.Type.FontChange:
+                self._editor.setFixedHeight(self._editor.fontMetrics().height() + 18)
             if etype == QEvent.KeyPress:
                 key = event.key()
                 if self._dropdown.isVisible():

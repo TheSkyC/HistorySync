@@ -31,6 +31,7 @@ from src.views.settings.countdown import (
 )
 from src.views.settings.custom_paths_section import CustomPathsSection
 from src.views.settings.devices_section import DevicesSection
+from src.views.settings.font_section import FontSection
 from src.views.settings.import_section import ImportSection
 from src.views.settings.language_section import LanguageSection
 from src.views.settings.maintenance_section import MaintenanceSection
@@ -100,6 +101,7 @@ class SettingsPage(QWidget):
         self._sec_paths = CustomPathsSection()
         self._sec_import = ImportSection()
         self._sec_maint = MaintenanceSection()
+        self._sec_font = FontSection()
 
         self._add_card(_("LANGUAGE"), self._sec_language)
         self._add_card(_("AUTO SYNC"), self._sec_scheduler)
@@ -111,6 +113,7 @@ class SettingsPage(QWidget):
         self._add_card(_("CUSTOM BROWSER PATHS"), self._sec_paths)
         self._add_card(_("IMPORT HISTORY DATABASE"), self._sec_import)
         self._add_card(_("DATABASE MAINTENANCE"), self._sec_maint)
+        self._add_card(_("FONTS"), self._sec_font)
 
         self._content_layout.addStretch()
         scroll.setWidget(content)
@@ -134,7 +137,7 @@ class SettingsPage(QWidget):
         self._save_btn = QPushButton(_("Save Settings"))
         self._save_btn.setObjectName("primary_btn")
         self._save_btn.setMinimumWidth(120)
-        self._save_btn.setFixedHeight(36)
+        self._save_btn.setMinimumHeight(36)
         self._save_btn.setIcon(get_icon("database"))
         self._save_btn.clicked.connect(self._save)
 
@@ -216,6 +219,10 @@ class SettingsPage(QWidget):
         self._sec_security.password_changed.connect(self._on_master_password_changed)
         self._sec_security.lock_session_requested.connect(self._on_session_locked)
 
+        # Font
+        self._sec_font.load(cfg.font)
+        self._sec_font.font_config_changed.connect(self._on_font_config_changed)
+
         # Devices
         self._load_devices()
         self._sec_devices.rename_requested.connect(self._on_device_rename)
@@ -260,6 +267,12 @@ class SettingsPage(QWidget):
                     "error",
                 )
                 self._set_status(_("⚠ Failed to configure startup"), "warning")
+
+        # Font settings
+        cfg.font = self._sec_font.get_font_config()
+        from src.utils.font_manager import FontManager
+
+        FontManager.instance().apply(cfg.font)
 
         self._vm.save(cfg)
         self._compute_next_times()
@@ -483,6 +496,10 @@ class SettingsPage(QWidget):
     def _on_saved(self):
         self._set_status(_("✓ Saved"), "success")
         self.saved.emit()
+
+    def _on_font_config_changed(self) -> None:
+        """Called when user accepts FontDialog — marks the page as having unsaved changes."""
+        self._set_status(_("Font settings updated — save to persist"), "info")
 
     def _on_error(self, msg: str):
         self._set_status(_("✗ Save failed: {msg}").format(msg=msg), "error")
