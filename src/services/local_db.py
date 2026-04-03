@@ -985,7 +985,7 @@ class LocalDatabase:
             #    only the newly inserted rows afterwards.
             max_id_before: int = conn.execute("SELECT COALESCE(MAX(id), 0) FROM history").fetchone()[0]
 
-            # 4–8. Wrap the trigger DDL + bulk insert + FTS sync in a SAVEPOINT
+            # 4-8. Wrap the trigger DDL + bulk insert + FTS sync in a SAVEPOINT
             #      so a mid-operation crash leaves the DB consistent (triggers
             #      still present, no partial inserts).  We use individual
             #      execute() calls instead of executescript() because
@@ -1043,7 +1043,9 @@ class LocalDatabase:
 
                 # 6. Count truly new rows using the id watermark (ON CONFLICT DO UPDATE
                 #    reports rowcount=1 for both inserts and updates, so rowcount is unreliable).
-                inserted: int = conn.execute("SELECT COUNT(*) FROM history WHERE id > ?", (max_id_before,)).fetchone()[0]
+                inserted: int = conn.execute("SELECT COUNT(*) FROM history WHERE id > ?", (max_id_before,)).fetchone()[
+                    0
+                ]
 
                 # 7. Restore FTS triggers.
                 conn.execute(
