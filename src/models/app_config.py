@@ -40,7 +40,7 @@ class WebDavConfig:
     enabled: bool = False
     url: str = ""
     username: str = ""
-    password: str = ""
+    password: str = field(default="", repr=False)
     remote_path: str = WEBDAV_DEFAULT_REMOTE_PATH
     max_backups: int = WEBDAV_DEFAULT_MAX_BACKUPS
     verify_ssl: bool = True
