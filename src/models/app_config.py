@@ -115,6 +115,8 @@ class AppConfig:
     # Fresh mode: uses a temporary directory, no disk reads or writes
     _fresh: bool = field(default=False, init=False, repr=False, compare=False)
     _fresh_tmp_dir: object = field(default=None, init=False, repr=False, compare=False)
+    # Set to backup path (str) when config was corrupt; "" if backup also failed; None = no error
+    _load_error: str | None = field(default=None, init=False, repr=False, compare=False)
 
     def get_db_path(self) -> Path:
         """Return the database file path."""
@@ -237,13 +239,24 @@ class AppConfig:
         except (json.JSONDecodeError, OSError) as exc:
             import logging
 
+            bak_file = config_file.with_suffix(".json.bak")
+            try:
+                config_file.replace(bak_file)
+            except OSError as bak_exc:
+                logging.getLogger(__name__).warning(
+                    "Could not back up corrupt config to '%s': %s", bak_file, bak_exc
+                )
+                bak_file = None
+
             logging.getLogger(__name__).error(
-                "Config file '%s' is corrupt or unreadable (%s); starting with defaults. "
-                "Original file preserved at its current path.",
+                "Config file '%s' is corrupt or unreadable (%s); starting with defaults. %s",
                 config_file,
                 exc,
+                f"Backed up to '{bak_file}'." if bak_file else "Backup also failed.",
             )
-            return cls()
+            cfg = cls()
+            cfg._load_error = str(bak_file) if bak_file else ""
+            return cfg
 
     def save(self) -> None:
         """Persist configuration to disk."""

@@ -540,6 +540,27 @@ def _gui_main(args: argparse.Namespace) -> None:
     # ── 6. Main window ───────────────────────────────────────────────────────
     window = MainWindow(main_vm)
 
+    # Notify user if config was corrupt on load
+    if getattr(config, "_load_error", None) is not None:
+        from PySide6.QtWidgets import QMessageBox
+
+        if config._load_error:
+            msg = _(
+                "The configuration file was corrupt or unreadable and could not be loaded.\n\n"
+                "Your settings (WebDAV credentials, privacy blacklist, etc.) have been "
+                "reset to defaults.\n\n"
+                "The corrupt file has been backed up to:\n{bak_path}"
+            ).format(bak_path=config._load_error)
+        else:
+            msg = _(
+                "The configuration file was corrupt or unreadable and could not be loaded.\n\n"
+                "Your settings (WebDAV credentials, privacy blacklist, etc.) have been "
+                "reset to defaults.\n\n"
+                "The backup of the corrupt file also failed. "
+                "Please check your config directory."
+            )
+        QMessageBox.warning(window, _("Configuration Load Error"), msg)
+
     # Wire up single-instance activation → bring the window to the front
     if not _single_instance_server.start():
         # In the unlikely race where start() fails here (port grabbed between
