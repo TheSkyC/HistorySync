@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import ctypes as _ctypes
 import json
+import re
+from datetime import date, timedelta
 
 from PySide6.QtCore import (
     QAbstractListModel,
@@ -128,6 +130,29 @@ _FIELD_VALUES: dict[str, tuple[str, ...]] = {
     "is:": ("bookmarked",),
     "has:": ("note",),
 }
+
+# Tokens that accept only one value — suppress from trailing-space list when already used.
+_SINGLE_VALUE_TOKENS: frozenset[str] = frozenset({
+    "is:bookmarked", "has:note", "after:", "before:", "title:", "url:",
+})
+
+
+def _used_single_tokens(text: str) -> set[str]:
+    """Return the subset of _SINGLE_VALUE_TOKENS already present in *text*."""
+    used: set[str] = set()
+    if "is:bookmarked" in text:
+        used.add("is:bookmarked")
+    if "has:note" in text:
+        used.add("has:note")
+    if re.search(r"\bafter:\d{4}-\d{2}-\d{2}", text):
+        used.add("after:")
+    if re.search(r"\bbefore:\d{4}-\d{2}-\d{2}", text):
+        used.add("before:")
+    if re.search(r"\btitle:\S+", text):
+        used.add("title:")
+    if re.search(r"\burl:\S+", text):
+        used.add("url:")
+    return used
 
 
 # ── RecentSearchStore ────────────────────────────────────
@@ -306,8 +331,40 @@ class SearchSuggestionModel(QAbstractListModel):
                     continue
                 _seen_field.add(full)
                 _field_rows.append({"display": full, "type": "field", "insert": full, "icon": "tag"})
+        elif prefix.startswith("after:") or prefix.startswith("before:"):
+            is_after = prefix.startswith("after:")
+            token_key = "after:" if is_after else "before:"
+            sub = prefix[len(token_key):]
+            today = date.today()
+            if is_after:
+                shortcuts = [
+                    (_("Today"),        today),
+                    (_("Last 7 days"),  today - timedelta(days=7)),
+                    (_("Last 30 days"), today - timedelta(days=30)),
+                    (_("Last 90 days"), today - timedelta(days=90)),
+                    (_("Last year"),    today - timedelta(days=365)),
+                ]
+            else:
+                shortcuts = [
+                    (_("Before today"),        today),
+                    (_("Before 7 days ago"),   today - timedelta(days=7)),
+                    (_("Before 30 days ago"),  today - timedelta(days=30)),
+                    (_("Before 90 days ago"),  today - timedelta(days=90)),
+                    (_("Before last year"),    today - timedelta(days=365)),
+                ]
+            for label, d in shortcuts:
+                full = token_key + d.isoformat()
+                if sub and not d.isoformat().startswith(sub):
+                    continue
+                if full == prefix or full in _seen_field:
+                    continue
+                _seen_field.add(full)
+                _field_rows.append({"display": label, "type": "date", "insert": full, "icon": "clock"})
         elif not prefix and stripped:
+            _used = _used_single_tokens(text)
             for tok in _FIELD_TOKENS:
+                if tok in _used:
+                    continue
                 _field_rows.append({"display": tok, "type": "field", "insert": tok, "icon": "filter"})
 
         # ── Group 2: Recent searches ─────────────────────
@@ -403,7 +460,7 @@ class SearchSuggestionModel(QAbstractListModel):
             stype = row["type"]
             if stype == "domain":
                 return _("{count} visits").format(count=row.get("count", 0))
-            if stype in ("field", "browser"):
+            if stype in ("field", "browser", "date"):
                 return _("Search filter")
             return _("Recent search")
         return None
@@ -510,6 +567,10 @@ class _SuggestionDelegate(QStyledItemDelegate):
                 bg_color = QColor("#2d3448") if is_dark else QColor("#f1f5f9")
                 fg_color = QColor("#8892a8") if is_dark else QColor("#475569")
                 badge = _("Browser")
+            elif stype == "date":
+                bg_color = QColor("#1a2d3a") if is_dark else QColor("#dcfce7")
+                fg_color = QColor("#6ee7b7") if is_dark else QColor("#15803d")
+                badge = _("Date")
             else:  # recent (non-deletable fallback)
                 bg_color = QColor("#2d3448") if is_dark else QColor("#f1f5f9")
                 fg_color = QColor("#8892a8") if is_dark else QColor("#475569")
@@ -1065,7 +1126,7 @@ class SmartSearchLineEdit(QWidget):
 
         if stype == "recent":
             self.setText(insert_text)
-        elif stype in ("field", "domain", "browser"):
+        elif stype in ("field", "domain", "browser", "date"):
             # Replace the partial token at cursor, preserve text after cursor
             text_before = full_text[:cursor_pos]
             text_after = full_text[cursor_pos:]
@@ -1090,7 +1151,7 @@ class SmartSearchLineEdit(QWidget):
 
         self._suggest_timer.stop()
         self._dropdown.hide()
-        if stype in ("field", "domain", "browser"):
+        if stype in ("field", "domain", "browser", "date"):
 
             def _show_next():
                 cp = self._editor.textCursor().position()
