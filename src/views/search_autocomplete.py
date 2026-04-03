@@ -337,7 +337,7 @@ class SearchSuggestionModel(QAbstractListModel):
                 if full == prefix or full in _seen_field:
                     continue
                 _seen_field.add(full)
-                _field_rows.append({"display": full, "type": "field", "insert": full, "icon": "tag"})
+                _field_rows.append({"display": full, "type": "tag", "insert": full, "icon": "tag"})
         elif prefix.startswith("after:") or prefix.startswith("before:"):
             is_after = prefix.startswith("after:")
             token_key = "after:" if is_after else "before:"
@@ -467,7 +467,7 @@ class SearchSuggestionModel(QAbstractListModel):
             stype = row["type"]
             if stype == "domain":
                 return _("{count} visits").format(count=row.get("count", 0))
-            if stype in ("field", "browser", "date"):
+            if stype in ("field", "browser", "date", "tag"):
                 return _("Search filter")
             return _("Recent search")
         return None
@@ -578,6 +578,10 @@ class _SuggestionDelegate(QStyledItemDelegate):
                 bg_color = QColor("#1a2d3a") if is_dark else QColor("#dcfce7")
                 fg_color = QColor("#6ee7b7") if is_dark else QColor("#15803d")
                 badge = _("Date")
+            elif stype == "tag":
+                bg_color = QColor("#2d1f3a") if is_dark else QColor("#fef3c7")
+                fg_color = QColor("#c084fc") if is_dark else QColor("#92400e")
+                badge = _("Bookmark")
             else:  # recent (non-deletable fallback)
                 bg_color = QColor("#2d3448") if is_dark else QColor("#f1f5f9")
                 fg_color = QColor("#8892a8") if is_dark else QColor("#475569")
@@ -1133,7 +1137,7 @@ class SmartSearchLineEdit(QWidget):
 
         if stype == "recent":
             self.setText(insert_text)
-        elif stype in ("field", "domain", "browser", "date"):
+        elif stype in ("field", "domain", "browser", "date", "tag"):
             # Replace the partial token at cursor, preserve text after cursor
             text_before = full_text[:cursor_pos]
             text_after = full_text[cursor_pos:]
@@ -1158,7 +1162,7 @@ class SmartSearchLineEdit(QWidget):
 
         self._suggest_timer.stop()
         self._dropdown.hide()
-        if stype in ("field", "domain", "browser", "date"):
+        if stype in ("field", "domain", "browser", "date", "tag"):
 
             def _show_next():
                 cp = self._editor.textCursor().position()
