@@ -33,7 +33,7 @@ from src.utils.search_parser import parse_query
         ("has:note", "has_annotation", True, ""),
         ("has:annotation", "has_annotation", True, ""),
         # tag: token
-        ("tag:WORK", "bookmark_tag", "work", ""),
+        ("tag:WORK", "bookmark_tag", "WORK", ""),
         ("tag:work", "bookmarked_only", True, ""),
     ],
 )
