@@ -218,7 +218,7 @@ class WebDavSyncService:
             finally:
                 _snap_conn.close()
 
-            with zipfile.ZipFile(tmp_zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+            with zipfile.ZipFile(tmp_zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
                 # Add FTS-free DB (stored as DB_FILENAME for restore compatibility)
                 db_hash = _sha256_file(clean_db_path)
                 zf.write(clean_db_path, arcname=DB_FILENAME)
