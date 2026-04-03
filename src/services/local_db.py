@@ -985,139 +985,149 @@ class LocalDatabase:
             #    only the newly inserted rows afterwards.
             max_id_before: int = conn.execute("SELECT COALESCE(MAX(id), 0) FROM history").fetchone()[0]
 
-            # 4. Temporarily drop FTS triggers so the per-row FTS overhead is
-            #    avoided during a bulk insert; we do a single targeted sync at
-            #    the end instead.  executescript issues an implicit COMMIT
-            #    first, which is intentional — it persists domains before DDL.
-            conn.executescript("""
-                DROP TRIGGER IF EXISTS history_ai;
-                DROP TRIGGER IF EXISTS history_ad;
-                DROP TRIGGER IF EXISTS history_au;
-            """)
+            # 4–8. Wrap the trigger DDL + bulk insert + FTS sync in a SAVEPOINT
+            #      so a mid-operation crash leaves the DB consistent (triggers
+            #      still present, no partial inserts).  We use individual
+            #      execute() calls instead of executescript() because
+            #      executescript() issues an implicit COMMIT which would exit
+            #      the savepoint prematurely.
+            conn.execute("SAVEPOINT upsert_batch")
+            try:
+                # 4. Temporarily drop FTS triggers to avoid per-row FTS overhead
+                #    during bulk insert; a single targeted sync follows instead.
+                conn.execute("DROP TRIGGER IF EXISTS history_ai")
+                conn.execute("DROP TRIGGER IF EXISTS history_ad")
+                conn.execute("DROP TRIGGER IF EXISTS history_au")
 
-            # 5. Bulk insert history records using plain positional params
-            #    (no subquery, no UDF call per row).
-            sql = """
-                INSERT INTO history
-                    (url, title, visit_time, visit_count,
-                     browser_type, profile_name, metadata, domain_id,
-                     typed_count, first_visit_time, transition_type, visit_duration,
-                     device_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(browser_type, url, visit_time) DO UPDATE SET
-                    title            = CASE WHEN excluded.title != '' THEN excluded.title
-                                           ELSE title END,
-                    visit_count      = CASE WHEN excluded.visit_count > visit_count THEN excluded.visit_count
-                                           ELSE visit_count END,
-                    typed_count      = COALESCE(excluded.typed_count, typed_count),
-                    first_visit_time = COALESCE(excluded.first_visit_time, first_visit_time),
-                    transition_type  = COALESCE(excluded.transition_type, transition_type),
-                    visit_duration   = COALESCE(excluded.visit_duration, visit_duration),
-                    device_id        = COALESCE(device_id, excluded.device_id)
-            """
-            for i in range(0, len(records), DB_BATCH_SIZE):
-                batch = records[i : i + DB_BATCH_SIZE]
-                params = [
-                    (
-                        r.url,
-                        r.title,
-                        r.visit_time,
-                        r.visit_count,
-                        r.browser_type,
-                        r.profile_name,
-                        r.metadata,
-                        host_to_id.get(rec_hosts[i + j]),
-                        r.typed_count,
-                        r.first_visit_time,
-                        r.transition_type,
-                        r.visit_duration,
-                        r.device_id,
-                    )
-                    for j, r in enumerate(batch)
-                ]
-                conn.executemany(sql, params)
+                # 5. Bulk insert history records using plain positional params
+                #    (no subquery, no UDF call per row).
+                sql = """
+                    INSERT INTO history
+                        (url, title, visit_time, visit_count,
+                         browser_type, profile_name, metadata, domain_id,
+                         typed_count, first_visit_time, transition_type, visit_duration,
+                         device_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(browser_type, url, visit_time) DO UPDATE SET
+                        title            = CASE WHEN excluded.title != '' THEN excluded.title
+                                               ELSE title END,
+                        visit_count      = CASE WHEN excluded.visit_count > visit_count THEN excluded.visit_count
+                                               ELSE visit_count END,
+                        typed_count      = COALESCE(excluded.typed_count, typed_count),
+                        first_visit_time = COALESCE(excluded.first_visit_time, first_visit_time),
+                        transition_type  = COALESCE(excluded.transition_type, transition_type),
+                        visit_duration   = COALESCE(excluded.visit_duration, visit_duration),
+                        device_id        = COALESCE(device_id, excluded.device_id)
+                """
+                for i in range(0, len(records), DB_BATCH_SIZE):
+                    batch = records[i : i + DB_BATCH_SIZE]
+                    params = [
+                        (
+                            r.url,
+                            r.title,
+                            r.visit_time,
+                            r.visit_count,
+                            r.browser_type,
+                            r.profile_name,
+                            r.metadata,
+                            host_to_id.get(rec_hosts[i + j]),
+                            r.typed_count,
+                            r.first_visit_time,
+                            r.transition_type,
+                            r.visit_duration,
+                            r.device_id,
+                        )
+                        for j, r in enumerate(batch)
+                    ]
+                    conn.executemany(sql, params)
 
-            # 6. Count truly new rows using the id watermark (ON CONFLICT DO UPDATE
-            #    reports rowcount=1 for both inserts and updates, so rowcount is unreliable).
-            inserted: int = conn.execute("SELECT COUNT(*) FROM history WHERE id > ?", (max_id_before,)).fetchone()[0]
+                # 6. Count truly new rows using the id watermark (ON CONFLICT DO UPDATE
+                #    reports rowcount=1 for both inserts and updates, so rowcount is unreliable).
+                inserted: int = conn.execute("SELECT COUNT(*) FROM history WHERE id > ?", (max_id_before,)).fetchone()[0]
 
-            # 7. Commit the history inserts, then restore FTS triggers.
-            #    executescript issues an implicit COMMIT, which is intentional.
-            conn.commit()
-            conn.executescript("""
-                CREATE TRIGGER IF NOT EXISTS history_ai AFTER INSERT ON history BEGIN
-                    INSERT INTO history_fts(rowid, url, title)
-                        VALUES (new.id, new.url, new.title);
-                END;
-                CREATE TRIGGER IF NOT EXISTS history_ad AFTER DELETE ON history BEGIN
-                    INSERT INTO history_fts(history_fts, rowid, url, title)
-                        VALUES('delete', old.id, old.url, old.title);
-                END;
-                CREATE TRIGGER IF NOT EXISTS history_au AFTER UPDATE ON history BEGIN
-                    INSERT INTO history_fts(history_fts, rowid, url, title)
-                        VALUES('delete', old.id, old.url, old.title);
-                    INSERT INTO history_fts(rowid, url, title)
-                        VALUES (new.id, new.url, new.title);
-                END;
-            """)
-
-            # 8. Batch-sync FTS for the trigger-free window.
-            #
-            #    Two populations need to be covered:
-            #      a) Newly inserted rows  (id > max_id_before): simple INSERT into FTS.
-            #      b) Updated rows         (id <= max_id_before, touched by DO UPDATE):
-            #         FTS still holds the old content — we must delete the stale entry
-            #         and re-insert the current one.
-            #
-            #    We identify updated rows by matching on the dedup key
-            #    (browser_type, url, visit_time) from the input batch against
-            #    pre-existing history rows.  This is precise and avoids a full
-            #    FTS rebuild.
-
-            # 8a. Insert FTS entries for genuinely new rows.
-            conn.execute(
-                "INSERT INTO history_fts(rowid, url, title) SELECT id, url, title FROM history WHERE id > ?",
-                (max_id_before,),
-            )
-
-            # 8b. Refresh FTS for updated rows (pre-existing rows whose content
-            #     may have changed due to DO UPDATE).  We gather their ids via
-            #     a join on the dedup key, then do a delete+re-insert in FTS.
-            if records:
-                # Build a temp table of (browser_type, url, visit_time) tuples
-                # for all input records to identify which pre-existing rows
-                # were touched by the DO UPDATE clause.
+                # 7. Restore FTS triggers.
                 conn.execute(
-                    "CREATE TEMP TABLE IF NOT EXISTS _upsert_keys "
-                    "(browser_type TEXT, url TEXT, visit_time INTEGER, "
-                    " PRIMARY KEY (browser_type, url, visit_time))"
+                    "CREATE TRIGGER IF NOT EXISTS history_ai AFTER INSERT ON history BEGIN"
+                    " INSERT INTO history_fts(rowid, url, title) VALUES (new.id, new.url, new.title);"
+                    " END"
                 )
-                conn.execute("DELETE FROM _upsert_keys")
-                conn.executemany(
-                    "INSERT OR IGNORE INTO _upsert_keys VALUES (?, ?, ?)",
-                    ((r.browser_type, r.url, r.visit_time) for r in records),
+                conn.execute(
+                    "CREATE TRIGGER IF NOT EXISTS history_ad AFTER DELETE ON history BEGIN"
+                    " INSERT INTO history_fts(history_fts, rowid, url, title)"
+                    " VALUES('delete', old.id, old.url, old.title);"
+                    " END"
                 )
-                updated_rows = conn.execute(
-                    "SELECT h.id, h.url, h.title FROM history h "
-                    "JOIN _upsert_keys k "
-                    "  ON h.browser_type = k.browser_type "
-                    " AND h.url          = k.url "
-                    " AND h.visit_time   = k.visit_time "
-                    "WHERE h.id <= ?",
-                    (max_id_before,),
-                ).fetchall()
-                conn.execute("DROP TABLE IF EXISTS _upsert_keys")
+                conn.execute(
+                    "CREATE TRIGGER IF NOT EXISTS history_au AFTER UPDATE ON history BEGIN"
+                    " INSERT INTO history_fts(history_fts, rowid, url, title)"
+                    " VALUES('delete', old.id, old.url, old.title);"
+                    " INSERT INTO history_fts(rowid, url, title) VALUES (new.id, new.url, new.title);"
+                    " END"
+                )
 
-                if updated_rows:
-                    # Delete stale FTS entries, then re-insert current content.
-                    conn.executemany(
-                        "INSERT INTO history_fts(history_fts, rowid, url, title) VALUES('delete', ?, ?, ?)",
-                        ((row[0], row[1], row[2]) for row in updated_rows),
+                # 8. Batch-sync FTS for the trigger-free window.
+                #
+                #    Two populations need to be covered:
+                #      a) Newly inserted rows  (id > max_id_before): simple INSERT into FTS.
+                #      b) Updated rows         (id <= max_id_before, touched by DO UPDATE):
+                #         FTS still holds the old content — we must delete the stale entry
+                #         and re-insert the current one.
+                #
+                #    We identify updated rows by matching on the dedup key
+                #    (browser_type, url, visit_time) from the input batch against
+                #    pre-existing history rows.  This is precise and avoids a full
+                #    FTS rebuild.
+
+                # 8a. Insert FTS entries for genuinely new rows.
+                conn.execute(
+                    "INSERT INTO history_fts(rowid, url, title) SELECT id, url, title FROM history WHERE id > ?",
+                    (max_id_before,),
+                )
+
+                # 8b. Refresh FTS for updated rows (pre-existing rows whose content
+                #     may have changed due to DO UPDATE).  We gather their ids via
+                #     a join on the dedup key, then do a delete+re-insert in FTS.
+                if records:
+                    # Build a temp table of (browser_type, url, visit_time) tuples
+                    # for all input records to identify which pre-existing rows
+                    # were touched by the DO UPDATE clause.
+                    conn.execute(
+                        "CREATE TEMP TABLE IF NOT EXISTS _upsert_keys "
+                        "(browser_type TEXT, url TEXT, visit_time INTEGER, "
+                        " PRIMARY KEY (browser_type, url, visit_time))"
                     )
+                    conn.execute("DELETE FROM _upsert_keys")
                     conn.executemany(
-                        "INSERT INTO history_fts(rowid, url, title) VALUES (?, ?, ?)",
-                        ((row[0], row[1], row[2]) for row in updated_rows),
+                        "INSERT OR IGNORE INTO _upsert_keys VALUES (?, ?, ?)",
+                        ((r.browser_type, r.url, r.visit_time) for r in records),
                     )
+                    updated_rows = conn.execute(
+                        "SELECT h.id, h.url, h.title FROM history h "
+                        "JOIN _upsert_keys k "
+                        "  ON h.browser_type = k.browser_type "
+                        " AND h.url          = k.url "
+                        " AND h.visit_time   = k.visit_time "
+                        "WHERE h.id <= ?",
+                        (max_id_before,),
+                    ).fetchall()
+                    conn.execute("DROP TABLE IF EXISTS _upsert_keys")
+
+                    if updated_rows:
+                        # Delete stale FTS entries, then re-insert current content.
+                        conn.executemany(
+                            "INSERT INTO history_fts(history_fts, rowid, url, title) VALUES('delete', ?, ?, ?)",
+                            ((row[0], row[1], row[2]) for row in updated_rows),
+                        )
+                        conn.executemany(
+                            "INSERT INTO history_fts(rowid, url, title) VALUES (?, ?, ?)",
+                            ((row[0], row[1], row[2]) for row in updated_rows),
+                        )
+
+                conn.execute("RELEASE upsert_batch")
+            except Exception:
+                conn.execute("ROLLBACK TO upsert_batch")
+                conn.execute("RELEASE upsert_batch")
+                raise
 
         log.info("Upserted %d / %d records", inserted, len(records))
         return inserted
