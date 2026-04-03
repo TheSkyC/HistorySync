@@ -106,8 +106,8 @@ class TestEncryptDecryptRoundtrip:
         assert decrypted == plaintext
 
     def test_roundtrip_long_string(self):
-        """Long string (10k chars) roundtrips correctly."""
-        plaintext = "x" * 10000
+        """Long string (8000 chars, within HKDF 8160-byte limit) roundtrips correctly."""
+        plaintext = "x" * 8000
         encrypted = encrypt_text(plaintext)
         decrypted = decrypt_text(encrypted)
         assert decrypted == plaintext

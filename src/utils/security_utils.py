@@ -40,6 +40,28 @@ def _init_keyring_backend() -> None:
 
 _init_keyring_backend()
 
+_HKDF_INFO = b"historysync-enc\x00"
+
+
+def _hkdf_expand(prk: bytes, length: int) -> bytes:
+    """HKDF-Expand (RFC 5869) using HMAC-SHA256. Max output: 255 * 32 = 8160 bytes."""
+    if length > 255 * 32:
+        raise ValueError(f"HKDF-Expand: requested length {length} exceeds maximum 8160 bytes")
+    output = b""
+    t = b""
+    counter = 1
+    while len(output) < length:
+        t = hmac.new(prk, t + _HKDF_INFO + bytes([counter]), hashlib.sha256).digest()
+        output += t
+        counter += 1
+    return output[:length]
+
+
+def _derive_keystream(master_key: bytes, salt: bytes, length: int) -> bytes:
+    """Derive a keystream via HKDF-SHA256 (Extract + Expand)."""
+    prk = hmac.new(salt, master_key, hashlib.sha256).digest()  # HKDF-Extract
+    return _hkdf_expand(prk, length)  # HKDF-Expand
+
 
 def _set_win32_owner_only(path: Path) -> None:
     """Restrict file access to the current user only (Windows ACL equivalent of chmod 0o600)."""
@@ -134,7 +156,8 @@ def encrypt_text(text: str) -> str:
     Encrypts a plaintext string, returning ciphertext in "ENC:<base64>" format.
     Empty strings are returned as-is (unencrypted).
 
-    Algorithm: SHAKE-256 keystream XOR + HMAC-SHA256 authentication tag.
+    Algorithm: HKDF-SHA256 keystream XOR + HMAC-SHA256 authentication tag.
+    Payload format: [0x01 version][16B salt][32B HMAC-SHA256][N bytes ciphertext]
     """
     if not text:
         return ""
@@ -143,21 +166,53 @@ def encrypt_text(text: str) -> str:
         text_bytes = text.encode("utf-8")
         salt = os.urandom(16)
 
-        keystream = hashlib.shake_256(master_key + salt).digest(len(text_bytes))
+        keystream = _derive_keystream(master_key, salt, len(text_bytes))
         encrypted_bytes = bytes(a ^ b for a, b in zip(text_bytes, keystream, strict=False))
         signature = hmac.new(master_key, salt + encrypted_bytes, hashlib.sha256).digest()
 
-        payload = salt + signature + encrypted_bytes
+        payload = b"\x01" + salt + signature + encrypted_bytes
         return ENCRYPTION_PREFIX + base64.b64encode(payload).decode("utf-8")
     except Exception as e:
         logger.error(f"Encryption failed: {e}")
         return ""
 
 
+def _try_decrypt_hkdf(payload: bytes, master_key: bytes) -> str | None:
+    """Attempt decryption using HKDF keystream (v1 format)."""
+    if len(payload) < 49:  # 1 + 16 + 32
+        return None
+    salt = payload[1:17]
+    signature = payload[17:49]
+    encrypted_bytes = payload[49:]
+    expected = hmac.new(master_key, salt + encrypted_bytes, hashlib.sha256).digest()
+    if not hmac.compare_digest(signature, expected):
+        return None
+    keystream = _derive_keystream(master_key, salt, len(encrypted_bytes))
+    return bytes(a ^ b for a, b in zip(encrypted_bytes, keystream, strict=False)).decode("utf-8")
+
+
+def _try_decrypt_legacy(payload: bytes, master_key: bytes) -> str | None:
+    """Attempt decryption using legacy SHAKE-256 keystream (v0 format)."""
+    if len(payload) < 48:  # 16 + 32
+        return None
+    salt = payload[:16]
+    signature = payload[16:48]
+    encrypted_bytes = payload[48:]
+    expected = hmac.new(master_key, salt + encrypted_bytes, hashlib.sha256).digest()
+    if not hmac.compare_digest(signature, expected):
+        return None
+    keystream = hashlib.shake_256(master_key + salt).digest(len(encrypted_bytes))
+    return bytes(a ^ b for a, b in zip(encrypted_bytes, keystream, strict=False)).decode("utf-8")
+
+
 def decrypt_text(text: str) -> str:
     """
     Decrypts ciphertext in "ENC:<base64>" format, returning the original plaintext.
     If the input is not in encrypted format (missing "ENC:" prefix), it is returned as-is (for migration compatibility).
+
+    Supports both v1 (HKDF) and legacy v0 (SHAKE-256) payloads.
+    When payload[0] == 0x01 but HMAC fails, falls back to legacy path to handle
+    the 1/256 chance that an old random salt starts with 0x01.
     """
     if not text or not text.startswith(ENCRYPTION_PREFIX):
         return text
@@ -169,21 +224,21 @@ def decrypt_text(text: str) -> str:
         except Exception:
             return ""
 
-        if len(payload) < 48:  # 16 (salt) + 32 (HMAC-SHA256)
+        if len(payload) < 1:
             return ""
 
-        salt = payload[:16]
-        signature = payload[16:48]
-        encrypted_bytes = payload[48:]
-
-        expected_sig = hmac.new(master_key, salt + encrypted_bytes, hashlib.sha256).digest()
-        if not hmac.compare_digest(signature, expected_sig):
+        if payload[0] == 0x01:
+            result = _try_decrypt_hkdf(payload, master_key)
+            if result is None:
+                # 1/256 collision: old random salt happened to start with 0x01
+                result = _try_decrypt_legacy(payload, master_key)
+            if result is None:
+                logger.warning("Decryption signature mismatch — data may be tampered.")
+            return result or ""
+        result = _try_decrypt_legacy(payload, master_key)
+        if result is None:
             logger.warning("Decryption signature mismatch — data may be tampered.")
-            return ""
-
-        keystream = hashlib.shake_256(master_key + salt).digest(len(encrypted_bytes))
-        decrypted_bytes = bytes(a ^ b for a, b in zip(encrypted_bytes, keystream, strict=False))
-        return decrypted_bytes.decode("utf-8")
+        return result or ""
     except Exception as e:
         logger.error(f"Decryption failed: {e}")
         return ""
