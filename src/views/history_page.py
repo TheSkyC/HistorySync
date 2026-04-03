@@ -592,6 +592,8 @@ class HistoryPage(QWidget):
         self._vm.table_model.columns_changed.connect(self._on_columns_changed)
         self._vm.top_domains_loaded.connect(self._search.set_top_domains)
         self._vm.browser_list_changed.connect(self._search.set_available_browsers)
+        self._vm.device_list_changed.connect(self._search.set_available_devices)
+        self._vm.tag_list_changed.connect(self._search.set_available_tags)
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
         # Trigger regex incremental loading when scrolling to the bottom
         self._table.verticalScrollBar().valueChanged.connect(self._on_scroll_check_load_more)

@@ -363,6 +363,7 @@ class MainWindow(QMainWindow):
         """Refresh history page badge cache when bookmarks are modified."""
         if self._page_history is not None:
             self._page_history._vm.table_model.invalidate_badge_cache(self._page_history._table)
+            self._page_history._vm._refresh_tag_list()
 
     # ── Window events ─────────────────────────────────────────
 

@@ -1303,7 +1303,7 @@ class LocalDatabase:
             bm_joins = " JOIN bookmarks bm ON h.url = bm.url"
             if bookmark_tag:
                 bm_joins += " JOIN bookmark_tags bt ON bm.id = bt.bookmark_id"
-                bm_conditions.append("bt.tag = ?")
+                bm_conditions.append("LOWER(bt.tag) = LOWER(?)")
                 bm_params_prefix.append(bookmark_tag)
         if has_annotation:
             bm_joins += " JOIN annotations ann ON h.url = ann.url AND ann.note != ''"

@@ -94,7 +94,7 @@ def parse_query(text: str) -> SearchQuery:
         if token == "tag":
             match = re.search(pattern, remaining_text)
             if match:
-                query.bookmark_tag = match.group(1).lower()
+                query.bookmark_tag = match.group(1)
                 query.bookmarked_only = True
                 remaining_text = re.sub(pattern, "", remaining_text)
             continue

@@ -654,6 +654,8 @@ class HistoryViewModel(QObject):
 
     model_ready = Signal()
     browser_list_changed = Signal(list)
+    device_list_changed = Signal(list)  # list[str] — device names
+    tag_list_changed = Signal(list)  # list[str] — tag strings
     status_message = Signal(str)
     ui_config_changed = Signal(list, dict)
     top_domains_loaded = Signal(list)  # list[tuple[str, int]]
@@ -670,6 +672,8 @@ class HistoryViewModel(QObject):
         self._initialized = True
         self.table_model.reload()
         self._refresh_browser_list()
+        self._refresh_device_list()
+        self._refresh_tag_list()
         self.model_ready.emit()
         self._load_top_domains_async()
 
@@ -749,6 +753,8 @@ class HistoryViewModel(QObject):
     def refresh(self):
         self.table_model.reload()
         self._refresh_browser_list()
+        self._refresh_device_list()
+        self._refresh_tag_list()
 
     def set_hidden_ids(self, ids: set[int]) -> None:
         if self._initialized:
@@ -764,6 +770,13 @@ class HistoryViewModel(QObject):
 
     def _refresh_browser_list(self):
         self.browser_list_changed.emit(self._db.get_browser_types())
+
+    def _refresh_device_list(self):
+        devices = self._db.get_all_devices()
+        self.device_list_changed.emit([d["name"] for d in devices if d.get("name")])
+
+    def _refresh_tag_list(self):
+        self.tag_list_changed.emit(self._db.get_all_bookmark_tags())
 
 
 # ── Utilities ────────────────────────────────────────────────

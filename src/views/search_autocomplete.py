@@ -205,6 +205,8 @@ class SearchSuggestionModel(QAbstractListModel):
         self._recent = recent_store
         self._top_domains: list[tuple[str, int]] = []
         self._available_browsers: list[str] = []  # browser types present in DB
+        self._available_devices: list[str] = []  # device names present in DB
+        self._available_tags: list[str] = []  # bookmark tags present in DB
         self._rows: list[dict] = []
 
     # ── Public API ───────────────────────────────────────
@@ -214,6 +216,12 @@ class SearchSuggestionModel(QAbstractListModel):
 
     def set_available_browsers(self, browsers: list[str]) -> None:
         self._available_browsers = [b.lower() for b in browsers]
+
+    def set_available_devices(self, devices: list[str]) -> None:
+        self._available_devices = devices
+
+    def set_available_tags(self, tags: list[str]) -> None:
+        self._available_tags = tags
 
     def update_suggestions(self, text: str) -> None:
         """Rebuild the suggestion list based on current input text."""
@@ -278,6 +286,26 @@ class SearchSuggestionModel(QAbstractListModel):
                     _seen_field.add(full)
                     _field_rows.append({"display": full, "type": "field", "insert": full, "icon": "filter"})
                 break
+        elif prefix.startswith("device:"):
+            sub = prefix[7:]
+            for val in self._available_devices:
+                if sub and sub not in val.lower():
+                    continue
+                full = "device:" + val
+                if full == prefix or full in _seen_field:
+                    continue
+                _seen_field.add(full)
+                _field_rows.append({"display": full, "type": "field", "insert": full, "icon": "filter"})
+        elif prefix.startswith("tag:"):
+            sub = prefix[4:]
+            for val in self._available_tags:
+                if sub and sub not in val.lower():
+                    continue
+                full = "tag:" + val
+                if full == prefix or full in _seen_field:
+                    continue
+                _seen_field.add(full)
+                _field_rows.append({"display": full, "type": "field", "insert": full, "icon": "tag"})
 
         # ── Group 2: Recent searches ─────────────────────
         _recent_rows: list[dict] = []
@@ -983,6 +1011,12 @@ class SmartSearchLineEdit(QWidget):
 
     def set_available_browsers(self, browsers: list[str]) -> None:
         self._suggestion_model.set_available_browsers(browsers)
+
+    def set_available_devices(self, devices: list[str]) -> None:
+        self._suggestion_model.set_available_devices(devices)
+
+    def set_available_tags(self, tags: list[str]) -> None:
+        self._suggestion_model.set_available_tags(tags)
 
     def record_search(self, query: str) -> None:
         self._recent_store.add(query)
