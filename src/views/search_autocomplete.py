@@ -903,6 +903,97 @@ class SuggestionDropdown(QFrame):
             idx += delta
 
 
+# ── _GhostOverlay ────────────────────────────────────────
+
+
+class _GhostOverlay(QWidget):
+    """Transparent child-of-viewport widget that paints ghost (inline preview) text.
+
+    Rendered on top of the QPlainTextEdit viewport via Qt's normal child-widget
+    compositing, so the underlying text remains fully visible.  The overlay
+    never receives mouse or keyboard events.
+    """
+
+    def __init__(self, viewport: QWidget, editor: QPlainTextEdit):
+        super().__init__(viewport)
+        self._editor = editor
+        self._ghost_text = ""
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAutoFillBackground(False)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.resize(viewport.size())
+        self.raise_()
+        self.show()
+
+    def set_ghost_text(self, text: str) -> None:
+        if self._ghost_text != text:
+            self._ghost_text = text
+            self.update()
+
+    def paintEvent(self, event) -> None:
+        if not self._ghost_text:
+            return
+        cursor = self._editor.textCursor()
+        if cursor.hasSelection():
+            return
+        cursor_rect = self._editor.cursorRect(cursor)
+        painter = QPainter(self)
+        painter.setPen(QColor(128, 128, 128, 160))
+        painter.setFont(self._editor.font())
+        fm = painter.fontMetrics()
+        x = cursor_rect.right() + 1
+        y = cursor_rect.top()
+        w = self.width() - x - 4
+        h = cursor_rect.height()
+        if w > 4:
+            clipped = fm.elidedText(self._ghost_text, Qt.ElideRight, w)
+            painter.drawText(x, y, w, h, Qt.AlignLeft | Qt.AlignVCenter, clipped)
+        painter.end()
+
+
+# ── _GhostTextEditor ──────────────────────────────────────
+
+
+class _GhostTextEditor(QPlainTextEdit):
+    """QPlainTextEdit subclass that hosts a transparent ghost-text overlay."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._overlay: _GhostOverlay | None = None
+        # Track viewport resize so the overlay always covers it fully
+        self.viewport().installEventFilter(self)
+
+    # ── Overlay lifecycle ─────────────────────────────────
+
+    def _ensure_overlay(self) -> _GhostOverlay:
+        if self._overlay is None:
+            self._overlay = _GhostOverlay(self.viewport(), self)
+        return self._overlay
+
+    def set_ghost_text(self, text: str) -> None:
+        ov = self._ensure_overlay()
+        ov.set_ghost_text(text)
+        if text:
+            ov.raise_()
+
+    def ghost_text(self) -> str:
+        return self._overlay._ghost_text if self._overlay is not None else ""
+
+    def clear_ghost_text(self) -> None:
+        if self._overlay is not None:
+            self._overlay.set_ghost_text("")
+
+    # ── Keep overlay sized to viewport ───────────────────
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # type: ignore[override]
+        if obj is self.viewport() and event.type() == QEvent.Type.Resize:
+            if self._overlay is not None:
+                self._overlay.resize(self.viewport().size())
+                self._overlay.raise_()
+        return super().eventFilter(obj, event)
+
+
 # ── _SearchHighlighter ───────────────────────────────────
 
 
@@ -964,13 +1055,17 @@ class SmartSearchLineEdit(QWidget):
         self._use_regex = False
         self.setObjectName("search_box_container")
 
+        # Ghost-text state (set alongside the overlay)
+        self._ghost_insert_text: str = ""  # full insert text for the pending ghost suggestion
+        self._ghost_stype: str = ""  # suggestion type for the pending ghost suggestion
+
         # ── Inner editor ─────────────────────────────────
-        self._editor = QPlainTextEdit(self)
+        self._editor = _GhostTextEditor(self)
         self._editor.setObjectName("search_box")
         self._editor.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._editor.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
-        self._editor.setTabChangesFocus(True)
+        self._editor.setTabChangesFocus(True)  # Tab with no ghost / no dropdown → focus next widget
         opt = QTextOption()
         opt.setWrapMode(QTextOption.WrapMode.NoWrap)
         self._editor.document().setDefaultTextOption(opt)
@@ -1029,6 +1124,7 @@ class SmartSearchLineEdit(QWidget):
 
         # Wire editor signals
         self._editor.document().contentsChanged.connect(self._on_contents_changed)
+        self._editor.cursorPositionChanged.connect(self._on_cursor_position_changed)
         self._editor.installEventFilter(self)
         self._focus_gained_reentrancy_guard = False  # re-entrancy guard for _on_focus_gained
         _app = QApplication.instance()
@@ -1114,12 +1210,17 @@ class SmartSearchLineEdit(QWidget):
         self._btn_clear.setVisible(has_text)
         self._editor.setViewportMargins(0, 0, 28 if has_text else 0, 0)
         self._reposition_clear_btn()
+        # Clear stale ghost text; _update_suggestions will re-add it after the timer
+        self._editor.clear_ghost_text()
+        self._ghost_insert_text = ""
+        self._ghost_stype = ""
         self.textChanged.emit(t)
         self._suggest_timer.start()
 
     def _update_suggestions(self) -> None:
         if self._use_regex:
             self._dropdown.hide()
+            self._editor.clear_ghost_text()
             return
         # Use cursor position to determine the token being typed, not end-of-text
         full_text = self.text()
@@ -1128,8 +1229,93 @@ class SmartSearchLineEdit(QWidget):
         self._suggestion_model.update_suggestions(text_before_cursor)
         if self._suggestion_model.has_suggestions() and self._editor.hasFocus():
             self._dropdown.show_below(self)
+            self._update_ghost_text()
         else:
             self._dropdown.hide()
+            self._editor.clear_ghost_text()
+            self._ghost_insert_text = ""
+            self._ghost_stype = ""
+
+    # ── Ghost-text helpers ────────────────────────────────
+
+    def _compute_ghost_suffix(self) -> tuple[str, str, str]:
+        """Return (ghost_suffix, full_insert_text, stype).
+
+        ghost_suffix is the completion tail to display as gray inline preview
+        text immediately after the cursor.  Returns ("", "", "") when no ghost
+        should be shown (regex mode, cursor mid-token, no matching suggestion).
+        """
+        if self._use_regex:
+            return ("", "", "")
+        full_text = self.text()
+        cursor_pos = self._editor.textCursor().position()
+        text_after = full_text[cursor_pos:]
+        # Only show ghost text when the cursor is at end-of-token:
+        # the character immediately to the right must be a space or EOF.
+        if text_after and not text_after[0].isspace():
+            return ("", "", "")
+        text_before = full_text[:cursor_pos]
+        # Extract the token being typed (last whitespace-separated word before cursor)
+        if text_before and not text_before[-1].isspace():
+            parts = text_before.split()
+            prefix = parts[-1] if parts else ""
+        else:
+            prefix = ""
+
+        model = self._suggestion_model
+        for i in range(model.rowCount()):
+            idx = model.index(i, 0)
+            if idx.data(_ROLE_HEADER):
+                continue
+            stype: str = idx.data(_ROLE_TYPE) or ""
+            # Skip "recent" suggestions for inline ghost text — they replace the
+            # whole query, which is better confirmed from the dropdown list.
+            if stype == "recent":
+                continue
+            insert_text: str = idx.data(_ROLE_INSERT) or ""
+            if not insert_text:
+                continue
+            # The model already filters suggestions to match the prefix, so this
+            # check is mostly a safety guard.
+            if insert_text.lower().startswith(prefix.lower()) and len(insert_text) > len(prefix):
+                return (insert_text[len(prefix) :], insert_text, stype)
+            # Only the first eligible (non-header, non-recent) suggestion is used.
+            break
+        return ("", "", "")
+
+    def _update_ghost_text(self) -> None:
+        """Recompute and display the ghost text based on current suggestions."""
+        suffix, insert_text, stype = self._compute_ghost_suffix()
+        self._ghost_insert_text = insert_text
+        self._ghost_stype = stype
+        self._editor.set_ghost_text(suffix)
+
+    def _accept_ghost_text(self) -> None:
+        """Commit the current ghost text suggestion — same as clicking that item."""
+        ghost = self._editor.ghost_text()
+        if not ghost:
+            return
+        insert_text = self._ghost_insert_text
+        stype = self._ghost_stype
+        self._editor.clear_ghost_text()
+        self._ghost_insert_text = ""
+        self._ghost_stype = ""
+        if insert_text:
+            self._accept_suggestion(insert_text, stype)
+
+    def _on_cursor_position_changed(self) -> None:
+        """Invalidate ghost text when the cursor moves without a content change.
+
+        This covers Left/Right/Home/End navigation and mouse clicks that shift
+        the cursor to a position where the existing ghost suffix no longer applies.
+        The suggestion timer will re-derive the correct ghost text shortly after.
+        """
+        if self._editor.ghost_text():
+            self._editor.clear_ghost_text()
+            self._ghost_insert_text = ""
+            self._ghost_stype = ""
+        # Re-trigger suggestion update for the new cursor position
+        self._suggest_timer.start()
 
     def _accept_suggestion(self, insert_text: str, stype: str = "") -> None:
         full_text = self.text()
@@ -1162,6 +1348,11 @@ class SmartSearchLineEdit(QWidget):
 
         self._suggest_timer.stop()
         self._dropdown.hide()
+        # Ghost text is already invalidated by _on_contents_changed → clear_ghost_text.
+        # Explicitly reset ghost state here for the case where blockSignals was used.
+        self._editor.clear_ghost_text()
+        self._ghost_insert_text = ""
+        self._ghost_stype = ""
         if stype in ("field", "domain", "browser", "date", "tag"):
 
             def _show_next():
@@ -1169,6 +1360,7 @@ class SmartSearchLineEdit(QWidget):
                 self._suggestion_model.update_suggestions(self.text()[:cp])
                 if self._suggestion_model.has_suggestions():
                     self._dropdown.show_below(self)
+                self._update_ghost_text()
 
             QTimer.singleShot(0, self._editor.setFocus)
             QTimer.singleShot(0, _show_next)
@@ -1217,6 +1409,9 @@ class SmartSearchLineEdit(QWidget):
         self._editor.style().unpolish(self._editor)
         self._editor.style().polish(self._editor)
         self._dropdown.hide()
+        self._editor.clear_ghost_text()
+        self._ghost_insert_text = ""
+        self._ghost_stype = ""
         self.regex_toggled.emit(checked)
 
     def _show_help(self) -> None:
@@ -1269,6 +1464,28 @@ class SmartSearchLineEdit(QWidget):
                 self._editor.setFixedHeight(self._editor.fontMetrics().height() + 18)
             if etype == QEvent.KeyPress:
                 key = event.key()
+
+                # ── Tab: ghost text first, then operator chips ──────────────
+                # Priority: (1) accept inline ghost completion, (2) cycle
+                # operator-footer chips when the dropdown is open, (3) fall
+                # through to setTabChangesFocus so the OS moves focus forward.
+                if key == Qt.Key_Tab:
+                    if self._editor.ghost_text():
+                        self._accept_ghost_text()
+                        return True
+                    if self._dropdown.isVisible():
+                        self._dropdown.keyPressEvent(event)
+                        return True
+                    return False  # let setTabChangesFocus handle focus cycling
+
+                # ── Right arrow: accept ghost text when shown ────────────────
+                # Only intercept when ghost text is visible; otherwise the editor
+                # handles cursor movement normally (including mid-query navigation).
+                if key == Qt.Key_Right and self._editor.ghost_text():
+                    self._accept_ghost_text()
+                    return True
+
+                # ── Dropdown navigation ──────────────────────────────────────
                 if self._dropdown.isVisible():
                     if key in (Qt.Key_Down, Qt.Key_Up):
                         self._dropdown.keyPressEvent(event)
@@ -1280,12 +1497,14 @@ class SmartSearchLineEdit(QWidget):
                             if insert_text:
                                 self._accept_suggestion(insert_text, idx.data(_ROLE_TYPE) or "")
                                 return True
-                    if key == Qt.Key_Tab:
-                        self._dropdown.keyPressEvent(event)
-                        return True
                     if key == Qt.Key_Escape:
                         self._dropdown.hide()
+                        self._editor.clear_ghost_text()
+                        self._ghost_insert_text = ""
+                        self._ghost_stype = ""
                         return True
+
+                # ── Submit on Enter ──────────────────────────────────────────
                 if key in (Qt.Key_Return, Qt.Key_Enter):
                     text = self.text().strip()
                     if text:
@@ -1345,6 +1564,9 @@ class SmartSearchLineEdit(QWidget):
                 return
             w = w.parent()
         self._dropdown.hide()
+        self._editor.clear_ghost_text()
+        self._ghost_insert_text = ""
+        self._ghost_stype = ""
 
     def _maybe_hide_dropdown(self) -> None:
         if not self._dropdown.isVisible():
