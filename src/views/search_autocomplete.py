@@ -392,13 +392,8 @@ class SearchSuggestionModel(QAbstractListModel):
         # ── Group 3: Domain suggestions ──────────────────
         _domain_rows: list[dict] = []
         _seen_domain: set[str] = set()
-        domain_prefix = ""
         if prefix.startswith("domain:"):
             domain_prefix = prefix[7:]
-        elif prefix and ":" not in prefix:
-            domain_prefix = prefix
-
-        if prefix.startswith("domain:") or (domain_prefix and self._top_domains):
             for host, count in self._top_domains:
                 if domain_prefix and domain_prefix not in host:
                     continue
