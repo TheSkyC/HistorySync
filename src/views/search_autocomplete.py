@@ -46,7 +46,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.utils.i18n import _
+from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_browser_pixmap, get_icon
 from src.utils.logger import get_logger
 from src.utils.path_helper import get_config_dir
@@ -620,6 +620,71 @@ class _SuggestionDelegate(QStyledItemDelegate):
 _OPERATOR_CHIPS = ("AND", "OR", "NOT")
 _OPERATOR_ICONS = {"AND": "logic-and", "OR": "logic-or", "NOT": "logic-not"}
 
+# (key_label, description)
+_KEY_HINTS = (
+    ("↑↓", N_("navigate")),
+    ("↵", N_("confirm")),
+    ("Tab", N_("complete")),
+    ("Esc", N_("close")),
+)
+
+
+class _KeyHintBar(QWidget):
+    """Paints a row of compact key-badge + description pairs."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+
+    def sizeHint(self) -> QSize:
+        fm = self.fontMetrics()
+        w = 0
+        for key, desc in _KEY_HINTS:
+            key_w = fm.horizontalAdvance(key) + 8
+            desc_w = fm.horizontalAdvance(_(desc))
+            w += key_w + 3 + desc_w + 10
+        return QSize(w, fm.height() + 8)
+
+    def paintEvent(self, _event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        palette = self.palette()
+        is_dark = palette.window().color().lightness() < 128
+
+        key_bg = QColor("#2d3448") if is_dark else QColor("#e5e7eb")
+        key_fg = QColor("#c8cdd8") if is_dark else QColor("#374151")
+        desc_fg = QColor("#6b7280")
+
+        fm = painter.fontMetrics()
+        h = self.height()
+        x = 0
+
+        for key, desc in _KEY_HINTS:
+            key_w = fm.horizontalAdvance(key) + 8
+            badge_h = fm.height() + 2
+            badge_y = (h - badge_h) // 2
+
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(key_bg)
+            painter.drawRoundedRect(x, badge_y, key_w, badge_h, 3, 3)
+
+            painter.setPen(key_fg)
+            font = painter.font()
+            font.setPointSizeF(font.pointSizeF() - 0.5)
+            painter.setFont(font)
+            painter.drawText(x, badge_y, key_w, badge_h, Qt.AlignCenter, key)
+
+            x += key_w + 3
+            translated = _(desc)
+            desc_w = fm.horizontalAdvance(translated)
+            painter.setPen(desc_fg)
+            painter.drawText(x, 0, desc_w, h, Qt.AlignLeft | Qt.AlignVCenter, translated)
+            x += desc_w + 10
+
+        painter.end()
+
 
 class _OperatorFooter(QWidget):
     """Fixed footer strip showing clickable operator chips."""
@@ -677,6 +742,9 @@ class _OperatorFooter(QWidget):
             scroll.horizontalScrollBar().value() - e.angleDelta().y() // 2
         )
         outer.addWidget(scroll, 1, Qt.AlignVCenter)
+
+        hints = _KeyHintBar(self)
+        outer.addWidget(hints, 0, Qt.AlignVCenter)
 
     def sizeHint(self):
         return QSize(-1, 32)
