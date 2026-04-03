@@ -216,6 +216,30 @@ class FaviconCache:
             for row in rows
         }
 
+    def get_last_updated_ts(self) -> int:
+        """
+        Returns the most recent ``updated_at`` timestamp stored in the cache.
+
+        Used as the incremental-sync baseline: the favicon extractor will only
+        process browser entries whose last-modified time is strictly newer than
+        this value.  Returns 0 when the cache is empty (triggers a full
+        extraction).
+        """
+        with self._conn() as conn:
+            row = conn.execute("SELECT MAX(updated_at) FROM favicon_cache").fetchone()
+            return int(row[0]) if row and row[0] is not None else 0
+
+    def get_all_cached_domains(self) -> set[str]:
+        """
+        Returns the full set of domains currently stored in the cache.
+
+        Used by the extractor to skip domains whose icons are already fresh,
+        without having to re-read binary BLOB data.
+        """
+        with self._conn() as conn:
+            rows = conn.execute("SELECT domain FROM favicon_cache").fetchall()
+        return {r["domain"] for r in rows}
+
     def get_stale_domains(self) -> list[str]:
         """Returns a list of domains that exceed the TTL and need re-extraction."""
         threshold = int(time.time()) - _TTL_DAYS * 86_400

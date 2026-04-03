@@ -24,6 +24,7 @@ from src.utils.logger import get_logger
 
 if TYPE_CHECKING:
     from src.models.history_record import HistoryRecord
+    from src.services.local_db import LocalDatabase
 
 log = get_logger("favicon_manager")
 
@@ -90,10 +91,14 @@ class FaviconWorker(QObject):
         self,
         extractors: list[BaseFaviconExtractor],
         cache: FaviconCache,
+        since_ts: int = 0,
+        known_domains: set[str] | None = None,
     ):
         super().__init__()
         self._extractors = extractors
         self._cache = cache
+        self._since_ts = since_ts
+        self._known_domains = known_domains
         self._cancelled = False
 
     def cancel(self) -> None:
@@ -113,15 +118,20 @@ class FaviconWorker(QObject):
 
         n_workers = min(4, len(available))
         log.info(
-            "FaviconWorker: starting %d extractor(s) with %d worker thread(s)",
+            "FaviconWorker: starting %d extractor(s) with %d worker thread(s) (since_ts=%d, domain_filter=%s)",
             len(available),
             n_workers,
+            self._since_ts,
+            f"{len(self._known_domains)} domains" if self._known_domains is not None else "disabled",
         )
 
         def _extract_one(
             extractor: BaseFaviconExtractor,
         ) -> tuple[str, list[FaviconRecord]]:
-            return extractor.browser_type, extractor.extract()
+            return extractor.browser_type, extractor.extract(
+                since_ts=self._since_ts,
+                known_domains=self._known_domains,
+            )
 
         with ThreadPoolExecutor(max_workers=n_workers, thread_name_prefix="hs-fav") as pool:
             future_to_ext = {pool.submit(_extract_one, ext): ext for ext in available}
@@ -171,14 +181,16 @@ class FaviconManager(QObject):
     """
     Main controller for the favicon system (runs in the main thread).
 
-    Usage:
+    Usage::
+
         favicon_manager.schedule_extraction()       # Trigger background extraction (non-blocking)
         pixmap = favicon_manager.get_pixmap(url)    # Get icon (synchronous, non-blocking)
         favicon_manager.prefetch_pixmaps(records)   # Batch prefetch LRU
 
     Signals:
         favicons_updated(domains: set[str])
-            Emitted when background extraction completes, carrying the set of updated domains.
+            Emitted when background extraction completes, carrying the set of
+            updated domains.
     """
 
     favicons_updated = Signal(object)  # set[str] — updated domains
@@ -190,7 +202,8 @@ class FaviconManager(QObject):
         db_path = config.get_favicon_db_path()
         self._cache = FaviconCache(db_path)
         self._lru = _LRUPixmapCache()
-        self._svg_renderer_cache: dict[bytes, object] = {}
+        self._svg_renderer_cache: dict[bytes, object] = {}  # bounded, see _svg_to_pixmap
+        self._svg_renderer_cache_max = 200
 
         # Holds the FaviconExtractorManager registry instead of a bare list
         self._ext_manager = FaviconExtractorManager(
@@ -198,9 +211,22 @@ class FaviconManager(QObject):
             custom_paths=config.extractor.custom_paths,
         )
 
+        self._local_db: LocalDatabase | None = None
+
         self._thread: QThread | None = None
         self._worker: FaviconWorker | None = None
         self._is_running = False
+
+    def set_local_db(self, local_db: LocalDatabase) -> None:
+        """
+        Provides a reference to the history database.
+
+        Once set, :meth:`schedule_extraction` will query the database for the
+        set of known domains and pass it to the worker, limiting extraction to
+        only those domains.  Safe to call at any time; takes effect on the next
+        :meth:`schedule_extraction` call.
+        """
+        self._local_db = local_db
 
     # ── Background Extraction Scheduling ──────────────────────
 
@@ -209,14 +235,28 @@ class FaviconManager(QObject):
         target_browsers: list[str] | None = None,
     ) -> None:
         """
-        Asynchronously extracts browser favicons in a background QThread and writes them to the cache.
-        If the previous extraction is still running, this call is silently ignored to prevent concurrent writes.
+        Asynchronously extracts browser favicons in a background QThread and
+        writes them to the cache.  If the previous extraction is still running,
+        this call is silently ignored to prevent concurrent writes.
+
+        Before spawning the worker this method computes two optimisation
+        parameters on the **main thread** (both reads are fast index scans):
+
+        * **since_ts** — the most recent ``updated_at`` timestamp in the
+          favicon cache.  Passed to each extractor so only browser DB entries
+          newer than this point are fetched.  ``0`` on an empty cache triggers
+          a full extraction.
+
+        * **known_domains** — the full set of host names present in the history
+          database (requires :meth:`set_local_db` to have been called).  The
+          extractor discards icons whose domain is not in this set.  ``None``
+          when no database is available (disables the filter).
 
         Parameters
         ----------
         target_browsers:
-            Limits extraction to the specified browsers. None (default) means all registered
-            and available browsers.
+            Limits extraction to the specified browsers.  ``None`` (default)
+            means all registered and available browsers.
         """
         if self._is_running or (self._thread is not None and self._thread.isRunning()):
             log.debug("FaviconManager: extraction already running or previous thread not yet cleaned up, skipping")
@@ -230,24 +270,46 @@ class FaviconManager(QObject):
             )
             return
 
+        # ── Compute optimisation parameters (main thread, fast reads) ────
+        since_ts: int = 0
+        known_domains: set[str] | None = None
+        try:
+            since_ts = self._cache.get_last_updated_ts()
+        except Exception as exc:
+            log.warning("FaviconManager: could not read last_updated_ts, using 0: %s", exc)
+
+        if self._local_db is not None:
+            try:
+                known_domains = self._local_db.get_all_known_domains()
+                log.debug(
+                    "FaviconManager: domain filter loaded — %d known domains (since_ts=%d)",
+                    len(known_domains),
+                    since_ts,
+                )
+            except Exception as exc:
+                log.warning("FaviconManager: could not load known domains, filter disabled: %s", exc)
+                known_domains = None
+
         self._is_running = True
         thread = QThread()
-        worker = FaviconWorker(extractors, self._cache)
+        worker = FaviconWorker(extractors, self._cache, since_ts=since_ts, known_domains=known_domains)
         self._worker = worker
         self._thread = thread
         worker.moveToThread(thread)
 
         thread.started.connect(worker.run)
-        # DirectConnection: Ensure the slot executes immediately when the signal is emitted
-        # to avoid accessing a destroyed object after deleteLater.
-        worker.finished.connect(self._on_worker_finished, Qt.DirectConnection)
+        worker.finished.connect(self._on_worker_finished)  # QueuedConnection (default): slot runs safely in main thread
         worker.finished.connect(thread.quit)
         worker.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._on_thread_finished)
 
         thread.start()
-        log.info("FaviconManager: extraction started")
+        log.info(
+            "FaviconManager: extraction started (since_ts=%d, domain_filter=%s)",
+            since_ts,
+            f"{len(known_domains)} domains" if known_domains is not None else "disabled",
+        )
 
     def shutdown(self, timeout_ms: int = 10000) -> None:
         """
@@ -427,6 +489,8 @@ class FaviconManager(QObject):
                 renderer = QSvgRenderer(QByteArray(svg_data))
                 if not renderer.isValid():
                     return QPixmap()
+                if len(self._svg_renderer_cache) >= self._svg_renderer_cache_max:
+                    self._svg_renderer_cache.pop(next(iter(self._svg_renderer_cache)))
                 self._svg_renderer_cache[svg_key] = renderer
 
             pixmap = QPixmap(size, size)

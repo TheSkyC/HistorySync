@@ -55,6 +55,9 @@ class MainViewModel(QObject):
             device_id=self._local_device_id,
         )
         self._favicon_manager = FaviconManager(config, parent=self)
+        # Provide the history DB reference so FaviconManager can scope
+        # extraction to domains the user has actually visited.
+        self._favicon_manager.set_local_db(self._db)
 
         self._scheduler = Scheduler(self._em, self._webdav, parent=self)
         self._scheduler.sync_started.connect(self._on_sync_started)

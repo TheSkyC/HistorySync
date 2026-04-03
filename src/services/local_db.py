@@ -1746,6 +1746,20 @@ class LocalDatabase:
             rows = conn.execute("SELECT DISTINCT browser_type FROM history ORDER BY browser_type").fetchall()
             return [r[0] for r in rows]
 
+    def get_all_known_domains(self) -> set[str]:
+        """
+        Returns the set of all distinct hostnames recorded in the history database.
+
+        This is used by the favicon extractor to restrict icon extraction to only
+        the domains the user has actually visited, avoiding unnecessary work on
+        the full browser favicon database.  The ``domains`` table is kept
+        normalised by the importer, so this query is always an O(n) index scan
+        with no JOIN required.
+        """
+        with self._conn() as conn:
+            rows = conn.execute("SELECT host FROM domains").fetchall()
+        return {r[0] for r in rows}
+
     def get_top_domains(self, limit: int = 30) -> list[tuple[str, int]]:
         """Return [(host, visit_count), ...] ordered by visit count descending."""
         with self._conn() as conn:

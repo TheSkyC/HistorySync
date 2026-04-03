@@ -170,17 +170,43 @@ class BaseFaviconExtractor(ABC):
     def is_available(self) -> bool:
         return self._defn.is_favicon_available()
 
-    def extract(self) -> list[FaviconRecord]:
-        """Extracts icons for all profiles of this browser, returning a deduplicated list of FaviconRecords."""
+    def extract(
+        self,
+        since_ts: int = 0,
+        known_domains: set[str] | None = None,
+    ) -> list[FaviconRecord]:
+        """
+        Extracts icons for all profiles of this browser, returning a
+        deduplicated list of :class:`FaviconRecord`.
+
+        Parameters
+        ----------
+        since_ts:
+            Unix timestamp (seconds).  Only entries whose browser-internal
+            last-modified time is **strictly newer** than this value are
+            considered.  ``0`` (default) triggers a full extraction.
+        known_domains:
+            When provided, raw entries whose domain is **not** in this set are
+            discarded before deduplication and cache writing.  Pass the set
+            returned by :meth:`LocalDatabase.get_all_known_domains` to restrict
+            extraction to domains the user has actually visited.
+            ``None`` disables the filter (all domains are kept).
+        """
         all_entries: list[_RawEntry] = []
 
         for profile_name, favicon_db in self._defn.iter_favicon_db_paths():
             if not favicon_db.exists():
                 continue
-            log.info("[%s] Extracting favicons from profile '%s'", self.browser_type, profile_name)
+            log.info(
+                "[%s] Extracting favicons from profile '%s' (since_ts=%d, domain_filter=%s)",
+                self.browser_type,
+                profile_name,
+                since_ts,
+                f"{len(known_domains)} domains" if known_domains is not None else "disabled",
+            )
             try:
                 with open_db_snapshot(favicon_db, self.display_name) as conn:
-                    entries = self._extract_entries(conn)
+                    entries = self._extract_entries(conn, since_ts=since_ts)
                     all_entries.extend(entries)
                     log.info(
                         "[%s] '%s' → %d raw entries",
@@ -202,6 +228,25 @@ class BaseFaviconExtractor(ABC):
                     exc,
                 )
 
+        # ── Domain filter (method 2: scope to history-known domains) ──────
+        if known_domains is not None and all_entries:
+            before = len(all_entries)
+            # Also accept entries whose root domain matches a known subdomain, so that
+            # e.g. a favicon stored under "baidu.com" is kept when the user has visited
+            # "fanyi.baidu.com" but never "baidu.com" directly.
+            all_entries = [
+                e for e in all_entries if e.domain in known_domains or extract_root_domain(e.domain) in known_domains
+            ]
+            skipped = before - len(all_entries)
+            if skipped:
+                log.info(
+                    "[%s] Domain filter: kept %d / %d raw entries (%d skipped — not in history)",
+                    self.browser_type,
+                    len(all_entries),
+                    before,
+                    skipped,
+                )
+
         records = _select_best_per_domain(all_entries)
         log.info("[%s] Total: %d unique domains", self.browser_type, len(records))
         return records
@@ -209,8 +254,25 @@ class BaseFaviconExtractor(ABC):
     # ── Subclass Implementation ───────────────────────────────
 
     @abstractmethod
-    def _extract_entries(self, conn: sqlite3.Connection) -> list[_RawEntry]:
-        """Extracts raw entries from an opened in-memory snapshot connection. The connection is read-only."""
+    def _extract_entries(
+        self,
+        conn: sqlite3.Connection,
+        since_ts: int = 0,
+    ) -> list[_RawEntry]:
+        """
+        Extracts raw entries from an opened in-memory snapshot connection.
+        The connection is read-only.
+
+        Parameters
+        ----------
+        conn:
+            Read-only connection to the in-memory DB snapshot.
+        since_ts:
+            Unix timestamp (seconds).  Implementations should translate this
+            to the browser's native time unit and add a ``WHERE`` clause so
+            that only entries modified after this point are returned.
+            ``0`` means return everything (full extraction).
+        """
 
 
 # ── Chromium Favicon Extractor ────────────────────────────────
@@ -228,9 +290,21 @@ class ChromiumFaviconExtractor(BaseFaviconExtractor):
 
     override_dir: If provided, replaces the BrowserDef's User Data directory
     to support custom paths via ExtractorConfig.custom_paths.
+
+    Incremental extraction
+    ----------------------
+    Chromium stores a ``last_updated`` column (WebKit microseconds since
+    1601-01-01) in the ``favicon_bitmaps`` table.  When *since_ts* > 0 the SQL
+    adds ``WHERE fb.last_updated > <chromium_us>`` so only bitmaps that were
+    written after the last cache update are fetched.  The column may be absent
+    in very old Chromium builds; the implementation falls back to a full
+    extraction silently in that case.
     """
 
-    _SQL = """
+    # Chromium epoch offset: microseconds between 1601-01-01 and 1970-01-01
+    _CHROMIUM_EPOCH_DELTA_US: int = 11_644_473_600 * 1_000_000
+
+    _SQL_BASE = """
         SELECT
             im.page_url,
             fb.image_data,
@@ -258,9 +332,41 @@ class ChromiumFaviconExtractor(BaseFaviconExtractor):
             )
         super().__init__(defn)
 
-    def _extract_entries(self, conn: sqlite3.Connection) -> list[_RawEntry]:
+    @classmethod
+    def _unix_to_chromium_us(cls, unix_sec: int) -> int:
+        """Converts a Unix second timestamp to a Chromium WebKit microsecond timestamp."""
+        return unix_sec * 1_000_000 + cls._CHROMIUM_EPOCH_DELTA_US
+
+    def _extract_entries(
+        self,
+        conn: sqlite3.Connection,
+        since_ts: int = 0,
+    ) -> list[_RawEntry]:
+        # ── Build query: incremental when possible, full as fallback ─────
+        if since_ts > 0:
+            chromium_since = self._unix_to_chromium_us(since_ts)
+            sql = self._SQL_BASE + "  AND fb.last_updated > ?"
+            params: tuple = (chromium_since,)
+            try:
+                rows = conn.execute(sql, params).fetchall()
+                log.debug(
+                    "[%s] Incremental favicon query returned %d rows (chromium_us > %d)",
+                    self.browser_type,
+                    len(rows),
+                    chromium_since,
+                )
+            except sqlite3.OperationalError:
+                # ``last_updated`` column absent in this Chromium build — fall back
+                log.debug(
+                    "[%s] last_updated column not found; falling back to full extraction",
+                    self.browser_type,
+                )
+                rows = conn.execute(self._SQL_BASE, ()).fetchall()
+        else:
+            rows = conn.execute(self._SQL_BASE, ()).fetchall()
+
         entries: list[_RawEntry] = []
-        for row in conn.execute(self._SQL):
+        for row in rows:
             domain = extract_domain(row["page_url"])
             if not domain:
                 continue
@@ -299,9 +405,30 @@ class FirefoxFaviconExtractor(BaseFaviconExtractor):
           Python's sqlite3 returns this as str, which _normalize_data() handles.
         - width=65535 is Firefox's convention for SVGs, normalized to 0.
         - icon_url starting with fake-favicon-uri: are placeholders, but the data field remains valid.
+
+    Incremental extraction
+    ----------------------
+    ``moz_icons.expire_ms`` holds the expiry time in milliseconds since the
+    Unix epoch.  Icons that expire sooner were cached more recently, so entries
+    whose ``expire_ms`` is **greater than** the threshold derived from
+    *since_ts* are treated as "newly written since last sync".
+
+    The formula used is::
+
+        threshold_ms = (since_ts - TTL_DAYS * 86400) * 1000
+
+    where TTL_DAYS matches Firefox's default icon TTL (~30 days).  This
+    conservatively includes icons that were refreshed after *since_ts* even if
+    their expiry has not yet passed.  If the column is absent (very old Firefox
+    builds) the implementation falls back to a full extraction.
     """
 
-    _SQL = """
+    # Firefox stores expire_ms = written_at_ms + TTL.  We back-calculate
+    # "written after since_ts" as "expire_ms > (since_ts - TTL) * 1000".
+    # Using the same 30-day TTL constant as FaviconCache ensures consistency.
+    _FIREFOX_ICON_TTL_DAYS: int = 30
+
+    _SQL_BASE = """
         SELECT
             mp.page_url,
             mi.data,
@@ -316,9 +443,37 @@ class FirefoxFaviconExtractor(BaseFaviconExtractor):
     def __init__(self, defn: BrowserDef):
         super().__init__(defn)
 
-    def _extract_entries(self, conn: sqlite3.Connection) -> list[_RawEntry]:
+    def _extract_entries(
+        self,
+        conn: sqlite3.Connection,
+        since_ts: int = 0,
+    ) -> list[_RawEntry]:
+        # ── Build query: incremental when possible, full as fallback ─────
+        if since_ts > 0:
+            # expire_ms > threshold_ms  ↔  icon was written after since_ts
+            threshold_ms = (since_ts - self._FIREFOX_ICON_TTL_DAYS * 86_400) * 1_000
+            sql = self._SQL_BASE + "  AND mi.expire_ms > ?"
+            params: tuple = (threshold_ms,)
+            try:
+                rows = conn.execute(sql, params).fetchall()
+                log.debug(
+                    "[%s] Incremental favicon query returned %d rows (expire_ms > %d)",
+                    self.browser_type,
+                    len(rows),
+                    threshold_ms,
+                )
+            except sqlite3.OperationalError:
+                # ``expire_ms`` column absent in this Firefox build — fall back
+                log.debug(
+                    "[%s] expire_ms column not found; falling back to full extraction",
+                    self.browser_type,
+                )
+                rows = conn.execute(self._SQL_BASE, ()).fetchall()
+        else:
+            rows = conn.execute(self._SQL_BASE, ()).fetchall()
+
         entries: list[_RawEntry] = []
-        for row in conn.execute(self._SQL):
+        for row in rows:
             domain = extract_domain(row["page_url"])
             if not domain:
                 continue
