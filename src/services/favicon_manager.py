@@ -19,7 +19,7 @@ from src.services.extractors.favicon_extractor import (
 )
 from src.services.favicon_cache import FaviconCache, FaviconRecord
 from src.services.favicon_extractor_manager import FaviconExtractorManager
-from src.utils.constants import FAVICON_EXTRACTOR_TIMEOUT_SEC
+from src.utils.constants import FAVICON_EXTRACTOR_TIMEOUT_SEC, FAVICON_LETTER_PALETTE
 from src.utils.logger import get_logger
 
 if TYPE_CHECKING:
@@ -29,20 +29,7 @@ if TYPE_CHECKING:
 log = get_logger("favicon_manager")
 
 _LRU_MAX_SIZE = 600
-_LETTER_PALETTE = [
-    "#4285F4",
-    "#EA4335",
-    "#34A853",
-    "#FBBC04",
-    "#7C4DFF",
-    "#FF6D00",
-    "#00BCD4",
-    "#8BC34A",
-    "#FF6B6B",
-    "#4ECDC4",
-    "#45B7D1",
-    "#C678DD",
-]
+_LETTER_PALETTE = FAVICON_LETTER_PALETTE
 
 
 class _LRUPixmapCache:
