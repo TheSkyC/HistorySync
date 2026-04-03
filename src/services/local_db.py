@@ -408,12 +408,10 @@ class LocalDatabase:
             conn.execute("UPDATE devices SET name = ? WHERE id = ?", (new_name, device_id))
 
     def update_device_last_sync(self, device_id: int) -> None:
-        import time as _time
-
         with self._conn() as conn:
             conn.execute(
                 "UPDATE devices SET last_sync_at = ? WHERE id = ?",
-                (int(_time.time()), device_id),
+                (int(time.time()), device_id),
             )
 
     def merge_device_records(self, from_id: int, to_id: int) -> int:

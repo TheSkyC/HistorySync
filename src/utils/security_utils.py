@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import logging
 import os
+from pathlib import Path
 import platform
 import sys
 
@@ -38,6 +39,27 @@ def _init_keyring_backend() -> None:
 
 
 _init_keyring_backend()
+
+
+def _set_win32_owner_only(path: Path) -> None:
+    """Restrict file access to the current user only (Windows ACL equivalent of chmod 0o600)."""
+    try:
+        import win32api
+        import win32security
+
+        sd = win32security.GetFileSecurity(str(path), win32security.DACL_SECURITY_INFORMATION)
+        dacl = win32security.ACL()
+        user_sid = win32security.GetTokenInformation(
+            win32security.OpenProcessToken(win32api.GetCurrentProcess(), 0x0008),
+            win32security.TokenUser,
+        )[0]
+        dacl.AddAccessAllowedAce(win32security.ACL_REVISION, 0x1F01FF, user_sid)  # GENERIC_ALL
+        sd.SetSecurityDescriptorDacl(True, dacl, False)
+        win32security.SetFileSecurity(str(path), win32security.DACL_SECURITY_INFORMATION, sd)
+    except ImportError:
+        logger.debug("pywin32 not available; skipping ACL restriction for %s", path)
+    except Exception as e:
+        logger.warning("Failed to set ACL on %s: %s", path, e)
 
 
 def _get_or_create_master_key() -> bytes:
@@ -90,7 +112,9 @@ def _get_or_create_master_key() -> bytes:
         try:
             with key_path.open("wb") as f:
                 f.write(key)
-            if sys.platform != "win32":
+            if sys.platform == "win32":
+                _set_win32_owner_only(key_path)
+            else:
                 key_path.chmod(0o600)
             logger.warning(
                 f"{_COLOR_WARN}[SECURITY WARNING] Master key saved to UNENCRYPTED local file "
