@@ -243,9 +243,7 @@ class AppConfig:
             try:
                 config_file.replace(bak_file)
             except OSError as bak_exc:
-                logging.getLogger(__name__).warning(
-                    "Could not back up corrupt config to '%s': %s", bak_file, bak_exc
-                )
+                logging.getLogger(__name__).warning("Could not back up corrupt config to '%s': %s", bak_file, bak_exc)
                 bak_file = None
 
             logging.getLogger(__name__).error(
