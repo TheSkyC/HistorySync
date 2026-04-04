@@ -60,7 +60,7 @@ class WebDavSection(QWidget):
         layout.addWidget(self._enabled_cb)
 
         # Auto backup after extraction
-        self._auto_backup_cb = QCheckBox(_("Auto backup to WebDAV after local extraction"))
+        self._auto_backup_cb = QCheckBox(_("Automatically backup to WebDAV after local scan"))
 
         # Scheduled backup row
         auto_backup_row = QHBoxLayout()
