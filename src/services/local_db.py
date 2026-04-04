@@ -889,16 +889,37 @@ class LocalDatabase:
             deleted_bm_urls: set[str] = {r[0] for r in conn.execute("SELECT url FROM deleted_bookmarks").fetchall()}
             # Track urls where remote won (bookmarked_at was newer) so we can replace tags atomically
             tag_replace_urls: set[str] = set()
+
+            # Pre-fetch history_id and existing bookmarked_at for all remote bookmark URLs in bulk
+            remote_bm_urls = [bm["url"] for bm in remote_bookmarks if bm["url"] not in deleted_bm_urls]
+            if remote_bm_urls:
+                _ph = ",".join("?" * len(remote_bm_urls))
+                history_id_map: dict[str, int] = {
+                    r["url"]: r["id"]
+                    for r in conn.execute(
+                        f"SELECT url, id FROM history WHERE url IN ({_ph})",
+                        remote_bm_urls,
+                    ).fetchall()
+                }
+                existing_bm_map: dict[str, int] = {
+                    r["url"]: r["bookmarked_at"]
+                    for r in conn.execute(
+                        f"SELECT url, bookmarked_at FROM bookmarks WHERE url IN ({_ph})",
+                        remote_bm_urls,
+                    ).fetchall()
+                }
+            else:
+                history_id_map = {}
+                existing_bm_map = {}
+
             for bm in remote_bookmarks:
                 url = bm["url"]
                 if url in deleted_bm_urls:
                     continue
-                # Re-resolve history_id by url
-                h_row = conn.execute("SELECT id FROM history WHERE url=? LIMIT 1", (url,)).fetchone()
-                history_id = h_row[0] if h_row else None
-                existing = conn.execute("SELECT bookmarked_at FROM bookmarks WHERE url=?", (url,)).fetchone()
+                history_id = history_id_map.get(url)
                 remote_ts = bm["bookmarked_at"]
-                if existing is None or remote_ts > existing[0]:
+                existing_ts = existing_bm_map.get(url)
+                if existing_ts is None or remote_ts > existing_ts:
                     # Remote is newer (or new insert) — upsert and mark for tag replacement
                     conn.execute(
                         """INSERT INTO bookmarks(url, title, tags, bookmarked_at, history_id)
@@ -918,11 +939,23 @@ class LocalDatabase:
             for bt in remote_bm_tags:
                 remote_tags_by_url.setdefault(bt["url"], []).append(bt["tag"])
 
+            # Pre-fetch bookmark ids for all tag_replace_urls in bulk
+            bm_id_map: dict[str, int] = {}
+            if tag_replace_urls:
+                _tag_url_list = list(tag_replace_urls)
+                _ph2 = ",".join("?" * len(_tag_url_list))
+                bm_id_map = {
+                    r["url"]: r["id"]
+                    for r in conn.execute(
+                        f"SELECT url, id FROM bookmarks WHERE url IN ({_ph2})",
+                        _tag_url_list,
+                    ).fetchall()
+                }
+
             for url in tag_replace_urls:
-                bm_row = conn.execute("SELECT id FROM bookmarks WHERE url=?", (url,)).fetchone()
-                if not bm_row:
+                bm_id = bm_id_map.get(url)
+                if not bm_id:
                     continue
-                bm_id = bm_row[0]
                 # Atomically replace: delete existing tags, insert remote tags
                 conn.execute("DELETE FROM bookmark_tags WHERE bookmark_id=?", (bm_id,))
                 for tag in remote_tags_by_url.get(url, []):
