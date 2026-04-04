@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import random
 import shutil
 import tempfile
 import time
@@ -81,6 +82,23 @@ def _sha256_file(path: str | Path) -> str:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _webdav_retry(fn: Callable, attempts: int = 3, base_delay: float = 1.0) -> None:
+    """Call *fn* up to *attempts* times with exponential back-off + jitter.
+
+    Raises the last exception if all attempts fail.
+    """
+    for attempt in range(attempts):
+        try:
+            fn()
+            return
+        except Exception:
+            if attempt == attempts - 1:
+                raise
+            delay = base_delay * (2**attempt) + random.uniform(0, 1)
+            log.warning("WebDAV operation failed (attempt %d/%d), retrying in %.1fs…", attempt + 1, attempts, delay)
+            time.sleep(delay)
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -264,7 +282,7 @@ class WebDavSyncService:
             remote_filename = f"{WEBDAV_BACKUP_NAME_PREFIX}{int(time.time())}.zip"
             remote_file = f"{remote_dir.rstrip('/')}/{remote_filename}"
             _cb(_("Uploading backup ({size} KB)...").format(size=f"{zip_size / 1024:.0f}"))
-            client.upload_sync(remote_path=remote_file, local_path=tmp_zip_path)
+            _webdav_retry(lambda: client.upload_sync(remote_path=remote_file, local_path=tmp_zip_path))
 
             self._status = SyncStatus.CLEANING
             _cb(_("Cleaning up old backups..."))
@@ -287,7 +305,7 @@ class WebDavSyncService:
             try:
                 os.write(fd_m, manifest_bytes)
                 os.close(fd_m)
-                client.upload_sync(remote_path=remote_manifest, local_path=tmp_manifest_path)
+                _webdav_retry(lambda: client.upload_sync(remote_path=remote_manifest, local_path=tmp_manifest_path))
                 log.info("sync_manifest.json uploaded to %s", remote_manifest)
             except Exception as exc:
                 raise RuntimeError(
@@ -375,7 +393,7 @@ class WebDavSyncService:
 
             fd, tmp_download_path = tempfile.mkstemp(suffix=".zip")
             os.close(fd)
-            client.download_sync(remote_path=remote_file, local_path=tmp_download_path)
+            _webdav_retry(lambda: client.download_sync(remote_path=remote_file, local_path=tmp_download_path))
 
             hash_info: dict[str, str] = {}
 
@@ -494,7 +512,7 @@ class WebDavSyncService:
             fd, tmp_path = tempfile.mkstemp(suffix=".json")
             os.close(fd)
             try:
-                client.download_sync(remote_path=remote_manifest, local_path=tmp_path)
+                _webdav_retry(lambda: client.download_sync(remote_path=remote_manifest, local_path=tmp_path))
                 with Path(tmp_path).open("rb") as f:
                     return json.loads(f.read().decode("utf-8"))
             except Exception as exc:
