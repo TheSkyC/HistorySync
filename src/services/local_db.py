@@ -112,6 +112,7 @@ class LocalDatabase:
             conn.execute("PRAGMA mmap_size=268435456")  # 256 MB memory-mapped I/O
             conn.execute("PRAGMA temp_store=MEMORY")
             conn.commit()
+            conn.create_function("_extract_host", 1, _extract_url_host)
             self._pconn = conn
         return self._pconn
 
@@ -669,8 +670,6 @@ class LocalDatabase:
 
         updated = 0
         with self._conn() as conn:
-            conn.create_function("_extract_host", 1, _extract_url_host)
-
             _cb(_("Inserting new domain entries…"))
             conn.execute("""
                 INSERT OR IGNORE INTO domains(host)
