@@ -52,7 +52,7 @@ def parse_query(text: str) -> SearchQuery:
         "domain": r"\bdomain:([^\s]+)",
         "after": r"\bafter:(\d{4}-\d{2}-\d{2})",
         "before": r"\bbefore:(\d{4}-\d{2}-\d{2})",
-        "title": r"\btitle:([^\s]+)",
+        "title": r'\btitle:(?:"([^"]+)"|([^\s]+))',
         "url": r"\burl:([^\s]+)",
         "browser": r"\bbrowser:([^\s]+)",
         "device": r"\bdevice:([^\s]+)",
@@ -114,7 +114,9 @@ def parse_query(text: str) -> SearchQuery:
                     pass
             elif token == "title":
                 query.title_only = True
-                remaining_text = re.sub(pattern, r"\1", remaining_text)
+                # group(1) = quoted phrase, group(2) = unquoted word
+                title_val = match.group(1) or match.group(2)
+                remaining_text = re.sub(pattern, title_val, remaining_text)
                 continue
             elif token == "url":
                 query.url_only = True
