@@ -312,6 +312,7 @@ class FaviconManager(QObject):
             return
         if self._worker is not None:
             self._worker.cancel()
+        self._thread.quit()
         log.info("FaviconManager: waiting for worker thread (timeout=%dms)...", timeout_ms)
         if not self._thread.wait(timeout_ms):
             log.warning("FaviconManager: worker thread did not finish in time, forcing quit")
