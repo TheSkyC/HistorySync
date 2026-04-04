@@ -23,7 +23,7 @@ from PySide6.QtCore import (
 from src.models.history_record import HistoryRecord
 from src.services.favicon_manager import FaviconManager
 from src.services.local_db import LocalDatabase
-from src.utils.i18n import _
+from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_browser_icon, get_browser_pixmap
 from src.utils.logger import get_logger
 
@@ -43,19 +43,19 @@ REGEX_SCAN_BATCH = 5000
 
 # Column definitions - all available columns
 ALL_COLUMNS = {
-    "title": {"index": 0, "label_key": "Page Title", "align": Qt.AlignLeft},
-    "url": {"index": 1, "label_key": "URL", "align": Qt.AlignLeft},
-    "browser": {"index": 2, "label_key": "Browser", "align": Qt.AlignCenter, "icon_only": True},
-    "visit_time": {"index": 3, "label_key": "Visit Time", "align": Qt.AlignCenter},
-    "visit_count": {"index": 4, "label_key": "Visit Count", "align": Qt.AlignCenter},
-    "domain": {"index": 5, "label_key": "Domain", "align": Qt.AlignLeft},
-    "profile_name": {"index": 6, "label_key": "Profile", "align": Qt.AlignLeft},
-    "metadata": {"index": 7, "label_key": "Description", "align": Qt.AlignLeft},
-    "typed_count": {"index": 8, "label_key": "Typed Count", "align": Qt.AlignCenter},
-    "first_visit_time": {"index": 9, "label_key": "First Visit Time", "align": Qt.AlignCenter},
-    "transition_type": {"index": 10, "label_key": "Transition Type", "align": Qt.AlignCenter},
-    "visit_duration": {"index": 11, "label_key": "Visit Duration (s)", "align": Qt.AlignCenter},
-    "device_name": {"index": 12, "label_key": "Device", "align": Qt.AlignLeft},
+    "title": {"index": 0, "label_key": N_("Page Title"), "align": Qt.AlignLeft},
+    "url": {"index": 1, "label_key": N_("URL"), "align": Qt.AlignLeft},
+    "browser": {"index": 2, "label_key": N_("Browser"), "align": Qt.AlignCenter, "icon_only": True},
+    "visit_time": {"index": 3, "label_key": N_("Visit Time"), "align": Qt.AlignCenter},
+    "visit_count": {"index": 4, "label_key": N_("Visit Count"), "align": Qt.AlignCenter},
+    "domain": {"index": 5, "label_key": N_("Domain"), "align": Qt.AlignLeft},
+    "profile_name": {"index": 6, "label_key": N_("Profile"), "align": Qt.AlignLeft},
+    "metadata": {"index": 7, "label_key": N_("Description"), "align": Qt.AlignLeft},
+    "typed_count": {"index": 8, "label_key": N_("Typed Count"), "align": Qt.AlignCenter},
+    "first_visit_time": {"index": 9, "label_key": N_("First Visit Time"), "align": Qt.AlignCenter},
+    "transition_type": {"index": 10, "label_key": N_("Transition Type"), "align": Qt.AlignCenter},
+    "visit_duration": {"index": 11, "label_key": N_("Visit Duration (s)"), "align": Qt.AlignCenter},
+    "device_name": {"index": 12, "label_key": N_("Device"), "align": Qt.AlignLeft},
 }
 
 # Default visible columns
