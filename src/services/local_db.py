@@ -2136,9 +2136,7 @@ class LocalDatabase:
 
 def _is_fts_special(keyword: str) -> bool:
     """Return True if the keyword contains FTS5 special characters or operators."""
-    import re
-
-    return bool(re.search(r'[()"\*]|(?<!\w)(AND|OR|NOT)(?!\w)', keyword))
+    return bool(re.search(r'[()"*]|(?<!\w)(AND|OR|NOT)(?!\w)', keyword))
 
 
 def _build_fts_query(keyword: str) -> str:

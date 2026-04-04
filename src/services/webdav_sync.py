@@ -379,90 +379,89 @@ class WebDavSyncService:
 
             hash_info: dict[str, str] = {}
 
-            if True:
-                # ── zip format with hash manifest ─────────────
-                _cb(_("Verifying backup integrity (SHA-256)..."))
-                fd2, tmp_db_path = tempfile.mkstemp(suffix=".db")
-                os.close(fd2)
-                try:
-                    with zipfile.ZipFile(tmp_download_path, "r") as zf:
-                        names = zf.namelist()
+            # ── zip format with hash manifest ─────────────
+            _cb(_("Verifying backup integrity (SHA-256)..."))
+            fd2, tmp_db_path = tempfile.mkstemp(suffix=".db")
+            os.close(fd2)
+            try:
+                with zipfile.ZipFile(tmp_download_path, "r") as zf:
+                    names = zf.namelist()
 
-                        # Read manifest
-                        if "manifest.sha256.json" in names:
-                            manifest_data = zf.read("manifest.sha256.json")
-                            hash_info = json.loads(manifest_data.decode("utf-8"))
+                    # Read manifest
+                    if "manifest.sha256.json" in names:
+                        manifest_data = zf.read("manifest.sha256.json")
+                        hash_info = json.loads(manifest_data.decode("utf-8"))
 
-                        # Extract DB
-                        if DB_FILENAME not in names:
-                            return self._fail(_("Backup archive missing history.db"))
+                    # Extract DB
+                    if DB_FILENAME not in names:
+                        return self._fail(_("Backup archive missing history.db"))
 
-                        # Stream the DB entry directly to disk to avoid loading the
-                        # entire file into memory at once.
-                        h = hashlib.sha256()
-                        with zf.open(DB_FILENAME) as src, Path(tmp_db_path).open("wb") as dst:
-                            while True:
-                                chunk = src.read(1 << 20)  # 1 MiB
-                                if not chunk:
-                                    break
-                                h.update(chunk)
-                                dst.write(chunk)
-                        actual_hash = h.hexdigest()
+                    # Stream the DB entry directly to disk to avoid loading the
+                    # entire file into memory at once.
+                    h = hashlib.sha256()
+                    with zf.open(DB_FILENAME) as src, Path(tmp_db_path).open("wb") as dst:
+                        while True:
+                            chunk = src.read(1 << 20)  # 1 MiB
+                            if not chunk:
+                                break
+                            h.update(chunk)
+                            dst.write(chunk)
+                    actual_hash = h.hexdigest()
 
-                        # Verify hash
-                        expected_hash = hash_info.get(DB_FILENAME, "")
-                        if expected_hash and actual_hash != expected_hash:
-                            return self._fail(
-                                _("Hash verification FAILED! Expected {exp}, got {act}").format(
-                                    exp=expected_hash[:16] + "...",
-                                    act=actual_hash[:16] + "...",
-                                )
+                    # Verify hash
+                    expected_hash = hash_info.get(DB_FILENAME, "")
+                    if expected_hash and actual_hash != expected_hash:
+                        return self._fail(
+                            _("Hash verification FAILED! Expected {exp}, got {act}").format(
+                                exp=expected_hash[:16] + "...",
+                                act=actual_hash[:16] + "...",
                             )
-                        if expected_hash:
-                            log.info("Hash verified OK: %s", actual_hash[:16])
-                            _cb(_("✓ Hash verified: {hash}...").format(hash=actual_hash[:16]))
+                        )
+                    if expected_hash:
+                        log.info("Hash verified OK: %s", actual_hash[:16])
+                        _cb(_("✓ Hash verified: {hash}...").format(hash=actual_hash[:16]))
 
-                        # Optionally restore favicons
-                        if restore_favicons and favicon_cache_dir and FAVICON_DB_FILENAME in names:
-                            _cb(_("Restoring favicon cache..."))
-                            fav_h = hashlib.sha256()
-                            fd3, tmp_fav_path = tempfile.mkstemp(suffix=".db")
-                            os.close(fd3)
+                    # Optionally restore favicons
+                    if restore_favicons and favicon_cache_dir and FAVICON_DB_FILENAME in names:
+                        _cb(_("Restoring favicon cache..."))
+                        fav_h = hashlib.sha256()
+                        fd3, tmp_fav_path = tempfile.mkstemp(suffix=".db")
+                        os.close(fd3)
+                        try:
+                            with zf.open(FAVICON_DB_FILENAME) as src, Path(tmp_fav_path).open("wb") as dst:
+                                while True:
+                                    chunk = src.read(1 << 20)
+                                    if not chunk:
+                                        break
+                                    fav_h.update(chunk)
+                                    dst.write(chunk)
+                            fav_hash_actual = fav_h.hexdigest()
+                            fav_hash_expected = hash_info.get(FAVICON_DB_FILENAME, "")
+                            if fav_hash_expected and fav_hash_actual != fav_hash_expected:
+                                log.warning("Favicon hash mismatch (non-fatal), skipping")
+                            else:
+                                favicon_cache_dir.mkdir(parents=True, exist_ok=True)
+                                fav_dest = favicon_cache_dir / FAVICON_DB_FILENAME
+                                shutil.move(tmp_fav_path, fav_dest)
+                                log.info("Favicon cache restored to %s", fav_dest)
+                        finally:
                             try:
-                                with zf.open(FAVICON_DB_FILENAME) as src, Path(tmp_fav_path).open("wb") as dst:
-                                    while True:
-                                        chunk = src.read(1 << 20)
-                                        if not chunk:
-                                            break
-                                        fav_h.update(chunk)
-                                        dst.write(chunk)
-                                fav_hash_actual = fav_h.hexdigest()
-                                fav_hash_expected = hash_info.get(FAVICON_DB_FILENAME, "")
-                                if fav_hash_expected and fav_hash_actual != fav_hash_expected:
-                                    log.warning("Favicon hash mismatch (non-fatal), skipping")
-                                else:
-                                    favicon_cache_dir.mkdir(parents=True, exist_ok=True)
-                                    fav_dest = favicon_cache_dir / FAVICON_DB_FILENAME
-                                    shutil.move(tmp_fav_path, fav_dest)
-                                    log.info("Favicon cache restored to %s", fav_dest)
-                            finally:
-                                try:
-                                    Path(tmp_fav_path).unlink(missing_ok=True)
-                                except OSError:
-                                    pass
+                                Path(tmp_fav_path).unlink(missing_ok=True)
+                            except OSError:
+                                pass
 
-                except zipfile.BadZipFile as exc:
-                    try:
-                        Path(tmp_db_path).unlink(missing_ok=True)
-                    except OSError:
-                        pass
-                    return self._fail(_("Bad zip archive: {error}").format(error=str(exc)))
-                finally:
-                    try:
-                        Path(tmp_download_path).unlink(missing_ok=True)
-                    except OSError:
-                        pass
-                tmp_download_path = tmp_db_path
+            except zipfile.BadZipFile as exc:
+                try:
+                    Path(tmp_db_path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+                return self._fail(_("Bad zip archive: {error}").format(error=str(exc)))
+            finally:
+                try:
+                    Path(tmp_download_path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            tmp_download_path = tmp_db_path
 
             self._status = SyncStatus.SUCCESS
             result = SyncResult(True, _("Restored from {filename}").format(filename=latest_backup))
