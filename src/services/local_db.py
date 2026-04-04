@@ -1824,6 +1824,7 @@ class LocalDatabase:
                     rows = []
         return [self._row_to_record(r) for r in rows]
 
+    def get_all_known_domains(self) -> set[str]:
         """
         Returns the set of all distinct hostnames recorded in the history database.
 
