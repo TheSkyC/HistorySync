@@ -1478,6 +1478,9 @@ class LocalDatabase:
                         url_only=url_only,
                         use_regex=False,
                         device_ids=device_ids,
+                        bookmarked_only=bookmarked_only,
+                        has_annotation=has_annotation,
+                        bookmark_tag=bookmark_tag,
                         _force_like=True,
                     )
                 raise
@@ -1536,6 +1539,9 @@ class LocalDatabase:
                         excludes=excludes,
                         title_only=title_only,
                         url_only=url_only,
+                        bookmarked_only=bookmarked_only,
+                        has_annotation=has_annotation,
+                        bookmark_tag=bookmark_tag,
                         device_ids=device_ids,
                         _force_like=True,
                     )
