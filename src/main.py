@@ -66,6 +66,28 @@ Headless export examples (no GUI launched):
         ),
     )
 
+    # ── Debug / Stress-test ───────────────────────────────────────────────────
+    debug_group = parser.add_argument_group("Debug & Stress-test")
+    debug_group.add_argument(
+        "--mock",
+        action="store_true",
+        help=(
+            "Stress-test mode: generate synthetic history records, bookmarks, and annotations "
+            "for performance testing. Forces --fresh so real user data is never touched. "
+            "Progress is printed to the console."
+        ),
+    )
+    debug_group.add_argument(
+        "--mock-scale",
+        metavar="SCALE",
+        choices=["small", "medium", "large", "xl"],
+        default="large",
+        help=(
+            "Volume of mock data to generate (default: large). "
+            "small=100k  medium=500k  large=1M  xl=5M history records."
+        ),
+    )
+
     # ── Paths ─────────────────────────────────────────────────────────────────
     path_group = parser.add_argument_group("Paths & Storage")
     path_mutex = path_group.add_mutually_exclusive_group()
@@ -498,10 +520,13 @@ def _gui_main(args: argparse.Namespace) -> None:
             # (possibly freshly merged) config.json with first_run_completed set.
 
     # ── 2. Config ────────────────────────────────────────────────────────────
-    if args.fresh:
+    if args.fresh or args.mock:
         config = AppConfig()
         config._fresh = True
-        log.info("Fresh mode: using default config, disk writes suppressed")
+        if args.mock:
+            log.info("Mock mode: using fresh config, disk writes suppressed")
+        else:
+            log.info("Fresh mode: using default config, disk writes suppressed")
     else:
         config = AppConfig.load()
         log.info("Config loaded from: %s", get_config_dir())
@@ -551,6 +576,19 @@ def _gui_main(args: argparse.Namespace) -> None:
         app.setWindowIcon(_app_icon)
 
     # ── 5. ViewModel ─────────────────────────────────────────────────────────
+    # Mock data generation runs before the ViewModel so the DB is fully
+    # populated when the UI first queries it.
+    if args.mock:
+        from src.services.local_db import LocalDatabase as _LocalDatabase
+        from src.services.mock_data_generator import generate_mock_data
+
+        log.info("Mock mode: initialising schema then generating stress-test data")
+        _db_init = _LocalDatabase(config.get_db_path())
+        _db_init.get_db_stats()  # triggers lazy connection + schema init
+        _db_init.close()
+        generate_mock_data(config.get_db_path(), scale=args.mock_scale or "large")
+        log.info("Mock data generation complete")
+
     main_vm = MainViewModel(config)
 
     # ── 6. Main window ───────────────────────────────────────────────────────
