@@ -12,6 +12,7 @@ _repo_root = Path(__file__).resolve().parent.parent
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
+from src.utils.constants import APP_VERSION as _APP_VERSION
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CLI argument definitions
@@ -46,6 +47,8 @@ Headless export examples (no GUI launched):
   python -m src.main --export out.json --keyword "^https://github" --regex
         """,
     )
+
+    parser.add_argument("-V", "--version", action="version", version=f"%(prog)s {_APP_VERSION}")
 
     # ── Window / Display ─────────────────────────────────────────────────────
     display_group = parser.add_argument_group("Display & Window")
@@ -200,7 +203,7 @@ def _cli_export_main(args: argparse.Namespace) -> int:
     from src.utils.logger import get_logger, setup_logger
     from src.utils.path_helper import get_log_dir
 
-    setup_logger(get_log_dir(), level=_logging.WARNING)
+    setup_logger(get_log_dir(), level=_logging.WARNING, console_only=True)
     log = get_logger("main.export")
 
     # ── Config ────────────────────────────────────────────────────────────────
@@ -823,6 +826,10 @@ def _quit(main_vm=None, log=None):
 
 
 def main():
+    # Fast path: skip parser construction for --version/-V
+    if len(sys.argv) == 2 and sys.argv[1] in ("--version", "-V"):
+        sys.exit(0)
+
     # ── Step 1: Parse CLI arguments (before any Qt / logging initialization) ─
     parser = _build_parser()
     args = parser.parse_args()

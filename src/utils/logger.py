@@ -12,29 +12,30 @@ _state = {"initialized": False}
 _logger = logging.getLogger(APP_NAME)
 
 
-def setup_logger(log_dir: Path, level: int = logging.INFO) -> logging.Logger:
+def setup_logger(log_dir: Path, level: int = logging.INFO, console_only: bool = False) -> logging.Logger:
     if _state["initialized"]:
         return _logger
 
     _state["initialized"] = True
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / LOG_FILENAME
 
     fmt = logging.Formatter(
         "[%(asctime)s] %(levelname)-8s %(name)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # File handler: max 5MB, keep 3 rotating backup files
-    fh = RotatingFileHandler(log_file, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT, encoding="utf-8")
-    fh.setFormatter(fmt)
+    if not console_only:
+        # File handler: max 5MB, keep 3 rotating backup files
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / LOG_FILENAME
+        fh = RotatingFileHandler(log_file, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT, encoding="utf-8")
+        fh.setFormatter(fmt)
+        _logger.addHandler(fh)
 
     # Console handler
     sh = logging.StreamHandler(sys.stdout)
     sh.setFormatter(fmt)
 
     _logger.setLevel(level)
-    _logger.addHandler(fh)
     _logger.addHandler(sh)
 
     return _logger

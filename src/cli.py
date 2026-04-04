@@ -234,7 +234,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         prog="hsync",
-        description=f"hsync {APP_VERSION} — HistorySync headless CLI  (no GUI required)",
+        description=f"hsync {APP_VERSION} — HistorySync headless CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__.strip(),
     )

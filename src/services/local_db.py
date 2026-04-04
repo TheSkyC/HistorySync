@@ -89,8 +89,8 @@ class LocalDatabase:
         self.db_path = db_path
         self._lock = threading.RLock()
         self._pconn: sqlite3.Connection | None = None
+        self._schema_initialized: bool = False
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._init_schema()
 
     # ── Internal helpers ──────────────────────────────────────
 
@@ -114,6 +114,9 @@ class LocalDatabase:
             conn.commit()
             conn.create_function("_extract_host", 1, _extract_url_host)
             self._pconn = conn
+        if not self._schema_initialized:
+            self._schema_initialized = True  # set before calling to prevent re-entry
+            self._init_schema_on_conn(self._pconn)
         return self._pconn
 
     def _reset_conn(self) -> None:
@@ -158,9 +161,9 @@ class LocalDatabase:
         except Exception:
             pass
 
-    def _init_schema(self) -> None:
-        with self._conn() as conn:
-            conn.executescript("""
+    def _init_schema_on_conn(self, conn: sqlite3.Connection) -> None:
+        """Run schema creation directly on *conn* (called from _ensure_conn to avoid re-entrancy)."""
+        conn.executescript("""
                 CREATE TABLE IF NOT EXISTS domains (
                     id   INTEGER PRIMARY KEY AUTOINCREMENT,
                     host TEXT    NOT NULL UNIQUE
@@ -288,6 +291,8 @@ class LocalDatabase:
                 );
                 CREATE INDEX IF NOT EXISTS idx_devices_uuid ON devices(uuid);
             """)
+        # _migrate_schema and _verify_fts_integrity use self._conn() internally;
+        # _schema_initialized is already True so they won't re-enter here.
         self._migrate_schema()
         self._verify_fts_integrity()
         log.info("Database schema initialized: %s", self.db_path)
