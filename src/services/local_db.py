@@ -1023,13 +1023,19 @@ class LocalDatabase:
             #      execute() calls instead of executescript() because
             #      executescript() issues an implicit COMMIT which would exit
             #      the savepoint prematurely.
+            # For small batches the DDL overhead of DROP/CREATE triggers exceeds
+            # the per-row FTS cost, so we only disable triggers for large batches.
+            _disable_triggers = len(records) > 200
+
             conn.execute("SAVEPOINT upsert_batch")
             try:
                 # 4. Temporarily drop FTS triggers to avoid per-row FTS overhead
                 #    during bulk insert; a single targeted sync follows instead.
-                conn.execute("DROP TRIGGER IF EXISTS history_ai")
-                conn.execute("DROP TRIGGER IF EXISTS history_ad")
-                conn.execute("DROP TRIGGER IF EXISTS history_au")
+                #    Skipped for small batches where DDL cost outweighs the saving.
+                if _disable_triggers:
+                    conn.execute("DROP TRIGGER IF EXISTS history_ai")
+                    conn.execute("DROP TRIGGER IF EXISTS history_ad")
+                    conn.execute("DROP TRIGGER IF EXISTS history_au")
 
                 # 5. Bulk insert history records using plain positional params
                 #    (no subquery, no UDF call per row).
@@ -1079,27 +1085,30 @@ class LocalDatabase:
                     0
                 ]
 
-                # 7. Restore FTS triggers.
-                conn.execute(
-                    "CREATE TRIGGER IF NOT EXISTS history_ai AFTER INSERT ON history BEGIN"
-                    " INSERT INTO history_fts(rowid, url, title) VALUES (new.id, new.url, new.title);"
-                    " END"
-                )
-                conn.execute(
-                    "CREATE TRIGGER IF NOT EXISTS history_ad AFTER DELETE ON history BEGIN"
-                    " INSERT INTO history_fts(history_fts, rowid, url, title)"
-                    " VALUES('delete', old.id, old.url, old.title);"
-                    " END"
-                )
-                conn.execute(
-                    "CREATE TRIGGER IF NOT EXISTS history_au AFTER UPDATE ON history BEGIN"
-                    " INSERT INTO history_fts(history_fts, rowid, url, title)"
-                    " VALUES('delete', old.id, old.url, old.title);"
-                    " INSERT INTO history_fts(rowid, url, title) VALUES (new.id, new.url, new.title);"
-                    " END"
-                )
+                # 7. Restore FTS triggers (only if they were dropped).
+                if _disable_triggers:
+                    conn.execute(
+                        "CREATE TRIGGER IF NOT EXISTS history_ai AFTER INSERT ON history BEGIN"
+                        " INSERT INTO history_fts(rowid, url, title) VALUES (new.id, new.url, new.title);"
+                        " END"
+                    )
+                    conn.execute(
+                        "CREATE TRIGGER IF NOT EXISTS history_ad AFTER DELETE ON history BEGIN"
+                        " INSERT INTO history_fts(history_fts, rowid, url, title)"
+                        " VALUES('delete', old.id, old.url, old.title);"
+                        " END"
+                    )
+                    conn.execute(
+                        "CREATE TRIGGER IF NOT EXISTS history_au AFTER UPDATE ON history BEGIN"
+                        " INSERT INTO history_fts(history_fts, rowid, url, title)"
+                        " VALUES('delete', old.id, old.url, old.title);"
+                        " INSERT INTO history_fts(rowid, url, title) VALUES (new.id, new.url, new.title);"
+                        " END"
+                    )
 
                 # 8. Batch-sync FTS for the trigger-free window.
+                #    Only needed when triggers were disabled; when triggers were
+                #    active they already kept FTS up to date during insert.
                 #
                 #    Two populations need to be covered:
                 #      a) Newly inserted rows  (id > max_id_before): simple INSERT into FTS.
@@ -1112,11 +1121,12 @@ class LocalDatabase:
                 #    pre-existing history rows.  This is precise and avoids a full
                 #    FTS rebuild.
 
-                # 8a. Insert FTS entries for genuinely new rows.
-                conn.execute(
-                    "INSERT INTO history_fts(rowid, url, title) SELECT id, url, title FROM history WHERE id > ?",
-                    (max_id_before,),
-                )
+                if _disable_triggers:
+                    # 8a. Insert FTS entries for genuinely new rows.
+                    conn.execute(
+                        "INSERT INTO history_fts(rowid, url, title) SELECT id, url, title FROM history WHERE id > ?",
+                        (max_id_before,),
+                    )
 
                 # 8b. Refresh FTS for updated rows (pre-existing rows whose content
                 #     may have changed due to DO UPDATE).  We gather their ids via
