@@ -515,7 +515,7 @@ def _gui_main(args: argparse.Namespace) -> None:
     # ── 4a. Single-instance guard ────────────────────────────────────────────
     # Must be created *after* QApplication so QTcpServer/QTcpSocket work, but
     # *before* we build the heavy ViewModel / MainWindow objects.
-    from src.utils.single_instance import SingleInstanceServer, raise_existing_instance
+    from src.utils.single_instance import SINGLE_INSTANCE_PORT, SingleInstanceServer, raise_existing_instance
 
     if raise_existing_instance():
         log.warning("Another instance of HistorySync is already running — activating it and exiting.")
@@ -576,10 +576,25 @@ def _gui_main(args: argparse.Namespace) -> None:
 
     # Wire up single-instance activation → bring the window to the front
     if not _single_instance_server.start():
-        # In the unlikely race where start() fails here (port grabbed between
-        # the raise_existing_instance() check and now), just continue without
-        # the guard rather than crashing.
-        log.warning("SingleInstanceServer failed to start; single-instance protection is inactive")
+        # The port is occupied but raise_existing_instance() did not respond —
+        # most likely another process is holding it.  Running without the guard
+        # risks two instances writing to the database simultaneously, so abort.
+        log.error(
+            "SingleInstanceServer failed to bind port %d; aborting to protect database integrity.",
+            SINGLE_INSTANCE_PORT,
+        )
+        from PySide6.QtWidgets import QMessageBox
+
+        QMessageBox.critical(
+            None,
+            _("Launch Error"),
+            _(
+                "HistorySync could not acquire the single-instance lock\n"
+                "(port 20455 is already in use by another process).\n\n"
+                "Please close any other running instances and try again."
+            ),
+        )
+        sys.exit(1)
     _single_instance_server.request_activation.connect(window.show_and_raise)
 
     # ── Overlay hotkey (Windows) + --quick cross-platform path ──────────────
