@@ -1158,12 +1158,12 @@ class LocalDatabase:
     # ═══════════════════════════════════════════════════════════
 
     def get_total_count(self) -> int:
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             row = conn.execute("SELECT COUNT(*) FROM history").fetchone()
             return row[0] if row else 0
 
     def get_max_visit_times(self, browser_type: str) -> dict[str, int]:
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             rows = conn.execute(
                 """
                 SELECT profile_name, MAX(visit_time) AS max_t
@@ -1445,7 +1445,7 @@ class LocalDatabase:
             "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
             "h.device_id"
         )
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             from_where, params, _use_fts = self._build_query_parts(
                 conn=conn,
                 keyword=keyword,
@@ -1511,7 +1511,7 @@ class LocalDatabase:
     ) -> int:
         excl = excluded_ids or set()
 
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             from_where, params, _use_fts = self._build_query_parts(
                 conn=conn,
                 keyword=keyword,
@@ -1763,7 +1763,7 @@ class LocalDatabase:
     # ── End bookmark / annotation section ─────────────────────
 
     def get_browser_types(self) -> list[str]:
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             rows = conn.execute("SELECT DISTINCT browser_type FROM history ORDER BY browser_type").fetchall()
             return [r[0] for r in rows]
 
@@ -1845,13 +1845,13 @@ class LocalDatabase:
         normalised by the importer, so this query is always an O(n) index scan
         with no JOIN required.
         """
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             rows = conn.execute("SELECT host FROM domains").fetchall()
         return {r[0] for r in rows}
 
     def get_top_domains(self, limit: int = 30) -> list[tuple[str, int]]:
         """Return [(host, visit_count), ...] ordered by visit count descending."""
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             rows = conn.execute(
                 """
                 SELECT d.host, COUNT(h.id) AS cnt
@@ -1866,7 +1866,7 @@ class LocalDatabase:
         return [(r[0], r[1]) for r in rows]
 
     def get_all_backup_stats(self) -> list[BackupStats]:
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             rows = conn.execute("""
                 SELECT id, browser_type, profile_name,
                        first_backup_time, last_backup_time, total_records_synced
@@ -1885,7 +1885,7 @@ class LocalDatabase:
         ]
 
     def get_last_sync_time(self) -> int | None:
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             row = conn.execute("SELECT MAX(last_backup_time) FROM backup_stats").fetchone()
             return row[0] if row and row[0] else None
 
@@ -2028,7 +2028,7 @@ class LocalDatabase:
         return ids
 
     def get_domain_count(self, domain: str) -> int:
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             ids = self._domain_ids_for(conn, domain)
             if not ids:
                 return 0
@@ -2040,7 +2040,7 @@ class LocalDatabase:
         if not ids:
             return []
         placeholders = ",".join("?" * len(ids))
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             rows = conn.execute(
                 f"SELECT id, url, title, visit_time, visit_count, browser_type, profile_name, metadata, "
                 f"typed_count, first_visit_time, transition_type, visit_duration, device_id "
@@ -2056,7 +2056,7 @@ class LocalDatabase:
         Returns -1 if the URL is not found.  Used by the "Locate in History"
         feature so the history table can scroll to and select that exact row.
         """
-        with self._conn() as conn:
+        with self._conn(write=False) as conn:
             row = conn.execute(
                 "SELECT COUNT(*) FROM history WHERE visit_time > (SELECT MAX(visit_time) FROM history WHERE url = ?)",
                 (url,),
