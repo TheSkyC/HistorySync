@@ -11,9 +11,6 @@ import platform
 import sys
 import threading
 
-import keyring
-import keyring.errors
-
 from src.utils.constants import ENCRYPTION_PREFIX, KEYRING_SERVICE, KEYRING_USER, SECRET_FILENAME
 from src.utils.path_helper import get_config_dir
 
@@ -22,26 +19,40 @@ logger = logging.getLogger(__name__)
 _COLOR_WARN = "\033[93m"
 _COLOR_RESET = "\033[0m"
 
-
-def _init_keyring_backend() -> None:
-    """Locks a platform-specific backend to speed up startup, falling back to auto-scan on failure."""
-    try:
-        system = platform.system()
-        if system == "Windows":
-            from keyring.backends.Windows import WinVaultKeyring
-
-            keyring.set_keyring(WinVaultKeyring())
-        elif system == "Darwin":
-            from keyring.backends.macOS import Keyring
-
-            keyring.set_keyring(Keyring())
-    except Exception as e:
-        logger.debug(f"Explicit keyring init failed, falling back to auto-scan: {e}")
-
-
-_init_keyring_backend()
-
 _key_lock = threading.Lock()
+_keyring_init_lock = threading.Lock()
+# Mutable container avoids module-level `global` assignments (PLW0603).
+# _keyring_state["module"] is None until _ensure_keyring() has run.
+_keyring_state: dict = {"module": None, "ready": False}
+
+
+def _ensure_keyring():
+    """Import keyring and pin the platform-specific backend — at most once per process."""
+    if _keyring_state["ready"]:
+        return _keyring_state["module"]
+    with _keyring_init_lock:
+        if _keyring_state["ready"]:  # double-checked locking
+            return _keyring_state["module"]
+        import keyring as _kr
+        import keyring.errors
+
+        try:
+            system = platform.system()
+            if system == "Windows":
+                from keyring.backends.Windows import WinVaultKeyring
+
+                _kr.set_keyring(WinVaultKeyring())
+            elif system == "Darwin":
+                from keyring.backends.macOS import Keyring
+
+                _kr.set_keyring(Keyring())
+        except Exception as e:
+            logger.debug(f"Explicit keyring init failed, falling back to auto-scan: {e}")
+        _keyring_state["module"] = _kr
+        _keyring_state["ready"] = True
+    return _keyring_state["module"]
+
+
 _HKDF_INFO = b"historysync-enc\x00"
 
 _PAD_BLOCK = 64  # pad plaintext to multiples of this size to hide true length
@@ -113,9 +124,11 @@ def _get_or_create_master_key() -> bytes:
     4. Write back prioritizing Keyring; if it fails, write to local file (and log a security warning).
     """
     with _key_lock:
+        kr = _ensure_keyring()
+
         # 1. Attempt to read from Keyring
         try:
-            key_hex = keyring.get_password(KEYRING_SERVICE, KEYRING_USER)
+            key_hex = kr.get_password(KEYRING_SERVICE, KEYRING_USER)
             if key_hex:
                 return bytes.fromhex(key_hex)
         except Exception as e:
@@ -143,7 +156,7 @@ def _get_or_create_master_key() -> bytes:
         # 4. Write back: prioritize Keyring, fallback to file
         saved_to_keyring = False
         try:
-            keyring.set_password(KEYRING_SERVICE, KEYRING_USER, key.hex())
+            kr.set_password(KEYRING_SERVICE, KEYRING_USER, key.hex())
             saved_to_keyring = True
             logger.info("Master key saved to system Keyring.")
         except Exception as e:
