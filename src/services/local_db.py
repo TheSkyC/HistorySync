@@ -1891,25 +1891,55 @@ class LocalDatabase:
             return 0
         placeholders = ",".join("?" * len(ids))
         with self._conn() as conn:
-            # Tombstone before delete
-            urls = conn.execute(f"SELECT url FROM history WHERE id IN ({placeholders})", ids).fetchall()
-            if urls:
-                conn.executemany(
-                    "INSERT INTO deleted_records(url) VALUES(?) ON CONFLICT(url) DO UPDATE SET deleted_at = strftime('%s','now')",
-                    ((r[0],) for r in urls),
-                )
+            # Tombstone only URLs that will have no remaining rows in any browser after deletion.
+            # A URL shared across multiple browsers must NOT be tombstoned when only one
+            # browser's copy is removed — doing so would silently wipe the other browsers'
+            # records during the next WebDAV sync
+            url_rows = conn.execute(f"SELECT url FROM history WHERE id IN ({placeholders})", ids).fetchall()
+            if url_rows:
+                candidate_urls = [r[0] for r in url_rows]
+                url_placeholders = ",".join("?" * len(candidate_urls))
+                # Find URLs that still exist outside the deleted ID set
+                surviving = {
+                    r[0]
+                    for r in conn.execute(
+                        f"SELECT DISTINCT url FROM history "
+                        f"WHERE url IN ({url_placeholders}) AND id NOT IN ({placeholders})",
+                        candidate_urls + list(ids),
+                    ).fetchall()
+                }
+                tombstone_urls = [u for u in candidate_urls if u not in surviving]
+                if tombstone_urls:
+                    conn.executemany(
+                        "INSERT INTO deleted_records(url) VALUES(?) ON CONFLICT(url) DO UPDATE SET deleted_at = strftime('%s','now')",
+                        ((u,) for u in tombstone_urls),
+                    )
             cursor = conn.execute(f"DELETE FROM history WHERE id IN ({placeholders})", ids)
             return cursor.rowcount
 
     def delete_records_by_browser(self, browser_type: str) -> int:
         """Delete all history records for a specific browser and corresponding backup_stats entries."""
         with self._conn() as conn:
+            # Tombstone only URLs that exist exclusively in this browser.
+            # If a URL also appears under a different browser_type it must NOT receive a
+            # tombstone — otherwise the next sync would delete the other browser's record
             urls = conn.execute("SELECT url FROM history WHERE browser_type = ?", (browser_type,)).fetchall()
             if urls:
-                conn.executemany(
-                    "INSERT INTO deleted_records(url) VALUES(?) ON CONFLICT(url) DO UPDATE SET deleted_at = strftime('%s','now')",
-                    ((r[0],) for r in urls),
-                )
+                candidate_urls = [r[0] for r in urls]
+                url_placeholders = ",".join("?" * len(candidate_urls))
+                surviving = {
+                    r[0]
+                    for r in conn.execute(
+                        f"SELECT DISTINCT url FROM history WHERE url IN ({url_placeholders}) AND browser_type != ?",
+                        [*candidate_urls, browser_type],
+                    ).fetchall()
+                }
+                tombstone_urls = [u for u in candidate_urls if u not in surviving]
+                if tombstone_urls:
+                    conn.executemany(
+                        "INSERT INTO deleted_records(url) VALUES(?) ON CONFLICT(url) DO UPDATE SET deleted_at = strftime('%s','now')",
+                        ((u,) for u in tombstone_urls),
+                    )
             cursor = conn.execute("DELETE FROM history WHERE browser_type = ?", (browser_type,))
             deleted = cursor.rowcount
             conn.execute("DELETE FROM backup_stats WHERE browser_type = ?", (browser_type,))
@@ -1959,12 +1989,25 @@ class LocalDatabase:
             if not ids:
                 return 0
             placeholders = ",".join("?" * len(ids))
-            urls = conn.execute(f"SELECT url FROM history WHERE domain_id IN ({placeholders})", ids).fetchall()
-            if urls:
-                conn.executemany(
-                    "INSERT INTO deleted_records(url) VALUES(?) ON CONFLICT(url) DO UPDATE SET deleted_at = strftime('%s','now')",
-                    ((r[0],) for r in urls),
-                )
+            url_rows = conn.execute(f"SELECT url FROM history WHERE domain_id IN ({placeholders})", ids).fetchall()
+            if url_rows:
+                candidate_urls = [r[0] for r in url_rows]
+                url_placeholders = ",".join("?" * len(candidate_urls))
+                # Only tombstone URLs that have no surviving rows outside the deleted domain_ids.
+                surviving = {
+                    r[0]
+                    for r in conn.execute(
+                        f"SELECT DISTINCT url FROM history "
+                        f"WHERE url IN ({url_placeholders}) AND domain_id NOT IN ({placeholders})",
+                        candidate_urls + list(ids),
+                    ).fetchall()
+                }
+                tombstone_urls = [u for u in candidate_urls if u not in surviving]
+                if tombstone_urls:
+                    conn.executemany(
+                        "INSERT INTO deleted_records(url) VALUES(?) ON CONFLICT(url) DO UPDATE SET deleted_at = strftime('%s','now')",
+                        ((u,) for u in tombstone_urls),
+                    )
             cursor = conn.execute(f"DELETE FROM history WHERE domain_id IN ({placeholders})", ids)
             conn.execute(f"DELETE FROM domains WHERE id IN ({placeholders})", ids)
             return cursor.rowcount
