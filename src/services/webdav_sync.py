@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import tempfile
 import time
 from typing import TYPE_CHECKING
@@ -396,10 +397,19 @@ class WebDavSyncService:
                         if DB_FILENAME not in names:
                             return self._fail(_("Backup archive missing history.db"))
 
-                        db_data = zf.read(DB_FILENAME)
+                        # Stream the DB entry directly to disk to avoid loading the
+                        # entire file into memory at once.
+                        h = hashlib.sha256()
+                        with zf.open(DB_FILENAME) as src, Path(tmp_db_path).open("wb") as dst:
+                            while True:
+                                chunk = src.read(1 << 20)  # 1 MiB
+                                if not chunk:
+                                    break
+                                h.update(chunk)
+                                dst.write(chunk)
+                        actual_hash = h.hexdigest()
 
                         # Verify hash
-                        actual_hash = _sha256_bytes(db_data)
                         expected_hash = hash_info.get(DB_FILENAME, "")
                         if expected_hash and actual_hash != expected_hash:
                             return self._fail(
@@ -412,23 +422,34 @@ class WebDavSyncService:
                             log.info("Hash verified OK: %s", actual_hash[:16])
                             _cb(_("✓ Hash verified: {hash}...").format(hash=actual_hash[:16]))
 
-                        with Path(tmp_db_path).open("wb") as f:
-                            f.write(db_data)
-
                         # Optionally restore favicons
                         if restore_favicons and favicon_cache_dir and FAVICON_DB_FILENAME in names:
                             _cb(_("Restoring favicon cache..."))
-                            fav_data = zf.read(FAVICON_DB_FILENAME)
-                            fav_hash_actual = _sha256_bytes(fav_data)
-                            fav_hash_expected = hash_info.get(FAVICON_DB_FILENAME, "")
-                            if fav_hash_expected and fav_hash_actual != fav_hash_expected:
-                                log.warning("Favicon hash mismatch (non-fatal), skipping")
-                            else:
-                                favicon_cache_dir.mkdir(parents=True, exist_ok=True)
-                                fav_dest = favicon_cache_dir / FAVICON_DB_FILENAME
-                                with Path(fav_dest).open("wb") as f:
-                                    f.write(fav_data)
-                                log.info("Favicon cache restored to %s", fav_dest)
+                            fav_h = hashlib.sha256()
+                            fd3, tmp_fav_path = tempfile.mkstemp(suffix=".db")
+                            os.close(fd3)
+                            try:
+                                with zf.open(FAVICON_DB_FILENAME) as src, Path(tmp_fav_path).open("wb") as dst:
+                                    while True:
+                                        chunk = src.read(1 << 20)
+                                        if not chunk:
+                                            break
+                                        fav_h.update(chunk)
+                                        dst.write(chunk)
+                                fav_hash_actual = fav_h.hexdigest()
+                                fav_hash_expected = hash_info.get(FAVICON_DB_FILENAME, "")
+                                if fav_hash_expected and fav_hash_actual != fav_hash_expected:
+                                    log.warning("Favicon hash mismatch (non-fatal), skipping")
+                                else:
+                                    favicon_cache_dir.mkdir(parents=True, exist_ok=True)
+                                    fav_dest = favicon_cache_dir / FAVICON_DB_FILENAME
+                                    shutil.move(tmp_fav_path, fav_dest)
+                                    log.info("Favicon cache restored to %s", fav_dest)
+                            finally:
+                                try:
+                                    Path(tmp_fav_path).unlink(missing_ok=True)
+                                except OSError:
+                                    pass
 
                 except zipfile.BadZipFile as exc:
                     try:
