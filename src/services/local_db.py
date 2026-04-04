@@ -1360,7 +1360,11 @@ class LocalDatabase:
         params: list = []
 
         if keyword:
-            use_fts = len(keyword.replace(" ", "")) >= 3 and not _force_like
+            # FTS5 trigram tokenizer cannot index tokens shorter than 3 characters,
+            # so any individual word under that threshold would return no results.
+            # Force LIKE path when any word in the keyword is shorter than 3 chars.
+            _any_short_word = any(len(w) < 3 for w in keyword.split() if w)
+            use_fts = not _force_like and not _any_short_word and len(keyword.replace(" ", "")) >= 3
             if use_fts:
                 from_where = (
                     "FROM history h\n    JOIN history_fts fts ON h.id = fts.rowid\n    WHERE history_fts MATCH ?"
