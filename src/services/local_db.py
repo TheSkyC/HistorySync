@@ -539,6 +539,7 @@ class LocalDatabase:
                 f"have {free // 1024 // 1024} MB free."
             )
         with self._lock:
+            self._reset_conn()
             _cb(_("Checkpointing WAL into main file…"))
             conn = sqlite3.connect(str(db_path), timeout=60)
             try:
