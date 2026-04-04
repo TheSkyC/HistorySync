@@ -828,6 +828,7 @@ def _quit(main_vm=None, log=None):
 def main():
     # Fast path: skip parser construction for --version/-V
     if len(sys.argv) == 2 and sys.argv[1] in ("--version", "-V"):
+        print(f"HistorySync {_APP_VERSION}")  # noqa: T201
         sys.exit(0)
 
     # ── Step 1: Parse CLI arguments (before any Qt / logging initialization) ─
