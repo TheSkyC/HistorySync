@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import platform
 import sys
+import threading
 
 import keyring
 import keyring.errors
@@ -40,6 +41,7 @@ def _init_keyring_backend() -> None:
 
 _init_keyring_backend()
 
+_key_lock = threading.Lock()
 _HKDF_INFO = b"historysync-enc\x00"
 
 _PAD_BLOCK = 64  # pad plaintext to multiples of this size to hide true length
@@ -110,61 +112,62 @@ def _get_or_create_master_key() -> bytes:
     3. Generate a new random key if neither exists.
     4. Write back prioritizing Keyring; if it fails, write to local file (and log a security warning).
     """
-    # 1. Attempt to read from Keyring
-    try:
-        key_hex = keyring.get_password(KEYRING_SERVICE, KEYRING_USER)
-        if key_hex:
-            return bytes.fromhex(key_hex)
-    except Exception as e:
-        logger.warning(f"Keyring lookup failed (will try local file): {e}")
-
-    # 2. Fallback: attempt to read local file
-    key_path = get_config_dir() / SECRET_FILENAME
-    key: bytes | None = None
-
-    if key_path.exists():
+    with _key_lock:
+        # 1. Attempt to read from Keyring
         try:
-            with key_path.open("rb") as f:
-                data = f.read()
-                if len(data) == 32:
-                    key = data
-                    logger.info("Loaded master key from local file (fallback).")
+            key_hex = keyring.get_password(KEYRING_SERVICE, KEYRING_USER)
+            if key_hex:
+                return bytes.fromhex(key_hex)
         except Exception as e:
-            logger.error(f"Failed to read local key file: {e}")
+            logger.warning(f"Keyring lookup failed (will try local file): {e}")
 
-    # 3. Generate new key
-    if not key:
-        logger.info("Generating new master key.")
-        key = os.urandom(32)
+        # 2. Fallback: attempt to read local file
+        key_path = get_config_dir() / SECRET_FILENAME
+        key: bytes | None = None
 
-    # 4. Write back: prioritize Keyring, fallback to file
-    saved_to_keyring = False
-    try:
-        keyring.set_password(KEYRING_SERVICE, KEYRING_USER, key.hex())
-        saved_to_keyring = True
-        logger.info("Master key saved to system Keyring.")
-    except Exception as e:
-        logger.error(f"Failed to save key to Keyring: {e}")
+        if key_path.exists():
+            try:
+                with key_path.open("rb") as f:
+                    data = f.read()
+                    if len(data) == 32:
+                        key = data
+                        logger.info("Loaded master key from local file (fallback).")
+            except Exception as e:
+                logger.error(f"Failed to read local key file: {e}")
 
-    if not saved_to_keyring:
+        # 3. Generate new key
+        if not key:
+            logger.info("Generating new master key.")
+            key = os.urandom(32)
+
+        # 4. Write back: prioritize Keyring, fallback to file
+        saved_to_keyring = False
         try:
-            with key_path.open("wb") as f:
-                f.write(key)
-            if sys.platform == "win32":
-                _set_win32_owner_only(key_path)
-            else:
-                key_path.chmod(0o600)
-            logger.warning(
-                f"{_COLOR_WARN}[SECURITY WARNING] Master key saved to UNENCRYPTED local file "
-                f"(Keyring unavailable): {key_path}{_COLOR_RESET}"
-            )
+            keyring.set_password(KEYRING_SERVICE, KEYRING_USER, key.hex())
+            saved_to_keyring = True
+            logger.info("Master key saved to system Keyring.")
         except Exception as e:
-            raise OSError(
-                f"Critical Security Error: Could not save master key to Keyring OR local file.\n"
-                f"Path: {key_path}\nError: {e}"
-            ) from e
+            logger.error(f"Failed to save key to Keyring: {e}")
 
-    return key
+        if not saved_to_keyring:
+            try:
+                with key_path.open("wb") as f:
+                    f.write(key)
+                if sys.platform == "win32":
+                    _set_win32_owner_only(key_path)
+                else:
+                    key_path.chmod(0o600)
+                logger.warning(
+                    f"{_COLOR_WARN}[SECURITY WARNING] Master key saved to UNENCRYPTED local file "
+                    f"(Keyring unavailable): {key_path}{_COLOR_RESET}"
+                )
+            except Exception as e:
+                raise OSError(
+                    f"Critical Security Error: Could not save master key to Keyring OR local file.\n"
+                    f"Path: {key_path}\nError: {e}"
+                ) from e
+
+        return key
 
 
 def encrypt_text(text: str) -> str:
