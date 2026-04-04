@@ -1681,35 +1681,32 @@ class LocalDatabase:
     def get_all_bookmarks(self, tag: str = "") -> list[BookmarkRecord]:
         with self._conn(write=False) as conn:
             if tag:
+                # Filter by tag via JOIN, then LEFT JOIN again to collect all tags per bookmark.
                 rows = conn.execute(
-                    """SELECT b.id, b.url, b.title, b.bookmarked_at, b.history_id
+                    """SELECT b.id, b.url, b.title, b.bookmarked_at, b.history_id,
+                              GROUP_CONCAT(bt2.tag, ',') AS tags
                        FROM bookmarks b
-                       JOIN bookmark_tags bt ON b.id = bt.bookmark_id
-                       WHERE bt.tag = ?
+                       JOIN bookmark_tags bt  ON b.id = bt.bookmark_id  AND bt.tag = ?
+                       LEFT JOIN bookmark_tags bt2 ON b.id = bt2.bookmark_id
+                       GROUP BY b.id
                        ORDER BY b.bookmarked_at DESC""",
                     (tag,),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    "SELECT id, url, title, bookmarked_at, history_id FROM bookmarks ORDER BY bookmarked_at DESC"
+                    """SELECT b.id, b.url, b.title, b.bookmarked_at, b.history_id,
+                              GROUP_CONCAT(bt.tag, ',') AS tags
+                       FROM bookmarks b
+                       LEFT JOIN bookmark_tags bt ON b.id = bt.bookmark_id
+                       GROUP BY b.id
+                       ORDER BY b.bookmarked_at DESC"""
                 ).fetchall()
-            if not rows:
-                return []
-            bm_ids = [r["id"] for r in rows]
-            placeholders = ",".join("?" * len(bm_ids))
-            tag_rows = conn.execute(
-                f"SELECT bookmark_id, tag FROM bookmark_tags WHERE bookmark_id IN ({placeholders})",
-                bm_ids,
-            ).fetchall()
-        tags_by_id: dict[int, list[str]] = {}
-        for tr in tag_rows:
-            tags_by_id.setdefault(tr["bookmark_id"], []).append(tr["tag"])
         return [
             BookmarkRecord(
                 id=r["id"],
                 url=r["url"],
                 title=r["title"],
-                tags=tags_by_id.get(r["id"], []),
+                tags=r["tags"].split(",") if r["tags"] else [],
                 bookmarked_at=r["bookmarked_at"],
                 history_id=r["history_id"],
             )

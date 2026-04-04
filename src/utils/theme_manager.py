@@ -155,10 +155,23 @@ class ThemeManager(QObject):
 
         qss = _load_qss(resolved)
         if qss:
-            from PySide6.QtWidgets import QHeaderView, QListView, QTableView, QTreeView
+            from PySide6.QtWidgets import (
+                QHeaderView,
+                QListView,
+                QListWidget,
+                QTableView,
+                QTableWidget,
+                QTreeView,
+                QTreeWidget,
+            )
 
             _SAFE_VIEW_TYPES = (QTableView, QTreeView, QListView)
-            heavy_widgets = [w for w in app.allWidgets() if type(w) in _SAFE_VIEW_TYPES and w.model() is not None]
+            _EXCLUDED_TYPES = (QListWidget, QTableWidget, QTreeWidget)
+            heavy_widgets = [
+                w
+                for w in app.allWidgets()
+                if isinstance(w, _SAFE_VIEW_TYPES) and not isinstance(w, _EXCLUDED_TYPES) and w.model() is not None
+            ]
 
             saved_state: list[tuple] = []
             for w in heavy_widgets:
