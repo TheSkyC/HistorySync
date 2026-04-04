@@ -1429,11 +1429,15 @@ class LocalDatabase:
                 device_ids=device_ids,
             )
             results = []
+            match_count = 0
             for record in iter_obj:
+                match_count += 1
+                if match_count <= offset:
+                    continue
                 results.append(record)
-                if len(results) >= offset + limit:
+                if len(results) >= limit:
                     break
-            return results[offset : offset + limit]
+            return results
 
         _COLS = (
             "h.id, h.url, h.title, h.visit_time, h.visit_count, "
