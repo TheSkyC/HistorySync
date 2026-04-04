@@ -508,7 +508,6 @@ class LocalDatabase:
                     SELECT COALESCE(SUM(pgsize), 0)
                     FROM dbstat
                     WHERE name LIKE 'history_fts%'
-                    AND aggregate = TRUE
                 """).fetchone()
                 fts_bytes = fts_pages[0] if fts_pages else 0
             except Exception:
