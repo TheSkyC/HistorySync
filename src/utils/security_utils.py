@@ -42,6 +42,22 @@ _init_keyring_backend()
 
 _HKDF_INFO = b"historysync-enc\x00"
 
+_PAD_BLOCK = 64  # pad plaintext to multiples of this size to hide true length
+
+
+def _pad(data: bytes) -> bytes:
+    n = _PAD_BLOCK - (len(data) % _PAD_BLOCK)
+    return data + bytes([n] * n)
+
+
+def _unpad(data: bytes) -> bytes:
+    if not data:
+        raise ValueError("empty payload")
+    n = data[-1]
+    if n < 1 or n > _PAD_BLOCK or data[-n:] != bytes([n] * n):
+        raise ValueError("invalid padding")
+    return data[:-n]
+
 
 def _hkdf_expand(prk: bytes, length: int) -> bytes:
     """HKDF-Expand (RFC 5869) using HMAC-SHA256. Max output: 255 * 32 = 8160 bytes."""
@@ -163,7 +179,7 @@ def encrypt_text(text: str) -> str:
         return ""
     try:
         master_key = _get_or_create_master_key()
-        text_bytes = text.encode("utf-8")
+        text_bytes = _pad(text.encode("utf-8"))
         salt = os.urandom(16)
 
         keystream = _derive_keystream(master_key, salt, len(text_bytes))
@@ -188,7 +204,11 @@ def _try_decrypt_hkdf(payload: bytes, master_key: bytes) -> str | None:
     if not hmac.compare_digest(signature, expected):
         return None
     keystream = _derive_keystream(master_key, salt, len(encrypted_bytes))
-    return bytes(a ^ b for a, b in zip(encrypted_bytes, keystream, strict=False)).decode("utf-8")
+    plain = bytes(a ^ b for a, b in zip(encrypted_bytes, keystream, strict=False))
+    try:
+        return _unpad(plain).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return None
 
 
 def _try_decrypt_legacy(payload: bytes, master_key: bytes) -> str | None:
