@@ -204,11 +204,41 @@ class LanguageManager:
 
 # ── Module-level singleton + shortcuts ───────────────────────────────────────
 
-lang_manager = LanguageManager()
+_lang_manager: list[LanguageManager | None] = [None]
+
+
+def _get_lang_manager() -> LanguageManager:
+    """Return the module-level LanguageManager, creating it on first access.
+
+    Deferred instantiation keeps the import cost of ``i18n_core`` near-zero
+    for CLI paths (e.g. ``hsync --version``) that never need localisation.
+    The singleton is still process-global: once created it is reused forever.
+    """
+    if _lang_manager[0] is None:
+        _lang_manager[0] = LanguageManager()
+    return _lang_manager[0]
+
+
+class _LangManagerProxy:
+    """Thin proxy that forwards attribute access to the lazy singleton.
+
+    Existing code that holds a reference to ``lang_manager`` (e.g.
+    ``lang_manager.setup_translation(...)``) keeps working without changes,
+    while the underlying ``LanguageManager`` is only constructed on first use.
+    """
+
+    def __getattr__(self, name: str):
+        return getattr(_get_lang_manager(), name)
+
+    def __setattr__(self, name: str, value) -> None:
+        setattr(_get_lang_manager(), name, value)
+
+
+lang_manager: LanguageManager = _LangManagerProxy()  # type: ignore[assignment]
 
 
 def _(s: str) -> str:
-    return lang_manager.gettext(s)
+    return _get_lang_manager().gettext(s)
 
 
 def N_(s: str) -> str:
