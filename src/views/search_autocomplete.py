@@ -1376,7 +1376,8 @@ class SmartSearchLineEdit(QWidget):
         self._focus_gained_reentrancy_guard = False  # re-entrancy guard for _on_focus_gained
         _app = QApplication.instance()
         _app.focusChanged.connect(self._on_focus_changed)
-        self.destroyed.connect(lambda: _app.focusChanged.disconnect(self._on_focus_changed))
+        _on_focus_changed = self._on_focus_changed
+        self.destroyed.connect(lambda: _app.focusChanged.disconnect(_on_focus_changed))
         # App-level filter: catch mouse presses anywhere to hide dropdown / blur editor
         QApplication.instance().installEventFilter(self)
 
