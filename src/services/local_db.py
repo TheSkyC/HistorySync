@@ -1823,7 +1823,9 @@ class LocalDatabase:
 
         return [(t, BROWSER_DEF_MAP[t].display_name if t in BROWSER_DEF_MAP else t) for t in self.get_browser_types()]
 
-    def search_quick(self, keyword: str, browser_type: str | None = None, limit: int = 8) -> list[HistoryRecord]:
+    def search_quick(
+        self, keyword: str, browser_type: str | None = None, limit: int = 8, offset: int = 0
+    ) -> list[HistoryRecord]:
         """Overlay-only fast read using a dedicated read-only connection.
 
         Opens a separate connection so the overlay is never blocked by
@@ -1864,8 +1866,8 @@ class LocalDatabase:
                 params.append(browser_type)
 
             where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-            sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ?"
-            params.append(limit)
+            sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
             try:
                 rows = conn.execute(sql, params).fetchall()
             except sqlite3.OperationalError:
@@ -1878,8 +1880,8 @@ class LocalDatabase:
                         conditions.append("h.browser_type = ?")
                         params.append(browser_type)
                     where = "WHERE " + " AND ".join(conditions)
-                    sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ?"
-                    params.append(limit)
+                    sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
+                    params.extend([limit, offset])
                     rows = conn.execute(sql, params).fetchall()
                 else:
                     rows = []
