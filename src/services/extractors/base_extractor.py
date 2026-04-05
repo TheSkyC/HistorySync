@@ -27,16 +27,20 @@ def copy_db_with_wal(src: Path, dst: Path) -> None:
     """
     File-level copy of an SQLite database.
 
-    Copy order: WAL/SHM first, then the main file.
-    Copying WAL first makes the replica's "main file + WAL" closer to a consistent
-    point in time, reducing the inconsistency window. WAL/SHM files might not exist;
-    skip them if missing.
+    Copy order: main file first, then WAL/SHM.
+    Copying the main file first ensures the replica is always in a state where
+    the WAL frames are newer than the main file. If a checkpoint occurs between
+    the two copies, the worst case is a slightly stale main file with a current
+    WAL — SQLite will apply the WAL on open and reach a consistent state.
+    The reverse order (WAL first) risks pairing an old WAL with a checkpointed
+    main file, causing double-application of frames and potential corruption.
+    WAL/SHM files might not exist; skip them if missing.
     """
+    shutil.copy2(str(src), str(dst))
     for suffix in ("-wal", "-shm"):
         side = src.with_name(src.name + suffix)
         if side.exists():
             shutil.copy2(str(side), str(dst.with_name(dst.name + suffix)))
-    shutil.copy2(str(src), str(dst))
 
 
 def _close_quietly(conn: sqlite3.Connection | None) -> None:
