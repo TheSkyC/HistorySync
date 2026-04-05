@@ -35,7 +35,7 @@ class BrowserMonitor(QObject):
         self._syncing_browsers: set[str] = set()
 
         self._timer = QTimer(self)
-        self._timer.setInterval(3000)  # Check every 3 seconds
+        self._timer.setInterval(30_000)  # Check every 30 s
         self._timer.timeout.connect(self._check_statuses)
 
     def start(self):

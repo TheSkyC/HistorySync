@@ -6,6 +6,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 import sqlite3
 import time
@@ -35,11 +36,15 @@ class _RawEntry:
 # ── Utilities ─────────────────────────────────────────────────
 
 
+@lru_cache(maxsize=8192)
 def extract_domain(url: str) -> str:
     """
     Extracts the registered domain from a URL to use as a cache key.
     Only processes http/https; returns an empty string for other schemes.
     Strips the 'www.' prefix to merge icons from the same site.
+
+    Results are cached with lru_cache to avoid redundant urlparse calls
+    for the same URL (called tens of thousands of times during painting).
     """
     try:
         parsed = urlparse(url)

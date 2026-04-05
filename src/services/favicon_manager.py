@@ -191,6 +191,18 @@ class FaviconManager(QObject):
         self._lru = _LRUPixmapCache()
         self._svg_renderer_cache: dict[bytes, object] = {}  # bounded, see _svg_to_pixmap
         self._svg_renderer_cache_max = 200
+        # Cache for letter-placeholder pixmaps: keyed by (letter, size, palette_index).
+        # Letter pixmaps are purely deterministic (no external state), so they can be
+        # kept indefinitely — the keyspace is tiny (26 letters × ~2 sizes × palette).
+        self._letter_pixmap_cache: dict[tuple, QPixmap] = {}
+
+        # Raw (pre-scale) pixmap cache — avoids calling QPixmap.loadFromData() more
+        # than once per favicon domain even when the same favicon is requested at
+        # multiple sizes (e.g. 16 px in the table and 14 px in the scroll bubble).
+        # Keyed by domain string; bounded to _RAW_PIXMAP_CACHE_MAX entries via FIFO
+        # eviction (insertions are rare so OrderedDict overhead is unnecessary).
+        self._raw_pixmap_cache: dict[str, QPixmap] = {}
+        self._RAW_PIXMAP_CACHE_MAX = 1200  # matches roughly 2 × LRU max (600)
 
         # Holds the FaviconExtractorManager registry instead of a bare list
         self._ext_manager = FaviconExtractorManager(
@@ -466,7 +478,7 @@ class FaviconManager(QObject):
         try:
             if record.data_type == "svg":
                 return self._svg_to_pixmap(record.data, size)
-            return self._blob_to_pixmap(record.data, size)
+            return self._blob_to_pixmap(record.data, size, cache_key=record.domain)
         except Exception as exc:
             log.warning("FaviconManager: render failed for '%s': %s", record.domain, exc)
             return QPixmap()
@@ -499,21 +511,40 @@ class FaviconManager(QObject):
             log.warning("PySide6.QtSvg not available; SVG favicon cannot be rendered")
             return QPixmap()
 
-    def _blob_to_pixmap(self, data: bytes, size: int) -> QPixmap:
-        pixmap = QPixmap()
-        if not pixmap.loadFromData(data):
-            return QPixmap()
-        if pixmap.width() != size or pixmap.height() != size:
-            pixmap = pixmap.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        return pixmap
+    def _blob_to_pixmap(self, data: bytes, size: int, cache_key: str = "") -> QPixmap:
+        """Decode *data* into a QPixmap scaled to *size* × *size*."""
+        # Look up already-decoded raw pixmap
+        raw: QPixmap | None = self._raw_pixmap_cache.get(cache_key) if cache_key else None
+
+        if raw is None:
+            raw = QPixmap()
+            if not raw.loadFromData(data):
+                return QPixmap()
+            if cache_key:
+                # FIFO eviction: if over limit, remove an arbitrary entry cheaply
+                if len(self._raw_pixmap_cache) >= self._RAW_PIXMAP_CACHE_MAX:
+                    self._raw_pixmap_cache.pop(next(iter(self._raw_pixmap_cache)))
+                self._raw_pixmap_cache[cache_key] = raw
+
+        if raw.width() == size and raw.height() == size:
+            return raw
+        return raw.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
     def _letter_pixmap(self, letter: str, size: int, seed: str = "") -> QPixmap:
         """
         Generates a colored rounded square QPixmap containing a single letter as a placeholder
         for missing icons. The color is deterministically chosen from a palette based on the
         hash of the seed (domain), ensuring consistent colors for the same domain.
+
+        Results are cached in _letter_pixmap_cache by (letter, size, palette_index) so that
+        the md5 hash + full QPainter path is only executed once per unique combination.
         """
         idx = int(hashlib.md5(seed.encode()).hexdigest()[:4], 16) % len(_LETTER_PALETTE)
+        cache_key = (letter, size, idx)
+        cached = self._letter_pixmap_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         bg_color = QColor(_LETTER_PALETTE[idx])
 
         pixmap = QPixmap(size, size)
@@ -534,4 +565,5 @@ class FaviconManager(QObject):
         painter.drawText(QRect(0, 0, size, size), Qt.AlignCenter, letter)
         painter.end()
 
+        self._letter_pixmap_cache[cache_key] = pixmap
         return pixmap

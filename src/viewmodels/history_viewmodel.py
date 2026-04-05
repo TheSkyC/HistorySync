@@ -23,6 +23,7 @@ from PySide6.QtCore import (
 )
 
 from src.models.history_record import HistoryRecord
+from src.services.extractors.favicon_extractor import extract_domain as _favicon_extract_domain
 from src.services.favicon_manager import FaviconManager
 from src.services.local_db import LocalDatabase
 from src.utils.i18n import N_, _
@@ -119,6 +120,17 @@ class HistoryTableModel(QAbstractTableModel):
         self._annotated_urls: set[str] = set()
 
         self._favicon_manager.favicons_updated.connect(self._on_favicons_updated)
+
+        # ── Prefetch debounce ─────────────────────────────────────────────────
+        # Coalesce rapid prefetch_pixmaps calls (one per _fetch_page) into a
+        # single batched call after a short idle period.  During fast scrolling
+        # multiple pages may be fetched within one frame; without debouncing
+        # each page would fire a separate DB round-trip inside prefetch_pixmaps.
+        self._prefetch_pending: list[HistoryRecord] = []
+        self._prefetch_timer = QTimer()
+        self._prefetch_timer.setSingleShot(True)
+        self._prefetch_timer.setInterval(80)  # 80 ms idle before flushing
+        self._prefetch_timer.timeout.connect(self._flush_prefetch)
 
     # ── Public API ───────────────────────────────────────────
 
@@ -432,7 +444,7 @@ class HistoryTableModel(QAbstractTableModel):
 
         new_matches = self._regex_results[before:]
         if new_matches:
-            QTimer.singleShot(0, lambda r=new_matches: self._favicon_manager.prefetch_pixmaps(r, size=16))
+            QTimer.singleShot(0, lambda r=new_matches: self._schedule_prefetch(r))
             self.records_loaded.emit(before, new_matches)
 
     def load_more_regex(self) -> bool:
@@ -540,6 +552,36 @@ class HistoryTableModel(QAbstractTableModel):
     def get_record_at(self, row: int) -> HistoryRecord | None:
         return self._get_record_at(row)
 
+    def get_visit_time_at_row(self, row: int) -> int | None:
+        """Return only the visit_time for *row* in the current filtered set.
+        Used by the scroll bubble to avoid loading full record pages."""
+        if row < 0 or row >= self._total_count:
+            return None
+        # Regex mode: results are already in memory
+        if self._use_regex and self._keyword:
+            r = self._regex_results[row] if row < len(self._regex_results) else None
+            return r.visit_time if r else None
+        # Check page cache first to avoid a DB round-trip
+        cached = self.peek_record_at(row)
+        if cached is not None:
+            return cached.visit_time
+        return self._db.get_visit_time_at_offset(
+            offset=row,
+            keyword=self._keyword,
+            browser_type=self._browser_type,
+            date_from=self._date_from,
+            date_to=self._date_to,
+            excluded_ids=self._hidden_ids,
+            domain_ids=self._domain_ids,
+            excludes=self._excludes,
+            title_only=self._title_only,
+            url_only=self._url_only,
+            bookmarked_only=self._bookmarked_only,
+            has_annotation=self._has_annotation,
+            bookmark_tag=self._bookmark_tag,
+            device_ids=self._device_ids,
+        )
+
     def peek_record_at(self, row: int) -> HistoryRecord | None:
         """Return the cached record at *row* without triggering a DB fetch.
 
@@ -614,14 +656,32 @@ class HistoryTableModel(QAbstractTableModel):
             self._page_cache.pop(oldest, None)
 
         if records:
-            # Always defer pixmap prefetch to avoid blocking the current call
-            # stack (especially important when _fetch_page is triggered from
-            # within a paint / data() call).
-            QTimer.singleShot(0, lambda r=records: self._favicon_manager.prefetch_pixmaps(r, size=16))
+            # Coalesce prefetch calls across rapid page fetches — a single
+            # batched prefetch_pixmaps call fires after an 80 ms idle period
+            # instead of one DB round-trip per page during fast scrolling.
+            QTimer.singleShot(0, lambda r=records: self._schedule_prefetch(r))
             # Notify the view so it can resize date-separator rows
             self.records_loaded.emit(offset, records)
 
         return records
+
+    # ── Prefetch debounce ─────────────────────────────────────────────────────
+
+    def _schedule_prefetch(self, records: list[HistoryRecord]) -> None:
+        """Queue records for a debounced prefetch_pixmaps call.
+
+        Multiple _fetch_page calls within 80 ms are coalesced into a single
+        prefetch_pixmaps invocation, cutting repeated SQLite round-trips when
+        the user fast-scrolls through uncached pages.
+        """
+        self._prefetch_pending.extend(records)
+        self._prefetch_timer.start()  # restart the 80 ms countdown
+
+    def _flush_prefetch(self) -> None:
+        """Flush the pending prefetch batch after the debounce idle period."""
+        if self._prefetch_pending:
+            records, self._prefetch_pending = self._prefetch_pending, []
+            self._favicon_manager.prefetch_pixmaps(records, size=16)
 
     # ── Favicon refresh ───────────────────────────────────────
 
@@ -629,13 +689,12 @@ class HistoryTableModel(QAbstractTableModel):
     def _on_favicons_updated(self, updated_domains: set) -> None:
         if not self._total_count or not updated_domains:
             return
-        from src.services.extractors.favicon_extractor import extract_domain
 
         affected_rows: list[int] = []
         for page_index, records in self._page_cache.items():
             base = page_index * CACHE_PAGE_SIZE
             for local_idx, record in enumerate(records):
-                if extract_domain(record.url) in updated_domains:
+                if _favicon_extract_domain(record.url) in updated_domains:
                     affected_rows.append(base + local_idx)
 
         if not affected_rows:

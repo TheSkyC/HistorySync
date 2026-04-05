@@ -25,6 +25,7 @@ from PySide6.QtGui import (
     QColor,
     QCursor,
     QFont,
+    QFontMetrics,
     QIcon,
     QKeySequence,
     QLinearGradient,
@@ -68,7 +69,7 @@ from src.views.search_autocomplete import SmartSearchLineEdit
 
 log = get_logger("view.history")
 
-# Weekday abbreviations for scroll bubble
+# Weekday abbreviations for scroll bubble — N_() marks for extraction, _() translates at display time
 _WEEKDAY_ABBR = [
     N_("Mon"),
     N_("Tue"),
@@ -188,21 +189,41 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
     separator pill (date label, centered pill background); the bottom _ROW_H
     pixels render the regular cell content, delegated to *sub_delegate* for
     the title column or to the default Qt painting for every other column.
+
+    ``separator_rows`` is a ``dict[int, int]`` mapping row_index → visit_time.
+    The visit_time is stored at row-height assignment time so that paint() never
+    needs to call model.data() to build the pill label — eliminating the most
+    expensive call on the hot paint path.
     """
 
     def __init__(
         self,
-        separator_rows: set[int],
-        model,  # HistoryTableModel - used to get timestamps for label text
+        separator_rows: dict[int, int],
         sub_delegate: QStyledItemDelegate | None = None,
         sub_col: int = 0,
         parent=None,
     ):
         super().__init__(parent)
         self._sep_rows = separator_rows
-        self._model = model
         self._sub = sub_delegate  # delegate used for sub_col (title column)
         self._sub_col = sub_col
+
+        # ── Theme color cache ─────────────────────────────────────────────────
+        # Avoids calling ThemeManager.instance().current on every paint() call.
+        self._cached_theme: str = ""
+        self._pill_bg = QColor(0, 0, 0, 14)
+        self._pill_border = QColor(0, 0, 0, 28)
+        self._pill_text_color = QColor(90, 100, 120)
+        self._refresh_theme_cache()
+
+        # ── Pill geometry cache ───────────────────────────────────────────────
+        # Maps date-label string → (pill_w, pill_h) so that horizontalAdvance()
+        # and QFontMetrics construction are skipped on repeated paint calls for
+        # the same date.  Cleared when the font or theme changes.
+        self._geometry_cache: dict[str, tuple[int, int]] = {}
+        self._pill_font: QFont | None = None
+        self._pill_fm: QFontMetrics | None = None
+        self._base_font_key: str = ""
 
     # ── QStyledItemDelegate interface ─────────────────────────────────────────
 
@@ -212,9 +233,10 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         return QSize(option.rect.width(), _ROW_H)
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
-        is_sep = index.row() in self._sep_rows
+        row = index.row()
+        visit_time = self._sep_rows.get(row)  # None → not a separator row
 
-        if not is_sep:
+        if visit_time is None:
             self._paint_cell(painter, option, index)
             return
 
@@ -229,9 +251,10 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         painter.fillRect(top_rect, win_color)
         painter.restore()
 
-        # Paint the date pill only once — in column 0 (leftmost visible cell)
+        # Paint the date pill only once — in column 0 (leftmost visible cell).
+        # Pass the cached visit_time directly — no model.data() call needed.
         if index.column() == 0:
-            self._paint_separator_pill(painter, top_rect, index)
+            self._paint_separator_pill(painter, top_rect, visit_time)
 
         # Paint the regular cell content in the lower portion
         adj = QStyleOptionViewItem(option)
@@ -240,6 +263,44 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
+    def _refresh_theme_cache(self) -> None:
+        """Rebuild cached QColor objects when the active theme changes.
+
+        This is a cheap string comparison on every paint call; the actual
+        QColor construction only happens on a real theme switch (~2×/session).
+        """
+        theme = ThemeManager.instance().current
+        if theme == self._cached_theme:
+            return
+        self._cached_theme = theme
+        if theme == "dark":
+            self._pill_bg = QColor(255, 255, 255, 22)
+            self._pill_border = QColor(255, 255, 255, 38)
+            self._pill_text_color = QColor(200, 208, 230)
+        else:
+            self._pill_bg = QColor(0, 0, 0, 14)
+            self._pill_border = QColor(0, 0, 0, 28)
+            self._pill_text_color = QColor(90, 100, 120)
+
+    def _get_pill_font_and_fm(self, painter_font: QFont) -> tuple[QFont, QFontMetrics]:
+        """Return a cached (QFont, QFontMetrics) pair for the pill text.
+
+        Keyed on the painter's base font family + point size so it survives
+        DPI or preference changes, but is only rebuilt when the font actually
+        changes (rare during a session).  Clears _geometry_cache on rebuild so
+        old pill widths measured with the previous font are discarded.
+        """
+        font_key = f"{painter_font.family()}:{painter_font.pointSizeF():.2f}"
+        if font_key != self._base_font_key or self._pill_font is None:
+            self._base_font_key = font_key
+            font = QFont(painter_font)
+            font.setPointSizeF(max(painter_font.pointSizeF() * 0.82, 7.5))
+            font.setWeight(QFont.Weight.Medium)
+            self._pill_font = font
+            self._pill_fm = QFontMetrics(font)
+            self._geometry_cache.clear()
+        return self._pill_font, self._pill_fm  # type: ignore[return-value]
+
     def _paint_cell(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
         """Delegate actual cell painting to sub_delegate (title col) or Qt default."""
         if index.column() == self._sub_col and self._sub is not None:
@@ -247,42 +308,35 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         else:
             super().paint(painter, option, index)
 
-    def _paint_separator_pill(self, painter: QPainter, band: QRect, index) -> None:
-        """Draw a centered pill label with the day string inside *band*."""
-        # Resolve date text from the record stored in the model
-        record = self._model.data(index.siblingAtColumn(0), Qt.UserRole)
-        if record is None:
-            return
-        label = _format_separator_date(record.visit_time)
+    def _paint_separator_pill(self, painter: QPainter, band: QRect, visit_time: int) -> None:
+        """Draw a centered pill label with the day string inside *band*.
 
-        # ── Measure text ──────────────────────────────────────────────────────
-        font = QFont(painter.font())
-        font.setPointSizeF(max(font.pointSizeF() * 0.82, 7.5))
-        font.setWeight(QFont.Weight.Medium)
-        painter.fontMetrics()
-        # Re-build metrics with the smaller font
-        from PySide6.QtGui import QFontMetrics
+        ``visit_time`` is passed directly from the ``_sep_rows`` dict — no
+        model.data() call is ever made on the hot paint path.
+        """
+        self._refresh_theme_cache()
 
-        fm2 = QFontMetrics(font)
-        text_w = fm2.horizontalAdvance(label)
-        pad_x, pad_y = 14, 3
-        pill_w = text_w + pad_x * 2
-        pill_h = fm2.height() + pad_y * 2
+        label = _format_separator_date(visit_time)
+
+        # ── Font + metrics (cached) ───────────────────────────────────────────
+        pill_font, fm2 = self._get_pill_font_and_fm(painter.font())
+
+        # ── Pill geometry (cached per label string) ───────────────────────────
+        geom = self._geometry_cache.get(label)
+        if geom is None:
+            pad_x, pad_y = 14, 3
+            pill_w = fm2.horizontalAdvance(label) + pad_x * 2
+            pill_h = fm2.height() + pad_y * 2
+            geom = (pill_w, pill_h)
+            # Bounded: at most ~365 unique dates + some headroom
+            if len(self._geometry_cache) > 400:
+                self._geometry_cache.clear()
+            self._geometry_cache[label] = geom
+        pill_w, pill_h = geom
 
         pill_x = band.left() + (band.width() - pill_w) // 2
         pill_y = band.top() + (band.height() - pill_h) // 2
         pill_rect = QRect(pill_x, pill_y, pill_w, pill_h)
-
-        # ── Colors (theme-adaptive) ───────────────────────────────────────────
-        is_dark = ThemeManager.instance().current == "dark"
-        if is_dark:
-            bg = QColor(255, 255, 255, 22)
-            border = QColor(255, 255, 255, 38)
-            text_color = QColor(200, 208, 230)
-        else:
-            bg = QColor(0, 0, 0, 14)
-            border = QColor(0, 0, 0, 28)
-            text_color = QColor(90, 100, 120)
 
         # ── Draw pill ─────────────────────────────────────────────────────────
         painter.save()
@@ -292,12 +346,12 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         radius = pill_h / 2
         path.addRoundedRect(pill_rect.x(), pill_rect.y(), pill_rect.width(), pill_rect.height(), radius, radius)
 
-        painter.fillPath(path, bg)
-        painter.setPen(QPen(border, 0.8))
+        painter.fillPath(path, self._pill_bg)
+        painter.setPen(QPen(self._pill_border, 0.8))
         painter.drawPath(path)
 
-        painter.setFont(font)
-        painter.setPen(text_color)
+        painter.setFont(pill_font)
+        painter.setPen(self._pill_text_color)
         painter.drawText(pill_rect, Qt.AlignCenter, label)
         painter.restore()
 
@@ -603,6 +657,13 @@ class _DomainRow(QWidget):
         layout.addWidget(self._name_lbl, 1)
         layout.addWidget(self._count_lbl)
 
+        # Track current style values to skip no-op setStyleSheet calls.
+        # setStyleSheet is expensive (~0.3 ms each) because Qt re-parses the
+        # CSS string and invalidates the widget's style cache even when the
+        # value hasn't changed.
+        self._current_domain_color: str = ""
+        self._current_count_color: str = ""
+
     def set_data(self, domain: str, count: int, pixmap, domain_color: str, count_color: str):
         if pixmap and not pixmap.isNull():
             self._favicon_lbl.setPixmap(pixmap)
@@ -613,9 +674,14 @@ class _DomainRow(QWidget):
         # Truncate long domains
         display = domain if len(domain) <= 20 else domain[:18] + "…"
         self._name_lbl.setText(display)
-        self._name_lbl.setStyleSheet(f"color: {domain_color}; font-size: 11px;")
+        if domain_color != self._current_domain_color:
+            self._name_lbl.setStyleSheet(f"color: {domain_color}; font-size: 11px;")
+            self._current_domain_color = domain_color
+
         self._count_lbl.setText(str(count))
-        self._count_lbl.setStyleSheet(f"color: {count_color}; font-size: 10px; font-weight: 600;")
+        if count_color != self._current_count_color:
+            self._count_lbl.setStyleSheet(f"color: {count_color}; font-size: 10px; font-weight: 600;")
+            self._current_count_color = count_color
 
 
 class _ScrollTimeBubble(QWidget):
@@ -645,6 +711,21 @@ class _ScrollTimeBubble(QWidget):
         self._last_time_str: str = ""
         self._cached_stats: dict | None = None  # {"total": int, "domains": [...]}
         self._avg_daily: float = 0.0  # rolling avg for density bar
+        # Cache the last get_day_rank result so repeated set_timestamp calls for
+        # the same (day_start, ts) pair skip the DB round-trip entirely.
+        self._last_rank_key: tuple[int, int] | None = None  # (day_start_ts, ts)
+        self._last_rank_value: int = 1
+
+        # ── Rank query debounce ───────────────────────────────────────────────
+        # get_day_rank() fires a SQLite query on every distinct (day, ts) pair.
+        # During a scrollbar drag the timestamp changes on every 50 ms tick, so
+        # without debouncing we'd hit the DB ~20×/s just for rank.  Instead we
+        # update rank only after the user pauses for 200 ms.
+        self._rank_pending_ts: int | None = None
+        self._rank_timer = QTimer(self)
+        self._rank_timer.setSingleShot(True)
+        self._rank_timer.setInterval(200)
+        self._rank_timer.timeout.connect(self._flush_rank_query)
 
         # ── Layout ──
         outer = QVBoxLayout(self)
@@ -796,23 +877,40 @@ class _ScrollTimeBubble(QWidget):
         day_progress = (dt.hour * 3600 + dt.minute * 60 + dt.second) / 86400
         self._density_bar.set_day_progress(day_progress)
 
-        # Update record-rank indicator (requires DB, only when db is ready)
+        # Update record-rank indicator — debounced to avoid a SQLite round-trip
+        # on every 50 ms scroll tick.  We schedule the actual DB query 200 ms
+        # after the last timestamp change; the bar keeps showing the previous
+        # rank value while the user is actively dragging.
         if self._db is not None:
-            try:
-                day_start = int(datetime(dt.year, dt.month, dt.day, 0, 0, 0).timestamp())
-                rank = self._db.get_day_rank(day_start, int(ts))
-                total = self._cached_stats.get("total", 1) if self._cached_stats else 1
-                self._density_bar.set_record_rank(rank, total)
-            except Exception:
-                pass
+            self._rank_pending_ts = int(ts)
+            self._rank_timer.start()  # restart 200 ms countdown
 
-        # Only query DB when the date actually changes (expensive part)
+        # Only query DB and resize when the date actually changes (expensive part).
+        # adjustSize() triggers a full Qt layout pass, so it must not be called
+        # on every 50 ms scroll tick — only when domain rows are added/removed.
         if new_date != self._last_date_str:
             self._last_date_str = new_date
             self._date_lbl.setText(new_date)
             self._load_day_stats(dt)
+            self.adjustSize()
 
-        self.adjustSize()
+    def _flush_rank_query(self) -> None:
+        """Execute the deferred get_day_rank DB query after the debounce idle period."""
+        ts = self._rank_pending_ts
+        if ts is None or self._db is None:
+            return
+        self._rank_pending_ts = None
+        try:
+            dt = datetime.fromtimestamp(ts)
+            day_start = int(datetime(dt.year, dt.month, dt.day, 0, 0, 0).timestamp())
+            rank_key = (day_start, ts)
+            if rank_key != self._last_rank_key:
+                self._last_rank_value = self._db.get_day_rank(day_start, ts)
+                self._last_rank_key = rank_key
+            total = self._cached_stats.get("total", 1) if self._cached_stats else 1
+            self._density_bar.set_record_rank(self._last_rank_value, total)
+        except Exception:
+            pass
 
     def _load_day_stats(self, dt: datetime) -> None:
         """Query DB for top domains + total count for the given day."""
@@ -869,9 +967,12 @@ class _ScrollTimeBubble(QWidget):
         if self._hiding:
             self.hide()
             self._hiding = False
-            # Reset date cache so next open always reloads
+            # Reset caches so the next open always reloads fresh data
             self._last_date_str = ""
             self._last_time_str = ""
+            self._last_rank_key = None
+            self._rank_pending_ts = None
+            self._rank_timer.stop()
 
     def reposition(self, sb: QScrollBar, page: QWidget) -> None:
         opt = QStyleOptionSlider()
@@ -913,9 +1014,11 @@ class HistoryPage(QWidget):
         self._col_resize_timer = QTimer(self)
         self._col_resize_timer.setSingleShot(True)
         self._col_resize_timer.timeout.connect(self._sync_ui_config)
+        self._scroll_bubble_timer = QTimer(self)
+        self._scroll_bubble_timer.setInterval(60)
+        self._scroll_bubble_timer.timeout.connect(self._update_scroll_bubble)
 
-        # Rows (model indices) that begin a new calendar day → get a separator strip
-        self._separator_rows: set[int] = set()
+        self._separator_rows: dict[int, int] = {}
 
         self._init_ui()
         self._connect_vm()
@@ -1101,7 +1204,6 @@ class HistoryPage(QWidget):
 
         sep_delegate = _DateSeparatorDelegate(
             separator_rows=self._separator_rows,
-            model=self._vm.table_model,
             sub_delegate=badge_delegate,
             sub_col=title_col_idx if title_col_idx is not None else 0,
             parent=self,
@@ -1126,6 +1228,8 @@ class HistoryPage(QWidget):
         * At the page boundary (local_idx == 0), peek_record_at is used to
           check the cache without triggering a fetch, preventing recursive
           page-load cascades.
+        * visit_time is stored in _separator_rows[row] so paint() never needs
+          to call model.data() to build the pill label.
         """
         if not records:
             return
@@ -1137,7 +1241,7 @@ class HistoryPage(QWidget):
             row = base_row + local_idx
             if row == 0:
                 # First record ever → always a separator
-                self._separator_rows.add(row)
+                self._separator_rows[row] = record.visit_time
                 vh.resizeSection(row, _SEP_TOTAL)
                 continue
 
@@ -1150,7 +1254,7 @@ class HistoryPage(QWidget):
                 prev = model.peek_record_at(row - 1)
                 if prev is None:
                     # Previous page not in cache — conservatively mark as separator.
-                    self._separator_rows.add(row)
+                    self._separator_rows[row] = record.visit_time
                     vh.resizeSection(row, _SEP_TOTAL)
                     continue
 
@@ -1159,12 +1263,12 @@ class HistoryPage(QWidget):
 
             if curr_day != prev_day:
                 if row not in self._separator_rows:
-                    self._separator_rows.add(row)
+                    self._separator_rows[row] = record.visit_time
                     vh.resizeSection(row, _SEP_TOTAL)
             elif row in self._separator_rows:
                 # Row was previously marked as a separator (e.g. after a
                 # model reset with different data) - un-mark it.
-                self._separator_rows.discard(row)
+                del self._separator_rows[row]
                 vh.resizeSection(row, _ROW_H)
 
     def _on_model_reset(self) -> None:
@@ -1172,7 +1276,7 @@ class HistoryPage(QWidget):
 
         Qt does NOT automatically reset per-section sizes on beginResetModel /
         endResetModel, so we must restore every enlarged row back to _ROW_H
-        before dropping the separator_rows set.
+        before dropping the separator_rows dict.
         """
         vh = self._table.verticalHeader()
         for row in self._separator_rows:
@@ -1284,7 +1388,6 @@ class HistoryPage(QWidget):
         sb = self._table.verticalScrollBar()
         sb.sliderPressed.connect(self._on_sb_pressed)
         sb.sliderReleased.connect(self._on_sb_released)
-        sb.sliderMoved.connect(self._on_sb_moved)
         # Hide bubble when app loses focus (e.g. Win key, right-click outside)
         QApplication.instance().focusChanged.connect(self._on_focus_changed)
         # Inject DB + favicon data sources into the bubble
@@ -1312,12 +1415,11 @@ class HistoryPage(QWidget):
     def _on_sb_pressed(self) -> None:
         self._update_scroll_bubble()
         self._scroll_bubble.show_animated()
+        self._scroll_bubble_timer.start()
 
     def _on_sb_released(self) -> None:
+        self._scroll_bubble_timer.stop()
         self._scroll_bubble.hide_animated()
-
-    def _on_sb_moved(self, _value: int) -> None:
-        self._update_scroll_bubble()
 
     def _on_focus_changed(self, __old, new) -> None:
         """Hide bubble when focus leaves the application."""
@@ -1325,15 +1427,18 @@ class HistoryPage(QWidget):
             self._scroll_bubble.hide_animated()
 
     def _update_scroll_bubble(self) -> None:
-        row = self._table.rowAt(0)
+        sb = self._table.verticalScrollBar()
+        pos = sb.sliderPosition()
+        vh = self._table.verticalHeader()
+        row = vh.logicalIndexAt(pos)
         if row < 0:
-            sb = self._table.verticalScrollBar()
-            row_h = max(self._table.verticalHeader().defaultSectionSize(), 1)
-            row = sb.value() // row_h
-        record = self._vm.table_model.get_record_at(row)
-        if record is None:
+            row_h = max(vh.defaultSectionSize(), 1)
+            row = max(pos // row_h, 0)
+
+        ts = self._vm.table_model.get_visit_time_at_row(row)
+        if ts is None:
             return
-        self._scroll_bubble.set_timestamp(record.visit_time)
+        self._scroll_bubble.set_timestamp(ts)
         self._scroll_bubble.reposition(self._table.verticalScrollBar(), self)
         self._scroll_bubble.raise_()
 

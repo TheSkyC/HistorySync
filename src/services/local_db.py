@@ -334,7 +334,10 @@ class LocalDatabase:
         # _migrate_schema and _verify_fts_integrity use self._conn() internally;
         # _schema_initialized is already True so they won't re-enter here.
         self._migrate_schema()
-        self._verify_fts_integrity()
+        # Run FTS integrity check in a background thread so it never blocks the
+        # main thread / UI startup (the check itself is safe to run concurrently
+        # because it only reads and the _lock protects each _conn() call).
+        threading.Thread(target=self._verify_fts_integrity, daemon=True, name="fts-integrity-check").start()
         log.info("Database schema initialized: %s", self.db_path)
 
     def _migrate_schema(self) -> None:
@@ -1648,6 +1651,50 @@ class LocalDatabase:
                 raise
         return [self._row_to_record(r) for r in rows]
 
+    def get_visit_time_at_offset(
+        self,
+        offset: int,
+        keyword: str = "",
+        browser_type: str = "",
+        date_from: int | None = None,
+        date_to: int | None = None,
+        excluded_ids: set[int] | None = None,
+        domain_ids: list[int] | None = None,
+        excludes: list[str] | None = None,
+        title_only: bool = False,
+        url_only: bool = False,
+        bookmarked_only: bool = False,
+        has_annotation: bool = False,
+        bookmark_tag: str = "",
+        device_ids: list[int] | None = None,
+    ) -> int | None:
+        """Return only the visit_time of the record at *offset* in the current
+        filtered result set.  Much cheaper than get_records() for scroll-bubble
+        updates because it fetches a single integer instead of full rows."""
+        excl = excluded_ids or set()
+        with self._conn(write=False) as conn:
+            from_where, params, _ = self._build_query_parts(
+                conn=conn,
+                keyword=keyword,
+                browser_type=browser_type,
+                date_from=date_from,
+                date_to=date_to,
+                excluded_ids=excl,
+                domain_ids=domain_ids,
+                excludes=excludes,
+                title_only=title_only,
+                url_only=url_only,
+                bookmarked_only=bookmarked_only,
+                has_annotation=has_annotation,
+                bookmark_tag=bookmark_tag,
+                _force_like=False,
+                device_ids=device_ids,
+            )
+            sql = f"SELECT h.visit_time {from_where} ORDER BY h.visit_time DESC LIMIT 1 OFFSET ?"
+            params.append(offset)
+            row = conn.execute(sql, params).fetchone()
+            return row[0] if row else None
+
     def get_filtered_count(
         self,
         keyword: str = "",
@@ -2243,8 +2290,15 @@ class LocalDatabase:
     # ── Internal helpers ──────────────────────────────────────
 
     @staticmethod
+    @staticmethod
     def _row_to_record(row) -> HistoryRecord:
-        keys = row.keys() if hasattr(row, "keys") else []
+        # sqlite3.Row always supports key-based access; no hasattr guard needed.
+        # Using try/except for the optional device_id column is O(1) — far cheaper
+        # than building a keys() list and doing an O(n) membership test on every row.
+        try:
+            device_id = row["device_id"]
+        except IndexError:
+            device_id = None
         return HistoryRecord(
             id=row["id"],
             url=row["url"],
@@ -2258,7 +2312,7 @@ class LocalDatabase:
             first_visit_time=row["first_visit_time"],
             transition_type=row["transition_type"],
             visit_duration=row["visit_duration"],
-            device_id=row["device_id"] if "device_id" in keys else None,
+            device_id=device_id,
         )
 
     def resolve_device_ids(self, name_or_uuid: str) -> list[int]:
