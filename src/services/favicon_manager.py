@@ -309,6 +309,7 @@ class FaviconManager(QObject):
         Should be called before QApplication.quit().
         """
         if self._thread is None or not self._thread.isRunning():
+            self._cache.close()
             return
         if self._worker is not None:
             self._worker.cancel()
@@ -318,6 +319,7 @@ class FaviconManager(QObject):
             log.warning("FaviconManager: worker thread did not finish in time, forcing quit")
             self._thread.quit()
             self._thread.wait(2000)
+        self._cache.close()
 
     @Slot()
     def _on_thread_finished(self) -> None:

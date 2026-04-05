@@ -182,7 +182,10 @@ class AppConfig:
             if self._fresh_tmp_dir is None:
                 import tempfile as _tempfile
 
-                self._fresh_tmp_dir = _tempfile.TemporaryDirectory(prefix="HistorySync_fresh_")
+                self._fresh_tmp_dir = _tempfile.TemporaryDirectory(
+                    prefix="HistorySync_fresh_",
+                    ignore_cleanup_errors=True,
+                )
             return Path(self._fresh_tmp_dir.name) / DB_FILENAME
         if self.db_path:
             return Path(self.db_path)
@@ -196,9 +199,25 @@ class AppConfig:
             if self._fresh_tmp_dir is None:
                 import tempfile as _tempfile
 
-                self._fresh_tmp_dir = _tempfile.TemporaryDirectory(prefix="HistorySync_fresh_")
+                self._fresh_tmp_dir = _tempfile.TemporaryDirectory(
+                    prefix="HistorySync_fresh_", ignore_cleanup_errors=True
+                )
             return Path(self._fresh_tmp_dir.name) / FAVICON_DB_FILENAME
         return _resolve_config_dir() / FAVICON_DB_FILENAME
+
+    def cleanup_fresh_tmp(self) -> None:
+        """Explicitly clean up the temporary directory used in fresh mode.
+
+        Should be called during application shutdown *after* all SQLite
+        connections to files inside the temp directory have been closed.
+        Safe to call even when not in fresh mode or when already cleaned up.
+        """
+        if self._fresh_tmp_dir is not None:
+            try:
+                self._fresh_tmp_dir.cleanup()
+            except Exception:
+                pass
+            self._fresh_tmp_dir = None
 
     def to_dict(self) -> dict:
         webdav_dict = asdict(self.webdav)

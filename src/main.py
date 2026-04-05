@@ -854,6 +854,13 @@ def _quit(main_vm=None, log=None):
             main_vm._favicon_manager.shutdown(timeout_ms=FAVICON_MANAGER_SHUTDOWN_TIMEOUT_MS)
         except Exception as exc:
             log.warning("Error during shutdown: %s", exc)
+        # Fresh mode: explicitly release the TemporaryDirectory *after* all
+        # SQLite connections are closed.  On Windows, open file handles block
+        # directory removal, so we must not rely on the GC/weakref finalizer.
+        try:
+            main_vm._config.cleanup_fresh_tmp()
+        except Exception as exc:
+            log.warning("Fresh-mode temp cleanup error: %s", exc)
 
     QApplication.quit()
 
