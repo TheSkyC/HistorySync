@@ -14,6 +14,7 @@ from src.services.extractors.chromium_extractor import ChromiumExtractor
 from src.services.extractors.firefox_extractor import FirefoxExtractor
 from src.services.local_db import LocalDatabase
 from src.utils.logger import get_logger
+from src.utils.url_utils import normalize_domain
 
 log = get_logger("extractor_manager")
 
@@ -294,23 +295,7 @@ class ExtractorManager:
 
     @staticmethod
     def _normalize_domain(domain: str) -> str:
-        """Strip port and leading ``www.`` to get a canonical domain form.
-
-        Examples::
-
-            "www.evil.com"      -> "evil.com"
-            "evil.com:8080"     -> "evil.com"
-            "WWW.Evil.COM"      -> "evil.com"
-            "api.evil.com"      -> "api.evil.com"  (non-www subdomains kept)
-        """
-        d = domain.lower().strip().lstrip(".")
-        # Strip port (present when source is urlparse().netloc rather than .hostname)
-        if ":" in d and not d.startswith("["):
-            d = d.rsplit(":", 1)[0]
-        # Strip leading "www." so "www.evil.com" and "evil.com" are treated identically
-        if d.startswith("www."):
-            d = d[4:]
-        return d
+        return normalize_domain(domain)
 
     def _is_blacklisted(self, url: str) -> bool:
         """

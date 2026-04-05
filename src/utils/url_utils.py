@@ -31,6 +31,24 @@ def extract_host(url: str) -> str | None:
         return None
 
 
+def normalize_domain(domain: str) -> str:
+    """Canonical form: lowercase, no port, no leading ``www.``
+
+    Examples::
+
+        "www.evil.com"      -> "evil.com"
+        "evil.com:8080"     -> "evil.com"
+        "WWW.Evil.COM"      -> "evil.com"
+        "api.evil.com"      -> "api.evil.com"  (non-www subdomains kept)
+    """
+    d = domain.lower().strip().lstrip(".")
+    if ":" in d and not d.startswith("["):
+        d = d.rsplit(":", 1)[0]
+    if d.startswith("www."):
+        d = d[4:]
+    return d
+
+
 def extract_display_domain(url: str) -> str:
     """Extract a human-readable domain from *url* for display and export.
 

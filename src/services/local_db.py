@@ -17,7 +17,7 @@ from src.models.history_record import AnnotationRecord, BackupStats, BookmarkRec
 from src.utils.constants import DB_BATCH_SIZE
 from src.utils.i18n_core import _
 from src.utils.logger import get_logger
-from src.utils.url_utils import extract_host as _extract_url_host
+from src.utils.url_utils import extract_host as _extract_url_host, normalize_domain
 
 log = get_logger("local_db")
 
@@ -2039,12 +2039,7 @@ class LocalDatabase:
     @staticmethod
     def _normalize_domain(domain: str) -> str:
         """Canonical form: lowercase, no port, no leading ``www.``"""
-        d = domain.lower().strip().lstrip(".")
-        if ":" in d and not d.startswith("["):
-            d = d.rsplit(":", 1)[0]
-        if d.startswith("www."):
-            d = d[4:]
-        return d
+        return normalize_domain(domain)
 
     @staticmethod
     def _domain_ids_for(conn: sqlite3.Connection, domain: str) -> list[int]:
