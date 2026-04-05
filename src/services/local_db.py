@@ -2064,18 +2064,18 @@ class LocalDatabase:
             return 0
         placeholders = ",".join("?" * len(ids))
         with self._conn() as conn:
-            # Tombstone only URLs that will have no remaining rows in any browser after deletion.
-            # A URL shared across multiple browsers must NOT be tombstoned when only one
-            # browser's copy is removed — doing so would silently wipe the other browsers'
-            # records during the next WebDAV sync.
-            # Single INSERT…SELECT merges the SELECT url + INSERT tombstone into one roundtrip.
+            # Tombstone only URLs that will have no remaining rows after deletion.
+            # A URL shared across multiple browsers must NOT be tombstoned when only
+            # one browser's copy is removed — doing so would silently wipe the other
+            # browsers' records during the next WebDAV sync.
+            # GROUP BY + HAVING avoids the O(N²) NOT IN full-table scan: the correlated
+            # COUNT uses idx_history_url (O(log N) per group) → O(M log N) total.
             conn.execute(
                 f"INSERT OR IGNORE INTO deleted_records(url) "
                 f"SELECT url FROM history WHERE id IN ({placeholders}) "
-                f"AND url NOT IN ("
-                f"  SELECT DISTINCT url FROM history WHERE id NOT IN ({placeholders})"
-                f")",
-                ids + ids,
+                f"GROUP BY url "
+                f"HAVING COUNT(*) = (SELECT COUNT(*) FROM history h2 WHERE h2.url = history.url)",
+                ids,
             )
             cursor = conn.execute(f"DELETE FROM history WHERE id IN ({placeholders})", ids)
             return cursor.rowcount
@@ -2086,14 +2086,13 @@ class LocalDatabase:
             # Tombstone only URLs that exist exclusively in this browser.
             # If a URL also appears under a different browser_type it must NOT receive a
             # tombstone — otherwise the next sync would delete the other browser's record.
-            # Single INSERT…SELECT merges the SELECT url + INSERT tombstone into one roundtrip.
+            # GROUP BY + HAVING avoids the O(N²) NOT IN full-table scan.
             conn.execute(
                 "INSERT OR IGNORE INTO deleted_records(url) "
                 "SELECT url FROM history WHERE browser_type = ? "
-                "AND url NOT IN ("
-                "  SELECT DISTINCT url FROM history WHERE browser_type != ?"
-                ")",
-                (browser_type, browser_type),
+                "GROUP BY url "
+                "HAVING COUNT(*) = (SELECT COUNT(*) FROM history h2 WHERE h2.url = history.url)",
+                (browser_type,),
             )
             cursor = conn.execute("DELETE FROM history WHERE browser_type = ?", (browser_type,))
             deleted = cursor.rowcount
@@ -2140,14 +2139,14 @@ class LocalDatabase:
                 return 0
             placeholders = ",".join("?" * len(ids))
             # Only tombstone URLs that have no surviving rows outside the deleted domain_ids.
-            # Single INSERT…SELECT merges the SELECT url + INSERT tombstone into one roundtrip.
+            # GROUP BY + HAVING avoids the O(N²) NOT IN full-table scan: the correlated
+            # COUNT uses idx_history_url (O(log N) per group) → O(M log N) total.
             conn.execute(
                 f"INSERT OR IGNORE INTO deleted_records(url) "
                 f"SELECT url FROM history WHERE domain_id IN ({placeholders}) "
-                f"AND url NOT IN ("
-                f"  SELECT DISTINCT url FROM history WHERE domain_id NOT IN ({placeholders})"
-                f")",
-                ids + ids,
+                f"GROUP BY url "
+                f"HAVING COUNT(*) = (SELECT COUNT(*) FROM history h2 WHERE h2.url = history.url)",
+                ids,
             )
             cursor = conn.execute(f"DELETE FROM history WHERE domain_id IN ({placeholders})", ids)
             conn.execute(f"DELETE FROM domains WHERE id IN ({placeholders})", ids)
