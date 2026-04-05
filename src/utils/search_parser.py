@@ -63,6 +63,8 @@ def parse_query(text: str) -> SearchQuery:
     }
 
     remaining_text = text
+    # Keyword extracted from url:/title: tokens, used only when no free-text remains.
+    _token_keyword: str = ""
 
     for token, pattern in token_patterns.items():
         if token == "exclude":
@@ -114,13 +116,13 @@ def parse_query(text: str) -> SearchQuery:
                     pass
             elif token == "title":
                 query.title_only = True
-                # group(1) = quoted phrase, group(2) = unquoted word
-                title_val = match.group(1) or match.group(2)
-                remaining_text = re.sub(pattern, title_val, remaining_text)
+                _token_keyword = match.group(1) or match.group(2)
+                remaining_text = re.sub(pattern, "", remaining_text)
                 continue
             elif token == "url":
                 query.url_only = True
-                remaining_text = re.sub(pattern, r"\1", remaining_text)
+                _token_keyword = val
+                remaining_text = re.sub(pattern, "", remaining_text)
                 continue
             elif token == "browser":
                 query.browser = val.lower()
@@ -128,5 +130,6 @@ def parse_query(text: str) -> SearchQuery:
                 query.device = val
             remaining_text = re.sub(pattern, "", remaining_text)
 
-    query.keyword = " ".join(remaining_text.split()).strip()
+    free_text = " ".join(remaining_text.split()).strip()
+    query.keyword = free_text or _token_keyword
     return query
