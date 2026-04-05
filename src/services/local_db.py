@@ -230,6 +230,14 @@ class LocalDatabase:
                     ON history(url);
                 CREATE INDEX IF NOT EXISTS idx_history_domain
                     ON history(domain_id);
+                -- Composite indexes for filtered ORDER BY visit_time DESC queries.
+                -- These allow filtered deep-pagination (OFFSET) to stay index-only,
+                -- avoiding a full table scan when browser_type or domain_id filters
+                -- are active.
+                CREATE INDEX IF NOT EXISTS idx_history_browser_time
+                    ON history(browser_type, visit_time DESC);
+                CREATE INDEX IF NOT EXISTS idx_history_domain_time
+                    ON history(domain_id, visit_time DESC);
 
                 CREATE TABLE IF NOT EXISTS backup_stats (
                     id                   INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -363,6 +371,12 @@ class LocalDatabase:
                     tag_rows,
                 )
                 log.info("Schema migration: populated bookmark_tags from CSV (%d rows)", len(tag_rows))
+
+            # Composite indexes added after initial release — CREATE IF NOT EXISTS is idempotent.
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_history_browser_time ON history(browser_type, visit_time DESC)"
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_history_domain_time ON history(domain_id, visit_time DESC)")
 
     def _verify_fts_integrity(self) -> None:
         """Run an FTS5 integrity check on startup and auto-rebuild if corrupt.
