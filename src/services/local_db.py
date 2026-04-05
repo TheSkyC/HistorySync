@@ -143,18 +143,19 @@ class LocalDatabase:
         Uses a URI read-only connection so SQLite never blocks on the write lock.
         The connection is created once and reused across calls; it is closed
         together with the main connection in _reset_conn().
+
+        Must be called with ``_ro_lock`` already held.
         """
-        with self._ro_lock:
-            if self._ro_conn is None:
-                conn = sqlite3.connect(
-                    f"file:{self.db_path}?mode=ro",
-                    uri=True,
-                    check_same_thread=False,
-                )
-                conn.row_factory = sqlite3.Row
-                conn.execute("PRAGMA temp_store=MEMORY")
-                self._ro_conn = conn
-            return self._ro_conn
+        if self._ro_conn is None:
+            conn = sqlite3.connect(
+                f"file:{self.db_path}?mode=ro",
+                uri=True,
+                check_same_thread=False,
+            )
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA temp_store=MEMORY")
+            self._ro_conn = conn
+        return self._ro_conn
 
     @contextmanager
     def _conn(self, write: bool = True) -> Iterator[sqlite3.Connection]:
@@ -1875,8 +1876,10 @@ class LocalDatabase:
         Reuses a persistent read-only connection so the overlay is never blocked
         by self._lock during concurrent sync writes (SQLite WAL allows concurrent
         readers even while a writer holds the write lock).
+
+        The entire query runs under _ro_lock to prevent a race where _reset_conn
+        closes the connection between _ensure_ro_conn() and conn.execute().
         """
-        conn = self._ensure_ro_conn()
         _COLS = (
             "h.id, h.url, h.title, h.visit_time, h.visit_count, "
             "h.browser_type, h.profile_name, h.metadata, "
@@ -1908,23 +1911,31 @@ class LocalDatabase:
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
-        try:
-            rows = conn.execute(sql, params).fetchall()
-        except sqlite3.OperationalError:
-            # FTS index unavailable — fall back to LIKE
-            if keyword:
-                from_clause = "FROM history h"
-                conditions = ["(h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')"]
-                params = [f"%{_escape_like(keyword)}%", f"%{_escape_like(keyword)}%"]
-                if browser_type and browser_type not in ("auto", "all"):
-                    conditions.append("h.browser_type = ?")
-                    params.append(browser_type)
-                where = "WHERE " + " AND ".join(conditions)
-                sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
-                params.extend([limit, offset])
+
+        with self._ro_lock:
+            conn = self._ensure_ro_conn()
+            try:
                 rows = conn.execute(sql, params).fetchall()
-            else:
-                rows = []
+            except sqlite3.ProgrammingError:
+                # Connection was closed by _reset_conn between acquire and execute — rebuild.
+                self._ro_conn = None
+                conn = self._ensure_ro_conn()
+                rows = conn.execute(sql, params).fetchall()
+            except sqlite3.OperationalError:
+                # FTS index unavailable — fall back to LIKE
+                if keyword:
+                    from_clause = "FROM history h"
+                    conditions = ["(h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')"]
+                    params = [f"%{_escape_like(keyword)}%", f"%{_escape_like(keyword)}%"]
+                    if browser_type and browser_type not in ("auto", "all"):
+                        conditions.append("h.browser_type = ?")
+                        params.append(browser_type)
+                    where = "WHERE " + " AND ".join(conditions)
+                    sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
+                    params.extend([limit, offset])
+                    rows = conn.execute(sql, params).fetchall()
+                else:
+                    rows = []
         return [self._row_to_record(r) for r in rows]
 
     def get_all_known_domains(self) -> set[str]:
