@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -164,6 +165,15 @@ class BlacklistDomainDialog(QDialog):
         h.addWidget(remove_btn)
 
         return wrapper
+
+    # ── Event overrides ───────────────────────────────────────
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        # Swallow Enter/Return so the dialog never closes via keyboard;
+        # _input.returnPressed already handles adding the domain.
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            return
+        super().keyPressEvent(event)
 
     # ── Slots ─────────────────────────────────────────────────
 
