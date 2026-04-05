@@ -303,8 +303,10 @@ class WebDavSyncService:
             remote_manifest = f"{remote_dir.rstrip('/')}/{WEBDAV_MANIFEST_FILENAME}"
             fd_m, tmp_manifest_path = tempfile.mkstemp(suffix=".json")
             try:
-                os.write(fd_m, manifest_bytes)
-                os.close(fd_m)
+                try:
+                    os.write(fd_m, manifest_bytes)
+                finally:
+                    os.close(fd_m)
                 _webdav_retry(lambda: client.upload_sync(remote_path=remote_manifest, local_path=tmp_manifest_path))
                 log.info("sync_manifest.json uploaded to %s", remote_manifest)
             except Exception as exc:
