@@ -1137,7 +1137,14 @@ class LocalDatabase:
                 # 8b. Refresh FTS for updated rows (pre-existing rows whose content
                 #     may have changed due to DO UPDATE).  We gather their ids via
                 #     a join on the dedup key, then do a delete+re-insert in FTS.
-                if records:
+                #
+                #     This block must only run when triggers were disabled (large
+                #     batches).  When triggers are active the history_au trigger
+                #     already performed the identical delete+re-insert during the
+                #     ON CONFLICT DO UPDATE; executing it a second time would
+                #     create duplicate FTS entries and cause search results to
+                #     appear multiple times.
+                if _disable_triggers and records:
                     # Build a temp table of (browser_type, url, visit_time) tuples
                     # for all input records to identify which pre-existing rows
                     # were touched by the DO UPDATE clause.
