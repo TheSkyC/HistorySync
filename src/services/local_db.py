@@ -736,8 +736,25 @@ class LocalDatabase:
 
     def replace_database(self, new_db_path: Path) -> None:
         """Safely replace the underlying SQLite file (used for WebDAV restore)."""
-        with self._lock:
+        with self._lock, self._ro_lock:
             log.info("Replacing current database with %s", new_db_path)
+            # Close all connections before touching the file so that
+            # search_quick cannot read a partially-written DB on Windows
+            # (which disallows overwriting open files) or any platform.
+            # Inline the _pconn reset here; inline the _ro_conn reset too
+            # since we already hold _ro_lock and _reset_conn would deadlock.
+            if self._pconn is not None:
+                try:
+                    self._pconn.close()
+                except Exception:
+                    pass
+                self._pconn = None
+            if self._ro_conn is not None:
+                try:
+                    self._ro_conn.close()
+                except Exception:
+                    pass
+                self._ro_conn = None
             for suffix in ("-wal", "-shm"):
                 p = self.db_path.with_name(self.db_path.name + suffix)
                 if p.exists():
@@ -746,7 +763,6 @@ class LocalDatabase:
                     except OSError as exc:
                         log.warning("Failed to delete %s: %s", p.name, exc)
             shutil.copy2(new_db_path, self.db_path)
-            self._reset_conn()
             log.info("Database successfully replaced")
 
     def merge_from_db(
