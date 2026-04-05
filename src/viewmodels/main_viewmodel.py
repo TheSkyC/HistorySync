@@ -56,6 +56,7 @@ class MainViewModel(QObject):
             self._db,
             disabled_browsers=config.extractor.disabled_browsers,
             blacklisted_domains=config.privacy.blacklisted_domains,
+            filtered_url_prefixes=config.privacy.filtered_url_prefixes,
             device_id=self._local_device_id,
         )
         self._favicon_manager = FaviconManager(config, parent=self)
@@ -163,7 +164,11 @@ class MainViewModel(QObject):
         elif browser_type not in disabled:
             disabled.append(browser_type)
         self._config.extractor.disabled_browsers = disabled
-        self._em.update_config(disabled, blacklisted_domains=self._config.privacy.blacklisted_domains)
+        self._em.update_config(
+            disabled,
+            blacklisted_domains=self._config.privacy.blacklisted_domains,
+            filtered_url_prefixes=self._config.privacy.filtered_url_prefixes,
+        )
         try:
             self._config.save()
         except Exception as exc:
@@ -176,6 +181,7 @@ class MainViewModel(QObject):
         self._em.update_config(
             self._config.extractor.disabled_browsers,
             blacklisted_domains=self._config.privacy.blacklisted_domains,
+            filtered_url_prefixes=self._config.privacy.filtered_url_prefixes,
         )
         log.info("Extractor config reloaded after wizard")
 
@@ -318,6 +324,16 @@ class MainViewModel(QObject):
     def get_blacklisted_domains(self) -> list[str]:
         return self._config.privacy.blacklisted_domains
 
+    def get_filtered_url_prefixes(self) -> list[str]:
+        return self._config.privacy.filtered_url_prefixes
+
+    def set_filtered_url_prefixes(self, prefixes: list[str]) -> None:
+        """Persist and hot-apply a new filtered_url_prefixes list."""
+        self._config.privacy.filtered_url_prefixes = list(prefixes)
+        self._config.save()
+        self._em.set_filtered_url_prefixes(prefixes)
+        log.info("filtered_url_prefixes updated (%d entries)", len(prefixes))
+
     def get_hidden_ids(self) -> set[int]:
         return self._db.get_hidden_ids()
 
@@ -335,6 +351,7 @@ class MainViewModel(QObject):
         self._em.update_config(
             config.extractor.disabled_browsers,
             blacklisted_domains=config.privacy.blacklisted_domains,
+            filtered_url_prefixes=config.privacy.filtered_url_prefixes,
         )
         self._favicon_manager.update_config(config)
         self._monitor.force_check()

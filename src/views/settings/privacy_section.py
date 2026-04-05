@@ -24,6 +24,7 @@ class PrivacySection(QWidget):
         add_domain_requested(domain: str)
         remove_domain_requested(domain: str)
         clear_hidden_requested()
+        configure_url_filters_requested()
 
     Exposes:
         refresh_blacklist(domains: list[str])
@@ -35,6 +36,7 @@ class PrivacySection(QWidget):
     add_domain_requested = Signal(str)
     remove_domain_requested = Signal(str)
     clear_hidden_requested = Signal()
+    configure_url_filters_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -67,6 +69,7 @@ class PrivacySection(QWidget):
         add_btn = QPushButton(_("Add"))
         add_btn.setIcon(get_icon("plus"))
         add_btn.clicked.connect(self._on_add_clicked)
+        self._bl_input.returnPressed.connect(self._on_add_clicked)
         bl_add_row.addWidget(self._bl_input, 1)
         bl_add_row.addWidget(add_btn)
         layout.addLayout(bl_add_row)
@@ -75,6 +78,28 @@ class PrivacySection(QWidget):
         self._blacklist_container = QVBoxLayout()
         self._blacklist_container.setSpacing(4)
         layout.addLayout(self._blacklist_container)
+
+        # ── URL Prefix Filters button ─────────────────────────
+        url_filter_row = QHBoxLayout()
+        url_filter_lbl = QLabel(_("URL Prefix Filters:"))
+        url_filter_lbl.setObjectName("stat_label")
+        url_filter_row.addWidget(url_filter_lbl)
+        url_filter_row.addStretch()
+        cfg_btn = QPushButton(_("Configure…"))
+        cfg_btn.setIcon(get_icon("filter"))
+        cfg_btn.setToolTip(
+            _("Manage URL prefixes (e.g. chrome://, about:, data:) that are silently excluded from history collection.")
+        )
+        cfg_btn.clicked.connect(self.configure_url_filters_requested)
+        url_filter_row.addWidget(cfg_btn)
+        layout.addLayout(url_filter_row)
+
+        url_filter_hint = QLabel(
+            _("URLs starting with filtered prefixes are never stored (e.g. chrome://, about:, data:).")
+        )
+        url_filter_hint.setObjectName("muted")
+        url_filter_hint.setWordWrap(True)
+        layout.addWidget(url_filter_hint)
 
         # Hidden records row
         hidden_header = QHBoxLayout()

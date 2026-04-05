@@ -543,7 +543,7 @@ class DatabaseImporter:
           locale            -> Appended to metadata (e.g., "zh-cn")
           page_profile      -> Appended to metadata
         """
-        _FILTERED_SCHEMES = ("edge://", "chrome://", "about:", "data:", "chrome-extension://")
+        from src.models.app_config import DEFAULT_FILTERED_URL_PREFIXES
 
         records: list[HistoryRecord] = []
         try:
@@ -560,7 +560,7 @@ class DatabaseImporter:
 
         for row in rows:
             url: str = row[0] or ""
-            if not url or any(url.startswith(s) for s in _FILTERED_SCHEMES):
+            if not url or url.startswith(tuple(DEFAULT_FILTERED_URL_PREFIXES)):
                 continue
 
             # Combine metadata: original metadata + locale + profile

@@ -36,7 +36,7 @@ def _make_extractor(defn) -> BaseExtractor:
 class ExtractorManager:
     """
     Centrally manages and schedules all browser history extractors.
-    Supports blacklisted domain filtering and Safari extraction.
+    Supports blacklisted domain filtering, URL-prefix filtering, and Safari extraction.
     """
 
     def __init__(
@@ -44,6 +44,7 @@ class ExtractorManager:
         db: LocalDatabase,
         disabled_browsers: list[str] | None = None,
         blacklisted_domains: list[str] | None = None,
+        filtered_url_prefixes: list[str] | None = None,
         learned_browsers: dict | None = None,
         device_id: int | None = None,
     ):
@@ -52,6 +53,12 @@ class ExtractorManager:
         self._blacklisted_domains: set[str] = set(blacklisted_domains or [])
         self._device_id: int | None = device_id
         self._registry: dict[str, BaseExtractor] = {}
+        # Import defaults lazily to avoid circular imports at module level
+        from src.models.app_config import DEFAULT_FILTERED_URL_PREFIXES
+
+        self._filtered_url_prefixes: tuple[str, ...] = tuple(
+            filtered_url_prefixes if filtered_url_prefixes is not None else DEFAULT_FILTERED_URL_PREFIXES
+        )
         self._register_builtin()
         self._register_learned(learned_browsers or {})
 
@@ -111,6 +118,7 @@ class ExtractorManager:
         self,
         disabled_browsers: list[str],
         blacklisted_domains: list[str] | None = None,
+        filtered_url_prefixes: list[str] | None = None,
     ) -> None:
         new_disabled = set(disabled_browsers)
 
@@ -131,8 +139,16 @@ class ExtractorManager:
         if blacklisted_domains is not None:
             self._blacklisted_domains = set(blacklisted_domains)
 
+        if filtered_url_prefixes is not None:
+            self._filtered_url_prefixes = tuple(filtered_url_prefixes)
+            log.info("ExtractorManager: updated filtered_url_prefixes (%d entries)", len(filtered_url_prefixes))
+
     def set_blacklisted_domains(self, domains: list[str]) -> None:
         self._blacklisted_domains = set(domains)
+
+    def set_filtered_url_prefixes(self, prefixes: list[str]) -> None:
+        self._filtered_url_prefixes = tuple(prefixes)
+        log.info("ExtractorManager: set_filtered_url_prefixes (%d entries)", len(prefixes))
 
     def set_device_id(self, device_id: int) -> None:
         self._device_id = device_id
@@ -232,6 +248,14 @@ class ExtractorManager:
             for r in records:
                 r.device_id = self._device_id
 
+        # Filter out internal/scheme-filtered URLs (chrome://, about:, data:, etc.)
+        if self._filtered_url_prefixes:
+            before = len(records)
+            records = [r for r in records if not self._is_filtered_url(r.url)]
+            after = len(records)
+            if before != after:
+                log.info("[%s] URL-prefix filter removed %d internal records", browser_type, before - after)
+
         # Filter out blacklisted domains
         if self._blacklisted_domains:
             before = len(records)
@@ -263,6 +287,10 @@ class ExtractorManager:
             progress_callback(browser_type, "done", inserted)
 
         return inserted
+
+    def _is_filtered_url(self, url: str) -> bool:
+        """Return True if the URL starts with any configured filtered prefix."""
+        return bool(self._filtered_url_prefixes) and url.startswith(self._filtered_url_prefixes)
 
     @staticmethod
     def _normalize_domain(domain: str) -> str:

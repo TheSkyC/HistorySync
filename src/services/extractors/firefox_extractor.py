@@ -15,16 +15,9 @@ log = get_logger("extractor.firefox")
 # Firefox timestamp: PRTime (microseconds), divide by 1e6 to convert to Unix seconds
 _FIREFOX_PRTIME_FACTOR = 1_000_000
 
-# Filter internal browser schemes
-_FILTERED_SCHEMES = ("about:", "place:", "moz-extension://", "data:")
-
 
 def unix_to_firefox_time(unix_sec: int) -> int:
     return unix_sec * _FIREFOX_PRTIME_FACTOR
-
-
-def _is_internal_url(url: str) -> bool:
-    return url.startswith(_FILTERED_SCHEMES)
 
 
 class FirefoxExtractor(BaseExtractor):
@@ -97,7 +90,7 @@ class FirefoxExtractor(BaseExtractor):
         for row in rows:
             url = row["url"] or "" if hasattr(row, "keys") else row[0] or "" if row else ""
 
-            if not url or _is_internal_url(url):
+            if not url:
                 continue
 
             if hasattr(row, "keys"):

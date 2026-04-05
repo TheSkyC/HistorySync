@@ -200,6 +200,7 @@ class SettingsPage(QWidget):
         self._sec_privacy.add_domain_requested.connect(self._on_add_blacklist_domain)
         self._sec_privacy.remove_domain_requested.connect(self._on_remove_blacklist_domain)
         self._sec_privacy.clear_hidden_requested.connect(self._on_clear_hidden)
+        self._sec_privacy.configure_url_filters_requested.connect(self._on_configure_url_filters)
 
         # Custom paths
         self._sec_paths.refresh_paths(cfg.extractor.custom_paths)
@@ -466,6 +467,16 @@ class SettingsPage(QWidget):
         self._vm._main_vm.history_vm.set_hidden_ids(set())
         self._sec_privacy.refresh_hidden_count(0)
         self._set_status(_("All records unhidden"), "success")
+
+    def _on_configure_url_filters(self):
+        from src.views.dialogs.url_prefix_filter_dialog import UrlPrefixFilterDialog
+
+        cfg = self._vm.get_config()
+        dlg = UrlPrefixFilterDialog(cfg.privacy.filtered_url_prefixes, parent=self)
+        if dlg.exec() == UrlPrefixFilterDialog.Accepted:
+            new_prefixes = dlg.get_prefixes()
+            self._vm._main_vm.set_filtered_url_prefixes(new_prefixes)
+            self._set_status(_("URL prefix filters saved"), "success")
 
     # ── Custom paths handlers ─────────────────────────────────
 

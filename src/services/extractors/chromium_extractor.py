@@ -16,16 +16,6 @@ log = get_logger("extractor.chromium")
 # Chromium timestamp: Microseconds since 1601-01-01 00:00:00 UTC.
 _CHROMIUM_EPOCH_DELTA_US = 11_644_473_600 * 1_000_000
 
-# Filter internal browser URLs (do not record in user history)
-_FILTERED_SCHEMES = (
-    "chrome://",
-    "edge://",
-    "brave://",
-    "about:",
-    "chrome-extension://",
-    "data:",
-)
-
 # Transition type core mask (low 8 bits)
 _TRANSITION_MASK = 0xFF
 
@@ -45,10 +35,6 @@ def unix_to_chromium_time(unix_sec: int) -> int:
     if unix_sec <= 0:
         return 0
     return unix_sec * 1_000_000 + _CHROMIUM_EPOCH_DELTA_US
-
-
-def _is_internal_url(url: str) -> bool:
-    return url.startswith(_FILTERED_SCHEMES)
 
 
 # ── ChromiumExtractor ─────────────────────────────────────────
@@ -161,7 +147,7 @@ class ChromiumExtractor(BaseExtractor):
         for row in rows:
             url: str = row["url"] if hasattr(row, "keys") else row[0]
             url = url or ""
-            if not url or _is_internal_url(url):
+            if not url:
                 continue
 
             if hasattr(row, "keys"):

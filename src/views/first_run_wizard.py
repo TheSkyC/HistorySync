@@ -253,7 +253,35 @@ class _SyncPage(_PageBase):
         note_row.addWidget(startup_note, 1)
         layout.addLayout(note_row)
 
+        layout.addSpacing(4)
+
+        # ── URL Prefix Filters shortcut ───────────────────────
+        filter_row = QHBoxLayout()
+        filter_row.setSpacing(8)
+        filter_icon = QLabel()
+        filter_icon.setFixedSize(14, 14)
+        filter_px = _svg_icon_pixmap("filter", 14, "#888")
+        if not filter_px.isNull():
+            filter_icon.setPixmap(filter_px)
+        filter_row.addWidget(filter_icon)
+        filter_lbl = QLabel(_("Want to exclude internal browser URLs?"))
+        filter_lbl.setWordWrap(True)
+        filter_lbl.setStyleSheet("color: #888; font-size: 11px;")
+        filter_row.addWidget(filter_lbl, 1)
+        self._url_filter_btn = QPushButton(_("Configure URL Filters…"))
+        self._url_filter_btn.setStyleSheet("font-size: 11px;")
+        self._url_filter_btn.clicked.connect(self._open_url_filter_dialog)
+        filter_row.addWidget(self._url_filter_btn)
+        layout.addLayout(filter_row)
+
         layout.addStretch()
+
+    def _open_url_filter_dialog(self) -> None:
+        from src.views.dialogs.url_prefix_filter_dialog import UrlPrefixFilterDialog
+
+        dlg = UrlPrefixFilterDialog(self._config.privacy.filtered_url_prefixes, parent=self)
+        if dlg.exec() == UrlPrefixFilterDialog.Accepted:
+            self._config.privacy.filtered_url_prefixes = dlg.get_prefixes()
 
     def apply(self) -> None:
         self._config.scheduler.auto_sync_enabled = self._auto_sync_cb.isChecked()

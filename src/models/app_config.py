@@ -74,11 +74,44 @@ class ExtractorConfig:
     # }
 
 
+DEFAULT_FILTERED_URL_PREFIXES: list[str] = [
+    # Chromium-based browser internal UI
+    "chrome://",
+    "edge://",
+    "brave://",
+    "opera://",
+    "vivaldi://",
+    "arc://",
+    # Local filesystem
+    "file://",
+    # Special / temporary / about pages
+    "about:",
+    "blob:",
+    "data:",
+    # Browser extension protocols
+    "chrome-extension://",
+    "moz-extension://",
+    "safari-extension://",
+    # Firefox / Gecko internal protocols
+    "resource://",
+    "place:",
+    # Chromium debug & isolated protocols
+    "devtools://",
+    "chrome-untrusted://",
+    "chrome-error://",
+    "filesystem:",
+    # Script pseudo-protocols and source viewer
+    "javascript:",
+    "view-source:",
+]
+
+
 @dataclass
 class PrivacyConfig:
-    """Domain blacklist management."""
+    """Domain blacklist and URL-prefix filter management."""
 
     blacklisted_domains: list = field(default_factory=list)
+    filtered_url_prefixes: list = field(default_factory=lambda: list(DEFAULT_FILTERED_URL_PREFIXES))
 
 
 @dataclass
