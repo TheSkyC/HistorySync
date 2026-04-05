@@ -257,6 +257,7 @@ _LINUX_UNAVAILABLE: frozenset[str] = frozenset(
         "browser_2345",
         "liebao",
         "uc",
+        "quark",
     }
 )
 """Browser types that have no Linux release and should resolve to zero paths on Linux."""
@@ -298,6 +299,7 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
             "browser_2345": [local / "2345Soft" / "2345Explorer" / "User Data"],
             "liebao": [local / "liebao" / "User Data"],
             "maxthon": [local / "Maxthon" / "User Data"],
+            "quark": [local / "QuarkBrowser" / "User Data"],
         }
     elif sys.platform == "darwin":
         sup = home / "Library" / "Application Support"
@@ -325,6 +327,7 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
             "coccoc": [sup / "CocCoc" / "Browser"],
             "thorium": [sup / "Thorium"],
             "twinkstar": [sup / "TwinkStar" / "User Data"],
+            "quark": [sup / "QuarkBrowser" / "User Data"],
             # Windows-only
             "qq_browser": [],
             "sogou": [],
@@ -369,6 +372,7 @@ def _resolve_chromium_dirs(browser_type: str) -> tuple[Path, ...]:
             "liebao": [],
             "maxthon": [],
             "uc": [],
+            "quark": [],
         }
     return tuple(mapping.get(browser_type, []))
 
@@ -530,6 +534,7 @@ BUILTIN_BROWSERS: list[BrowserDef] = [
     _make_def("liebao", "Cheetah / Liebao Browser", "chromium"),
     _make_uc_def(),
     _make_def("maxthon", "Maxthon Browser", "chromium"),
+    _make_def("quark", "Quark Browser", "chromium"),
 ]
 
 BROWSER_DEF_MAP: dict[str, BrowserDef] = {d.browser_type: d for d in BUILTIN_BROWSERS}
