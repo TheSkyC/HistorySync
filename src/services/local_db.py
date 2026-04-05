@@ -1901,6 +1901,49 @@ class LocalDatabase:
             rows = conn.execute("SELECT host FROM domains").fetchall()
         return {r[0] for r in rows}
 
+    def get_day_rank(self, day_start_ts: int, ts: int) -> int:
+        """Return the 1-based rank of ts among all records in the same day (ordered by visit_time)."""
+        with self._conn(write=False) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM history WHERE visit_time BETWEEN ? AND ?",
+                (day_start_ts, ts),
+            ).fetchone()
+        return row[0] if row else 1
+
+    def get_day_stats(self, day_start_ts: int, day_end_ts: int, top_n: int = 3) -> dict:
+        """Return stats for a given day used by the scroll time bubble.
+
+        Returns:
+            {
+                "total": int,          # total records for the day
+                "domains": [(host, count), ...]  # top N domains by visit count
+            }
+        """
+        with self._conn(write=False) as conn:
+            total_row = conn.execute(
+                "SELECT COUNT(*) FROM history WHERE visit_time BETWEEN ? AND ?",
+                (day_start_ts, day_end_ts),
+            ).fetchone()
+            total = total_row[0] if total_row else 0
+
+            domain_rows = conn.execute(
+                """
+                SELECT d.host, COUNT(h.id) AS cnt
+                FROM history h
+                JOIN domains d ON h.domain_id = d.id
+                WHERE h.visit_time BETWEEN ? AND ?
+                GROUP BY d.id
+                ORDER BY cnt DESC
+                LIMIT ?
+                """,
+                (day_start_ts, day_end_ts, top_n),
+            ).fetchall()
+
+        return {
+            "total": total,
+            "domains": [(r[0], r[1]) for r in domain_rows],
+        }
+
     def get_top_domains(self, limit: int = 30) -> list[tuple[str, int]]:
         """Return [(host, visit_count), ...] ordered by visit count descending."""
         with self._conn(write=False) as conn:

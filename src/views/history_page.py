@@ -8,30 +8,54 @@ from datetime import date, datetime
 from urllib.parse import urlparse
 import webbrowser
 
-from PySide6.QtCore import QDate, QItemSelectionModel, QRect, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QCursor, QIcon, QKeySequence, QPainter, QShortcut
+from PySide6.QtCore import (
+    QDate,
+    QEasingCurve,
+    QItemSelectionModel,
+    QPoint,
+    QPropertyAnimation,
+    QRect,
+    QSize,
+    Qt,
+    QTimer,
+    Signal,
+)
+from PySide6.QtGui import (
+    QBrush,
+    QColor,
+    QCursor,
+    QIcon,
+    QKeySequence,
+    QLinearGradient,
+    QPainter,
+    QPainterPath,
+    QShortcut,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QComboBox,
     QDateEdit,
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QMenu,
     QMessageBox,
     QPushButton,
+    QScrollBar,
     QStyle,
     QStyledItemDelegate,
     QStyleOptionHeader,
+    QStyleOptionSlider,
     QStyleOptionViewItem,
     QTableView,
     QVBoxLayout,
     QWidget,
 )
 
-from src.utils.i18n import _
+from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_browser_icon, get_icon
 from src.utils.logger import get_logger
 from src.utils.search_parser import parse_query
@@ -41,6 +65,17 @@ from src.views.annotation_dialog import AnnotationDialog
 from src.views.search_autocomplete import SmartSearchLineEdit
 
 log = get_logger("view.history")
+
+# Weekday abbreviations for scroll bubble — N_() marks for extraction, _() translates at display time
+_WEEKDAY_ABBR = [
+    N_("Mon"),
+    N_("Tue"),
+    N_("Wed"),
+    N_("Thu"),
+    N_("Fri"),
+    N_("Sat"),
+    N_("Sun"),
+]
 
 _DEBOUNCE_MS = 350
 
@@ -307,6 +342,383 @@ class BookmarkBadgeDelegate(QStyledItemDelegate):
         page._edit_annotation(record)
 
 
+class _DensityBar(QWidget):
+    """Thin bar showing how active a day was relative to the daily average."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._density: float = 0.0
+        self._day_progress: float = -1.0  # -1 = not set
+        self._record_rank: float = -1.0  # -1 = not set
+        self.setFixedHeight(6)
+
+    def set_density(self, value: float) -> None:
+        """value in [0.0, 1.0] where 1.0 = at/above average activity."""
+        self._density = max(0.0, min(1.0, value))
+        self.update()
+
+    def set_day_progress(self, value: float) -> None:
+        """value in [0.0, 1.0] representing position within the day (0=00:00, 1=23:59)."""
+        self._day_progress = max(0.0, min(1.0, value))
+        self.update()
+
+    def set_record_rank(self, rank: int, total: int) -> None:
+        """rank and total for the current record within the day (1-based)."""
+        self._record_rank = rank / max(total, 1)
+        self.update()
+
+    def paintEvent(self, _event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        w = self.width()
+        h = self.height()
+
+        # Background track
+        bg = QColor(80, 90, 120, 60)
+        painter.setBrush(bg)
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(0, 0, w, h, 2, 2)
+
+        # Fill with gradient
+        if self._density > 0:
+            fill_w = max(int(w * self._density), h)
+            grad = QLinearGradient(0, 0, fill_w, 0)
+            grad.setColorAt(0.0, QColor(60, 120, 220, 200))  # cool blue
+            grad.setColorAt(0.5, QColor(80, 180, 240, 210))  # sky blue
+            grad.setColorAt(1.0, QColor(120, 230, 180, 220))  # teal-green at peak
+            painter.setBrush(QBrush(grad))
+            painter.drawRoundedRect(0, 0, fill_w, h, 2, 2)
+
+        # Record-rank indicator: orange vertical line inside the bar
+        if self._record_rank >= 0:
+            rx = int(w * self._record_rank)
+            rx = max(1, min(w - 2, rx))
+            painter.setBrush(QColor(255, 160, 50, 220))
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(rx - 1, 0, 2, h, 1, 1)
+
+        # Day-position indicator: white dot that sits on top of the bar
+        if self._day_progress >= 0:
+            dot_r = 4
+            cx = int(w * self._day_progress)
+            cx = max(dot_r, min(w - dot_r, cx))
+            cy = h // 2
+            painter.setBrush(QColor(255, 255, 255, 230))
+            painter.setPen(QColor(0, 0, 0, 60))
+            painter.drawEllipse(QPoint(cx, cy), dot_r, dot_r)
+
+
+class _DomainRow(QWidget):
+    """A single domain row inside the scroll bubble: favicon + name + count bar."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+
+        self._favicon_lbl = QLabel()
+        self._favicon_lbl.setFixedSize(14, 14)
+        self._favicon_lbl.setScaledContents(True)
+
+        self._name_lbl = QLabel()
+        self._name_lbl.setMinimumWidth(80)
+        self._name_lbl.setMaximumWidth(130)
+
+        self._count_lbl = QLabel()
+        self._count_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        layout.addWidget(self._favicon_lbl)
+        layout.addWidget(self._name_lbl, 1)
+        layout.addWidget(self._count_lbl)
+
+    def set_data(self, domain: str, count: int, pixmap, domain_color: str, count_color: str):
+        if pixmap and not pixmap.isNull():
+            self._favicon_lbl.setPixmap(pixmap)
+            self._favicon_lbl.setVisible(True)
+        else:
+            self._favicon_lbl.setVisible(False)
+
+        # Truncate long domains
+        display = domain if len(domain) <= 20 else domain[:18] + "…"
+        self._name_lbl.setText(display)
+        self._name_lbl.setStyleSheet(f"color: {domain_color}; font-size: 11px;")
+        self._count_lbl.setText(str(count))
+        self._count_lbl.setStyleSheet(f"color: {count_color}; font-size: 10px; font-weight: 600;")
+
+
+class _ScrollTimeBubble(QWidget):
+    """Floating context bubble shown while dragging the vertical scrollbar.
+
+    Displays:
+    - Date + time of the record at the current scroll position
+    - Top 3 domains visited on that day (with favicons and visit counts)
+    - A density bar showing how active that day was vs the overall average
+    - Total record count for the day
+    """
+
+    def __init__(self, parent: QWidget) -> None:
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+
+        self._bg_color = QColor(28, 31, 38, 237)
+        self._border_color = QColor(70, 80, 100, 140)
+
+        # ── DB / favicon references (set by HistoryPage) ──
+        self._db = None
+        self._favicon_manager = None
+
+        # ── State cache: avoid redundant DB queries ──
+        self._last_date_str: str = ""
+        self._last_time_str: str = ""
+        self._cached_stats: dict | None = None  # {"total": int, "domains": [...]}
+        self._avg_daily: float = 0.0  # rolling avg for density bar
+
+        # ── Layout ──
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(12, 9, 12, 9)
+        outer.setSpacing(0)
+
+        # Date + time row
+        time_row = QHBoxLayout()
+        time_row.setSpacing(8)
+        self._date_lbl = QLabel()
+        self._date_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self._time_lbl = QLabel()
+        self._time_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        time_row.addWidget(self._date_lbl)
+        time_row.addStretch()
+        time_row.addWidget(self._time_lbl)
+        outer.addLayout(time_row)
+
+        # Divider
+        self._divider = QFrame()
+        self._divider.setFrameShape(QFrame.HLine)
+        self._divider.setFixedHeight(1)
+        outer.addSpacing(5)
+        outer.addWidget(self._divider)
+        outer.addSpacing(5)
+
+        # Domain rows (up to 3)
+        self._domain_rows: list[_DomainRow] = []
+        for _ in range(3):
+            row = _DomainRow(self)
+            row.hide()
+            outer.addWidget(row)
+            self._domain_rows.append(row)
+
+        # Bottom: density bar + total count
+        outer.addSpacing(6)
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(8)
+        self._density_bar = _DensityBar(self)
+        self._density_bar.setFixedHeight(6)
+        self._total_lbl = QLabel()
+        self._total_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self._total_lbl.setFixedWidth(62)  # Wide enough for "999 records", prevents bar jitter
+        bottom_row.addWidget(self._density_bar, 1)
+        bottom_row.addWidget(self._total_lbl)
+        outer.addLayout(bottom_row)
+
+        # ── Animation ──
+        self._effect = QGraphicsOpacityEffect(self)
+        self._effect.setOpacity(0.0)
+        self.setGraphicsEffect(self._effect)
+
+        self._anim = QPropertyAnimation(self._effect, b"opacity", self)
+        self._anim.setDuration(150)
+        self._anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._hiding = False
+        self._anim.finished.connect(self._on_anim_done)
+
+        self.setFixedWidth(220)
+        self.hide()
+        self.apply_theme(ThemeManager.instance().current)
+
+    def set_data_sources(self, db, favicon_manager) -> None:
+        """Called by HistoryPage after construction to inject data sources."""
+        self._db = db
+        self._favicon_manager = favicon_manager
+        # Precompute the average daily record count for the density bar
+        self._refresh_avg_daily()
+
+    def _refresh_avg_daily(self) -> None:
+        if self._db is None:
+            return
+        try:
+            stats = self._db.get_db_stats()
+            total = getattr(stats, "record_count", 0)
+
+            if total <= 0:
+                self._avg_daily = 100.0
+                return
+
+            with self._db._conn(write=False) as conn:
+                row = conn.execute("SELECT MIN(visit_time), MAX(visit_time) FROM history").fetchone()
+                span_days = max((row[1] - row[0]) / 86400, 1) if row and row[0] and row[1] else 365
+
+            real_avg = total / span_days
+            self._avg_daily = max(real_avg, 50.0)
+
+            log.debug("Scroll bubble: total=%d, days=%.1f, avg=%.1f", total, span_days, self._avg_daily)
+        except Exception as e:
+            log.warning("Failed to refresh avg daily stats: %s", e)
+            self._avg_daily = 100.0
+
+    def apply_theme(self, theme: str) -> None:
+        is_dark = theme == "dark"
+        if is_dark:
+            self._bg_color = QColor(22, 25, 34, 245)
+            self._border_color = QColor(70, 80, 100, 130)
+            self._date_color = "#e2e5f0"
+            self._time_color = "#5a6580"
+            self._domain_color = "#b0b8d0"
+            self._count_color = "#5a9cf8"
+            self._total_color = "#4a5570"
+            self._divider.setStyleSheet("background: #2e3347;")
+        else:
+            self._bg_color = QColor(250, 251, 255, 245)
+            self._border_color = QColor(200, 208, 228, 180)
+            self._date_color = "#1a1e2e"
+            self._time_color = "#8896b0"
+            self._domain_color = "#3a4260"
+            self._count_color = "#2563eb"
+            self._total_color = "#9aa0b4"
+            self._divider.setStyleSheet("background: #dde2f0;")
+
+        self._date_lbl.setStyleSheet(
+            f"color: {self._date_color}; font-size: 13px; font-weight: 700; background: transparent;"
+        )
+        self._time_lbl.setStyleSheet(f"color: {self._time_color}; font-size: 11px; background: transparent;")
+        self._total_lbl.setStyleSheet(f"color: {self._total_color}; font-size: 10px; background: transparent;")
+        # Force domain rows to repaint with new colors if data is already loaded
+        if self._cached_stats:
+            self._render_domain_rows(self._cached_stats)
+        self.update()
+
+    def paintEvent(self, _event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        path = QPainterPath()
+        path.addRoundedRect(self.rect(), 12, 12)
+        painter.fillPath(path, self._bg_color)
+        painter.setPen(self._border_color)
+        painter.drawPath(path)
+
+    def set_timestamp(self, ts: int) -> None:
+        now = datetime.now()
+        dt = datetime.fromtimestamp(ts)
+
+        weekday = _(_WEEKDAY_ABBR[dt.weekday()])  # 0=Mon ... 6=Sun
+        new_date = (
+            (dt.strftime("%m-%d") + f" {weekday}") if dt.year == now.year else (dt.strftime("%Y-%m-%d") + f" {weekday}")
+        )
+        new_time = dt.strftime("%H:%M")
+
+        # Always update time label
+        if new_time != self._last_time_str:
+            self._time_lbl.setText(new_time)
+            self._last_time_str = new_time
+
+        # Update day-position indicator on every timestamp change
+        day_progress = (dt.hour * 3600 + dt.minute * 60 + dt.second) / 86400
+        self._density_bar.set_day_progress(day_progress)
+
+        # Update record-rank indicator (requires DB, only when db is ready)
+        if self._db is not None:
+            try:
+                day_start = int(datetime(dt.year, dt.month, dt.day, 0, 0, 0).timestamp())
+                rank = self._db.get_day_rank(day_start, int(ts))
+                total = self._cached_stats.get("total", 1) if self._cached_stats else 1
+                self._density_bar.set_record_rank(rank, total)
+            except Exception:
+                pass
+
+        # Only query DB when the date actually changes (expensive part)
+        if new_date != self._last_date_str:
+            self._last_date_str = new_date
+            self._date_lbl.setText(new_date)
+            self._load_day_stats(dt)
+
+        self.adjustSize()
+
+    def _load_day_stats(self, dt: datetime) -> None:
+        """Query DB for top domains + total count for the given day."""
+        if self._db is None:
+            return
+        try:
+            day_start = int(datetime(dt.year, dt.month, dt.day, 0, 0, 0).timestamp())
+            day_end = day_start + 86399
+            stats = self._db.get_day_stats(day_start, day_end, top_n=3)
+            self._cached_stats = stats
+            self._render_domain_rows(stats)
+            # Update density bar
+            total = stats.get("total", 0)
+            density = min(total / max(self._avg_daily, 1.0), 1.0)
+            self._density_bar.set_density(density)
+            self._total_lbl.setText(_("{n} records").format(n=total))
+        except Exception:
+            self._cached_stats = None
+
+    def _render_domain_rows(self, stats: dict) -> None:
+        """Populate domain row widgets from cached stats."""
+        domains = stats.get("domains", [])
+        for i, row_widget in enumerate(self._domain_rows):
+            if i < len(domains):
+                host, count = domains[i]
+                pixmap = None
+                if self._favicon_manager:
+                    try:
+                        pixmap = self._favicon_manager.get_pixmap(f"https://{host}", size=14)
+                    except Exception:
+                        pass
+                row_widget.set_data(host, count, pixmap, self._domain_color, self._count_color)
+                row_widget.show()
+            else:
+                row_widget.hide()
+
+    def show_animated(self) -> None:
+        self._hiding = False
+        self._anim.stop()
+        self._anim.setStartValue(self._effect.opacity())
+        self._anim.setEndValue(1.0)
+        self.show()
+        self.raise_()
+        self._anim.start()
+
+    def hide_animated(self) -> None:
+        self._hiding = True
+        self._anim.stop()
+        self._anim.setStartValue(self._effect.opacity())
+        self._anim.setEndValue(0.0)
+        self._anim.start()
+
+    def _on_anim_done(self) -> None:
+        if self._hiding:
+            self.hide()
+            self._hiding = False
+            # Reset date cache so next open always reloads
+            self._last_date_str = ""
+            self._last_time_str = ""
+
+    def reposition(self, sb: QScrollBar, page: QWidget) -> None:
+        opt = QStyleOptionSlider()
+        sb.initStyleOption(opt)
+        thumb_rect = sb.style().subControlRect(
+            QStyle.ComplexControl.CC_ScrollBar,
+            opt,
+            QStyle.SubControl.SC_ScrollBarSlider,
+            sb,
+        )
+        thumb_center_y = sb.mapTo(page, QPoint(0, thumb_rect.center().y())).y()
+        sb_left_x = sb.mapTo(page, QPoint(0, 0)).x()
+        x = sb_left_x - self.width() - 8
+        y = max(0, min(thumb_center_y - self.height() // 2, page.height() - self.height()))
+        self.move(x, y)
+
+
 class HistoryPage(QWidget):
     # Signals to parent for blacklist / hide changes
     blacklist_domain_requested = Signal(str)
@@ -459,6 +871,10 @@ class HistoryPage(QWidget):
         # Set badge delegate for title column
         self._setup_badge_delegate()
 
+        # Floating time bubble shown while dragging the scrollbar
+        self._scroll_bubble = _ScrollTimeBubble(self)
+        # Data sources are injected in _connect_vm after vm is ready
+
         root.addWidget(self._table, 1)
 
         # ── Bottom bar ────────────────────────────────────────
@@ -597,6 +1013,15 @@ class HistoryPage(QWidget):
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
         # Trigger regex incremental loading when scrolling to the bottom
         self._table.verticalScrollBar().valueChanged.connect(self._on_scroll_check_load_more)
+        # Floating time bubble on scrollbar drag
+        sb = self._table.verticalScrollBar()
+        sb.sliderPressed.connect(self._on_sb_pressed)
+        sb.sliderReleased.connect(self._on_sb_released)
+        sb.sliderMoved.connect(self._on_sb_moved)
+        # Hide bubble when app loses focus (e.g. Win key, right-click outside)
+        QApplication.instance().focusChanged.connect(self._on_focus_changed)
+        # Inject DB + favicon data sources into the bubble
+        self._scroll_bubble.set_data_sources(self._vm._db, self._vm._favicon_manager)
 
     def _on_scroll_check_load_more(self, value: int):
         """Trigger regex incremental loading when the scrollbar approaches the bottom."""
@@ -609,9 +1034,38 @@ class HistoryPage(QWidget):
         if value >= threshold:
             self._vm.load_more()
 
-    def _on_theme_changed(self, _theme: str) -> None:
+    def _on_theme_changed(self, theme: str) -> None:
         """Only repaint the visible viewport on theme change, bypassing full table dataChanged callbacks."""
         self._table.viewport().update()
+        self._scroll_bubble.apply_theme(theme)
+
+    def _on_sb_pressed(self) -> None:
+        self._update_scroll_bubble()
+        self._scroll_bubble.show_animated()
+
+    def _on_sb_released(self) -> None:
+        self._scroll_bubble.hide_animated()
+
+    def _on_sb_moved(self, _value: int) -> None:
+        self._update_scroll_bubble()
+
+    def _on_focus_changed(self, __old, new) -> None:
+        """Hide bubble when focus leaves the application."""
+        if new is None:
+            self._scroll_bubble.hide_animated()
+
+    def _update_scroll_bubble(self) -> None:
+        row = self._table.rowAt(0)
+        if row < 0:
+            sb = self._table.verticalScrollBar()
+            row_h = max(self._table.verticalHeader().defaultSectionSize(), 1)
+            row = sb.value() // row_h
+        record = self._vm.table_model.get_record_at(row)
+        if record is None:
+            return
+        self._scroll_bubble.set_timestamp(record.visit_time)
+        self._scroll_bubble.reposition(self._table.verticalScrollBar(), self)
+        self._scroll_bubble.raise_()
 
     def _on_columns_changed(self):
         QTimer.singleShot(0, self._apply_column_widths)
