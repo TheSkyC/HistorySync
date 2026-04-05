@@ -1209,8 +1209,9 @@ class _GhostTextEditor(QPlainTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._overlay: _GhostOverlay | None = None
-        # Track viewport resize so the overlay always covers it fully
         self.viewport().installEventFilter(self)
+        # Lock vertical scrollbar range to (0,0) so drag-selection can never scroll the content out of view
+        self.verticalScrollBar().rangeChanged.connect(lambda _min, _max: self.verticalScrollBar().setRange(0, 0))
 
     # ── Overlay lifecycle ─────────────────────────────────
 
@@ -1233,6 +1234,10 @@ class _GhostTextEditor(QPlainTextEdit):
             self._overlay.set_ghost_text("")
 
     # ── Keep overlay sized to viewport ───────────────────
+
+    def scrollContentsBy(self, dx: int, dy: int) -> None:
+        """Suppress vertical scrolling — the editor is single-line height."""
+        super().scrollContentsBy(dx, 0)
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # type: ignore[override]
         if obj is self.viewport() and event.type() == QEvent.Type.Resize:
