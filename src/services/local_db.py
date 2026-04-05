@@ -776,6 +776,9 @@ class LocalDatabase:
         src_conn = sqlite3.connect(str(src_path), timeout=30)
         src_conn.row_factory = sqlite3.Row
         try:
+            integrity = src_conn.execute("PRAGMA integrity_check").fetchone()[0]
+            if integrity != "ok":
+                raise ValueError(f"Backup database failed integrity check: {integrity}")
             # Collect remote tombstones so we don't resurrect remotely-deleted records
             try:
                 remote_deleted = src_conn.execute("SELECT url, deleted_at FROM deleted_records").fetchall()
