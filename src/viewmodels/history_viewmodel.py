@@ -7,7 +7,9 @@ from collections import OrderedDict
 from datetime import UTC, datetime
 from functools import lru_cache
 import re
+import time as _time
 from typing import Any
+from urllib.parse import urlparse
 
 from PySide6.QtCore import (
     QAbstractTableModel,
@@ -67,6 +69,10 @@ class HistoryTableModel(QAbstractTableModel):
 
     total_count_changed = Signal(int, bool)  # (count, has_more)
     columns_changed = Signal()
+    # Emitted after every batch write to the page cache so the view can update
+    # row heights for date-separator rows without iterating all records.
+    # Payload: (base_row_index, records_in_batch)
+    records_loaded = Signal(int, list)
 
     def __init__(self, db: LocalDatabase, favicon_manager: FaviconManager, visible_columns=None, parent=None):
         super().__init__(parent)
@@ -292,19 +298,8 @@ class HistoryTableModel(QAbstractTableModel):
         return None
 
     def _extract_domain(self, url: str) -> str:
-        """Extract domain from URL."""
-        try:
-            from urllib.parse import urlparse
-
-            netloc = urlparse(url).netloc or ""
-            # Strip port
-            domain = netloc.rsplit(":", 1)[0] if ":" in netloc and not netloc.startswith("[") else netloc
-            # Strip www.
-            if domain.lower().startswith("www."):
-                domain = domain[4:]
-            return domain.lower()
-        except Exception:
-            return ""
+        """Extract domain from URL (cached)."""
+        return _extract_domain_cached(url)
 
     # ── Data loading ─────────────────────────────────────────
 
@@ -384,7 +379,7 @@ class HistoryTableModel(QAbstractTableModel):
 
         # Non-regex mode: prefetch the first page
         if not (self._use_regex and self._keyword) and self._total_count > 0:
-            self._fetch_page(0, defer_pixmaps=True)
+            self._fetch_page(0)
 
     def load_more(self) -> bool:
         """In virtualised mode, delegate to load_more_regex() for regex searches; otherwise no manual loading needed."""
@@ -438,6 +433,7 @@ class HistoryTableModel(QAbstractTableModel):
         new_matches = self._regex_results[before:]
         if new_matches:
             QTimer.singleShot(0, lambda r=new_matches: self._favicon_manager.prefetch_pixmaps(r, size=16))
+            self.records_loaded.emit(before, new_matches)
 
     def load_more_regex(self) -> bool:
         """Load the next batch of regex matches and append them to the model. Returns True if new rows were added."""
@@ -544,6 +540,23 @@ class HistoryTableModel(QAbstractTableModel):
     def get_record_at(self, row: int) -> HistoryRecord | None:
         return self._get_record_at(row)
 
+    def peek_record_at(self, row: int) -> HistoryRecord | None:
+        """Return the cached record at *row* without triggering a DB fetch.
+
+        Used by the view layer (date-separator logic) to avoid recursive
+        page-fetch cascades when checking the previous row at a page boundary.
+        """
+        if row < 0 or row >= self._total_count:
+            return None
+        if self._use_regex and self._keyword:
+            return self._regex_results[row] if row < len(self._regex_results) else None
+        page_index = row // CACHE_PAGE_SIZE
+        page = self._page_cache.get(page_index)
+        if page is None:
+            return None
+        local_row = row % CACHE_PAGE_SIZE
+        return page[local_row] if local_row < len(page) else None
+
     # ── Internal: virtual page cache ─────────────────────────
 
     def _get_record_at(self, row: int) -> HistoryRecord | None:
@@ -569,7 +582,7 @@ class HistoryTableModel(QAbstractTableModel):
             return self._page_cache[page_index]
         return self._fetch_page(page_index)
 
-    def _fetch_page(self, page_index: int, defer_pixmaps: bool = False) -> list[HistoryRecord]:
+    def _fetch_page(self, page_index: int) -> list[HistoryRecord]:
         """Fetch one page from the database and write it into the LRU cache."""
         offset = page_index * CACHE_PAGE_SIZE
         records = self._db.get_records(
@@ -601,10 +614,12 @@ class HistoryTableModel(QAbstractTableModel):
             self._page_cache.pop(oldest, None)
 
         if records:
-            if defer_pixmaps:
-                QTimer.singleShot(0, lambda r=records: self._favicon_manager.prefetch_pixmaps(r, size=16))
-            else:
-                self._favicon_manager.prefetch_pixmaps(records, size=16)
+            # Always defer pixmap prefetch to avoid blocking the current call
+            # stack (especially important when _fetch_page is triggered from
+            # within a paint / data() call).
+            QTimer.singleShot(0, lambda r=records: self._favicon_manager.prefetch_pixmaps(r, size=16))
+            # Notify the view so it can resize date-separator rows
+            self.records_loaded.emit(offset, records)
 
         return records
 
@@ -815,6 +830,19 @@ def _browser_display_name(bt: str) -> str:
 
 
 @lru_cache(maxsize=4096)
+def _extract_domain_cached(url: str) -> str:
+    """Extract and normalise domain from a URL (cached)."""
+    try:
+        netloc = urlparse(url).netloc or ""
+        domain = netloc.rsplit(":", 1)[0] if ":" in netloc and not netloc.startswith("[") else netloc
+        if domain.lower().startswith("www."):
+            domain = domain[4:]
+        return domain.lower()
+    except Exception:
+        return ""
+
+
+@lru_cache(maxsize=4096)
 def _format_time_cached(ts: int, tz_offset_seconds: int) -> str:
     if not ts:
         return ""
@@ -824,9 +852,18 @@ def _format_time_cached(ts: int, tz_offset_seconds: int) -> str:
         return str(ts)
 
 
+# Cache timezone offset — refreshed at most once per 60 s to catch DST transitions
+# without paying the cost of 3 datetime allocations on every cell render.
+# [offset_seconds, monotonic_timestamp]
+_tz_cache: list[int | float] = [0, 0.0]
+
+
 def _format_time(ts: int) -> str:
-    tz_offset = int(datetime.now(UTC).astimezone().utcoffset().total_seconds())
-    return _format_time_cached(ts, tz_offset)
+    now = _time.monotonic()
+    if now - _tz_cache[1] > 60:
+        _tz_cache[0] = int(datetime.now(UTC).astimezone().utcoffset().total_seconds())
+        _tz_cache[1] = now
+    return _format_time_cached(ts, _tz_cache[0])
 
 
 _CHROMIUM_TRANSITION_LABELS = {

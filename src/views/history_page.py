@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from urllib.parse import urlparse
 import webbrowser
 
@@ -24,11 +24,13 @@ from PySide6.QtGui import (
     QBrush,
     QColor,
     QCursor,
+    QFont,
     QIcon,
     QKeySequence,
     QLinearGradient,
     QPainter,
     QPainterPath,
+    QPen,
     QShortcut,
 )
 from PySide6.QtWidgets import (
@@ -66,7 +68,7 @@ from src.views.search_autocomplete import SmartSearchLineEdit
 
 log = get_logger("view.history")
 
-# Weekday abbreviations for scroll bubble — N_() marks for extraction, _() translates at display time
+# Weekday abbreviations for scroll bubble
 _WEEKDAY_ABBR = [
     N_("Mon"),
     N_("Tue"),
@@ -76,6 +78,45 @@ _WEEKDAY_ABBR = [
     N_("Sat"),
     N_("Sun"),
 ]
+
+# Full weekday names for date-separator headers
+_WEEKDAY_FULL = [
+    N_("Monday"),
+    N_("Tuesday"),
+    N_("Wednesday"),
+    N_("Thursday"),
+    N_("Friday"),
+    N_("Saturday"),
+    N_("Sunday"),
+]
+
+
+def _format_separator_date(ts: int) -> str:
+    """Return a human-readable date label for the separator strip.
+
+    · Today              → translated "Today"
+    · Yesterday          → translated "Yesterday"
+    · Same calendar year → e.g. "Oct 24  Wednesday"  /  "10月24日 星期三"
+    · Earlier year       → e.g. "2023 Dec 1  Wednesday" / "2023年12月1日 星期三"
+
+    Format strings are translatable so each locale can rearrange tokens.
+    """
+
+    dt = datetime.fromtimestamp(ts)
+    today = date.today()
+    record_date = dt.date()
+    weekday = _(_WEEKDAY_FULL[dt.weekday()])
+
+    if record_date == today:
+        return _("Today")
+    if record_date == today - timedelta(days=1):
+        return _("Yesterday")
+    if dt.year == today.year:
+        # Translators: date separator - same year.  tokens: {month} {day} {weekday}
+        return _("{month}/{day}  {weekday}").format(month=dt.month, day=dt.day, weekday=weekday)
+    # Translators: date separator - different year.  tokens: {year} {month} {day} {weekday}
+    return _("{year}/{month}/{day}  {weekday}").format(year=dt.year, month=dt.month, day=dt.day, weekday=weekday)
+
 
 _DEBOUNCE_MS = 350
 
@@ -130,6 +171,135 @@ class _IconHeaderView(QHeaderView):
         """Show column visibility configuration menu."""
         if self._page:
             self._page._show_column_config_menu(self.mapToGlobal(pos), self.logicalIndexAt(pos))
+
+
+# ── Date-separator constants ──────────────────────────────────────────────────
+_SEP_H = 26  # height of the date-separator band in pixels
+_ROW_H = 38  # normal cell-content height in pixels
+_SEP_TOTAL = _SEP_H + _ROW_H  # total row height when a separator is shown
+
+
+class _DateSeparatorDelegate(QStyledItemDelegate):
+    """Table-wide delegate that injects a Telegram-style date-separator strip
+    at the top of every first-of-day row.
+
+    For rows that start a new calendar day the cell's total height is
+    ``_SEP_TOTAL`` (_SEP_H + _ROW_H).  The top _SEP_H pixels render the
+    separator pill (date label, centered pill background); the bottom _ROW_H
+    pixels render the regular cell content, delegated to *sub_delegate* for
+    the title column or to the default Qt painting for every other column.
+    """
+
+    def __init__(
+        self,
+        separator_rows: set[int],
+        model,  # HistoryTableModel - used to get timestamps for label text
+        sub_delegate: QStyledItemDelegate | None = None,
+        sub_col: int = 0,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self._sep_rows = separator_rows
+        self._model = model
+        self._sub = sub_delegate  # delegate used for sub_col (title column)
+        self._sub_col = sub_col
+
+    # ── QStyledItemDelegate interface ─────────────────────────────────────────
+
+    def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
+        if index.row() in self._sep_rows:
+            return QSize(option.rect.width(), _SEP_TOTAL)
+        return QSize(option.rect.width(), _ROW_H)
+
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
+        is_sep = index.row() in self._sep_rows
+
+        if not is_sep:
+            self._paint_cell(painter, option, index)
+            return
+
+        # ── Separator row: split the rect into top band + content band ────────
+        top_rect = QRect(option.rect.left(), option.rect.top(), option.rect.width(), _SEP_H)
+        content_rect = QRect(option.rect.left(), option.rect.top() + _SEP_H, option.rect.width(), _ROW_H)
+
+        # Fill separator band background (matches the view's window color so it
+        # blends naturally regardless of alternating-row-colors settings).
+        painter.save()
+        win_color = option.palette.color(option.palette.ColorRole.Window)
+        painter.fillRect(top_rect, win_color)
+        painter.restore()
+
+        # Paint the date pill only once — in column 0 (leftmost visible cell)
+        if index.column() == 0:
+            self._paint_separator_pill(painter, top_rect, index)
+
+        # Paint the regular cell content in the lower portion
+        adj = QStyleOptionViewItem(option)
+        adj.rect = content_rect
+        self._paint_cell(painter, adj, index)
+
+    # ── Internal helpers ──────────────────────────────────────────────────────
+
+    def _paint_cell(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
+        """Delegate actual cell painting to sub_delegate (title col) or Qt default."""
+        if index.column() == self._sub_col and self._sub is not None:
+            self._sub.paint(painter, option, index)
+        else:
+            super().paint(painter, option, index)
+
+    def _paint_separator_pill(self, painter: QPainter, band: QRect, index) -> None:
+        """Draw a centered pill label with the day string inside *band*."""
+        # Resolve date text from the record stored in the model
+        record = self._model.data(index.siblingAtColumn(0), Qt.UserRole)
+        if record is None:
+            return
+        label = _format_separator_date(record.visit_time)
+
+        # ── Measure text ──────────────────────────────────────────────────────
+        font = QFont(painter.font())
+        font.setPointSizeF(max(font.pointSizeF() * 0.82, 7.5))
+        font.setWeight(QFont.Weight.Medium)
+        painter.fontMetrics()
+        # Re-build metrics with the smaller font
+        from PySide6.QtGui import QFontMetrics
+
+        fm2 = QFontMetrics(font)
+        text_w = fm2.horizontalAdvance(label)
+        pad_x, pad_y = 14, 3
+        pill_w = text_w + pad_x * 2
+        pill_h = fm2.height() + pad_y * 2
+
+        pill_x = band.left() + (band.width() - pill_w) // 2
+        pill_y = band.top() + (band.height() - pill_h) // 2
+        pill_rect = QRect(pill_x, pill_y, pill_w, pill_h)
+
+        # ── Colors (theme-adaptive) ───────────────────────────────────────────
+        is_dark = ThemeManager.instance().current == "dark"
+        if is_dark:
+            bg = QColor(255, 255, 255, 22)
+            border = QColor(255, 255, 255, 38)
+            text_color = QColor(200, 208, 230)
+        else:
+            bg = QColor(0, 0, 0, 14)
+            border = QColor(0, 0, 0, 28)
+            text_color = QColor(90, 100, 120)
+
+        # ── Draw pill ─────────────────────────────────────────────────────────
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        path = QPainterPath()
+        radius = pill_h / 2
+        path.addRoundedRect(pill_rect.x(), pill_rect.y(), pill_rect.width(), pill_rect.height(), radius, radius)
+
+        painter.fillPath(path, bg)
+        painter.setPen(QPen(border, 0.8))
+        painter.drawPath(path)
+
+        painter.setFont(font)
+        painter.setPen(text_color)
+        painter.drawText(pill_rect, Qt.AlignCenter, label)
+        painter.restore()
 
 
 class BookmarkBadgeDelegate(QStyledItemDelegate):
@@ -744,6 +914,9 @@ class HistoryPage(QWidget):
         self._col_resize_timer.setSingleShot(True)
         self._col_resize_timer.timeout.connect(self._sync_ui_config)
 
+        # Rows (model indices) that begin a new calendar day → get a separator strip
+        self._separator_rows: set[int] = set()
+
         self._init_ui()
         self._connect_vm()
         self._setup_shortcuts()
@@ -864,8 +1037,11 @@ class HistoryPage(QWidget):
         # Apply dynamic column widths
         self._apply_column_widths()
 
-        self._table.verticalHeader().setDefaultSectionSize(38)
-        self._table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        vh = self._table.verticalHeader()
+        vh.setDefaultSectionSize(_ROW_H)
+        # Fixed: users cannot drag row heights, but resizeSection() still works
+        # programmatically — used by _on_records_loaded to enlarge separator rows.
+        vh.setSectionResizeMode(QHeaderView.Fixed)
         self._table.doubleClicked.connect(self._on_double_click)
 
         # Set badge delegate for title column
@@ -901,16 +1077,107 @@ class HistoryPage(QWidget):
         self._table.selectionModel().selectionChanged.connect(self._on_selection_changed)
 
     def _setup_badge_delegate(self):
-        """Set up badge delegate for title column. Safe to call multiple times."""
-        # Clear existing delegates to avoid stale bindings
+        """Install the date-separator-aware delegate (table-wide).
+
+        Architecture
+        ────────────
+        _DateSeparatorDelegate acts as the single table-wide delegate.  It owns
+        a BookmarkBadgeDelegate instance and calls it for the title column so
+        that favicon + bookmark/annotation badge rendering is preserved.  All
+        other columns fall through to QStyledItemDelegate's default painting,
+        but still get the separator-strip treatment when their row starts a new
+        day.
+        """
+        # Remove any per-column overrides left from a previous call
         for col_idx in range(self._table.model().columnCount()):
             self._table.setItemDelegateForColumn(col_idx, None)
 
-        # Bind delegate to current title column logical index
         title_col_idx = self._vm.table_model._key_to_col.get("title")
-        if title_col_idx is not None:
-            badge_delegate = BookmarkBadgeDelegate(self._vm.table_model, self)
-            self._table.setItemDelegateForColumn(title_col_idx, badge_delegate)
+
+        # Build the inner badge delegate (handles favicon + badge icons in the
+        # title column); None is safe - _DateSeparatorDelegate falls back to Qt
+        # default painting when sub_delegate is None.
+        badge_delegate = BookmarkBadgeDelegate(self._vm.table_model, self) if title_col_idx is not None else None
+
+        sep_delegate = _DateSeparatorDelegate(
+            separator_rows=self._separator_rows,
+            model=self._vm.table_model,
+            sub_delegate=badge_delegate,
+            sub_col=title_col_idx if title_col_idx is not None else 0,
+            parent=self,
+        )
+        # Install as the table-wide delegate (covers every column/row)
+        self._table.setItemDelegate(sep_delegate)
+
+    # ── Date-separator row-height management ──────────────────────────────────
+
+    def _on_records_loaded(self, base_row: int, records: list) -> None:
+        """Called whenever a page of records is fetched into the model cache.
+
+        Scans the batch, decides which rows start a new calendar day compared
+        to the row immediately before them, and resizes those rows to
+        _SEP_TOTAL so the separator strip has space to render.
+
+        Performance notes
+        -----------------
+        * Only newly loaded rows are examined - O(batch_size), not O(total).
+        * For rows within the batch, the previous record is read directly from
+          the *records* list - zero DB access.
+        * At the page boundary (local_idx == 0), peek_record_at is used to
+          check the cache without triggering a fetch, preventing recursive
+          page-load cascades.
+        """
+        if not records:
+            return
+
+        model = self._vm.table_model
+        vh = self._table.verticalHeader()
+
+        for local_idx, record in enumerate(records):
+            row = base_row + local_idx
+            if row == 0:
+                # First record ever → always a separator
+                self._separator_rows.add(row)
+                vh.resizeSection(row, _SEP_TOTAL)
+                continue
+
+            # Get previous record: batch-local when possible, cache-peek otherwise.
+            # Never call _get_record_at here — it can trigger _fetch_page which
+            # emits records_loaded again, causing an unbounded recursive cascade.
+            if local_idx > 0:
+                prev = records[local_idx - 1]
+            else:
+                prev = model.peek_record_at(row - 1)
+                if prev is None:
+                    # Previous page not in cache — conservatively mark as separator.
+                    self._separator_rows.add(row)
+                    vh.resizeSection(row, _SEP_TOTAL)
+                    continue
+
+            curr_day = date.fromtimestamp(record.visit_time)
+            prev_day = date.fromtimestamp(prev.visit_time)
+
+            if curr_day != prev_day:
+                if row not in self._separator_rows:
+                    self._separator_rows.add(row)
+                    vh.resizeSection(row, _SEP_TOTAL)
+            elif row in self._separator_rows:
+                # Row was previously marked as a separator (e.g. after a
+                # model reset with different data) - un-mark it.
+                self._separator_rows.discard(row)
+                vh.resizeSection(row, _ROW_H)
+
+    def _on_model_reset(self) -> None:
+        """Clear separator state when the model is rebuilt (new search / filter).
+
+        Qt does NOT automatically reset per-section sizes on beginResetModel /
+        endResetModel, so we must restore every enlarged row back to _ROW_H
+        before dropping the separator_rows set.
+        """
+        vh = self._table.verticalHeader()
+        for row in self._separator_rows:
+            vh.resizeSection(row, _ROW_H)
+        self._separator_rows.clear()
 
     def _setup_shortcuts(self):
         """Register Ctrl+F (focus search) and Ctrl+R (sync now)."""
@@ -1022,6 +1289,9 @@ class HistoryPage(QWidget):
         QApplication.instance().focusChanged.connect(self._on_focus_changed)
         # Inject DB + favicon data sources into the bubble
         self._scroll_bubble.set_data_sources(self._vm._db, self._vm._favicon_manager)
+        # Date-separator: track which rows start a new calendar day
+        self._vm.table_model.records_loaded.connect(self._on_records_loaded)
+        self._vm.table_model.modelReset.connect(self._on_model_reset)
 
     def _on_scroll_check_load_more(self, value: int):
         """Trigger regex incremental loading when the scrollbar approaches the bottom."""
