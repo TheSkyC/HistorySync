@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import lru_cache
 import re
 from typing import Any
@@ -815,13 +815,18 @@ def _browser_display_name(bt: str) -> str:
 
 
 @lru_cache(maxsize=4096)
-def _format_time(ts: int) -> str:
+def _format_time_cached(ts: int, tz_offset_seconds: int) -> str:
     if not ts:
         return ""
     try:
         return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
     except (OSError, ValueError):
         return str(ts)
+
+
+def _format_time(ts: int) -> str:
+    tz_offset = int(datetime.now(UTC).astimezone().utcoffset().total_seconds())
+    return _format_time_cached(ts, tz_offset)
 
 
 _CHROMIUM_TRANSITION_LABELS = {
