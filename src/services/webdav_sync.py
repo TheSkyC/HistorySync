@@ -12,6 +12,7 @@ from pathlib import Path
 import random
 import shutil
 import tempfile
+import threading
 import time
 from typing import TYPE_CHECKING
 import zipfile
@@ -109,6 +110,7 @@ class WebDavSyncService:
     def __init__(self, config: WebDavConfig, db_path: Path):
         self._config = config
         self._db_path = db_path
+        self._lock = threading.Lock()
         self._status = SyncStatus.IDLE
         self._last_result: SyncResult | None = None
         self._local_db: LocalDatabase | None = None  # set by caller for FTS ops
@@ -116,18 +118,28 @@ class WebDavSyncService:
 
     @property
     def status(self) -> SyncStatus:
-        return self._status
+        with self._lock:
+            return self._status
 
     @property
     def last_result(self) -> SyncResult | None:
-        return self._last_result
+        with self._lock:
+            return self._last_result
 
     def is_configured(self) -> bool:
         return bool(self._config.enabled and self._config.url.strip() and self._config.username.strip())
 
+    def _set_status(self, status: SyncStatus) -> None:
+        with self._lock:
+            self._status = status
+
+    def _set_result(self, result: SyncResult) -> None:
+        with self._lock:
+            self._last_result = result
+
     def update_config(self, config: WebDavConfig) -> None:
         self._config = config
-        self._status = SyncStatus.IDLE
+        self._set_status(SyncStatus.IDLE)
 
     def set_local_db(self, db: LocalDatabase) -> None:
         """Provide a LocalDatabase reference so sync/restore can manage FTS."""
@@ -144,19 +156,19 @@ class WebDavSyncService:
             return SyncResult(False, _("webdavclient3 is not installed. Run: pip install webdavclient3"))
         if not self.is_configured():
             return SyncResult(False, _("WebDAV not configured"))
-        self._status = SyncStatus.CONNECTING
+        self._set_status(SyncStatus.CONNECTING)
         try:
             client = self._make_client()
             remote = self._normalise_path(self._config.remote_path)
             if not client.check(remote):
                 client.mkdir(remote)
             client.list(remote)
-            self._status = SyncStatus.IDLE
+            self._set_status(SyncStatus.IDLE)
             result = SyncResult(True, _("Connection successful"))
         except Exception as exc:
-            self._status = SyncStatus.FAILED
+            self._set_status(SyncStatus.FAILED)
             result = SyncResult(False, str(exc))
-        self._last_result = result
+        self._set_result(result)
         return result
 
     # ── Main sync (Backup) ────────────────────────────────────
@@ -170,7 +182,7 @@ class WebDavSyncService:
         if not _WEBDAV3_AVAILABLE:
             return self._fail(_("webdavclient3 is not installed."))
         if not self.is_configured():
-            self._status = SyncStatus.DISABLED
+            self._set_status(SyncStatus.DISABLED)
             return self._fail(_("WebDAV not configured or disabled"))
         if not self._db_path.exists():
             return self._fail(f"Database file not found: {self._db_path}")
@@ -180,7 +192,7 @@ class WebDavSyncService:
                 progress_callback(msg)
             log.info("WebDAV Backup: %s", msg)
 
-        self._status = SyncStatus.CONNECTING
+        self._set_status(SyncStatus.CONNECTING)
         _cb(_("Connecting to WebDAV server..."))
 
         tmp_zip_path: str | None = None
@@ -191,7 +203,7 @@ class WebDavSyncService:
             if not client.check(remote_dir):
                 client.mkdir(remote_dir)
 
-            self._status = SyncStatus.UPLOADING
+            self._set_status(SyncStatus.UPLOADING)
 
             # ── Export FTS-free copy of the DB ─────────────
             _cb(_("Preparing database for upload (stripping FTS index)..."))
@@ -284,7 +296,7 @@ class WebDavSyncService:
             _cb(_("Uploading backup ({size} KB)...").format(size=f"{zip_size / 1024:.0f}"))
             _webdav_retry(lambda: client.upload_sync(remote_path=remote_file, local_path=tmp_zip_path))
 
-            self._status = SyncStatus.CLEANING
+            self._set_status(SyncStatus.CLEANING)
             _cb(_("Cleaning up old backups..."))
             self._cleanup_old_backups(client, remote_dir)
 
@@ -319,7 +331,7 @@ class WebDavSyncService:
                 except OSError:
                     pass
 
-            self._status = SyncStatus.SUCCESS
+            self._set_status(SyncStatus.SUCCESS)
             if self._local_db is not None and self._device_id is not None:
                 try:
                     self._local_db.update_device_last_sync(self._device_id)
@@ -333,7 +345,7 @@ class WebDavSyncService:
                 ),
             )
             result.hash_info = hash_manifest
-            self._last_result = result
+            self._set_result(result)
             return result
 
         except Exception as exc:
@@ -361,7 +373,7 @@ class WebDavSyncService:
         if not _WEBDAV3_AVAILABLE:
             return self._fail(_("webdavclient3 is not installed."))
         if not self.is_configured():
-            self._status = SyncStatus.DISABLED
+            self._set_status(SyncStatus.DISABLED)
             return self._fail(_("WebDAV not configured or disabled"))
 
         def _cb(msg: str) -> None:
@@ -369,7 +381,7 @@ class WebDavSyncService:
                 progress_callback(msg)
             log.info("WebDAV Restore: %s", msg)
 
-        self._status = SyncStatus.CONNECTING
+        self._set_status(SyncStatus.CONNECTING)
         _cb(_("Connecting to WebDAV server..."))
 
         tmp_download_path: str | None = None
@@ -390,7 +402,7 @@ class WebDavSyncService:
             latest_backup = zip_backups[-1]
             remote_file = f"{remote_dir.rstrip('/')}/{latest_backup}"
 
-            self._status = SyncStatus.DOWNLOADING
+            self._set_status(SyncStatus.DOWNLOADING)
             _cb(_("Downloading {filename}...").format(filename=latest_backup))
 
             fd, tmp_download_path = tempfile.mkstemp(suffix=".zip")
@@ -483,12 +495,12 @@ class WebDavSyncService:
                     pass
             tmp_download_path = tmp_db_path
 
-            self._status = SyncStatus.SUCCESS
+            self._set_status(SyncStatus.SUCCESS)
             result = SyncResult(True, _("Restored from {filename}").format(filename=latest_backup))
             result.downloaded_path = Path(tmp_download_path)
             result.hash_info = hash_info
             tmp_download_path = None
-            self._last_result = result
+            self._set_result(result)
             return result
 
         except Exception as exc:
@@ -586,8 +598,8 @@ class WebDavSyncService:
             log.warning("Cleanup failed (non-fatal): %s", exc)
 
     def _fail(self, message: str) -> SyncResult:
-        self._status = SyncStatus.FAILED
         result = SyncResult(False, message)
-        self._last_result = result
+        self._set_status(SyncStatus.FAILED)
+        self._set_result(result)
         log.error("WebDAV action failed: %s", message)
         return result
