@@ -1101,6 +1101,34 @@ class LocalDatabase:
                     conn.execute("DROP TRIGGER IF EXISTS history_ad")
                     conn.execute("DROP TRIGGER IF EXISTS history_au")
 
+                # 4b. Pre-capture rows that will be touched by DO UPDATE so we
+                #     have their OLD content for the FTS 'delete' command later.
+                #     FTS5 external-content 'delete' must receive the pre-update
+                #     values; querying after the upsert would return new values and
+                #     leave old tokens as ghost entries in the inverted index.
+                old_fts_rows: list[tuple] = []
+                if _disable_triggers and records:
+                    conn.execute(
+                        "CREATE TEMP TABLE IF NOT EXISTS _upsert_keys "
+                        "(browser_type TEXT, url TEXT, visit_time INTEGER, "
+                        " PRIMARY KEY (browser_type, url, visit_time))"
+                    )
+                    conn.execute("DELETE FROM _upsert_keys")
+                    conn.executemany(
+                        "INSERT OR IGNORE INTO _upsert_keys VALUES (?, ?, ?)",
+                        ((r.browser_type, r.url, r.visit_time) for r in records),
+                    )
+                    old_fts_rows = conn.execute(
+                        "SELECT h.id, h.url, h.title FROM history h "
+                        "JOIN _upsert_keys k "
+                        "  ON h.browser_type = k.browser_type "
+                        " AND h.url          = k.url "
+                        " AND h.visit_time   = k.visit_time "
+                        "WHERE h.id <= ?",
+                        (max_id_before,),
+                    ).fetchall()
+                    conn.execute("DROP TABLE IF EXISTS _upsert_keys")
+
                 # 5. Bulk insert history records using plain positional params
                 #    (no subquery, no UDF call per row).
                 sql = """
@@ -1202,41 +1230,24 @@ class LocalDatabase:
                 #     ON CONFLICT DO UPDATE; executing it a second time would
                 #     create duplicate FTS entries and cause search results to
                 #     appear multiple times.
-                if _disable_triggers and records:
-                    # Build a temp table of (browser_type, url, visit_time) tuples
-                    # for all input records to identify which pre-existing rows
-                    # were touched by the DO UPDATE clause.
-                    conn.execute(
-                        "CREATE TEMP TABLE IF NOT EXISTS _upsert_keys "
-                        "(browser_type TEXT, url TEXT, visit_time INTEGER, "
-                        " PRIMARY KEY (browser_type, url, visit_time))"
-                    )
-                    conn.execute("DELETE FROM _upsert_keys")
+                if _disable_triggers and old_fts_rows:
+                    # Delete stale FTS entries using OLD pre-update content.
+                    # FTS5 'delete' must receive the values that were indexed;
+                    # old_fts_rows was captured before the upsert for exactly this.
                     conn.executemany(
-                        "INSERT OR IGNORE INTO _upsert_keys VALUES (?, ?, ?)",
-                        ((r.browser_type, r.url, r.visit_time) for r in records),
+                        "INSERT INTO history_fts(history_fts, rowid, url, title) VALUES('delete', ?, ?, ?)",
+                        ((row[0], row[1], row[2]) for row in old_fts_rows),
                     )
-                    updated_rows = conn.execute(
-                        "SELECT h.id, h.url, h.title FROM history h "
-                        "JOIN _upsert_keys k "
-                        "  ON h.browser_type = k.browser_type "
-                        " AND h.url          = k.url "
-                        " AND h.visit_time   = k.visit_time "
-                        "WHERE h.id <= ?",
-                        (max_id_before,),
+                    # Re-insert using current (post-update) content.
+                    id_placeholders = ",".join("?" * len(old_fts_rows))
+                    new_rows = conn.execute(
+                        f"SELECT id, url, title FROM history WHERE id IN ({id_placeholders})",
+                        [row[0] for row in old_fts_rows],
                     ).fetchall()
-                    conn.execute("DROP TABLE IF EXISTS _upsert_keys")
-
-                    if updated_rows:
-                        # Delete stale FTS entries, then re-insert current content.
-                        conn.executemany(
-                            "INSERT INTO history_fts(history_fts, rowid, url, title) VALUES('delete', ?, ?, ?)",
-                            ((row[0], row[1], row[2]) for row in updated_rows),
-                        )
-                        conn.executemany(
-                            "INSERT INTO history_fts(rowid, url, title) VALUES (?, ?, ?)",
-                            ((row[0], row[1], row[2]) for row in updated_rows),
-                        )
+                    conn.executemany(
+                        "INSERT INTO history_fts(rowid, url, title) VALUES (?, ?, ?)",
+                        ((row[0], row[1], row[2]) for row in new_rows),
+                    )
 
                 conn.execute("RELEASE upsert_batch")
             except Exception:
