@@ -89,6 +89,8 @@ class LocalDatabase:
         self.db_path = db_path
         self._lock = threading.RLock()
         self._pconn: sqlite3.Connection | None = None
+        self._ro_conn: sqlite3.Connection | None = None
+        self._ro_lock = threading.Lock()
         self._schema_initialized: bool = False
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -127,6 +129,32 @@ class LocalDatabase:
             except Exception:
                 pass
             self._pconn = None
+        with self._ro_lock:
+            if self._ro_conn is not None:
+                try:
+                    self._ro_conn.close()
+                except Exception:
+                    pass
+                self._ro_conn = None
+
+    def _ensure_ro_conn(self) -> sqlite3.Connection:
+        """Return a cached read-only connection for search_quick.
+
+        Uses a URI read-only connection so SQLite never blocks on the write lock.
+        The connection is created once and reused across calls; it is closed
+        together with the main connection in _reset_conn().
+        """
+        with self._ro_lock:
+            if self._ro_conn is None:
+                conn = sqlite3.connect(
+                    f"file:{self.db_path}?mode=ro",
+                    uri=True,
+                    check_same_thread=False,
+                )
+                conn.row_factory = sqlite3.Row
+                conn.execute("PRAGMA temp_store=MEMORY")
+                self._ro_conn = conn
+            return self._ro_conn
 
     @contextmanager
     def _conn(self, write: bool = True) -> Iterator[sqlite3.Connection]:
@@ -1833,65 +1861,61 @@ class LocalDatabase:
     def search_quick(
         self, keyword: str, browser_type: str | None = None, limit: int = 8, offset: int = 0
     ) -> list[HistoryRecord]:
-        """Overlay-only fast read using a dedicated read-only connection.
+        """Overlay-only fast read using a cached read-only connection.
 
-        Opens a separate connection so the overlay is never blocked by
-        self._lock during concurrent sync writes (SQLite WAL allows concurrent
+        Reuses a persistent read-only connection so the overlay is never blocked
+        by self._lock during concurrent sync writes (SQLite WAL allows concurrent
         readers even while a writer holds the write lock).
         """
-        from contextlib import closing
-
+        conn = self._ensure_ro_conn()
         _COLS = (
             "h.id, h.url, h.title, h.visit_time, h.visit_count, "
             "h.browser_type, h.profile_name, h.metadata, "
             "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
             "h.device_id"
         )
-        with closing(sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, check_same_thread=False)) as conn:
-            conn.row_factory = sqlite3.Row
-            conn.execute("PRAGMA temp_store=MEMORY")
-            params: list = []
-            conditions: list[str] = []
+        params: list = []
+        conditions: list[str] = []
 
-            if keyword and len(keyword.strip()) <= 2:
-                # Short keywords (1-2 chars) are below FTS5's default min_token_size=3
-                # and will silently return no results even when matches exist.
-                # Bypass FTS entirely and use LIKE for these cases.
+        if keyword and len(keyword.strip()) <= 2:
+            # Short keywords (1-2 chars) are below FTS5's default min_token_size=3
+            # and will silently return no results even when matches exist.
+            # Bypass FTS entirely and use LIKE for these cases.
+            from_clause = "FROM history h"
+            conditions.append("(h.title LIKE ? OR h.url LIKE ?)")
+            params.extend([f"%{keyword}%", f"%{keyword}%"])
+        elif keyword:
+            fts_query = _build_fts_query(keyword)
+            from_clause = "FROM history_fts fts JOIN history h ON h.id = fts.rowid"
+            conditions.append("history_fts MATCH ?")
+            params.append(fts_query)
+        else:
+            from_clause = "FROM history h"
+
+        if browser_type and browser_type not in ("auto", "all"):
+            conditions.append("h.browser_type = ?")
+            params.append(browser_type)
+
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+        sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+        try:
+            rows = conn.execute(sql, params).fetchall()
+        except sqlite3.OperationalError:
+            # FTS index unavailable — fall back to LIKE
+            if keyword:
                 from_clause = "FROM history h"
-                conditions.append("(h.title LIKE ? OR h.url LIKE ?)")
-                params.extend([f"%{keyword}%", f"%{keyword}%"])
-            elif keyword:
-                fts_query = _build_fts_query(keyword)
-                from_clause = "FROM history_fts fts JOIN history h ON h.id = fts.rowid"
-                conditions.append("history_fts MATCH ?")
-                params.append(fts_query)
-            else:
-                from_clause = "FROM history h"
-
-            if browser_type and browser_type not in ("auto", "all"):
-                conditions.append("h.browser_type = ?")
-                params.append(browser_type)
-
-            where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-            sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
-            params.extend([limit, offset])
-            try:
+                conditions = ["(h.title LIKE ? OR h.url LIKE ?)"]
+                params = [f"%{keyword}%", f"%{keyword}%"]
+                if browser_type and browser_type not in ("auto", "all"):
+                    conditions.append("h.browser_type = ?")
+                    params.append(browser_type)
+                where = "WHERE " + " AND ".join(conditions)
+                sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
+                params.extend([limit, offset])
                 rows = conn.execute(sql, params).fetchall()
-            except sqlite3.OperationalError:
-                # FTS index unavailable — fall back to LIKE
-                if keyword:
-                    from_clause = "FROM history h"
-                    conditions = ["(h.title LIKE ? OR h.url LIKE ?)"]
-                    params = [f"%{keyword}%", f"%{keyword}%"]
-                    if browser_type and browser_type not in ("auto", "all"):
-                        conditions.append("h.browser_type = ?")
-                        params.append(browser_type)
-                    where = "WHERE " + " AND ".join(conditions)
-                    sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
-                    params.extend([limit, offset])
-                    rows = conn.execute(sql, params).fetchall()
-                else:
-                    rows = []
+            else:
+                rows = []
         return [self._row_to_record(r) for r in rows]
 
     def get_all_known_domains(self) -> set[str]:
