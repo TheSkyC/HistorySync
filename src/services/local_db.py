@@ -1426,15 +1426,15 @@ class LocalDatabase:
                     fts_keyword = f"url:{keyword}"
                 params = [_build_fts_query(fts_keyword)]
             else:
-                like_pat = f"%{keyword}%"
+                like_pat = f"%{_escape_like(keyword)}%"
                 if title_only:
-                    from_where = "FROM history h\n    WHERE h.title LIKE ?"
+                    from_where = "FROM history h\n    WHERE h.title LIKE ? ESCAPE '\\'"
                     params = [like_pat]
                 elif url_only:
-                    from_where = "FROM history h\n    WHERE h.url LIKE ?"
+                    from_where = "FROM history h\n    WHERE h.url LIKE ? ESCAPE '\\'"
                     params = [like_pat]
                 else:
-                    from_where = "FROM history h\n    WHERE (h.url LIKE ? OR h.title LIKE ?)"
+                    from_where = "FROM history h\n    WHERE (h.url LIKE ? ESCAPE '\\' OR h.title LIKE ? ESCAPE '\\')"
                     params = [like_pat, like_pat]
         else:
             from_where = "FROM history h"
@@ -1459,8 +1459,8 @@ class LocalDatabase:
             params.extend(device_ids)
         if excludes:
             for ex in excludes:
-                extra_conditions.append("h.url NOT LIKE ? AND h.title NOT LIKE ?")
-                params.extend([f"%{ex}%", f"%{ex}%"])
+                extra_conditions.append("h.url NOT LIKE ? ESCAPE '\\' AND h.title NOT LIKE ? ESCAPE '\\'")
+                params.extend([f"%{_escape_like(ex)}%", f"%{_escape_like(ex)}%"])
         if excluded_ids:
             extra_conditions.append(self._excl_clause("h."))
 
@@ -1891,8 +1891,8 @@ class LocalDatabase:
             # and will silently return no results even when matches exist.
             # Bypass FTS entirely and use LIKE for these cases.
             from_clause = "FROM history h"
-            conditions.append("(h.title LIKE ? OR h.url LIKE ?)")
-            params.extend([f"%{keyword}%", f"%{keyword}%"])
+            conditions.append("(h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')")
+            params.extend([f"%{_escape_like(keyword)}%", f"%{_escape_like(keyword)}%"])
         elif keyword:
             fts_query = _build_fts_query(keyword)
             from_clause = "FROM history_fts fts JOIN history h ON h.id = fts.rowid"
@@ -1914,8 +1914,8 @@ class LocalDatabase:
             # FTS index unavailable — fall back to LIKE
             if keyword:
                 from_clause = "FROM history h"
-                conditions = ["(h.title LIKE ? OR h.url LIKE ?)"]
-                params = [f"%{keyword}%", f"%{keyword}%"]
+                conditions = ["(h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')"]
+                params = [f"%{_escape_like(keyword)}%", f"%{_escape_like(keyword)}%"]
                 if browser_type and browser_type not in ("auto", "all"):
                     conditions.append("h.browser_type = ?")
                     params.append(browser_type)
@@ -2198,8 +2198,8 @@ class LocalDatabase:
             return []
         with self._conn(write=False) as conn:
             rows = conn.execute(
-                "SELECT id FROM devices WHERE name LIKE ? OR uuid LIKE ?",
-                (f"%{name_or_uuid}%", f"{name_or_uuid}%"),
+                "SELECT id FROM devices WHERE name LIKE ? ESCAPE '\\' OR uuid LIKE ? ESCAPE '\\'",
+                (f"%{_escape_like(name_or_uuid)}%", f"{_escape_like(name_or_uuid)}%"),
             ).fetchall()
         return [r[0] for r in rows]
 
@@ -2207,6 +2207,11 @@ class LocalDatabase:
 def _is_fts_special(keyword: str) -> bool:
     """Return True if the keyword contains FTS5 special characters or operators."""
     return bool(re.search(r'[()"*]|(?<!\w)(AND|OR|NOT)(?!\w)', keyword))
+
+
+def _escape_like(value: str) -> str:
+    """Escape LIKE wildcard characters in *value* for use with ``ESCAPE '\\'``."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def _build_fts_query(keyword: str) -> str:
