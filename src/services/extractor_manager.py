@@ -51,7 +51,7 @@ class ExtractorManager:
     ):
         self._db = db
         self._disabled: set[str] = set(disabled_browsers or [])
-        self._blacklisted_domains: set[str] = set(blacklisted_domains or [])
+        self._blacklisted_domains: set[str] = {normalize_domain(d) for d in (blacklisted_domains or [])}
         self._device_id: int | None = device_id
         self._registry: dict[str, BaseExtractor] = {}
         # Import defaults lazily to avoid circular imports at module level
@@ -138,14 +138,14 @@ class ExtractorManager:
         self._disabled = new_disabled
 
         if blacklisted_domains is not None:
-            self._blacklisted_domains = set(blacklisted_domains)
+            self._blacklisted_domains = {normalize_domain(d) for d in blacklisted_domains}
 
         if filtered_url_prefixes is not None:
             self._filtered_url_prefixes = tuple(filtered_url_prefixes)
             log.info("ExtractorManager: updated filtered_url_prefixes (%d entries)", len(filtered_url_prefixes))
 
     def set_blacklisted_domains(self, domains: list[str]) -> None:
-        self._blacklisted_domains = set(domains)
+        self._blacklisted_domains = {normalize_domain(d) for d in domains}
 
     def set_filtered_url_prefixes(self, prefixes: list[str]) -> None:
         self._filtered_url_prefixes = tuple(prefixes)
@@ -306,12 +306,10 @@ class ExtractorManager:
         try:
             from urllib.parse import urlparse
 
-            host = self._normalize_domain(urlparse(url).netloc or urlparse(url).path.split("/")[0])
+            parsed = urlparse(url)
+            host = self._normalize_domain(parsed.netloc or parsed.path.split("/")[0])
         except Exception:
             return False
         if not host:
             return False
-        return any(
-            host == self._normalize_domain(domain) or host.endswith("." + self._normalize_domain(domain))
-            for domain in self._blacklisted_domains
-        )
+        return any(host == domain or host.endswith("." + domain) for domain in self._blacklisted_domains)
