@@ -12,6 +12,7 @@ import shutil
 import sqlite3
 import threading
 import time
+import weakref
 
 from src.models.history_record import AnnotationRecord, BackupStats, BookmarkRecord, HistoryRecord
 from src.utils.constants import DB_BATCH_SIZE
@@ -1271,6 +1272,8 @@ class LocalDatabase:
 
     # ── excluded_ids helpers ──────────────────────────────────
 
+    _excl_cache: weakref.WeakKeyDictionary[sqlite3.Connection, set[int]] = weakref.WeakKeyDictionary()
+
     @staticmethod
     def _populate_excl_table(conn: sqlite3.Connection, excl: set[int]) -> bool:
         if not excl:
@@ -1278,11 +1281,11 @@ class LocalDatabase:
         conn.execute("CREATE TEMP TABLE IF NOT EXISTS _excl_ids (id INTEGER PRIMARY KEY)")
         # Skip the expensive DELETE + re-insert when the set hasn't changed since
         # the last call on this connection (common in UI scroll / pagination).
-        cached: set[int] | None = getattr(conn, "_excl_ids_cache", None)
+        cached: set[int] | None = LocalDatabase._excl_cache.get(conn)
         if cached != excl:
             conn.execute("DELETE FROM _excl_ids")
             conn.executemany("INSERT OR IGNORE INTO _excl_ids VALUES(?)", ((i,) for i in excl))
-            conn._excl_ids_cache = excl  # type: ignore[attr-defined]
+            LocalDatabase._excl_cache[conn] = excl
         return True
 
     @staticmethod
