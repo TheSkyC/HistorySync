@@ -116,6 +116,7 @@ class LocalDatabase:
             conn.execute("PRAGMA temp_store=MEMORY")
             conn.commit()
             conn.create_function("_extract_host", 1, _extract_url_host)
+            conn.create_function("REGEXP", 2, lambda pat, text: bool(re.search(pat, text or "", re.IGNORECASE)))
             self._pconn = conn
         if not self._schema_initialized:
             self._schema_initialized = True  # set before calling to prevent re-entry
@@ -155,6 +156,7 @@ class LocalDatabase:
             )
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA temp_store=MEMORY")
+            conn.create_function("REGEXP", 2, lambda pat, text: bool(re.search(pat, text or "", re.IGNORECASE)))
             self._ro_conn = conn
         return self._ro_conn
 
@@ -1340,59 +1342,69 @@ class LocalDatabase:
         bookmark_tag: str = "",
         device_ids: list[int] | None = None,
     ) -> Iterator[HistoryRecord]:
-        """Incremental regex search iterator.
+        """Incremental regex search iterator backed by a SQL REGEXP filter.
 
-        Fetches candidates in batches from the database, filters them with
-        the regex pattern, and yields matching records one by one. This
-        avoids the hard-coded 5000-record limit and enables true incremental
-        loading for large datasets.
+        The REGEXP function is registered on the connection so filtering happens
+        inside SQLite, avoiding full-table deserialisation into Python objects.
+        Results are streamed in batches to bound memory usage.
 
         Args:
             pattern: Compiled regex pattern to match against.
-            batch_size: Number of candidate records to fetch per batch.
+            batch_size: Number of records to fetch per SQL query.
             Other args: Same as get_records() for filtering candidates.
 
         Yields:
             HistoryRecord: Each record that matches the regex pattern.
         """
+        pat_str = pattern.pattern
+        if title_only:
+            regex_cond = "h.title REGEXP ?"
+            regex_params: list = [pat_str]
+        elif url_only:
+            regex_cond = "h.url REGEXP ?"
+            regex_params = [pat_str]
+        else:
+            regex_cond = "(h.title REGEXP ? OR h.url REGEXP ?)"
+            regex_params = [pat_str, pat_str]
+
+        excl = excluded_ids or set()
         offset = 0
+        _COLS = (
+            "h.id, h.url, h.title, h.visit_time, h.visit_count, "
+            "h.browser_type, h.profile_name, h.metadata, "
+            "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
+            "h.device_id"
+        )
         while True:
-            candidates = self.get_records(
-                keyword="",  # No FTS/LIKE filtering
-                browser_type=browser_type,
-                date_from=date_from,
-                date_to=date_to,
-                limit=batch_size,
-                offset=offset,
-                excluded_ids=excluded_ids,
-                domain_ids=domain_ids,
-                excludes=excludes,
-                title_only=False,  # Filter in Python layer
-                url_only=False,
-                use_regex=False,
-                bookmarked_only=bookmarked_only,
-                has_annotation=has_annotation,
-                bookmark_tag=bookmark_tag,
-                device_ids=device_ids,
-            )
+            with self._conn(write=False) as conn:
+                from_where, base_params, _ = self._build_query_parts(
+                    conn=conn,
+                    keyword="",
+                    browser_type=browser_type,
+                    date_from=date_from,
+                    date_to=date_to,
+                    excluded_ids=excl,
+                    domain_ids=domain_ids,
+                    excludes=excludes,
+                    title_only=False,
+                    url_only=False,
+                    bookmarked_only=bookmarked_only,
+                    has_annotation=has_annotation,
+                    bookmark_tag=bookmark_tag,
+                    _force_like=False,
+                    device_ids=device_ids,
+                )
+                connector = " AND " if "WHERE" in from_where else " WHERE "
+                sql = f"SELECT {_COLS} {from_where}{connector}{regex_cond} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
+                params = base_params + regex_params + [batch_size, offset]
+                rows = conn.execute(sql, params).fetchall()
 
-            if not candidates:
-                break
-
-            for r in candidates:
-                if title_only:
-                    match = pattern.search(r.title or "")
-                elif url_only:
-                    match = pattern.search(r.url)
-                else:
-                    match = pattern.search(r.title or "") or pattern.search(r.url)
-
-                if match:
-                    yield r
+            for row in rows:
+                yield self._row_to_record(row)
 
             offset += batch_size
-            if len(candidates) < batch_size:
-                break  # Reached end of database
+            if len(rows) < batch_size:
+                break
 
     # ── Query builder (shared core) ───────────────────────────
 
