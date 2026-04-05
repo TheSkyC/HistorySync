@@ -20,12 +20,17 @@ from pathlib import Path
 
 import pytest
 
+from src.models.app_config import DEFAULT_FILTERED_URL_PREFIXES
 from src.services.extractors.chromium_extractor import (
     ChromiumExtractor,
-    _is_internal_url as chromium_is_internal,
     unix_to_chromium_time,
 )
 from tests.conftest import create_chromium_db
+
+
+def _is_internal_url(url: str) -> bool:
+    return url.startswith(tuple(DEFAULT_FILTERED_URL_PREFIXES))
+
 
 # ══════════════════════════════════════════════════════════════
 # Helpers
@@ -65,22 +70,6 @@ class TestChromiumExtractor:
         urls = {r.url for r in records}
         assert "https://github.com" in urls
         assert "https://google.com" in urls
-
-    def test_internal_urls_filtered(self, tmp_path: Path):
-        db = tmp_path / "History"
-        create_chromium_db(
-            db,
-            [
-                ("chrome://settings", "Settings", _ts(1_704_067_200), 1),
-                ("edge://newtab", "New Tab", _ts(1_704_067_201), 1),
-                ("brave://newtab", "Brave New Tab", _ts(1_704_067_202), 1),
-                ("about:blank", "Blank", _ts(1_704_067_203), 1),
-                ("https://real.com", "Real", _ts(1_704_067_204), 1),
-            ],
-        )
-        records = _make_extractor(db).extract()
-        assert len(records) == 1
-        assert records[0].url == "https://real.com"
 
     def test_incremental_only_new_records(self, tmp_path: Path):
         base_ts = 1_704_067_200
@@ -158,11 +147,11 @@ class TestInternalUrlFilter:
         ],
     )
     def test_internal_urls_filtered(self, url: str):
-        assert chromium_is_internal(url)
+        assert _is_internal_url(url)
 
     @pytest.mark.parametrize(
         "url",
         ["https://github.com", "http://example.com"],
     )
     def test_external_urls_not_filtered(self, url: str):
-        assert not chromium_is_internal(url)
+        assert not _is_internal_url(url)

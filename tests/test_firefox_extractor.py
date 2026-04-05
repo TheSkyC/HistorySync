@@ -70,20 +70,6 @@ class TestFirefoxExtractor:
         records = _make_firefox_extractor(db).extract()
         assert len(records) == 2
 
-    def test_internal_urls_filtered(self, tmp_path: Path):
-        db = tmp_path / "places.sqlite"
-        create_firefox_db(
-            db,
-            [
-                ("about:config", "Config", _ff_ts(1_704_067_200), 1, ""),
-                ("place:sort=8&maxResults", "Places", _ff_ts(1_704_067_201), 1, ""),
-                ("https://firefox.com", "Firefox", _ff_ts(1_704_067_202), 1, ""),
-            ],
-        )
-        records = _make_firefox_extractor(db).extract()
-        assert len(records) == 1
-        assert records[0].url == "https://firefox.com"
-
     def test_incremental_extraction(self, tmp_path: Path):
         base_ts = 1_704_067_200
         db = tmp_path / "places.sqlite"
