@@ -195,10 +195,9 @@ class SettingsPage(QWidget):
         self._sec_webdav.enabled_cb.stateChanged.connect(self._update_countdowns)
 
         # Privacy
-        self._sec_privacy.refresh_blacklist(cfg.privacy.blacklisted_domains)
+        self._sec_privacy.refresh_blacklist_count(len(cfg.privacy.blacklisted_domains))
         self._sec_privacy.refresh_hidden_count(len(self._vm._main_vm.get_hidden_ids()))
-        self._sec_privacy.add_domain_requested.connect(self._on_add_blacklist_domain)
-        self._sec_privacy.remove_domain_requested.connect(self._on_remove_blacklist_domain)
+        self._sec_privacy.configure_blacklist_requested.connect(self._on_configure_blacklist)
         self._sec_privacy.clear_hidden_requested.connect(self._on_clear_hidden)
         self._sec_privacy.configure_url_filters_requested.connect(self._on_configure_url_filters)
 
@@ -429,13 +428,48 @@ class SettingsPage(QWidget):
 
     # ── Privacy handlers ──────────────────────────────────────
 
-    def _on_add_blacklist_domain(self, domain: str):
+    def _on_configure_blacklist(self) -> None:
+        from src.views.dialogs.blacklist_domain_dialog import BlacklistDomainDialog
         from src.views.master_password_dialog import require_master_password
 
         cfg = self._vm.get_config()
         if not require_master_password(cfg.master_password_hash, self):
             return
-        if domain not in cfg.privacy.blacklisted_domains:
+
+        old_domains = set(cfg.privacy.blacklisted_domains)
+        dlg = BlacklistDomainDialog(cfg.privacy.blacklisted_domains, parent=self)
+        if dlg.exec() != BlacklistDomainDialog.Accepted:
+            return
+
+        new_domains = dlg.get_domains()
+        cfg.privacy.blacklisted_domains = new_domains
+        self._vm.save(cfg)
+
+        # Delete records for domains that were newly added in this session.
+        added = set(new_domains) - old_domains
+        for domain in added:
+            try:
+                deleted = self._vm._main_vm._db.delete_records_by_domain(domain)
+                log.info("Blacklisted %s, deleted %d records", domain, deleted)
+            except Exception as exc:
+                log.warning("Failed to delete blacklisted domain records: %s", exc)
+
+        self._sec_privacy.refresh_blacklist_count(len(new_domains))
+        self._set_status(_("Blacklist saved"), "success")
+
+    def _add_domain_direct(self, domain: str) -> None:
+        """Add a single domain to the blacklist without opening the dialog.
+
+        Called by the external ``add_blacklist_domain`` API (e.g. history-page
+        right-click action) where the user has already confirmed intent.
+        """
+        from src.views.master_password_dialog import require_master_password
+
+        cfg = self._vm.get_config()
+        if not require_master_password(cfg.master_password_hash, self):
+            return
+        domain = domain.strip().lower()
+        if domain and domain not in cfg.privacy.blacklisted_domains:
             cfg.privacy.blacklisted_domains.append(domain)
             self._vm.save(cfg)
             try:
@@ -443,19 +477,7 @@ class SettingsPage(QWidget):
                 log.info("Blacklisted %s, deleted %d records", domain, deleted)
             except Exception as exc:
                 log.warning("Failed to delete blacklisted domain records: %s", exc)
-        self._sec_privacy.clear_domain_input()
-        self._sec_privacy.refresh_blacklist(cfg.privacy.blacklisted_domains)
-
-    def _on_remove_blacklist_domain(self, domain: str):
-        from src.views.master_password_dialog import require_master_password
-
-        cfg = self._vm.get_config()
-        if not require_master_password(cfg.master_password_hash, self):
-            return
-        if domain in cfg.privacy.blacklisted_domains:
-            cfg.privacy.blacklisted_domains.remove(domain)
-        self._vm.save(cfg)
-        self._sec_privacy.refresh_blacklist(cfg.privacy.blacklisted_domains)
+        self._sec_privacy.refresh_blacklist_count(len(cfg.privacy.blacklisted_domains))
 
     def _on_clear_hidden(self):
         from src.views.master_password_dialog import require_master_password
@@ -668,8 +690,7 @@ class SettingsPage(QWidget):
 
     def add_blacklist_domain(self, domain: str):
         """Called from history page blacklist action."""
-        self._sec_privacy.set_domain_input(domain)
-        self._on_add_blacklist_domain(domain)
+        self._add_domain_direct(domain)
 
     def notify_sync_happened(self, last_sync_ts: int):
         """Update next sync countdown after a sync completes."""

@@ -7,7 +7,6 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -21,22 +20,18 @@ class PrivacySection(QWidget):
     """Privacy & blacklist card.
 
     Signals:
-        add_domain_requested(domain: str)
-        remove_domain_requested(domain: str)
-        clear_hidden_requested()
+        configure_blacklist_requested()
         configure_url_filters_requested()
+        clear_hidden_requested()
 
     Exposes:
-        refresh_blacklist(domains: list[str])
+        refresh_blacklist_count(count: int)
         refresh_hidden_count(count: int)
-        get_pending_domain() -> str
-        clear_domain_input()
     """
 
-    add_domain_requested = Signal(str)
-    remove_domain_requested = Signal(str)
-    clear_hidden_requested = Signal()
+    configure_blacklist_requested = Signal()
     configure_url_filters_requested = Signal()
+    clear_hidden_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -54,32 +49,25 @@ class PrivacySection(QWidget):
         desc.setWordWrap(True)
         layout.addWidget(desc)
 
-        # Blacklist header
-        bl_header = QHBoxLayout()
+        # ── Blacklist row ─────────────────────────────────────
+        bl_row = QHBoxLayout()
         bl_lbl = QLabel(_("Blacklisted Domains:"))
         bl_lbl.setObjectName("stat_label")
-        bl_header.addWidget(bl_lbl)
-        bl_header.addStretch()
-        layout.addLayout(bl_header)
+        self._bl_count_lbl = QLabel("")
+        self._bl_count_lbl.setObjectName("muted")
+        bl_cfg_btn = QPushButton(_("Configure…"))
+        bl_cfg_btn.setIcon(get_icon("shield"))
+        bl_cfg_btn.setToolTip(
+            _("Manage domains that are permanently excluded from sync and whose records are deleted.")
+        )
+        bl_cfg_btn.clicked.connect(self.configure_blacklist_requested)
+        bl_row.addWidget(bl_lbl)
+        bl_row.addWidget(self._bl_count_lbl)
+        bl_row.addStretch()
+        bl_row.addWidget(bl_cfg_btn)
+        layout.addLayout(bl_row)
 
-        # Add row
-        bl_add_row = QHBoxLayout()
-        self._bl_input = QLineEdit()
-        self._bl_input.setPlaceholderText(_("example.com"))
-        add_btn = QPushButton(_("Add"))
-        add_btn.setIcon(get_icon("plus"))
-        add_btn.clicked.connect(self._on_add_clicked)
-        self._bl_input.returnPressed.connect(self._on_add_clicked)
-        bl_add_row.addWidget(self._bl_input, 1)
-        bl_add_row.addWidget(add_btn)
-        layout.addLayout(bl_add_row)
-
-        # Dynamic blacklist entries
-        self._blacklist_container = QVBoxLayout()
-        self._blacklist_container.setSpacing(4)
-        layout.addLayout(self._blacklist_container)
-
-        # ── URL Prefix Filters button ─────────────────────────
+        # ── URL Prefix Filters row ────────────────────────────
         url_filter_row = QHBoxLayout()
         url_filter_lbl = QLabel(_("URL Prefix Filters:"))
         url_filter_lbl.setObjectName("stat_label")
@@ -101,7 +89,7 @@ class PrivacySection(QWidget):
         url_filter_hint.setWordWrap(True)
         layout.addWidget(url_filter_hint)
 
-        # Hidden records row
+        # ── Hidden records row ────────────────────────────────
         hidden_header = QHBoxLayout()
         hidden_lbl = QLabel(_("Hidden Records:"))
         hidden_lbl.setObjectName("stat_label")
@@ -118,40 +106,12 @@ class PrivacySection(QWidget):
 
     # ── Public API ────────────────────────────────────────────
 
-    def refresh_blacklist(self, domains: list[str]):
-        while self._blacklist_container.count():
-            item = self._blacklist_container.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        for domain in domains:
-            row = QHBoxLayout()
-            lbl = QLabel(f"🚫  {domain}")
-            lbl.setObjectName("muted")
-            remove_btn = QPushButton(_("Remove"))
-            remove_btn.setIcon(get_icon("x"))
-            remove_btn.clicked.connect(lambda _, d=domain: self.remove_domain_requested.emit(d))
-            row.addWidget(lbl, 1)
-            row.addWidget(remove_btn)
-            wrapper = QWidget()
-            wrapper.setLayout(row)
-            self._blacklist_container.addWidget(wrapper)
+    def refresh_blacklist_count(self, count: int) -> None:
+        """Update the domain count label next to the Blacklisted Domains header."""
+        if count:
+            self._bl_count_lbl.setText(_("{n} domains").format(n=count))
+        else:
+            self._bl_count_lbl.setText(_("none"))
 
-    def refresh_hidden_count(self, count: int):
+    def refresh_hidden_count(self, count: int) -> None:
         self._hidden_count_lbl.setText(_("{n} records hidden").format(n=count))
-
-    def get_pending_domain(self) -> str:
-        return self._bl_input.text().strip().lower()
-
-    def clear_domain_input(self):
-        self._bl_input.clear()
-
-    def set_domain_input(self, domain: str):
-        """Pre-fill the domain input (e.g. called from history page)."""
-        self._bl_input.setText(domain)
-
-    # ── Internal ──────────────────────────────────────────────
-
-    def _on_add_clicked(self):
-        domain = self.get_pending_domain()
-        if domain:
-            self.add_domain_requested.emit(domain)

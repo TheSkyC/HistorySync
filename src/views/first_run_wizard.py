@@ -274,6 +274,25 @@ class _SyncPage(_PageBase):
         filter_row.addWidget(self._url_filter_btn)
         layout.addLayout(filter_row)
 
+        # ── Blacklist shortcut ────────────────────────────────
+        bl_row = QHBoxLayout()
+        bl_row.setSpacing(8)
+        bl_icon = QLabel()
+        bl_icon.setFixedSize(14, 14)
+        bl_px = _svg_icon_pixmap("shield", 14, "#888")
+        if not bl_px.isNull():
+            bl_icon.setPixmap(bl_px)
+        bl_row.addWidget(bl_icon)
+        bl_lbl = QLabel(_("Want to block specific domains from being recorded?"))
+        bl_lbl.setWordWrap(True)
+        bl_lbl.setStyleSheet("color: #888; font-size: 11px;")
+        bl_row.addWidget(bl_lbl, 1)
+        self._blacklist_btn = QPushButton(_("Configure Blacklist…"))
+        self._blacklist_btn.setStyleSheet("font-size: 11px;")
+        self._blacklist_btn.clicked.connect(self._open_blacklist_dialog)
+        bl_row.addWidget(self._blacklist_btn)
+        layout.addLayout(bl_row)
+
         layout.addStretch()
 
     def _open_url_filter_dialog(self) -> None:
@@ -282,6 +301,13 @@ class _SyncPage(_PageBase):
         dlg = UrlPrefixFilterDialog(self._config.privacy.filtered_url_prefixes, parent=self)
         if dlg.exec() == UrlPrefixFilterDialog.Accepted:
             self._config.privacy.filtered_url_prefixes = dlg.get_prefixes()
+
+    def _open_blacklist_dialog(self) -> None:
+        from src.views.dialogs.blacklist_domain_dialog import BlacklistDomainDialog
+
+        dlg = BlacklistDomainDialog(self._config.privacy.blacklisted_domains, parent=self)
+        if dlg.exec() == BlacklistDomainDialog.Accepted:
+            self._config.privacy.blacklisted_domains = dlg.get_domains()
 
     def apply(self) -> None:
         self._config.scheduler.auto_sync_enabled = self._auto_sync_cb.isChecked()
