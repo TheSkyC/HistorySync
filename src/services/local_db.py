@@ -751,11 +751,18 @@ class LocalDatabase:
         self,
         src_path: Path,
         progress_cb: Callable[[str], None] | None = None,
+        include_user_data: bool = True,
     ) -> int:
         """Merge history records from *src_path* into this database.
 
         Rows are streamed from the source in batches of ``DB_BATCH_SIZE`` to
         avoid loading the entire backup into memory at once.
+
+        When *include_user_data* is ``True`` (the default), bookmarks,
+        annotations, hidden_records, and tombstones are also merged by calling
+        :meth:`merge_user_data_from_db` automatically.  Pass ``False`` only
+        when you need to merge history alone (e.g. plain import without user
+        data).
         """
 
         def _cb(msg: str) -> None:
@@ -845,6 +852,8 @@ class LocalDatabase:
                 inserted=inserted, total=total_src
             )
         )
+        if include_user_data:
+            self.merge_user_data_from_db(src_path, progress_cb=progress_cb)
         return inserted
 
     def merge_user_data_from_db(

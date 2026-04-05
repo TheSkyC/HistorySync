@@ -52,7 +52,6 @@ class WebDavWorker(QObject):
                 )
                 if res.success and res.downloaded_path:
                     self.db.merge_from_db(res.downloaded_path, progress_cb=self.progress.emit)
-                    self.db.merge_user_data_from_db(res.downloaded_path, progress_cb=self.progress.emit)
                     try:
                         res.downloaded_path.unlink(missing_ok=True)
                     except Exception:
