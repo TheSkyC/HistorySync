@@ -165,21 +165,71 @@ def _try_file_copy(
     retry: int = 3,
     delay: float = 0.5,
 ) -> sqlite3.Connection | None:
-    """File copy fallback strategy."""
+    """File copy fallback strategy.
+
+    *timeout_sec* caps the total wall-clock time allowed for a single copy
+    attempt (file copy + in-memory backup).  The operation is run in a
+    worker thread; if it does not finish within *timeout_sec* seconds the
+    caller gives up and returns ``None`` immediately.  The worker thread is
+    detached (shutdown(wait=False)) so it does not block the caller — Python
+    cannot forcibly kill threads, but the thread will finish on its own.
+    """
     for attempt in range(1, retry + 1):
-        file_conn = mem_conn = None
+        mem_conn: sqlite3.Connection | None = None
         _start = time.monotonic()
+
+        def _do_copy() -> sqlite3.Connection | None:
+            """Run inside a worker thread so we can enforce timeout_sec."""
+            _file_conn: sqlite3.Connection | None = None
+            _mem: sqlite3.Connection | None = None
+            try:
+                # Use a TemporaryDirectory for the file-level copy.  We MUST
+                # close file_conn before the TemporaryDirectory context exits;
+                # on Windows an open file handle prevents directory deletion and
+                # raises PermissionError (Python < 3.12) or leaves orphaned temp
+                # files (Python ≥ 3.12 with ignore_cleanup_errors=True).
+                with tempfile.TemporaryDirectory(prefix="historysync_") as tmp_dir:
+                    dst = Path(tmp_dir) / db_path.name
+                    copy_db_with_wal(db_path, dst)
+                    try:
+                        # immutable=1: tells SQLite the file won't be modified
+                        # externally, bypassing file-lock logic entirely.
+                        _file_conn = sqlite3.connect(f"file:{dst}?immutable=1", uri=True)
+                        _file_conn.execute("PRAGMA query_only = ON")
+                        _mem = sqlite3.connect(":memory:", check_same_thread=False)
+                        _file_conn.backup(_mem, pages=200)
+                        _mem.row_factory = sqlite3.Row
+                    finally:
+                        # Close the file handle BEFORE TemporaryDirectory.__exit__
+                        # so the directory can always be removed, even on Windows.
+                        _close_quietly(_file_conn)
+                        _file_conn = None
+                # TemporaryDirectory has been cleaned up; _mem is an in-memory
+                # database that no longer depends on any on-disk file.
+                return _mem
+            except Exception:
+                _close_quietly(_mem)
+                raise
+
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         try:
-            with tempfile.TemporaryDirectory(prefix="historysync_") as tmp_dir:
-                dst = Path(tmp_dir) / db_path.name
-                copy_db_with_wal(db_path, dst)
-                # immutable=1: Informs SQLite that the file will not be modified externally, bypassing file lock logic
-                file_conn = sqlite3.connect(f"file:{dst}?immutable=1", uri=True)
-                file_conn.execute("PRAGMA query_only = ON")
-                mem_conn = sqlite3.connect(":memory:", check_same_thread=False)
-                file_conn.backup(mem_conn, pages=200)
-                mem_conn.row_factory = sqlite3.Row
-                _close_quietly(file_conn)
+            future = pool.submit(_do_copy)
+            try:
+                mem_conn = future.result(timeout=timeout_sec)
+            except concurrent.futures.TimeoutError:
+                # Detach the pool so the caller is not blocked waiting for the
+                # worker.  The thread will finish on its own; we just stop caring.
+                pool.shutdown(wait=False)
+                pool = None
+                log.warning(
+                    "[%s] file copy timed out after %.0fs (attempt %d)",
+                    display_name,
+                    timeout_sec,
+                    attempt,
+                )
+                return None
+
+            if mem_conn is not None:
                 log.debug(
                     "[%s] file-copy OK (attempt %d, %.2fs)",
                     display_name,
@@ -187,8 +237,13 @@ def _try_file_copy(
                     time.monotonic() - _start,
                 )
                 return mem_conn
+
+            # _do_copy returned None — should not happen, but treat as failure
+            raise RuntimeError("_do_copy returned None unexpectedly")
+
         except OSError as exc:
             _close_quietly(mem_conn)
+            mem_conn = None
             if attempt < retry:
                 log.debug("[%s] file copy attempt %d blocked: %s — retrying", display_name, attempt, exc)
                 time.sleep(delay)
@@ -200,7 +255,8 @@ def _try_file_copy(
             log.warning("[%s] file-copy backup() failed: %s", display_name, exc)
             return None
         finally:
-            _close_quietly(file_conn)
+            if pool is not None:
+                pool.shutdown(wait=False)
 
     return None
 
