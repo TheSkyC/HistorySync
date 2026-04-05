@@ -391,6 +391,48 @@ class _SettingsPanel(QWidget):
     def get_open_with(self) -> str:
         return self._open_combo.currentData() or "auto"
 
+    def apply_theme(self, is_dark: bool) -> None:
+        combo_bg = "#20232c" if is_dark else "#f9fafb"
+        combo_border = "#303540" if is_dark else "#d1d5db"
+        combo_hover = "#404858" if is_dark else "#9ca3af"
+        combo_text = "#c0c8d8" if is_dark else "#1c1c1e"
+        popup_sel_bg = "#1e2840" if is_dark else "#dbeafe"
+        popup_sel_text = "#7ab4ff" if is_dark else "#1d4ed8"
+        combo_style = f"""
+            QComboBox {{
+                background-color: {combo_bg};
+                color: {combo_text};
+                border: 1px solid {combo_border};
+                border-radius: 6px;
+                padding: 5px 24px 5px 10px;
+                min-width: 120px;
+            }}
+            QComboBox:hover {{
+                border-color: {combo_hover};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 22px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {combo_bg};
+                color: {combo_text};
+                border: 1px solid {combo_border};
+                border-radius: 6px;
+                outline: none;
+                padding: 3px;
+                selection-background-color: {popup_sel_bg};
+                selection-color: {popup_sel_text};
+            }}
+            QComboBox QAbstractItemView::item {{
+                padding: 5px 10px;
+                border-radius: 4px;
+                min-height: 22px;
+            }}
+        """
+        for combo in (self._filter_combo, self._open_combo):
+            combo.setStyleSheet(combo_style)
+
 
 class OverlayWindow(QWidget):
     """Frameless Spotlight-style search overlay."""
@@ -539,6 +581,8 @@ class OverlayWindow(QWidget):
             }}
             """
         )
+
+        self._settings_panel.apply_theme(is_dark)
 
     def showEvent(self, event) -> None:
         self._apply_theme()
