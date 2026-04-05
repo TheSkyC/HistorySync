@@ -395,13 +395,18 @@ class _BrowserSyncPage(_PageBase):
         layout.addLayout(scan_hint_layout)
 
         # Scroll area for browser checkboxes — stretch=1 so it expands with the window
-        from PySide6.QtWidgets import QFrame, QScrollArea
+        from PySide6.QtCore import QSize
+        from PySide6.QtWidgets import QFrame, QScrollArea, QSizePolicy
 
-        scroll = QScrollArea()
+        class _BoundedScrollArea(QScrollArea):
+            def sizeHint(self):
+                return QSize(super().sizeHint().width(), 200)
+
+        scroll = _BoundedScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         scroll.setMinimumHeight(120)
-        scroll.setMaximumHeight(220)
+        scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         inner = QWidget()
         self._cb_layout = QVBoxLayout(inner)
@@ -409,8 +414,7 @@ class _BrowserSyncPage(_PageBase):
         self._cb_layout.setContentsMargins(0, 4, 0, 4)
         self._cb_layout.setAlignment(Qt.AlignTop)
         scroll.setWidget(inner)
-        layout.addWidget(scroll)  # no stretch — trailing addStretch absorbs extra height
-        layout.addStretch(1)  # all extra wizard-page height absorbed here, items stay compact
+        layout.addWidget(scroll, 1)  # stretch=1 so scroll area grows with window height
 
         self._checkboxes: dict[str, QCheckBox] = {}
         self._populate_browsers()
@@ -802,8 +806,7 @@ class FirstRunWizard(QDialog):
         self.setWindowTitle(_("HistorySync — First-Time Setup"))
         self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint & ~Qt.WindowContextHelpButtonHint)
         self.setMinimumSize(520, 420)
-        self.setMaximumHeight(520)
-        self.resize(520, 460)
+        self.resize(520, 560)
         self._build_ui()
 
     @property
