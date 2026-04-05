@@ -19,6 +19,7 @@ SCALES: dict[str, dict[str, int]] = {
 }
 
 BATCH_SIZE = 50_000  # rows per executemany call
+_POOL_SIZE = 80_000  # pre-generated (url, host, title) pool size
 
 # ── Realistic data corpus ─────────────────────────────────────────────────────
 
@@ -308,39 +309,53 @@ def _tok() -> str:
     return "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=8))
 
 
+def _make_ctx() -> dict[str, str]:
+    """Build a substitution context dict for format_map."""
+    n = random.choice(NOUNS).lower().replace(" ", "-")
+    v = random.choice(VERBS)
+    return {
+        "noun": n,
+        "noun2": random.choice(NOUNS).lower().replace(" ", "-"),
+        "verb": v,
+        "adjective": random.choice(ADJECTIVES),
+        "sub": random.choice(SUBREDDITS),
+        "token": _tok(),
+        "slug": f"{v}-{n}",
+        "id": str(random.randint(100_000, 9_999_999)),
+        "year": str(random.randint(2020, 2025)),
+        "month": f"{random.randint(1, 12):02d}",
+        "major": str(random.randint(1, 9)),
+        "minor": str(random.randint(0, 20)),
+        "patch": str(random.randint(0, 10)),
+    }
+
+
 def _fill(template: str) -> str:
     """Fill a template string with random corpus words."""
-    n = random.choice(NOUNS)
-    n2 = random.choice(NOUNS)
-    v = random.choice(VERBS)
-    a = random.choice(ADJECTIVES)
-    s = random.choice(SUBREDDITS)
-    return (
-        template.replace("{noun}", n.lower().replace(" ", "-"))
-        .replace("{noun2}", n2.lower().replace(" ", "-"))
-        .replace("{verb}", v)
-        .replace("{adjective}", a)
-        .replace("{sub}", s)
-        .replace("{token}", _tok())
-        .replace("{slug}", f"{v}-{n.lower().replace(' ', '-')}")
-        .replace("{id}", str(random.randint(100000, 9999999)))
-        .replace("{year}", str(random.randint(2020, 2025)))
-        .replace("{month}", f"{random.randint(1, 12):02d}")
-        .replace("{major}", str(random.randint(1, 9)))
-        .replace("{minor}", str(random.randint(0, 20)))
-        .replace("{patch}", str(random.randint(0, 10)))
-    )
+    return template.format_map(_make_ctx())
 
 
 def _rand_url() -> tuple[str, str]:
     """Return (url, host)."""
     host = random.choice(DOMAINS)
-    path = _fill(random.choice(SUBPATHS))
+    path = random.choice(SUBPATHS).format_map(_make_ctx())
     return f"https://{host}{path}", host
 
 
 def _rand_title() -> str:
-    return _fill(random.choice(TITLE_TEMPLATES)).replace("-", " ").title()
+    return random.choice(TITLE_TEMPLATES).format_map(_make_ctx()).replace("-", " ").title()
+
+
+def _build_url_title_pool() -> list[tuple[str, str, str]]:
+    """Pre-generate (url, host, title) tuples to amortize string work across 1M rows."""
+    pool = []
+    for _ in range(_POOL_SIZE):
+        ctx = _make_ctx()
+        host = random.choice(DOMAINS)
+        url = f"https://{host}{random.choice(SUBPATHS).format_map(ctx)}"
+        title = random.choice(TITLE_TEMPLATES).format_map(ctx).replace("-", " ").title()
+        pool.append((url, host, title))
+    return pool
 
 
 def _rand_ts() -> int:
@@ -456,23 +471,49 @@ def _generate_history(conn: sqlite3.Connection, total: int, tag: str) -> None:
     """
     domain_sql = "INSERT OR IGNORE INTO domains (host) VALUES (?)"
 
-    domain_set: set[str] = set()
+    print(f"{tag}   Building URL/title pool ({_POOL_SIZE:,} entries)...")
+    t_pool = time.monotonic()
+    pool = _build_url_title_pool()
+    pool_size = len(pool)
+    print(f"{tag}   Pool ready in {time.monotonic() - t_pool:.1f}s")
+
     t0 = time.monotonic()
     inserted = 0
+    domain_set: set[str] = set()
 
     while inserted < total:
         batch_size = min(BATCH_SIZE, total - inserted)
+
+        # Bulk-generate all random values for this batch in one pass each
+        pidx = random.choices(range(pool_size), k=batch_size)
+        tss = random.choices(range(_THREE_YEARS_AGO, _NOW + 1), k=batch_size)
+        vcs = random.choices([1, 2, 3, 5, 10, 20], weights=[50, 20, 10, 8, 7, 5], k=batch_size)
+        tcs = random.choices([None, None, None, 0, 1, 2], k=batch_size)
+        browsers = random.choices(BROWSERS, k=batch_size)
+        fv_flags = random.choices((True, False), weights=(3, 7), k=batch_size)
+        fv_offs = random.choices(range(86400 * 30), k=batch_size)
+        vd_flags = random.choices((True, False), weights=(1, 2), k=batch_size)
+        vd_vals = [round(random.uniform(10.0, 600.0), 1) for _ in range(batch_size)]
+
         rows: list[tuple] = []
-        for _ in range(batch_size):
-            url, host = _rand_url()
+        for i in range(batch_size):
+            url, host, title = pool[pidx[i]]
             domain_set.add(host)
-            ts = _rand_ts()
-            vc = random.choices([1, 2, 3, 5, 10, 20], weights=[50, 20, 10, 8, 7, 5])[0]
-            tc = random.choice([None, None, None, 0, 1, 2])
-            vd = random.choice([None, None, round(random.uniform(10.0, 600.0), 1)])
-            fv = ts - random.randint(0, 86400 * 30) if random.random() < 0.3 else None
-            browser, profile = random.choice(BROWSERS)
-            rows.append((url, _rand_title(), ts, vc, browser, profile, tc, vd, fv))
+            ts = tss[i]
+            browser, profile = browsers[i]
+            rows.append(
+                (
+                    url,
+                    title,
+                    ts,
+                    vcs[i],
+                    browser,
+                    profile,
+                    tcs[i],
+                    vd_vals[i] if vd_flags[i] else None,
+                    ts - fv_offs[i] if fv_flags[i] else None,
+                )
+            )
 
         with conn:
             conn.executemany(sql, rows)
