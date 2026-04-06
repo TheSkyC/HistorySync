@@ -96,10 +96,14 @@ _WEEKDAY_FULL = [
 def _format_separator_date(ts: int) -> str:
     """Return a human-readable date label for the separator strip.
 
-    · Today              → translated "Today"
-    · Yesterday          → translated "Yesterday"
-    · Same calendar year → e.g. "Oct 24  Wednesday"  /  "10月24日 星期三"
-    · Earlier year       → e.g. "2023 Dec 1  Wednesday" / "2023年12月1日 星期三"
+    Graduated relative-time tiers, nearest first:
+
+    · Today                  → "Today"
+    · Yesterday              → "Yesterday"
+    · 2-6 days ago           → weekday name only, e.g. "Monday"
+    · 7-13 days ago          → "Last Monday"
+    · Same calendar year     → e.g. "Oct 24  Wednesday"
+    · Earlier year           → e.g. "2023  Oct 24  Wednesday"
 
     Format strings are translatable so each locale can rearrange tokens.
     """
@@ -107,12 +111,19 @@ def _format_separator_date(ts: int) -> str:
     dt = datetime.fromtimestamp(ts)
     today = date.today()
     record_date = dt.date()
+    days_ago = (today - record_date).days
     weekday = _(_WEEKDAY_FULL[dt.weekday()])
 
     if record_date == today:
         return _("Today")
     if record_date == today - timedelta(days=1):
         return _("Yesterday")
+    if days_ago < 7:
+        # Translators: date separator - within the past week. tokens: {weekday}
+        return _("{weekday}").format(weekday=weekday)
+    if days_ago < 14:
+        # Translators: date separator - last week. tokens: {weekday}
+        return _("Last {weekday}").format(weekday=weekday)
     if dt.year == today.year:
         # Translators: date separator - same year.  tokens: {month} {day} {weekday}
         return _("{month}/{day}  {weekday}").format(month=dt.month, day=dt.day, weekday=weekday)
