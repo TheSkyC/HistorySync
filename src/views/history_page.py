@@ -32,6 +32,7 @@ from PySide6.QtGui import (
     QPainter,
     QPainterPath,
     QPen,
+    QPixmap,
     QShortcut,
 )
 from PySide6.QtWidgets import (
@@ -814,7 +815,7 @@ class _ScrollTimeBubble(QWidget):
 
         # Domain rows (up to 3)
         self._domain_rows: list[_DomainRow] = []
-        for _ in range(3):
+        for __ in range(3):
             row = _DomainRow(self)
             row.hide()
             outer.addWidget(row)
@@ -832,6 +833,69 @@ class _ScrollTimeBubble(QWidget):
         bottom_row.addWidget(self._density_bar, 1)
         bottom_row.addWidget(self._total_lbl)
         outer.addLayout(bottom_row)
+
+        # ── Tutorial section ──────────────────────
+        # Dismissed after TUTORIAL_DISMISS_DRAGS drags.
+        # Hidden via _tutorial_widget.hide() + adjustSize() so the bubble
+        # shrinks back to its normal height without any layout rebuild.
+        self._tutorial_widget = QWidget(self)
+        self._tutorial_widget.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        tut_layout = QVBoxLayout(self._tutorial_widget)
+        tut_layout.setContentsMargins(0, 6, 0, 0)
+        tut_layout.setSpacing(0)
+
+        # Dashed divider above tutorial
+        tut_divider = QFrame()
+        tut_divider.setFrameShape(QFrame.HLine)
+        tut_divider.setFixedHeight(1)
+        tut_layout.addWidget(tut_divider)
+        self._tut_divider = tut_divider
+
+        tut_layout.addSpacing(6)
+
+        # Header row: "Bar guide" label
+        header_row = QHBoxLayout()
+        header_row.setContentsMargins(0, 0, 0, 0)
+        header_row.setSpacing(4)
+        self._tut_title_lbl = QLabel(_("Bar guide"))
+        header_row.addWidget(self._tut_title_lbl)
+        tut_layout.addLayout(header_row)
+
+        tut_layout.addSpacing(5)
+
+        # Three legend rows — each is a mini QHBoxLayout: icon-widget + label
+        self._tut_rows: list[QHBoxLayout] = []
+        for __ in range(3):
+            row = QHBoxLayout()
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(8)
+            icon_lbl = QLabel()
+            icon_lbl.setFixedSize(28, 10)
+            text_lbl = QLabel()
+            text_lbl.setWordWrap(True)
+            row.addWidget(icon_lbl)
+            row.addWidget(text_lbl, 1)
+            tut_layout.addLayout(row)
+            tut_layout.addSpacing(3)
+            self._tut_rows.append((icon_lbl, text_lbl))
+
+        # Auto-dismiss hint
+        tut_layout.addSpacing(3)
+        self._tut_hint_lbl = QLabel()
+        self._tut_hint_lbl.setAlignment(Qt.AlignCenter)
+        self._tut_hint_lbl.setWordWrap(True)
+        tut_layout.addWidget(self._tut_hint_lbl)
+
+        outer.addWidget(self._tutorial_widget)
+
+        # ── Tutorial state ────────────────────────────────────────────────────
+        # Number of sliderPressed events seen since the bubble was created.
+        # After TUTORIAL_DISMISS_DRAGS the tutorial auto-dismisses.
+        self._tutorial_drag_count: int = 0
+        self._tutorial_dismissed: bool = False
+        # Reference to AppConfig injected later via set_config(); used to
+        # persist the dismissed state across restarts.
+        self._config = None
 
         # ── Animation ──
         self._effect = QGraphicsOpacityEffect(self)
@@ -854,6 +918,57 @@ class _ScrollTimeBubble(QWidget):
         self._favicon_manager = favicon_manager
         # Precompute the average daily record count for the density bar
         self._refresh_avg_daily()
+
+    # Number of drag operations before the tutorial auto-dismisses.
+    _TUTORIAL_DISMISS_DRAGS: int = 5
+
+    def set_config(self, config) -> None:
+        """Inject AppConfig so the tutorial dismissed-state can be persisted.
+
+        Must be called once after construction, before the first drag.
+        If config already has the tutorial dismissed, hide the tutorial widget
+        immediately (before the bubble is ever shown) so adjustSize() never
+        includes the tutorial section in the bubble height.
+        """
+        self._config = config
+        already_dismissed = getattr(getattr(config, "ui", None), "scroll_bubble_tutorial_dismissed", False)
+        if already_dismissed:
+            self._tutorial_dismissed = True
+            self._tutorial_widget.hide()
+
+    def _dismiss_tutorial(self, *, save: bool) -> None:
+        """Hide the tutorial section and optionally persist the dismissed state."""
+        if self._tutorial_dismissed:
+            return
+        self._tutorial_dismissed = True
+        self._tutorial_widget.hide()
+        self.adjustSize()
+        if save and self._config is not None:
+            try:
+                self._config.ui.scroll_bubble_tutorial_dismissed = True
+                self._config.save()
+            except Exception as e:
+                log.warning("Failed to save tutorial dismissed state: %s", e)
+
+    def on_drag_started(self) -> None:
+        """Called by HistoryPage each time the scrollbar slider is pressed.
+
+        Increments the drag counter and auto-dismisses the tutorial once the
+        threshold is reached.  This method is a no-op once dismissed.
+        """
+        if self._tutorial_dismissed:
+            return
+        self._tutorial_drag_count += 1
+        self._update_tut_hint()
+        if self._tutorial_drag_count >= self._TUTORIAL_DISMISS_DRAGS:
+            self._dismiss_tutorial(save=True)
+
+    def _update_tut_hint(self) -> None:
+        """Refresh the auto-dismiss hint label with the remaining drag count."""
+        if self._tutorial_dismissed:
+            return
+        remaining = max(self._TUTORIAL_DISMISS_DRAGS - self._tutorial_drag_count, 0)
+        self._tut_hint_lbl.setText(_("{n} more drag(s) to close").format(n=remaining) if remaining > 0 else "")
 
     def _refresh_avg_daily(self) -> None:
         if self._db is None:
@@ -908,6 +1023,78 @@ class _ScrollTimeBubble(QWidget):
         if self._cached_stats:
             self._render_domain_rows(self._cached_stats)
         self.update()
+        # ── Tutorial section theming ──────────────────────────────────────────
+        self._apply_tutorial_theme(is_dark)
+
+    def _apply_tutorial_theme(self, is_dark: bool) -> None:
+        """Style all tutorial sub-widgets for the current theme.
+
+        Also redraws the three icon QLabels (blue bar, white dot, orange line)
+        using QPainter so they always match the real _DensityBar appearance.
+        Called from apply_theme(); safe to call before the tutorial widget is
+        shown for the first time.
+        """
+        tut_title_color = "#c0c8e0" if is_dark else "#3a4260"
+        tut_text_color = "#8090b0" if is_dark else "#6070a0"
+        tut_hint_color = "#4a5570" if is_dark else "#aab0c8"
+        tut_divider_css = "background: #2e3347;" if is_dark else "background: #dde2f0;"
+
+        self._tut_divider.setStyleSheet(tut_divider_css)
+        self._tut_title_lbl.setStyleSheet(
+            f"color: {tut_title_color}; font-size: 10px; font-weight: 600; background: transparent;"
+        )
+        self._tut_hint_lbl.setStyleSheet(f"color: {tut_hint_color}; font-size: 9px; background: transparent;")
+
+        # Legend definitions — each draw_fn renders the icon into a QPainter.
+        bar_color = QColor(74, 156, 239, 160)  # matches _DensityBar blue fill
+        dot_color = QColor(255, 255, 255, 230)  # white dot
+        dot_border = QColor(0, 0, 0, 60)
+        line_color = QColor(255, 160, 50, 220)  # orange rank line
+
+        def _draw_bar(painter: QPainter, rect) -> None:
+            painter.setBrush(QColor(80, 90, 120, 60))
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(rect.x(), rect.y() + 3, rect.width(), 4, 2, 2)
+            fill_w = int(rect.width() * 0.6)
+            painter.setBrush(bar_color)
+            painter.drawRoundedRect(rect.x(), rect.y() + 3, fill_w, 4, 2, 2)
+
+        def _draw_dot(painter: QPainter, rect) -> None:
+            painter.setBrush(QColor(80, 90, 120, 60))
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(rect.x(), rect.y() + 3, rect.width(), 4, 2, 2)
+            cx = rect.x() + int(rect.width() * 0.45)
+            cy = rect.y() + 5
+            painter.setBrush(dot_color)
+            painter.setPen(dot_border)
+            painter.drawEllipse(QPoint(cx, cy), 4, 4)
+
+        def _draw_line(painter: QPainter, rect) -> None:
+            painter.setBrush(QColor(80, 90, 120, 60))
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(rect.x(), rect.y() + 3, rect.width(), 4, 2, 2)
+            rx = rect.x() + int(rect.width() * 0.70)
+            painter.setBrush(line_color)
+            painter.drawRoundedRect(rx - 1, rect.y() + 1, 2, 8, 1, 1)
+
+        legend_defs = [
+            (_draw_bar, N_("Daily visit volume")),
+            (_draw_dot, N_("Time position within the day")),
+            (_draw_line, N_("Record rank within the day")),
+        ]
+
+        for (draw_fn, desc_key), (icon_lbl, text_lbl) in zip(legend_defs, self._tut_rows, strict=False):
+            pm = QPixmap(icon_lbl.size())
+            pm.fill(Qt.transparent)
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.Antialiasing)
+            draw_fn(p, pm.rect())
+            p.end()
+            icon_lbl.setPixmap(pm)
+            text_lbl.setText(_(desc_key))
+            text_lbl.setStyleSheet(f"color: {tut_text_color}; font-size: 10px; background: transparent;")
+
+        self._update_tut_hint()
 
     def paintEvent(self, _event) -> None:
         painter = QPainter(self)
@@ -1472,6 +1659,8 @@ class HistoryPage(QWidget):
         QApplication.instance().focusChanged.connect(self._on_focus_changed)
         # Inject DB + favicon data sources into the bubble
         self._scroll_bubble.set_data_sources(self._vm._db, self._vm._favicon_manager)
+        # Inject config so the bubble can persist the tutorial dismissed state
+        self._scroll_bubble.set_config(self._config)
         # Date-separator: track which rows start a new calendar day
         self._vm.table_model.records_loaded.connect(self._on_records_loaded)
         self._vm.table_model.modelReset.connect(self._on_model_reset)
@@ -1580,6 +1769,7 @@ class HistoryPage(QWidget):
         QTimer.singleShot(0, self._load_visible_sep_counts)
 
     def _on_sb_pressed(self) -> None:
+        self._scroll_bubble.on_drag_started()
         self._update_scroll_bubble()
         self._scroll_bubble.show_animated()
         self._scroll_bubble_timer.start()

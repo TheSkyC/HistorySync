@@ -120,6 +120,7 @@ class UIConfig:
 
     visible_columns: list = field(default_factory=lambda: ["title", "url", "browser", "visit_time"])
     column_widths: dict = field(default_factory=dict)
+    scroll_bubble_tutorial_dismissed: bool = False
 
 
 @dataclass
