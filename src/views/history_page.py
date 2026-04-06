@@ -613,15 +613,7 @@ class _DensityBar(QWidget):
             painter.setBrush(QBrush(grad))
             painter.drawRoundedRect(0, 0, fill_w, h, 2, 2)
 
-        # Record-rank indicator: orange vertical line inside the bar
-        if self._record_rank >= 0:
-            rx = int(w * self._record_rank)
-            rx = max(1, min(w - 2, rx))
-            painter.setBrush(QColor(255, 160, 50, 220))
-            painter.setPen(Qt.NoPen)
-            painter.drawRoundedRect(rx - 1, 0, 2, h, 1, 1)
-
-        # Day-position indicator: white dot that sits on top of the bar
+        # Day-position indicator: white dot drawn first so the orange line renders on top
         if self._day_progress >= 0:
             dot_r = 4
             cx = int(w * self._day_progress)
@@ -630,6 +622,14 @@ class _DensityBar(QWidget):
             painter.setBrush(QColor(255, 255, 255, 230))
             painter.setPen(QColor(0, 0, 0, 60))
             painter.drawEllipse(QPoint(cx, cy), dot_r, dot_r)
+
+        # Record-rank indicator: orange vertical line drawn last so it appears above the dot
+        if self._record_rank >= 0:
+            rx = int(w * self._record_rank)
+            rx = max(1, min(w - 2, rx))
+            painter.setBrush(QColor(255, 160, 50, 220))
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(rx - 1, 0, 2, h, 1, 1)
 
 
 class _DomainRow(QWidget):
