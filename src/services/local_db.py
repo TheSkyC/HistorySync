@@ -93,6 +93,7 @@ class LocalDatabase:
         self._ro_conn: sqlite3.Connection | None = None
         self._ro_lock = threading.Lock()
         self._schema_initialized: bool = False
+        self._fts_thread: threading.Thread | None = None
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
     # ── Internal helpers ──────────────────────────────────────
@@ -184,6 +185,10 @@ class LocalDatabase:
 
     def close(self) -> None:
         """Explicitly close the persistent connection (call at app shutdown)."""
+        # Join the FTS background thread first — it holds _lock while running,
+        # so we must not hold _lock ourselves while waiting or we'd deadlock.
+        if self._fts_thread is not None and self._fts_thread.is_alive():
+            self._fts_thread.join(timeout=30)
         with self._lock:
             self._reset_conn()
 
@@ -337,7 +342,8 @@ class LocalDatabase:
         # Run FTS integrity check in a background thread so it never blocks the
         # main thread / UI startup (the check itself is safe to run concurrently
         # because it only reads and the _lock protects each _conn() call).
-        threading.Thread(target=self._verify_fts_integrity, daemon=True, name="fts-integrity-check").start()
+        self._fts_thread = threading.Thread(target=self._verify_fts_integrity, daemon=True, name="fts-integrity-check")
+        self._fts_thread.start()
         log.info("Database schema initialized: %s", self.db_path)
 
     def _migrate_schema(self) -> None:
