@@ -2366,7 +2366,6 @@ class LocalDatabase:
     # ── Internal helpers ──────────────────────────────────────
 
     @staticmethod
-    @staticmethod
     def _row_to_record(row) -> HistoryRecord:
         # sqlite3.Row always supports key-based access; no hasattr guard needed.
         # Using try/except for the optional device_id column is O(1) — far cheaper
