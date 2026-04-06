@@ -2058,6 +2058,36 @@ class LocalDatabase:
             rows = conn.execute("SELECT host FROM domains").fetchall()
         return {r[0] for r in rows}
 
+    def get_day_counts_batch(self, day_starts: list[int]) -> dict[int, int]:
+        """Return {day_start_ts: record_count} for every timestamp in *day_starts*.
+
+        Executes a **single** SQL statement regardless of batch size by
+        constructing a VALUES-based CTE at call time.  Each ``day_start``
+        value is a local-midnight Unix timestamp; records are counted in the
+        half-open interval [day_start, day_start + 86399].
+
+        Performance characteristics
+        ---------------------------
+        * One round-trip to SQLite for the entire batch (vs N round-trips).
+        * The history.visit_time column is covered by the primary index used
+          for time-range scans, so each per-day COUNT is an index range scan.
+        * Typical batch size is 3-10 visible separator rows, making this
+          negligibly cheap even on large databases.
+        """
+        if not day_starts:
+            return {}
+        union_clause = " UNION ALL ".join("SELECT ? AS ds" for _ in day_starts)
+        sql = f"""
+            WITH ranges(ds) AS ({union_clause})
+            SELECT r.ds, COUNT(h.id)
+            FROM   ranges r
+            LEFT JOIN history h ON h.visit_time >= r.ds AND h.visit_time < r.ds + 86400
+            GROUP  BY r.ds
+        """
+        with self._conn(write=False) as conn:
+            rows = conn.execute(sql, day_starts).fetchall()
+        return {int(r[0]): int(r[1]) for r in rows}
+
     def get_day_rank(self, day_start_ts: int, ts: int) -> int:
         """Return the 1-based rank of ts among all records in the same day (ordered by visit_time)."""
         with self._conn(write=False) as conn:

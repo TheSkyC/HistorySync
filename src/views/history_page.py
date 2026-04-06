@@ -199,12 +199,14 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
     def __init__(
         self,
         separator_rows: dict[int, int],
+        sep_counts: dict[int, int],
         sub_delegate: QStyledItemDelegate | None = None,
         sub_col: int = 0,
         parent=None,
     ):
         super().__init__(parent)
         self._sep_rows = separator_rows
+        self._sep_counts = sep_counts  # row → visit count (populated lazily)
         self._sub = sub_delegate  # delegate used for sub_col (title column)
         self._sub_col = sub_col
 
@@ -214,13 +216,15 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         self._pill_bg = QColor(0, 0, 0, 14)
         self._pill_border = QColor(0, 0, 0, 28)
         self._pill_text_color = QColor(90, 100, 120)
+        self._count_pill_bg = QColor(0, 0, 0, 9)
+        self._count_pill_text_color = QColor(120, 130, 150)
         self._refresh_theme_cache()
 
         # ── Pill geometry cache ───────────────────────────────────────────────
-        # Maps date-label string → (pill_w, pill_h) so that horizontalAdvance()
+        # Maps (prefix, label) → (pill_w, pill_h) so that horizontalAdvance()
         # and QFontMetrics construction are skipped on repeated paint calls for
-        # the same date.  Cleared when the font or theme changes.
-        self._geometry_cache: dict[str, tuple[int, int]] = {}
+        # the same date/count.  Cleared when the font or theme changes.
+        self._geometry_cache: dict[tuple, tuple[int, int]] = {}
         self._pill_font: QFont | None = None
         self._pill_fm: QFontMetrics | None = None
         self._base_font_key: str = ""
@@ -254,7 +258,7 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         # Paint the date pill only once — in column 0 (leftmost visible cell).
         # Pass the cached visit_time directly — no model.data() call needed.
         if index.column() == 0:
-            self._paint_separator_pill(painter, top_rect, visit_time)
+            self._paint_separator_pill(painter, top_rect, visit_time, row)
 
         # Paint the regular cell content in the lower portion
         adj = QStyleOptionViewItem(option)
@@ -277,10 +281,14 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
             self._pill_bg = QColor(255, 255, 255, 22)
             self._pill_border = QColor(255, 255, 255, 38)
             self._pill_text_color = QColor(200, 208, 230)
+            self._count_pill_bg = QColor(255, 255, 255, 14)
+            self._count_pill_text_color = QColor(160, 170, 190)
         else:
             self._pill_bg = QColor(0, 0, 0, 14)
             self._pill_border = QColor(0, 0, 0, 28)
             self._pill_text_color = QColor(90, 100, 120)
+            self._count_pill_bg = QColor(0, 0, 0, 9)
+            self._count_pill_text_color = QColor(120, 130, 150)
 
     def _get_pill_font_and_fm(self, painter_font: QFont) -> tuple[QFont, QFontMetrics]:
         """Return a cached (QFont, QFontMetrics) pair for the pill text.
@@ -332,52 +340,80 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
             return self._sub.helpEvent(event, view, self._adjust_option_for_sep(option, index), index)
         return super().helpEvent(event, view, option, index)
 
-    def _paint_separator_pill(self, painter: QPainter, band: QRect, visit_time: int) -> None:
-        """Draw a centered pill label with the day string inside *band*.
+    def _measure_pill(self, fm: QFontMetrics, cache_key: tuple, text: str) -> tuple[int, int]:
+        """Return (pill_w, pill_h) for *text*, using *cache_key* for geometry caching."""
+        geom = self._geometry_cache.get(cache_key)
+        if geom is None:
+            pad_x, pad_y = 14, 3
+            pill_w = fm.horizontalAdvance(text) + pad_x * 2
+            pill_h = fm.height() + pad_y * 2
+            geom = (pill_w, pill_h)
+            if len(self._geometry_cache) > 400:
+                self._geometry_cache.clear()
+            self._geometry_cache[cache_key] = geom
+        return geom
+
+    def _draw_pill(self, painter: QPainter, rect: QRect, text: str, font: QFont, *, primary: bool) -> None:
+        """Draw a single rounded pill with *text* inside *rect*.
+
+        *primary=True* uses the main date-pill colors; *primary=False* uses the
+        lighter count-pill colors to visually subordinate the visit count.
+        """
+        bg = self._pill_bg if primary else self._count_pill_bg
+        border = self._pill_border
+        text_color = self._pill_text_color if primary else self._count_pill_text_color
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        path = QPainterPath()
+        radius = rect.height() / 2
+        path.addRoundedRect(rect.x(), rect.y(), rect.width(), rect.height(), radius, radius)
+        painter.fillPath(path, bg)
+        painter.setPen(QPen(border, 0.8))
+        painter.drawPath(path)
+        painter.setFont(font)
+        painter.setPen(text_color)
+        painter.drawText(rect, Qt.AlignCenter, text)
+        painter.restore()
+
+    def _paint_separator_pill(self, painter: QPainter, band: QRect, visit_time: int, row: int) -> None:
+        """Draw date pill (always) and count pill (once loaded) centered in *band*.
 
         ``visit_time`` is passed directly from the ``_sep_rows`` dict — no
         model.data() call is ever made on the hot paint path.
+
+        ``row`` is used to look up the lazily-loaded visit count from
+        ``_sep_counts``.  When the count has not yet been fetched only the date
+        pill is shown; once the count arrives the viewport is repainted and the
+        count pill appears to the right of the date pill.
         """
         self._refresh_theme_cache()
 
-        label = _format_separator_date(visit_time)
+        date_label = _format_separator_date(visit_time)
+        count = self._sep_counts.get(row)  # None → not yet loaded
 
-        # ── Font + metrics (cached) ───────────────────────────────────────────
         pill_font, fm2 = self._get_pill_font_and_fm(painter.font())
 
-        # ── Pill geometry (cached per label string) ───────────────────────────
-        geom = self._geometry_cache.get(label)
-        if geom is None:
-            pad_x, pad_y = 14, 3
-            pill_w = fm2.horizontalAdvance(label) + pad_x * 2
-            pill_h = fm2.height() + pad_y * 2
-            geom = (pill_w, pill_h)
-            # Bounded: at most ~365 unique dates + some headroom
-            if len(self._geometry_cache) > 400:
-                self._geometry_cache.clear()
-            self._geometry_cache[label] = geom
-        pill_w, pill_h = geom
+        date_w, pill_h = self._measure_pill(fm2, ("d", date_label), date_label)
 
-        pill_x = band.left() + (band.width() - pill_w) // 2
+        _GAP = 6
+        if count is not None:
+            count_label = _("{count} visits").format(count=count)
+            count_w, __ = self._measure_pill(fm2, ("c", count), count_label)
+            total_w = date_w + _GAP + count_w
+        else:
+            count_label = None
+            total_w = date_w
+
+        start_x = band.left() + (band.width() - total_w) // 2
         pill_y = band.top() + (band.height() - pill_h) // 2
-        pill_rect = QRect(pill_x, pill_y, pill_w, pill_h)
 
-        # ── Draw pill ─────────────────────────────────────────────────────────
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self._draw_pill(painter, QRect(start_x, pill_y, date_w, pill_h), date_label, pill_font, primary=True)
 
-        path = QPainterPath()
-        radius = pill_h / 2
-        path.addRoundedRect(pill_rect.x(), pill_rect.y(), pill_rect.width(), pill_rect.height(), radius, radius)
-
-        painter.fillPath(path, self._pill_bg)
-        painter.setPen(QPen(self._pill_border, 0.8))
-        painter.drawPath(path)
-
-        painter.setFont(pill_font)
-        painter.setPen(self._pill_text_color)
-        painter.drawText(pill_rect, Qt.AlignCenter, label)
-        painter.restore()
+        if count_label is not None:
+            self._draw_pill(
+                painter, QRect(start_x + date_w + _GAP, pill_y, count_w, pill_h), count_label, pill_font, primary=False
+            )
 
 
 class BookmarkBadgeDelegate(QStyledItemDelegate):
@@ -1044,6 +1080,16 @@ class HistoryPage(QWidget):
         self._scroll_bubble_timer.timeout.connect(self._update_scroll_bubble)
 
         self._separator_rows: dict[int, int] = {}
+        # Lazily-populated visit counts for date-separator pills.
+        # Keyed by row index — populated by _load_visible_sep_counts() after
+        # the user scrolls to (and pauses on) a region of the table.
+        self._sep_counts: dict[int, int] = {}
+
+        # Debounce timer: fires 300 ms after the last scroll event to trigger
+        # a batch DB query for visible separator rows that lack counts.
+        self._sep_count_timer = QTimer(self)
+        self._sep_count_timer.setSingleShot(True)
+        self._sep_count_timer.setInterval(300)
 
         self._init_ui()
         self._connect_vm()
@@ -1229,6 +1275,7 @@ class HistoryPage(QWidget):
 
         sep_delegate = _DateSeparatorDelegate(
             separator_rows=self._separator_rows,
+            sep_counts=self._sep_counts,
             sub_delegate=badge_delegate,
             sub_col=title_col_idx if title_col_idx is not None else 0,
             parent=self,
@@ -1296,6 +1343,12 @@ class HistoryPage(QWidget):
                 del self._separator_rows[row]
                 vh.resizeSection(row, _ROW_H)
 
+        # Schedule a lazy count fetch for any newly visible separator rows.
+        # singleShot(0) defers until the current event-loop iteration completes
+        # (after Qt has processed the row-height changes above), ensuring
+        # rowAt() returns correct values when _load_visible_sep_counts runs.
+        QTimer.singleShot(0, self._load_visible_sep_counts)
+
     def _on_model_reset(self) -> None:
         """Clear separator state when the model is rebuilt (new search / filter).
 
@@ -1307,6 +1360,8 @@ class HistoryPage(QWidget):
         for row in self._separator_rows:
             vh.resizeSection(row, _ROW_H)
         self._separator_rows.clear()
+        self._sep_counts.clear()
+        self._sep_count_timer.stop()
 
     def _setup_shortcuts(self):
         """Register Ctrl+F (focus search) and Ctrl+R (sync now)."""
@@ -1420,6 +1475,11 @@ class HistoryPage(QWidget):
         # Date-separator: track which rows start a new calendar day
         self._vm.table_model.records_loaded.connect(self._on_records_loaded)
         self._vm.table_model.modelReset.connect(self._on_model_reset)
+        # Lazy visit-count loading for separator pills.
+        # Debounced off the same valueChanged signal already wired above;
+        # also connected to the sep_count_timer timeout.
+        self._sep_count_timer.timeout.connect(self._load_visible_sep_counts)
+        self._table.verticalScrollBar().valueChanged.connect(self._on_scroll_sep_counts)
 
     def _on_scroll_check_load_more(self, value: int):
         """Trigger regex incremental loading when the scrollbar approaches the bottom."""
@@ -1431,6 +1491,74 @@ class HistoryPage(QWidget):
         threshold = sb.maximum() - row_h * 3
         if value >= threshold:
             self._vm.load_more()
+
+    def _on_scroll_sep_counts(self, _value: int) -> None:
+        """Restart the debounce timer whenever the table scrolls.
+
+        Calling start() on an already-running QTimer restarts it, so rapid
+        scroll events are collapsed into a single _load_visible_sep_counts()
+        call that fires 300 ms after scrolling comes to rest.
+        """
+        self._sep_count_timer.start()
+
+    def _load_visible_sep_counts(self) -> None:
+        """Batch-fetch visit counts for every separator row currently visible.
+
+        Called 300 ms after scroll activity ceases (debounced) and also
+        immediately (via QTimer.singleShot(0)) after a page of records is
+        loaded into the model.
+
+        Algorithm
+        ---------
+        1. Determine the visible row range from the viewport geometry.
+        2. Collect separator rows in that range whose counts are not yet cached.
+        3. Compute each row's local-midnight day_start timestamp from the
+           already-stored visit_time (no extra DB access needed).
+        4. De-duplicate day_starts (multiple rows on the same date share one
+           DB count) and issue a single ``get_day_counts_batch`` query.
+        5. Populate _sep_counts and trigger a viewport repaint only if new
+           data arrived.
+        """
+        if not self._separator_rows or self._vm._db is None:
+            return
+
+        vp = self._table.viewport()
+        top_row = self._table.rowAt(0)
+        bottom_row = self._table.rowAt(vp.height() - 1)
+        if top_row < 0:
+            return
+        if bottom_row < 0:
+            # rowAt returns -1 when the coordinate is below the last row
+            bottom_row = self._vm.table_model.rowCount() - 1
+
+        # Collect separator rows in the visible band that lack counts
+        missing_rows: dict[int, int] = {}  # row → day_start_ts
+        for row, visit_time in self._separator_rows.items():
+            if top_row <= row <= bottom_row and row not in self._sep_counts:
+                dt = datetime.fromtimestamp(visit_time)
+                day_start = int(datetime(dt.year, dt.month, dt.day).timestamp())
+                missing_rows[row] = day_start
+
+        if not missing_rows:
+            return
+
+        # De-duplicate: many rows on the same calendar day share one count
+        unique_day_starts = list(set(missing_rows.values()))
+        try:
+            counts_by_day = self._vm._db.get_day_counts_batch(unique_day_starts)
+        except Exception:
+            return
+
+        updated = False
+        for row, day_start in missing_rows.items():
+            cnt = counts_by_day.get(day_start, 0)
+            self._sep_counts[row] = cnt
+            updated = True
+
+        if updated:
+            # Repaint the entire viewport; Qt coalesces this into a single
+            # paint pass — no per-row invalidation needed.
+            vp.update()
 
     def _on_theme_changed(self, theme: str) -> None:
         """Repaint the visible viewport on theme change.
@@ -1448,6 +1576,8 @@ class HistoryPage(QWidget):
             vh.resizeSection(row, _SEP_TOTAL)
         self._table.viewport().update()
         self._scroll_bubble.apply_theme(theme)
+        # Re-fetch counts lost when modelReset cleared _sep_counts during theme swap.
+        QTimer.singleShot(0, self._load_visible_sep_counts)
 
     def _on_sb_pressed(self) -> None:
         self._update_scroll_bubble()
