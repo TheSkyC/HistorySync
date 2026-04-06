@@ -187,28 +187,52 @@ class ThemeManager(QObject):
                 saved_state.append((w, w.model(), col_info, scroll_v, scroll_h))
                 w.setModel(None)
 
-            app.setStyleSheet(qss)
+            # Suppress all repaints on every top-level window before applying the
+            # stylesheet.  When Qt processes app.setStyleSheet() it sends a
+            # QEvent::StyleChange to every widget in the application and each one
+            # responds by scheduling a repaint via update().  With many widgets
+            # alive (e.g. hundreds of bookmark-card children that persist in the
+            # widget tree even when the bookmarks page is not visible), this
+            # produces O(n) paint-event work that causes a multi-second freeze.
+            #
+            # setUpdatesEnabled(False) on a top-level widget propagates the
+            # WA_UpdatesDisabled flag to all its descendants, turning every
+            # update() call into a no-op.  After the stylesheet is applied and
+            # the model-state is restored we re-enable updates and issue a single
+            # update() per top-level, so Qt coalesces all pending repaints into
+            # one pass instead of n individual passes.
+            top_levels = [w for w in app.topLevelWidgets() if w.isVisible()]
+            for w in top_levels:
+                w.setUpdatesEnabled(False)
 
-            deferred_hscroll: list[tuple] = []  # (hbar, scroll_h) Deferred restoration of horizontal scrolling
+            try:
+                app.setStyleSheet(qss)
 
-            for w, model, col_info, scroll_v, scroll_h in saved_state:
-                hbar = w.horizontalScrollBar()
-                if hbar is not None and scroll_h:
-                    hbar.setUpdatesEnabled(False)
-                    deferred_hscroll.append((hbar, scroll_h))
+                deferred_hscroll: list[tuple] = []  # (hbar, scroll_h) Deferred restoration of horizontal scrolling
 
-                w.setModel(model)
-                if col_info:
-                    hh = w.horizontalHeader()
-                    for i, (width, mode) in enumerate(col_info):
-                        if i < hh.count():
-                            hh.setSectionResizeMode(i, mode)
-                            if mode in (QHeaderView.Interactive, QHeaderView.Fixed):
-                                hh.resizeSection(i, width)
-                vbar = w.verticalScrollBar()
-                if vbar is not None:
-                    vbar.setValue(scroll_v)
-                w.viewport().update()
+                for w, model, col_info, scroll_v, scroll_h in saved_state:
+                    hbar = w.horizontalScrollBar()
+                    if hbar is not None and scroll_h:
+                        hbar.setUpdatesEnabled(False)
+                        deferred_hscroll.append((hbar, scroll_h))
+
+                    w.setModel(model)
+                    if col_info:
+                        hh = w.horizontalHeader()
+                        for i, (width, mode) in enumerate(col_info):
+                            if i < hh.count():
+                                hh.setSectionResizeMode(i, mode)
+                                if mode in (QHeaderView.Interactive, QHeaderView.Fixed):
+                                    hh.resizeSection(i, width)
+                    vbar = w.verticalScrollBar()
+                    if vbar is not None:
+                        vbar.setValue(scroll_v)
+            finally:
+                # Re-enable updates unconditionally so a mid-apply exception can
+                # never leave the UI permanently frozen.
+                for w in top_levels:
+                    w.setUpdatesEnabled(True)
+                    w.update()
 
             if deferred_hscroll:
 

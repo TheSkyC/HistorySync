@@ -408,25 +408,33 @@ class BookmarksPage(QWidget):
         self._start_load()
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
 
-    def _on_theme_changed(self, _theme: str) -> None:
-        """Suppress per-widget polish repaints during theme switch.
+    def hideEvent(self, event):
+        """Clear all card widgets when the page is hidden."""
+        super().hideEvent(event)
+        self._stop_render()
+        self._clear_cards()
+        self._pending_bms.clear()
 
-        When Qt applies a new stylesheet, every child widget is polished
-        individually, causing O(n) layout recalculations across all bookmark
-        cards. Wrapping with setUpdatesEnabled(False/True) batches those
-        repaints into a single update, eliminating the 2-second freeze.
+    def showEvent(self, event):
+        """Rebuild cards from the in-memory cache when the page becomes visible."""
+        super().showEvent(event)
+        if self._all_bookmarks:
+            self._rebuild_cards_from_cache()
+        else:
+            self._start_load()
+
+    def _on_theme_changed(self, _theme: str) -> None:
+        """Re-polish the tag list after a theme switch.
+
+        Card widgets are destroyed while the page is hidden (see hideEvent),
+        so app.setStyleSheet() no longer iterates over them.  The only extra
+        work needed here is to nudge the QListWidget's style so its item
+        colours pick up the new palette correctly.
         """
-        container = self._cards_container
-        container.setUpdatesEnabled(False)
-        try:
-            # Re-apply polish to the tag list so its colours update correctly.
-            style = self._tag_list.style()
-            style.unpolish(self._tag_list)
-            style.polish(self._tag_list)
-            self._tag_list.viewport().update()
-        finally:
-            container.setUpdatesEnabled(True)
-        container.update()
+        style = self._tag_list.style()
+        style.unpolish(self._tag_list)
+        style.polish(self._tag_list)
+        self._tag_list.viewport().update()
 
     # --- UI Setup ---
 

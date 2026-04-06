@@ -270,9 +270,6 @@ class MainWindow(QMainWindow):
             self._history_initialized = True
             QTimer.singleShot(0, self._vm.history_vm.initialize)
 
-        if index == PAGE_BOOKMARKS and self._page_bookmarks is not None:
-            self._page_bookmarks.refresh()
-
     def _focus_history_search(self):
         self._switch_page(PAGE_HISTORY)  # creates page if needed
         self._page_history._focus_search()
