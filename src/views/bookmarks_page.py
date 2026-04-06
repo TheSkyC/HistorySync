@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -216,6 +217,7 @@ class _BookmarkCard(QFrame):
         url_lbl = QLabel(self._bm.url)
         url_lbl.setObjectName("muted")
         url_lbl.setWordWrap(True)
+        url_lbl.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         url_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
         url_lbl.setContextMenuPolicy(Qt.NoContextMenu)
         layout.addWidget(url_lbl)
