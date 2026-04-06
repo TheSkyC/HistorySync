@@ -496,9 +496,13 @@ class LocalDatabase:
         """Mark the given record ids as hidden (stored by URL for cross-device stability)."""
         if not ids:
             return
-        placeholders = ",".join("?" * len(ids))
+        _CHUNK = 900
         with self._conn() as conn:
-            rows = conn.execute(f"SELECT url FROM history WHERE id IN ({placeholders})", ids).fetchall()
+            rows: list[sqlite3.Row] = []
+            for i in range(0, len(ids), _CHUNK):
+                chunk = ids[i : i + _CHUNK]
+                placeholders = ",".join("?" * len(chunk))
+                rows.extend(conn.execute(f"SELECT url FROM history WHERE id IN ({placeholders})", chunk).fetchall())
             if rows:
                 conn.executemany(
                     "INSERT OR IGNORE INTO hidden_records(url) VALUES(?)",
@@ -517,20 +521,26 @@ class LocalDatabase:
         If *candidate_ids* is provided, only those rows are checked (faster
         for the common case where we know which IDs might be affected).
         """
+        _CHUNK = 900
         with self._conn(write=False) as conn:
             if candidate_ids:
-                placeholders = ",".join("?" * len(candidate_ids))
-                rows = conn.execute(
-                    f"""SELECT h.id FROM history h
-                        JOIN hidden_records hr ON h.url = hr.url
-                        WHERE h.id IN ({placeholders})""",
-                    list(candidate_ids),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    """SELECT h.id FROM history h
+                id_list = list(candidate_ids)
+                result: set[int] = set()
+                for i in range(0, len(id_list), _CHUNK):
+                    chunk = id_list[i : i + _CHUNK]
+                    placeholders = ",".join("?" * len(chunk))
+                    rows = conn.execute(
+                        f"""SELECT h.id FROM history h
+                            JOIN hidden_records hr ON h.url = hr.url
+                            WHERE h.id IN ({placeholders})""",
+                        chunk,
+                    ).fetchall()
+                    result.update(r[0] for r in rows)
+                return result
+            rows = conn.execute(
+                """SELECT h.id FROM history h
                        JOIN hidden_records hr ON h.url = hr.url"""
-                ).fetchall()
+            ).fetchall()
         return {r[0] for r in rows}
 
     def clear_hidden_records(self) -> int:
@@ -2177,23 +2187,28 @@ class LocalDatabase:
     def delete_records_by_ids(self, ids: list[int]) -> int:
         if not ids:
             return 0
-        placeholders = ",".join("?" * len(ids))
+        _CHUNK = 900
         with self._conn() as conn:
-            # Tombstone only URLs that will have no remaining rows after deletion.
-            # A URL shared across multiple browsers must NOT be tombstoned when only
-            # one browser's copy is removed — doing so would silently wipe the other
-            # browsers' records during the next WebDAV sync.
-            # GROUP BY + HAVING avoids the O(N²) NOT IN full-table scan: the correlated
-            # COUNT uses idx_history_url (O(log N) per group) → O(M log N) total.
-            conn.execute(
-                f"INSERT OR IGNORE INTO deleted_records(url) "
-                f"SELECT url FROM history WHERE id IN ({placeholders}) "
-                f"GROUP BY url "
-                f"HAVING COUNT(*) = (SELECT COUNT(*) FROM history h2 WHERE h2.url = history.url)",
-                ids,
-            )
-            cursor = conn.execute(f"DELETE FROM history WHERE id IN ({placeholders})", ids)
-            return cursor.rowcount
+            deleted = 0
+            for i in range(0, len(ids), _CHUNK):
+                chunk = ids[i : i + _CHUNK]
+                placeholders = ",".join("?" * len(chunk))
+                # Tombstone only URLs that will have no remaining rows after deletion.
+                # A URL shared across multiple browsers must NOT be tombstoned when only
+                # one browser's copy is removed — doing so would silently wipe the other
+                # browsers' records during the next WebDAV sync.
+                # GROUP BY + HAVING avoids the O(N²) NOT IN full-table scan: the correlated
+                # COUNT uses idx_history_url (O(log N) per group) → O(M log N) total.
+                conn.execute(
+                    f"INSERT OR IGNORE INTO deleted_records(url) "
+                    f"SELECT url FROM history WHERE id IN ({placeholders}) "
+                    f"GROUP BY url "
+                    f"HAVING COUNT(*) = (SELECT COUNT(*) FROM history h2 WHERE h2.url = history.url)",
+                    chunk,
+                )
+                cursor = conn.execute(f"DELETE FROM history WHERE id IN ({placeholders})", chunk)
+                deleted += cursor.rowcount
+            return deleted
 
     def delete_records_by_browser(self, browser_type: str) -> int:
         """Delete all history records for a specific browser and corresponding backup_stats entries."""
@@ -2252,20 +2267,25 @@ class LocalDatabase:
             ids = self._domain_ids_for(conn, domain)
             if not ids:
                 return 0
-            placeholders = ",".join("?" * len(ids))
-            # Only tombstone URLs that have no surviving rows outside the deleted domain_ids.
-            # GROUP BY + HAVING avoids the O(N²) NOT IN full-table scan: the correlated
-            # COUNT uses idx_history_url (O(log N) per group) → O(M log N) total.
-            conn.execute(
-                f"INSERT OR IGNORE INTO deleted_records(url) "
-                f"SELECT url FROM history WHERE domain_id IN ({placeholders}) "
-                f"GROUP BY url "
-                f"HAVING COUNT(*) = (SELECT COUNT(*) FROM history h2 WHERE h2.url = history.url)",
-                ids,
-            )
-            cursor = conn.execute(f"DELETE FROM history WHERE domain_id IN ({placeholders})", ids)
-            conn.execute(f"DELETE FROM domains WHERE id IN ({placeholders})", ids)
-            return cursor.rowcount
+            _CHUNK = 900
+            deleted = 0
+            for i in range(0, len(ids), _CHUNK):
+                chunk = ids[i : i + _CHUNK]
+                placeholders = ",".join("?" * len(chunk))
+                # Only tombstone URLs that have no surviving rows outside the deleted domain_ids.
+                # GROUP BY + HAVING avoids the O(N²) NOT IN full-table scan: the correlated
+                # COUNT uses idx_history_url (O(log N) per group) → O(M log N) total.
+                conn.execute(
+                    f"INSERT OR IGNORE INTO deleted_records(url) "
+                    f"SELECT url FROM history WHERE domain_id IN ({placeholders}) "
+                    f"GROUP BY url "
+                    f"HAVING COUNT(*) = (SELECT COUNT(*) FROM history h2 WHERE h2.url = history.url)",
+                    chunk,
+                )
+                cursor = conn.execute(f"DELETE FROM history WHERE domain_id IN ({placeholders})", chunk)
+                deleted += cursor.rowcount
+                conn.execute(f"DELETE FROM domains WHERE id IN ({placeholders})", chunk)
+            return deleted
 
     def resolve_domain_ids(self, domains: list[str]) -> list[int]:
         """Return the flattened list of domain.id values for all given domain names."""
@@ -2334,14 +2354,20 @@ class LocalDatabase:
     def get_records_by_ids(self, ids: list[int]) -> list[HistoryRecord]:
         if not ids:
             return []
-        placeholders = ",".join("?" * len(ids))
+        _CHUNK = 900
+        rows: list[sqlite3.Row] = []
         with self._conn(write=False) as conn:
-            rows = conn.execute(
-                f"SELECT id, url, title, visit_time, visit_count, browser_type, profile_name, metadata, "
-                f"typed_count, first_visit_time, transition_type, visit_duration, device_id "
-                f"FROM history WHERE id IN ({placeholders})",
-                ids,
-            ).fetchall()
+            for i in range(0, len(ids), _CHUNK):
+                chunk = ids[i : i + _CHUNK]
+                placeholders = ",".join("?" * len(chunk))
+                rows.extend(
+                    conn.execute(
+                        f"SELECT id, url, title, visit_time, visit_count, browser_type, profile_name, metadata, "
+                        f"typed_count, first_visit_time, transition_type, visit_duration, device_id "
+                        f"FROM history WHERE id IN ({placeholders})",
+                        chunk,
+                    ).fetchall()
+                )
         record_map = {r["id"]: self._row_to_record(r) for r in rows}
         return [record_map[i] for i in ids if i in record_map]
 
