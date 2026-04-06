@@ -111,7 +111,7 @@ class HistoryTableModel(QAbstractTableModel):
         self._page_lru: OrderedDict[int, None] = OrderedDict()
 
         # Regex incremental load state
-        self._regex_results: list[HistoryRecord] = []  # Matched records (in-memory cache)
+        # Regex incremental / keyword search state
         self._regex_scan_offset: int = 0  # DB offset of already-scanned candidates
         self._regex_has_more: bool = False  # Whether more candidates remain to be scanned
         self._keyword_materialized: bool = False  # True when _keyword_index is populated
@@ -355,7 +355,6 @@ class HistoryTableModel(QAbstractTableModel):
         """Reset cache, re-query total count, and trigger a full view refresh."""
         self._page_cache.clear()
         self._page_lru.clear()
-        self._regex_results.clear()
         self._regex_scan_offset = 0
         self._regex_has_more = False
         self._keyword_materialized = False
@@ -367,9 +366,9 @@ class HistoryTableModel(QAbstractTableModel):
         self._device_name_map = self._db.get_device_name_map()
 
         if self._use_regex and self._keyword:
-            # Regex incremental mode: scan the first batch without blocking on a full COUNT query
+            # Regex incremental mode: scan the first batch, store (id, visit_time) in _keyword_index
             self._scan_regex_batch()
-            new_count = len(self._regex_results)
+            new_count = len(self._keyword_index)
         elif self._keyword:
             # Normal keyword mode: build a lightweight (id, visit_time) index for the full result set.
             self._keyword_index = self._db.get_filtered_id_times(
@@ -423,7 +422,7 @@ class HistoryTableModel(QAbstractTableModel):
         return False
 
     def _scan_regex_batch(self) -> None:
-        """Scan the next REGEX_SCAN_BATCH candidates and append any matches to _regex_results."""
+        """Scan the next REGEX_SCAN_BATCH candidates and append matching (id, visit_time) to _keyword_index."""
         try:
             prog = re.compile(self._keyword, re.IGNORECASE)
         except Exception as exc:
@@ -450,7 +449,7 @@ class HistoryTableModel(QAbstractTableModel):
             device_ids=self._device_ids,
         )
 
-        before = len(self._regex_results)
+        before = len(self._keyword_index)
         for r in candidates:
             if self._title_only:
                 hit = bool(prog.search(r.title or ""))
@@ -459,25 +458,23 @@ class HistoryTableModel(QAbstractTableModel):
             else:
                 hit = bool(prog.search(r.title or "") or prog.search(r.url))
             if hit:
-                self._regex_results.append(r)
+                self._keyword_index.append((r.id, r.visit_time))
 
         self._regex_scan_offset += len(candidates)
-        # If this batch was full, there may be more candidates remaining
         self._regex_has_more = len(candidates) >= REGEX_SCAN_BATCH
 
-        new_matches = self._regex_results[before:]
-        if new_matches:
-            QTimer.singleShot(0, lambda r=new_matches: self._schedule_prefetch(r))
-            self.records_loaded.emit(before, new_matches)
+        new_count = len(self._keyword_index) - before
+        if new_count:
+            self.records_loaded.emit(before, [])  # notify view of new rows (no full records needed)
 
     def load_more_regex(self) -> bool:
         """Load the next batch of regex matches and append them to the model. Returns True if new rows were added."""
         if not self.can_load_more:
             return False
 
-        old_count = len(self._regex_results)
+        old_count = len(self._keyword_index)
         self._scan_regex_batch()
-        new_count = len(self._regex_results)
+        new_count = len(self._keyword_index)
 
         if new_count > old_count:
             self.beginInsertRows(QModelIndex(), old_count, new_count - 1)
@@ -585,14 +582,11 @@ class HistoryTableModel(QAbstractTableModel):
         Used by the scroll bubble to avoid loading full record pages."""
         if row < 0 or row >= self._total_count:
             return None
-        # Regex or pre-materialized keyword mode: results are already in memory
-        if self._keyword_materialized:
+        # Regex or pre-materialized keyword mode: read visit_time from lightweight index
+        if self._keyword_materialized or (self._use_regex and self._keyword):
             if row < len(self._keyword_index):
-                return self._keyword_index[row][1]  # visit_time
+                return self._keyword_index[row][1]
             return None
-        if self._use_regex and self._keyword:
-            r = self._regex_results[row] if row < len(self._regex_results) else None
-            return r.visit_time if r else None
         # Check page cache first to avoid a DB round-trip
         cached = self.peek_record_at(row)
         if cached is not None:
@@ -622,8 +616,6 @@ class HistoryTableModel(QAbstractTableModel):
         """
         if row < 0 or row >= self._total_count:
             return None
-        if self._use_regex and self._keyword:
-            return self._regex_results[row] if row < len(self._regex_results) else None
         page_index = row // CACHE_PAGE_SIZE
         page = self._page_cache.get(page_index)
         if page is None:
@@ -636,12 +628,7 @@ class HistoryTableModel(QAbstractTableModel):
     def _get_record_at(self, row: int) -> HistoryRecord | None:
         if row < 0 or row >= self._total_count:
             return None
-        # Regex mode: read directly from the in-memory results list
-        if self._use_regex and self._keyword:
-            if row < len(self._regex_results):
-                return self._regex_results[row]
-            return None
-        # Normal mode (including keyword with index): use the page cache
+        # All modes (regex, keyword, full history) use the page cache for full records
         page_index = row // CACHE_PAGE_SIZE
         page = self._get_or_fetch_page(page_index)
         local_row = row % CACHE_PAGE_SIZE
@@ -659,7 +646,7 @@ class HistoryTableModel(QAbstractTableModel):
     def _fetch_page(self, page_index: int) -> list[HistoryRecord]:
         """Fetch one page from the database and write it into the LRU cache."""
         start = page_index * CACHE_PAGE_SIZE
-        if self._keyword_materialized:
+        if self._keyword_materialized or (self._use_regex and self._keyword):
             # Use the lightweight ID index: slice IDs for this page, fetch full records by PK.
             # WHERE id IN (...) uses the primary key index — O(1) per row, no full-table scan.
             ids = [entry[0] for entry in self._keyword_index[start : start + CACHE_PAGE_SIZE]]
@@ -677,7 +664,7 @@ class HistoryTableModel(QAbstractTableModel):
                 excludes=self._excludes,
                 title_only=self._title_only,
                 url_only=self._url_only,
-                use_regex=False,  # Regex mode uses _regex_results directly, never this page cache path
+                use_regex=False,  # Regex filtering is done in Python; DB fetches unfiltered candidates
                 bookmarked_only=self._bookmarked_only,
                 has_annotation=self._has_annotation,
                 bookmark_tag=self._bookmark_tag,
@@ -729,16 +716,11 @@ class HistoryTableModel(QAbstractTableModel):
             return
 
         affected_rows: list[int] = []
-        if self._use_regex and self._keyword:
-            for row_idx, record in enumerate(self._regex_results):
+        for page_index, records in self._page_cache.items():
+            base = page_index * CACHE_PAGE_SIZE
+            for local_idx, record in enumerate(records):
                 if _favicon_extract_domain(record.url) in updated_domains:
-                    affected_rows.append(row_idx)
-        else:
-            for page_index, records in self._page_cache.items():
-                base = page_index * CACHE_PAGE_SIZE
-                for local_idx, record in enumerate(records):
-                    if _favicon_extract_domain(record.url) in updated_domains:
-                        affected_rows.append(base + local_idx)
+                    affected_rows.append(base + local_idx)
 
         if not affected_rows:
             return
