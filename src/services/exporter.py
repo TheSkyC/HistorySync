@@ -630,7 +630,7 @@ class _HtmlWriter:
                     with icon_path.open("r", encoding="utf-8") as f:
                         svg_content = f.read()
                 except Exception as e:
-                    log.debug(f"Could not read SVG for {bt}: {e}")
+                    log.debug("Could not read SVG for %s: %s", bt, e)
 
             meta[bt] = {"name": _browser_display_name(bt), "svg": svg_content}
         return meta

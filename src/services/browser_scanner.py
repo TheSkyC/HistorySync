@@ -126,7 +126,7 @@ class BrowserScanner:
 
         # Get scan root directories
         scan_roots = self._get_scan_roots()
-        log.info(f"Starting browser scan in {len(scan_roots)} root directories")
+        log.info("Starting browser scan in %s root directories", len(scan_roots))
 
         scanned_dirs = 0
 
@@ -152,7 +152,7 @@ class BrowserScanner:
         # Deduplicate: merge different profiles of the same browser
         self._deduplicate_browsers()
 
-        log.info(f"Scan complete: found {len(self._found_browsers)} browsers")
+        log.info("Scan complete: found %s browsers", len(self._found_browsers))
         return self._found_browsers
 
     def _get_scan_roots(self) -> list[Path]:
@@ -288,7 +288,7 @@ class BrowserScanner:
                 self._found_browsers.append(detected)
                 if self._browser_found_callback:
                     self._browser_found_callback(detected)
-                log.info(f"Found Chromium browser: {browser_name} at {profile_dir}")
+                log.info("Found Chromium browser: %s at %s", browser_name, profile_dir)
                 return
 
             # Enumerate all profiles
@@ -311,10 +311,10 @@ class BrowserScanner:
             self._found_browsers.append(detected)
             if self._browser_found_callback:
                 self._browser_found_callback(detected)
-            log.info(f"Found Chromium browser: {browser_name} with {len(profiles)} profiles")
+            log.info("Found Chromium browser: %s with %s profiles", browser_name, len(profiles))
 
         except Exception as e:
-            log.warning(f"Error processing Chromium browser at {history_path}: {e}")
+            log.warning("Error processing Chromium browser at %s: %s", history_path, e)
 
     def _process_firefox_browser(self, places_path: Path) -> None:
         """Process a detected Firefox browser."""
@@ -341,7 +341,7 @@ class BrowserScanner:
                 self._found_browsers.append(detected)
                 if self._browser_found_callback:
                     self._browser_found_callback(detected)
-                log.info(f"Found Firefox browser: {browser_name} at {profile_dir}")
+                log.info("Found Firefox browser: %s at %s", browser_name, profile_dir)
                 return
 
             # Enumerate all profiles
@@ -364,10 +364,10 @@ class BrowserScanner:
             self._found_browsers.append(detected)
             if self._browser_found_callback:
                 self._browser_found_callback(detected)
-            log.info(f"Found Firefox browser: {browser_name} with {len(profiles)} profiles")
+            log.info("Found Firefox browser: %s with %s profiles", browser_name, len(profiles))
 
         except Exception as e:
-            log.warning(f"Error processing Firefox browser at {places_path}: {e}")
+            log.warning("Error processing Firefox browser at %s: %s", places_path, e)
 
     def _find_user_data_dir(self, start_path: Path) -> Path | None:
         """Look up for the Chromium User Data directory."""
@@ -403,7 +403,7 @@ class BrowserScanner:
                 if history_file.exists() and self._is_valid_sqlite(history_file):
                     profiles.append(item.name)
         except Exception as e:
-            log.warning(f"Error enumerating Chromium profiles: {e}")
+            log.warning("Error enumerating Chromium profiles: %s", e)
         return profiles
 
     def _enumerate_firefox_profiles(self, profiles_dir: Path) -> list[str]:
@@ -418,7 +418,7 @@ class BrowserScanner:
                 if places_file.exists() and self._is_valid_sqlite(places_file):
                     profiles.append(item.name)
         except Exception as e:
-            log.warning(f"Error enumerating Firefox profiles: {e}")
+            log.warning("Error enumerating Firefox profiles: %s", e)
         return profiles
 
     def _extract_browser_name(self, path: Path) -> str:
@@ -507,4 +507,4 @@ class BrowserScanner:
             deduplicated.append(main)
 
         self._found_browsers = deduplicated
-        log.info(f"After deduplication: {len(self._found_browsers)} unique browsers")
+        log.info("After deduplication: %s unique browsers", len(self._found_browsers))

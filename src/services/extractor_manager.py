@@ -93,10 +93,10 @@ class ExtractorManager:
 
                 # Create extractor
                 self._registry[browser_type] = _make_extractor(browser_def)
-                log.info(f"Registered learned browser: {browser_def.display_name}")
+                log.info("Registered learned browser: %s", browser_def.display_name)
 
             except Exception as e:
-                log.error(f"Failed to register learned browser {browser_type}: {e}")
+                log.error("Failed to register learned browser %s: %s", browser_type, e)
 
     def register(self, extractor: BaseExtractor) -> None:
         self._registry[extractor.browser_type] = extractor

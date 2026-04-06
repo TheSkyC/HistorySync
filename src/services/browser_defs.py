@@ -575,7 +575,7 @@ def register_learned_browser(browser_def: BrowserDef) -> None:
         browser_def: Browser definition
     """
     BROWSER_DEF_MAP[browser_def.browser_type] = browser_def
-    log.info(f"Registered learned browser: {browser_def.display_name} ({browser_def.browser_type})")
+    log.info("Registered learned browser: %s (%s)", browser_def.display_name, browser_def.browser_type)
 
 
 def get_all_known_data_dirs() -> set[str]:

@@ -48,7 +48,7 @@ class ScanWorker(QThread):
             )
             self.finished.emit(results)
         except Exception as e:
-            log.error(f"Scan failed: {e}", exc_info=True)
+            log.error("Scan failed: %s", e, exc_info=True)
             self.error.emit(str(e))
 
     def request_stop(self):
