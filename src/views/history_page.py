@@ -308,6 +308,30 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         else:
             super().paint(painter, option, index)
 
+    def _adjust_option_for_sep(self, option, index):
+        """Return a copy of option with rect shifted down past the separator band for sep rows."""
+        row = index.row()
+        if row not in self._sep_rows:
+            return option
+        adj = QStyleOptionViewItem(option)
+        adj.rect = QRect(
+            option.rect.left(),
+            option.rect.top() + _SEP_H,
+            option.rect.width(),
+            _ROW_H,
+        )
+        return adj
+
+    def editorEvent(self, event, model, option, index):
+        if self._sub is not None and index.column() == self._sub_col:
+            return self._sub.editorEvent(event, model, self._adjust_option_for_sep(option, index), index)
+        return super().editorEvent(event, model, option, index)
+
+    def helpEvent(self, event, view, option, index):
+        if self._sub is not None and index.column() == self._sub_col:
+            return self._sub.helpEvent(event, view, self._adjust_option_for_sep(option, index), index)
+        return super().helpEvent(event, view, option, index)
+
     def _paint_separator_pill(self, painter: QPainter, band: QRect, visit_time: int) -> None:
         """Draw a centered pill label with the day string inside *band*.
 
