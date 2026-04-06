@@ -436,31 +436,37 @@ class BookmarkBadgeDelegate(QStyledItemDelegate):
         self._model = model
         self._badge_size = 14  # Increased from 12 to 14 for better visibility
         self._badge_spacing = 3
+        # Cache colorized badge pixmaps — only 2 fixed combinations exist
+        # (bookmark blue, annotation green), so this eliminates ~2800 QPixmap
+        # allocations + QPainter compositing calls per profiling session.
+        self._colorized_cache: dict[tuple[str, int], QPixmap] = {}
 
-    def _colorize_icon(self, icon: QIcon, color, size: int):
-        """Create a colored version of an icon."""
-        from PySide6.QtGui import QColor, QPainter, QPixmap
+    def _get_colorized_badge(self, icon_name: str, color: str) -> QPixmap | None:
+        """Return a cached colorized badge pixmap, creating it on first call."""
+        key = (icon_name, self._badge_size)
+        cached = self._colorized_cache.get(key)
+        if cached is not None:
+            return cached
 
+        icon = get_icon(icon_name)
         if icon.isNull():
-            return QPixmap()
+            return None
 
-        # Get the original pixmap
-        pixmap = icon.pixmap(size, size)
+        pixmap = icon.pixmap(self._badge_size, self._badge_size)
         if pixmap.isNull():
-            return pixmap
+            return None
 
-        # Create a new pixmap with the same size
         colored = QPixmap(pixmap.size())
         colored.fill(Qt.transparent)
 
-        # Paint the color with the original alpha mask
-        painter = QPainter(colored)
-        painter.setCompositionMode(QPainter.CompositionMode_Source)
-        painter.drawPixmap(0, 0, pixmap)
-        painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
-        painter.fillRect(colored.rect(), QColor(color))
-        painter.end()
+        p = QPainter(colored)
+        p.setCompositionMode(QPainter.CompositionMode_Source)
+        p.drawPixmap(0, 0, pixmap)
+        p.setCompositionMode(QPainter.CompositionMode_SourceIn)
+        p.fillRect(colored.rect(), QColor(color))
+        p.end()
 
+        self._colorized_cache[key] = colored
         return colored
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index):
@@ -494,25 +500,19 @@ class BookmarkBadgeDelegate(QStyledItemDelegate):
             favicon.paint(painter, x, y, 16, 16)
         x += 16 + 4
 
-        # Draw badge icons
+        # Draw badge icons (pixmaps are cached after first colorization)
         if has_bookmark:
-            bookmark_icon = get_icon("bookmark")
-            if not bookmark_icon.isNull():
+            bm_px = self._get_colorized_badge("bookmark", "#3B82F6")
+            if bm_px is not None:
                 badge_y = y + (16 - self._badge_size) // 2
-                # Colorize bookmark icon in blue
-                colored_pixmap = self._colorize_icon(bookmark_icon, "#3B82F6", self._badge_size)
-                if not colored_pixmap.isNull():
-                    painter.drawPixmap(x, badge_y, colored_pixmap)
+                painter.drawPixmap(x, badge_y, bm_px)
             x += self._badge_size + self._badge_spacing
 
         if has_annotation:
-            annotation_icon = get_icon("edit-2")
-            if not annotation_icon.isNull():
+            ann_px = self._get_colorized_badge("edit-2", "#10B981")
+            if ann_px is not None:
                 badge_y = y + (16 - self._badge_size) // 2
-                # Colorize annotation icon in green
-                colored_pixmap = self._colorize_icon(annotation_icon, "#10B981", self._badge_size)
-                if not colored_pixmap.isNull():
-                    painter.drawPixmap(x, badge_y, colored_pixmap)
+                painter.drawPixmap(x, badge_y, ann_px)
             x += self._badge_size + self._badge_spacing
 
         # Draw text
