@@ -1409,7 +1409,19 @@ class HistoryPage(QWidget):
             self._vm.load_more()
 
     def _on_theme_changed(self, theme: str) -> None:
-        """Only repaint the visible viewport on theme change, bypassing full table dataChanged callbacks."""
+        """Repaint the visible viewport on theme change.
+
+        ThemeManager.apply() temporarily calls setModel(None) then setModel(model)
+        to force Qt to re-apply the new stylesheet.  Qt's QHeaderView.initializeSections()
+        resets every section to defaultSectionSize during that swap, discarding the
+        per-row resizeSection() calls that gave separator rows their extra height
+        (_SEP_TOTAL instead of _ROW_H).  Re-apply those sizes here so the total
+        content height is restored before the next paint, preventing the brief
+        upward jump caused by vbar.setValue() operating on a shrunken content area.
+        """
+        vh = self._table.verticalHeader()
+        for row in self._separator_rows:
+            vh.resizeSection(row, _SEP_TOTAL)
         self._table.viewport().update()
         self._scroll_bubble.apply_theme(theme)
 
