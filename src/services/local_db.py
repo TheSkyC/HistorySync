@@ -2285,6 +2285,51 @@ class LocalDatabase:
             row = conn.execute(f"SELECT COUNT(*) FROM history WHERE domain_id IN ({placeholders})", ids).fetchone()
             return row[0] if row else 0
 
+    def get_filtered_id_times(
+        self,
+        keyword: str = "",
+        browser_type: str = "",
+        date_from: int | None = None,
+        date_to: int | None = None,
+        excluded_ids: set[int] | None = None,
+        domain_ids: list[int] | None = None,
+        excludes: list[str] | None = None,
+        title_only: bool = False,
+        url_only: bool = False,
+        bookmarked_only: bool = False,
+        has_annotation: bool = False,
+        bookmark_tag: str = "",
+        device_ids: list[int] | None = None,
+    ) -> list[tuple[int, int]]:
+        """Return (id, visit_time) for all matching rows ordered visit_time DESC.
+
+        Much lighter than get_records() — only two integers per row.  Used to
+        build a lightweight scroll index so page fetches can use WHERE id IN (...)
+        instead of LIMIT/OFFSET full-table scans.
+        """
+        excl = excluded_ids or set()
+        with self._conn(write=False) as conn:
+            from_where, params, _ = self._build_query_parts(
+                conn=conn,
+                keyword=keyword,
+                browser_type=browser_type,
+                date_from=date_from,
+                date_to=date_to,
+                excluded_ids=excl,
+                domain_ids=domain_ids,
+                excludes=excludes,
+                title_only=title_only,
+                url_only=url_only,
+                bookmarked_only=bookmarked_only,
+                has_annotation=has_annotation,
+                bookmark_tag=bookmark_tag,
+                _force_like=False,
+                device_ids=device_ids,
+            )
+            sql = f"SELECT h.id, h.visit_time {from_where} ORDER BY h.visit_time DESC"
+            rows = conn.execute(sql, params).fetchall()
+        return [(r[0], r[1]) for r in rows]
+
     def get_records_by_ids(self, ids: list[int]) -> list[HistoryRecord]:
         if not ids:
             return []
@@ -2296,7 +2341,8 @@ class LocalDatabase:
                 f"FROM history WHERE id IN ({placeholders})",
                 ids,
             ).fetchall()
-        return [self._row_to_record(r) for r in rows]
+        record_map = {r["id"]: self._row_to_record(r) for r in rows}
+        return [record_map[i] for i in ids if i in record_map]
 
     def get_row_offset_for_url(self, url: str) -> int:
         """Return the 0-based row index of the *most-recent* visit for *url*

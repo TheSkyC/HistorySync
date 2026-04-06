@@ -114,6 +114,8 @@ class HistoryTableModel(QAbstractTableModel):
         self._regex_results: list[HistoryRecord] = []  # Matched records (in-memory cache)
         self._regex_scan_offset: int = 0  # DB offset of already-scanned candidates
         self._regex_has_more: bool = False  # Whether more candidates remain to be scanned
+        self._keyword_materialized: bool = False  # True when _keyword_index is populated
+        self._keyword_index: list[tuple[int, int]] = []  # (id, visit_time) lightweight scroll index
 
         # Badge URL caches — bulk-loaded on each reload(), O(1) per-row lookup
         self._bookmarked_urls: set[str] = set()
@@ -356,6 +358,8 @@ class HistoryTableModel(QAbstractTableModel):
         self._regex_results.clear()
         self._regex_scan_offset = 0
         self._regex_has_more = False
+        self._keyword_materialized = False
+        self._keyword_index.clear()
 
         # Load badge URL sets for O(1) lookup during rendering
         self._bookmarked_urls = self._db.get_bookmarked_urls()
@@ -366,6 +370,25 @@ class HistoryTableModel(QAbstractTableModel):
             # Regex incremental mode: scan the first batch without blocking on a full COUNT query
             self._scan_regex_batch()
             new_count = len(self._regex_results)
+        elif self._keyword:
+            # Normal keyword mode: build a lightweight (id, visit_time) index for the full result set.
+            self._keyword_index = self._db.get_filtered_id_times(
+                keyword=self._keyword,
+                browser_type=self._browser_type,
+                date_from=self._date_from,
+                date_to=self._date_to,
+                excluded_ids=self._hidden_ids,
+                domain_ids=self._domain_ids,
+                excludes=self._excludes,
+                title_only=self._title_only,
+                url_only=self._url_only,
+                bookmarked_only=self._bookmarked_only,
+                has_annotation=self._has_annotation,
+                bookmark_tag=self._bookmark_tag,
+                device_ids=self._device_ids,
+            )
+            self._keyword_materialized = True
+            new_count = len(self._keyword_index)
         else:
             new_count = self._db.get_filtered_count(
                 keyword=self._keyword,
@@ -389,8 +412,8 @@ class HistoryTableModel(QAbstractTableModel):
 
         self.total_count_changed.emit(self._total_count, self._regex_has_more)
 
-        # Non-regex mode: prefetch the first page
-        if not (self._use_regex and self._keyword) and self._total_count > 0:
+        # Page cache mode only: prefetch the first page
+        if not self._keyword_materialized and not (self._use_regex and self._keyword) and self._total_count > 0:
             self._fetch_page(0)
 
     def load_more(self) -> bool:
@@ -562,7 +585,11 @@ class HistoryTableModel(QAbstractTableModel):
         Used by the scroll bubble to avoid loading full record pages."""
         if row < 0 or row >= self._total_count:
             return None
-        # Regex mode: results are already in memory
+        # Regex or pre-materialized keyword mode: results are already in memory
+        if self._keyword_materialized:
+            if row < len(self._keyword_index):
+                return self._keyword_index[row][1]  # visit_time
+            return None
         if self._use_regex and self._keyword:
             r = self._regex_results[row] if row < len(self._regex_results) else None
             return r.visit_time if r else None
@@ -609,12 +636,12 @@ class HistoryTableModel(QAbstractTableModel):
     def _get_record_at(self, row: int) -> HistoryRecord | None:
         if row < 0 or row >= self._total_count:
             return None
-        # Regex incremental mode: read directly from the in-memory results list
+        # Regex mode: read directly from the in-memory results list
         if self._use_regex and self._keyword:
             if row < len(self._regex_results):
                 return self._regex_results[row]
             return None
-        # Normal mode: use the page cache
+        # Normal mode (including keyword with index): use the page cache
         page_index = row // CACHE_PAGE_SIZE
         page = self._get_or_fetch_page(page_index)
         local_row = row % CACHE_PAGE_SIZE
@@ -631,25 +658,31 @@ class HistoryTableModel(QAbstractTableModel):
 
     def _fetch_page(self, page_index: int) -> list[HistoryRecord]:
         """Fetch one page from the database and write it into the LRU cache."""
-        offset = page_index * CACHE_PAGE_SIZE
-        records = self._db.get_records(
-            keyword=self._keyword,
-            browser_type=self._browser_type,
-            date_from=self._date_from,
-            date_to=self._date_to,
-            limit=CACHE_PAGE_SIZE,
-            offset=offset,
-            excluded_ids=self._hidden_ids,
-            domain_ids=self._domain_ids,
-            excludes=self._excludes,
-            title_only=self._title_only,
-            url_only=self._url_only,
-            use_regex=False,  # Regex mode uses _regex_results directly, never this page cache path
-            bookmarked_only=self._bookmarked_only,
-            has_annotation=self._has_annotation,
-            bookmark_tag=self._bookmark_tag,
-            device_ids=self._device_ids,
-        )
+        start = page_index * CACHE_PAGE_SIZE
+        if self._keyword_materialized:
+            # Use the lightweight ID index: slice IDs for this page, fetch full records by PK.
+            # WHERE id IN (...) uses the primary key index — O(1) per row, no full-table scan.
+            ids = [entry[0] for entry in self._keyword_index[start : start + CACHE_PAGE_SIZE]]
+            records = self._db.get_records_by_ids(ids)
+        else:
+            records = self._db.get_records(
+                keyword=self._keyword,
+                browser_type=self._browser_type,
+                date_from=self._date_from,
+                date_to=self._date_to,
+                limit=CACHE_PAGE_SIZE,
+                offset=start,
+                excluded_ids=self._hidden_ids,
+                domain_ids=self._domain_ids,
+                excludes=self._excludes,
+                title_only=self._title_only,
+                url_only=self._url_only,
+                use_regex=False,  # Regex mode uses _regex_results directly, never this page cache path
+                bookmarked_only=self._bookmarked_only,
+                has_annotation=self._has_annotation,
+                bookmark_tag=self._bookmark_tag,
+                device_ids=self._device_ids,
+            )
 
         self._page_cache[page_index] = records
         # LRU write: evict after inserting so the newest page counts toward the limit
@@ -666,7 +699,7 @@ class HistoryTableModel(QAbstractTableModel):
             # instead of one DB round-trip per page during fast scrolling.
             QTimer.singleShot(0, lambda r=records: self._schedule_prefetch(r))
             # Notify the view so it can resize date-separator rows
-            self.records_loaded.emit(offset, records)
+            self.records_loaded.emit(start, records)
 
         return records
 
@@ -696,11 +729,16 @@ class HistoryTableModel(QAbstractTableModel):
             return
 
         affected_rows: list[int] = []
-        for page_index, records in self._page_cache.items():
-            base = page_index * CACHE_PAGE_SIZE
-            for local_idx, record in enumerate(records):
+        if self._use_regex and self._keyword:
+            for row_idx, record in enumerate(self._regex_results):
                 if _favicon_extract_domain(record.url) in updated_domains:
-                    affected_rows.append(base + local_idx)
+                    affected_rows.append(row_idx)
+        else:
+            for page_index, records in self._page_cache.items():
+                base = page_index * CACHE_PAGE_SIZE
+                for local_idx, record in enumerate(records):
+                    if _favicon_extract_domain(record.url) in updated_domains:
+                        affected_rows.append(base + local_idx)
 
         if not affected_rows:
             return
