@@ -774,6 +774,7 @@ class LocalDatabase:
                 except Exception:
                     pass
                 self._ro_conn = None
+            self._schema_initialized = False
             for suffix in ("-wal", "-shm"):
                 p = self.db_path.with_name(self.db_path.name + suffix)
                 if p.exists():
