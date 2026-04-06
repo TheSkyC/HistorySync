@@ -545,6 +545,11 @@ class HistoryTableModel(QAbstractTableModel):
         return self._total_count
 
     @property
+    def is_filtered(self) -> bool:
+        """True when a keyword search is active (separators should be hidden)."""
+        return bool(self._keyword)
+
+    @property
     def can_load_more(self) -> bool:
         """True when the view can call load_more_regex() after scrolling to the bottom."""
         return self._regex_has_more and bool(self._use_regex and self._keyword)

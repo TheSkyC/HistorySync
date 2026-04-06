@@ -1501,7 +1501,7 @@ class HistoryPage(QWidget):
         * visit_time is stored in _separator_rows[row] so paint() never needs
           to call model.data() to build the pill label.
         """
-        if not records:
+        if not records or self._vm.table_model.is_filtered:
             return
 
         model = self._vm.table_model
