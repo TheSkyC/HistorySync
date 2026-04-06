@@ -238,7 +238,10 @@ def _try_decrypt_legacy(payload: bytes, master_key: bytes) -> str | None:
     if not hmac.compare_digest(signature, expected):
         return None
     keystream = hashlib.shake_256(master_key + salt).digest(len(encrypted_bytes))
-    return bytes(a ^ b for a, b in zip(encrypted_bytes, keystream, strict=False)).decode("utf-8")
+    try:
+        return bytes(a ^ b for a, b in zip(encrypted_bytes, keystream, strict=False)).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return None
 
 
 def decrypt_text(text: str) -> str:
