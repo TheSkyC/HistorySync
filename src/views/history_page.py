@@ -1827,10 +1827,10 @@ class HistoryPage(QWidget):
     def _apply_column_widths(self):
         visible_cols = self._vm.table_model.get_visible_columns()
         default_widths = {
-            "title": 360,
-            "url": 440,
-            "domain": 160,
-            "metadata": 250,
+            "title": 340,
+            "url": 420,
+            "domain": 140,
+            "metadata": 240,
         }
 
         with self._batch_header_update() as hh:
