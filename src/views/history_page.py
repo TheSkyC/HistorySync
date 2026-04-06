@@ -187,7 +187,7 @@ class _IconHeaderView(QHeaderView):
 
 
 # ── Date-separator constants ──────────────────────────────────────────────────
-_SEP_H = 26  # height of the date-separator band in pixels
+_SEP_H = 30  # height of the date-separator band in pixels
 _ROW_H = 38  # normal cell-content height in pixels
 _SEP_TOTAL = _SEP_H + _ROW_H  # total row height when a separator is shown
 
