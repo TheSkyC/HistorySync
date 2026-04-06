@@ -1614,6 +1614,29 @@ class HistoryPage(QWidget):
         self._table.scrollTo(idx, QAbstractItemView.ScrollHint.PositionAtCenter)
         self._focus_search()
 
+    def filter_by_date(self, date_str: str):
+        """Switch to history page and show only records for *date_str* (YYYY-MM-DD)."""
+        from PySide6.QtCore import QDate
+
+        try:
+            d = QDate.fromString(date_str, "yyyy-MM-dd")
+        except Exception:
+            return
+        self._search.blockSignals(True)
+        self._search.clear()
+        self._search.blockSignals(False)
+        self._browser_combo.blockSignals(True)
+        self._browser_combo.setCurrentIndex(0)
+        self._browser_combo.blockSignals(False)
+        self._date_from.blockSignals(True)
+        self._date_from.setDate(d)
+        self._date_from.blockSignals(False)
+        self._date_to.blockSignals(True)
+        self._date_to.setDate(d)
+        self._date_to.blockSignals(False)
+        self._do_search()
+        self._focus_search()
+
     def filter_by_browser(self, browser_type: str):
         """When navigating from the DashboardPage context menu, filter the list by browser type."""
         for i in range(self._browser_combo.count()):

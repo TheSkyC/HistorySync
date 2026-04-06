@@ -1985,6 +1985,147 @@ class LocalDatabase:
             rows = conn.execute("SELECT DISTINCT browser_type FROM history ORDER BY browser_type").fetchall()
             return [r[0] for r in rows]
 
+    # ── Stats / analytics queries ─────────────────────────────
+
+    @staticmethod
+    def _time_range(year: int | None, month: int | None = None) -> tuple[int, int] | None:
+        """Return (start_ts, end_ts) for the given year/month, or None for all-time."""
+        import calendar as _cal
+        import datetime as _dt
+
+        if year is None:
+            return None
+        if month is not None:
+            last_day = _cal.monthrange(year, month)[1]
+            start = int(_dt.datetime(year, month, 1).timestamp())
+            end = int(_dt.datetime(year, month, last_day, 23, 59, 59).timestamp()) + 1
+            return start, end
+        start = int(_dt.datetime(year, 1, 1).timestamp())
+        end = int(_dt.datetime(year + 1, 1, 1).timestamp())
+        return start, end
+
+    def get_available_years(self) -> list[int]:
+        """Return sorted list of years that have history records."""
+        with self._conn(write=False) as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT CAST(strftime('%Y', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS yr "
+                "FROM history ORDER BY yr"
+            ).fetchall()
+        return [r[0] for r in rows if r[0] is not None]
+
+    def get_daily_visit_counts(self, year: int | None = None, month: int | None = None) -> dict[str, int]:
+        """Return {YYYY-MM-DD: count} for days with visits, filtered by year/month."""
+        tr = self._time_range(year, month)
+        if tr is not None:
+            start_ts, end_ts = tr
+            with self._conn(write=False) as conn:
+                rows = conn.execute(
+                    "SELECT strftime('%Y-%m-%d', visit_time, 'unixepoch', 'localtime') AS day, "
+                    "COUNT(*) AS cnt FROM history "
+                    "WHERE visit_time >= ? AND visit_time < ? GROUP BY day ORDER BY day",
+                    (start_ts, end_ts),
+                ).fetchall()
+        else:
+            with self._conn(write=False) as conn:
+                rows = conn.execute(
+                    "SELECT strftime('%Y-%m-%d', visit_time, 'unixepoch', 'localtime') AS day, "
+                    "COUNT(*) AS cnt FROM history GROUP BY day ORDER BY day"
+                ).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def get_browser_visit_counts(self, year: int | None = None, month: int | None = None) -> dict[str, int]:
+        """Return {browser_type: count}, optionally filtered to *year*/*month*."""
+        tr = self._time_range(year, month)
+        if tr is not None:
+            start_ts, end_ts = tr
+            sql = (
+                "SELECT browser_type, COUNT(*) AS cnt FROM history "
+                "WHERE visit_time >= ? AND visit_time < ? GROUP BY browser_type"
+            )
+            params: tuple = (start_ts, end_ts)
+        else:
+            sql = "SELECT browser_type, COUNT(*) AS cnt FROM history GROUP BY browser_type"
+            params = ()
+        with self._conn(write=False) as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def get_hourly_visit_counts(self, year: int | None = None, month: int | None = None) -> dict[int, int]:
+        """Return {hour_0_to_23: count} for a heat-of-day chart."""
+        tr = self._time_range(year, month)
+        if tr is not None:
+            start_ts, end_ts = tr
+            sql = (
+                "SELECT CAST(strftime('%H', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS hr, "
+                "COUNT(*) AS cnt FROM history WHERE visit_time >= ? AND visit_time < ? GROUP BY hr"
+            )
+            params: tuple = (start_ts, end_ts)
+        else:
+            sql = (
+                "SELECT CAST(strftime('%H', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS hr, "
+                "COUNT(*) AS cnt FROM history GROUP BY hr"
+            )
+            params = ()
+        with self._conn(write=False) as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def get_top_domains(
+        self, limit: int = 10, year: int | None = None, month: int | None = None
+    ) -> list[tuple[str, int]]:
+        """Return [(domain, count)] for the most-visited domains."""
+        tr = self._time_range(year, month)
+        if tr is not None:
+            start_ts, end_ts = tr
+            sql = (
+                "SELECT d.host, COUNT(*) AS cnt FROM history h "
+                "JOIN domains d ON h.domain_id = d.id "
+                "WHERE h.visit_time >= ? AND h.visit_time < ? "
+                "GROUP BY d.host ORDER BY cnt DESC LIMIT ?"
+            )
+            params: tuple = (start_ts, end_ts, limit)
+        else:
+            sql = (
+                "SELECT d.host, COUNT(*) AS cnt FROM history h "
+                "JOIN domains d ON h.domain_id = d.id "
+                "GROUP BY d.host ORDER BY cnt DESC LIMIT ?"
+            )
+            params = (limit,)
+        with self._conn(write=False) as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [(r[0], r[1]) for r in rows]
+
+    def get_day_top_pages(self, date_str: str, limit: int = 3) -> list[tuple[str, str, int]]:
+        """Return [(title, url, visit_count)] for the most-visited pages on *date_str* (YYYY-MM-DD)."""
+        import datetime as _dt
+
+        d = _dt.date.fromisoformat(date_str)
+        start_ts = int(_dt.datetime(d.year, d.month, d.day).timestamp())
+        end_ts = start_ts + 86400
+        with self._conn(write=False) as conn:
+            rows = conn.execute(
+                "SELECT title, url, visit_count FROM history "
+                "WHERE visit_time >= ? AND visit_time < ? "
+                "ORDER BY visit_count DESC LIMIT ?",
+                (start_ts, end_ts, limit),
+            ).fetchall()
+        return [(r[0] or r[1], r[1], r[2]) for r in rows]
+
+    def get_day_hourly_counts(self, date_str: str) -> dict[int, int]:
+        """Return {hour_0_to_23: count} for a specific date (YYYY-MM-DD)."""
+        import datetime as _dt
+
+        d = _dt.date.fromisoformat(date_str)
+        start_ts = int(_dt.datetime(d.year, d.month, d.day).timestamp())
+        end_ts = start_ts + 86400
+        with self._conn(write=False) as conn:
+            rows = conn.execute(
+                "SELECT CAST(strftime('%H', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS hr, "
+                "COUNT(*) AS cnt FROM history WHERE visit_time >= ? AND visit_time < ? GROUP BY hr",
+                (start_ts, end_ts),
+            ).fetchall()
+        return {r[0]: r[1] for r in rows}
+
     def get_available_browsers(self) -> list[tuple[str, str]]:
         """Return [(browser_type, display_name)] for browsers that have history records."""
         from src.services.browser_defs import BROWSER_DEF_MAP
@@ -2117,6 +2258,9 @@ class LocalDatabase:
     def get_day_stats(self, day_start_ts: int, day_end_ts: int, top_n: int = 3) -> dict:
         """Return stats for a given day used by the scroll time bubble.
 
+        Uses a half-open interval [day_start_ts, day_end_ts) so the boundary
+        is consistent with get_day_hourly_counts (which uses start + 86400).
+
         Returns:
             {
                 "total": int,          # total records for the day
@@ -2125,7 +2269,7 @@ class LocalDatabase:
         """
         with self._conn(write=False) as conn:
             total_row = conn.execute(
-                "SELECT COUNT(*) FROM history WHERE visit_time BETWEEN ? AND ?",
+                "SELECT COUNT(*) FROM history WHERE visit_time >= ? AND visit_time < ?",
                 (day_start_ts, day_end_ts),
             ).fetchone()
             total = total_row[0] if total_row else 0
@@ -2135,7 +2279,7 @@ class LocalDatabase:
                 SELECT d.host, COUNT(h.id) AS cnt
                 FROM history h
                 JOIN domains d ON h.domain_id = d.id
-                WHERE h.visit_time BETWEEN ? AND ?
+                WHERE h.visit_time >= ? AND h.visit_time < ?
                 GROUP BY d.id
                 ORDER BY cnt DESC
                 LIMIT ?
@@ -2147,22 +2291,6 @@ class LocalDatabase:
             "total": total,
             "domains": [(r[0], r[1]) for r in domain_rows],
         }
-
-    def get_top_domains(self, limit: int = 30) -> list[tuple[str, int]]:
-        """Return [(host, visit_count), ...] ordered by visit count descending."""
-        with self._conn(write=False) as conn:
-            rows = conn.execute(
-                """
-                SELECT d.host, COUNT(h.id) AS cnt
-                FROM history h
-                JOIN domains d ON h.domain_id = d.id
-                GROUP BY d.id
-                ORDER BY cnt DESC
-                LIMIT ?
-                """,
-                (limit,),
-            ).fetchall()
-        return [(r[0], r[1]) for r in rows]
 
     def get_all_backup_stats(self) -> list[BackupStats]:
         with self._conn(write=False) as conn:

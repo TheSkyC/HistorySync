@@ -34,6 +34,7 @@ PAGE_HISTORY = 1
 PAGE_BOOKMARKS = 2
 PAGE_SETTINGS = 3
 PAGE_LOGS = 4
+PAGE_STATS = 5
 
 
 class MainWindow(QMainWindow):
@@ -117,12 +118,14 @@ class MainWindow(QMainWindow):
         self._nav_bookmarks = NavButton("bookmark", _("Bookmarks"))
         self._nav_settings = NavButton("settings", _("Settings"))
         self._nav_logs = NavButton("file-text", _("Log Viewer"))
+        self._nav_stats = NavButton("bar-chart-2", _("Statistics"))
         self._nav_buttons = [
             self._nav_dashboard,
             self._nav_history,
             self._nav_bookmarks,
             self._nav_settings,
             self._nav_logs,
+            self._nav_stats,
         ]
         for btn in self._nav_buttons:
             sb_layout.addWidget(btn)
@@ -147,20 +150,22 @@ class MainWindow(QMainWindow):
         self._stack.addWidget(self._page_dashboard)  # index 0
 
         # Placeholders occupy the correct stack indices until first access.
-        for _ in range(4):
-            self._stack.addWidget(QWidget())  # indices 1, 2, 3, 4
+        for _ in range(5):
+            self._stack.addWidget(QWidget())  # indices 1, 2, 3, 4, 5
 
         # Lazy page references — None until the user navigates there.
         self._page_history = None
         self._page_bookmarks = None
         self._page_settings = None
         self._page_logs = None
+        self._page_stats = None
 
         self._nav_dashboard.clicked.connect(lambda: self._switch_page(PAGE_DASHBOARD))
         self._nav_history.clicked.connect(lambda: self._switch_page(PAGE_HISTORY))
         self._nav_bookmarks.clicked.connect(lambda: self._switch_page(PAGE_BOOKMARKS))
         self._nav_settings.clicked.connect(lambda: self._switch_page(PAGE_SETTINGS))
         self._nav_logs.clicked.connect(lambda: self._switch_page(PAGE_LOGS))
+        self._nav_stats.clicked.connect(lambda: self._switch_page(PAGE_STATS))
         self._switch_page(PAGE_DASHBOARD)
 
         return self._stack
@@ -181,6 +186,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+3"), self).activated.connect(lambda: self._switch_page(PAGE_BOOKMARKS))
         QShortcut(QKeySequence("Ctrl+4"), self).activated.connect(lambda: self._switch_page(PAGE_SETTINGS))
         QShortcut(QKeySequence("Ctrl+5"), self).activated.connect(lambda: self._switch_page(PAGE_LOGS))
+        QShortcut(QKeySequence("Ctrl+6"), self).activated.connect(lambda: self._switch_page(PAGE_STATS))
         QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self._focus_history_search)
 
     def _connect_vm(self):
@@ -264,6 +270,13 @@ class MainWindow(QMainWindow):
             self._page_logs = LogViewerPage(get_log_dir())
             self._replace_placeholder(PAGE_LOGS, self._page_logs)
 
+        elif index == PAGE_STATS and self._page_stats is None:
+            from src.views.stats_page import StatsPage
+
+            self._page_stats = StatsPage(self._vm._db, favicon_manager=self._vm._favicon_manager)
+            self._replace_placeholder(PAGE_STATS, self._page_stats)
+            self._page_stats.navigate_to_date.connect(self._navigate_to_history_date)
+
         self._stack.setCurrentIndex(index)
 
         if index == PAGE_HISTORY and not self._history_initialized:
@@ -273,6 +286,11 @@ class MainWindow(QMainWindow):
     def _focus_history_search(self):
         self._switch_page(PAGE_HISTORY)  # creates page if needed
         self._page_history._focus_search()
+
+    def _navigate_to_history_date(self, date_str: str):
+        """Switch to history page and filter by the given date (from stats heatmap)."""
+        self._switch_page(PAGE_HISTORY)
+        self._page_history.filter_by_date(date_str)
 
     def _navigate_to_history_url(self, url: str):
         """Switch to history page and filter by the given URL (from bookmarks 'Locate in History')."""
