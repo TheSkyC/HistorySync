@@ -883,7 +883,8 @@ class _ScrollTimeBubble(QWidget):
         # rank value while the user is actively dragging.
         if self._db is not None:
             self._rank_pending_ts = int(ts)
-            self._rank_timer.start()  # restart 200 ms countdown
+            if not self._rank_timer.isActive():
+                self._rank_timer.start()  # start 200 ms countdown; don't restart if already running
 
         # Only query DB and resize when the date actually changes (expensive part).
         # adjustSize() triggers a full Qt layout pass, so it must not be called
