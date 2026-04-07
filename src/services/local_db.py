@@ -2122,7 +2122,7 @@ class LocalDatabase:
         return [(r[0], r[1]) for r in rows]
 
     def get_day_top_pages(self, date_str: str, limit: int = 3) -> list[tuple[str, str, int]]:
-        """Return [(title, url, visit_count)] for the most-visited pages on *date_str* (YYYY-MM-DD)."""
+        """Return [(title, url, total_visits)] for the most-visited pages on *date_str* (YYYY-MM-DD)."""
         import datetime as _dt
 
         d = _dt.date.fromisoformat(date_str)
@@ -2130,9 +2130,10 @@ class LocalDatabase:
         end_ts = start_ts + 86400
         with self._conn(write=False) as conn:
             rows = conn.execute(
-                "SELECT title, url, visit_count FROM history "
+                "SELECT MAX(title) AS title, url, SUM(visit_count) AS total_visits FROM history "
                 "WHERE visit_time >= ? AND visit_time < ? "
-                "ORDER BY visit_count DESC LIMIT ?",
+                "GROUP BY url "
+                "ORDER BY total_visits DESC LIMIT ?",
                 (start_ts, end_ts, limit),
             ).fetchall()
         return [(r[0] or r[1], r[1], r[2]) for r in rows]
