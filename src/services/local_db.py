@@ -773,6 +773,8 @@ class LocalDatabase:
 
     def replace_database(self, new_db_path: Path) -> None:
         """Safely replace the underlying SQLite file (used for WebDAV restore)."""
+        if self._fts_thread is not None and self._fts_thread.is_alive():
+            self._fts_thread.join(timeout=10)
         with self._lock, self._ro_lock:
             log.info("Replacing current database with %s", new_db_path)
             # Close all connections before touching the file so that
