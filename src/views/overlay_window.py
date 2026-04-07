@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING
 import webbrowser
 
 from PySide6.QtCore import (
+    QEasingCurve,
     QPoint,
+    QPropertyAnimation,
     Qt,
     QTimer,
     Signal,
@@ -473,6 +475,22 @@ class OverlayWindow(QWidget):
         self._load_cooldown.setSingleShot(True)
         self._load_cooldown.setInterval(300)
 
+        # Fade in/out animations
+        self._fade_in_anim = QPropertyAnimation(self, b"windowOpacity")
+        self._fade_in_anim.setDuration(200)
+        self._fade_in_anim.setStartValue(0.0)
+        self._fade_in_anim.setEndValue(0.96)
+        self._fade_in_anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        self._fade_out_anim = QPropertyAnimation(self, b"windowOpacity")
+        self._fade_out_anim.setDuration(150)
+        self._fade_out_anim.setStartValue(0.96)
+        self._fade_out_anim.setEndValue(0.0)
+        self._fade_out_anim.setEasingCurve(QEasingCurve.InCubic)
+        self._fade_out_anim.finished.connect(self._on_fade_out_finished)
+
+        self._is_hiding = False
+
     def _build_ui(self) -> None:
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -600,6 +618,8 @@ class OverlayWindow(QWidget):
         self._search_input.clear()
         self._stack.setCurrentIndex(0)
         self._position_on_screen()
+        self._is_hiding = False
+        self.setWindowOpacity(0.0)
         self.show()
 
         if sys.platform == "win32":
@@ -615,6 +635,8 @@ class OverlayWindow(QWidget):
         self._search_input.set_focus()
         # Show recent history immediately on open
         self._do_search()
+        # Start fade-in animation
+        self._fade_in_anim.start()
 
     def _position_on_screen(self) -> None:
         # Use cursor position to determine target screen, correctly supporting multi-monitor scenarios.
@@ -646,14 +668,26 @@ class OverlayWindow(QWidget):
 
         if event.type() == QEvent.ActivationChange and not self.isActiveWindow():
             # Hide when focus moves away (but not when settings panel opens a dialog)
-            self.hide()
+            if not self._is_hiding:
+                self.hide()
         super().changeEvent(event)
 
     def hide(self) -> None:
+        if self._is_hiding or not self.isVisible():
+            return
+        self._is_hiding = True
+        self._fade_out_anim.start()
+
+    def _on_fade_out_finished(self) -> None:
+        """Called when fade-out animation completes."""
         self._save_config()
         super().hide()
+        self._is_hiding = False
 
     def closeEvent(self, event) -> None:
+        if self._is_hiding:
+            event.ignore()
+            return
         self._save_config()
         super().closeEvent(event)
 
