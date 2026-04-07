@@ -315,13 +315,9 @@ class ExtractorManager:
         """
         if not url or not self._blacklisted_domains:
             return False
-        try:
-            from urllib.parse import urlparse
+        from src.utils.url_utils import extract_host
 
-            parsed = urlparse(url)
-            host = self._normalize_domain(parsed.netloc or parsed.path.split("/")[0])
-        except Exception:
-            return False
+        host = normalize_domain(extract_host(url) or "")
         if not host:
             return False
         return any(host == domain or host.endswith("." + domain) for domain in self._blacklisted_domains)
