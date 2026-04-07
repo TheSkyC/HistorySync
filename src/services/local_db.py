@@ -911,10 +911,10 @@ class LocalDatabase:
         finally:
             src_conn.close()
 
-        # Apply local tombstones — remove any history rows that were hard-deleted on this device
+        # Absorb remote tombstones into local table; the actual DELETE is
+        # handled by merge_user_data_from_db (when include_user_data=True) or
+        # skipped intentionally (plain import without user data).
         with self._conn() as conn:
-            conn.execute("DELETE FROM history WHERE url IN (SELECT url FROM deleted_records)")
-            # Also absorb remote tombstones into local table
             if remote_deleted:
                 conn.executemany(
                     "INSERT INTO deleted_records(url, deleted_at) VALUES(?, ?) ON CONFLICT(url) DO UPDATE SET deleted_at = MAX(deleted_at, excluded.deleted_at)",
