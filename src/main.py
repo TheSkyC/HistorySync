@@ -527,6 +527,16 @@ def _gui_main(args: argparse.Namespace) -> None:
             log.info("Mock mode: using fresh config, disk writes suppressed")
         else:
             log.info("Fresh mode: using default config, disk writes suppressed")
+
+        # Clean up stale fresh-mode temp directories from previous runs
+        from src.utils.path_helper import cleanup_stale_fresh_dirs
+
+        try:
+            removed = cleanup_stale_fresh_dirs(max_age_hours=24)
+            if removed > 0:
+                log.info("Cleaned up %d stale fresh-mode temp directories", removed)
+        except Exception as exc:
+            log.warning("Failed to clean stale temp directories: %s", exc)
     else:
         config = AppConfig.load()
         log.info("Config loaded from: %s", get_config_dir())
@@ -590,6 +600,12 @@ def _gui_main(args: argparse.Namespace) -> None:
         log.info("Mock data generation complete")
 
     main_vm = MainViewModel(config)
+
+    # Register cleanup handler for fresh mode
+    if config._fresh:
+        import atexit
+
+        atexit.register(config.cleanup_fresh_tmp)
 
     # ── 6. Main window ───────────────────────────────────────────────────────
     window = MainWindow(main_vm)

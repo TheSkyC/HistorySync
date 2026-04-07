@@ -98,6 +98,49 @@ def get_username() -> str:
     return os.environ.get("USERNAME") or os.environ.get("USER") or "User"
 
 
+def cleanup_stale_fresh_dirs(max_age_hours: int = 24) -> int:
+    """Clean up stale HistorySync_fresh_* temporary directories.
+
+    Removes temporary directories created by fresh mode that are older than
+    max_age_hours. This handles cases where the application was forcibly
+    terminated (e.g., killed in IDE debugger) and cleanup didn't run.
+
+    Parameters
+    ----------
+    max_age_hours:
+        Maximum age in hours. Directories older than this will be removed.
+        Default is 24 hours.
+
+    Returns
+    -------
+    int
+        Number of directories successfully removed.
+    """
+    import shutil
+    import tempfile
+    import time
+
+    temp_root = Path(tempfile.gettempdir())
+    removed_count = 0
+    cutoff_time = time.time() - (max_age_hours * 3600)
+
+    for item in temp_root.glob("HistorySync_fresh_*"):
+        if not item.is_dir():
+            continue
+
+        try:
+            # Check directory modification time
+            mtime = item.stat().st_mtime
+            if mtime < cutoff_time:
+                shutil.rmtree(item, ignore_errors=True)
+                removed_count += 1
+        except Exception:
+            # Ignore errors - directory might be in use or already deleted
+            pass
+
+    return removed_count
+
+
 # ── Browser Data Directories ──────────────────────────────────
 
 
