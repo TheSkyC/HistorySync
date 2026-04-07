@@ -527,9 +527,11 @@ class LocalDatabase:
         If *candidate_ids* is provided, only those rows are checked (faster
         for the common case where we know which IDs might be affected).
         """
+        if candidate_ids is not None and len(candidate_ids) == 0:
+            return set()
         _CHUNK = 900
         with self._conn(write=False) as conn:
-            if candidate_ids:
+            if candidate_ids is not None:
                 id_list = list(candidate_ids)
                 result: set[int] = set()
                 for i in range(0, len(id_list), _CHUNK):
