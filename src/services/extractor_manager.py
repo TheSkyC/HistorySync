@@ -54,6 +54,7 @@ class ExtractorManager:
         self._blacklisted_domains: set[str] = {normalize_domain(d) for d in (blacklisted_domains or [])}
         self._device_id: int | None = device_id
         self._registry: dict[str, BaseExtractor] = {}
+        self._saved_extractors: dict[str, BaseExtractor] = {}
         # Import defaults lazily to avoid circular imports at module level
         from src.models.app_config import DEFAULT_FILTERED_URL_PREFIXES
 
@@ -124,22 +125,15 @@ class ExtractorManager:
         new_disabled = set(disabled_browsers)
 
         newly_disabled = new_disabled - self._disabled
-        # Save extractor instances before removing them so that custom-path
-        # extractors (not present in BROWSER_DEF_MAP) can be restored later.
-        saved_extractors: dict[str, BaseExtractor] = {}
         for bt in newly_disabled:
-            saved = self._registry.get(bt)
-            if saved is not None:
-                saved_extractors[bt] = saved
-            self._registry.pop(bt, None)
+            if bt in self._registry:
+                self._saved_extractors[bt] = self._registry.pop(bt)
             log.info("ExtractorManager: disabled '%s'", bt)
 
         newly_enabled = self._disabled - new_disabled
         for bt in newly_enabled:
-            saved = saved_extractors.get(bt)
-            if saved is not None:
-                # Restore custom-path or other non-global extractors directly.
-                self._registry[bt] = saved
+            if bt in self._saved_extractors:
+                self._registry[bt] = self._saved_extractors.pop(bt)
                 log.info("ExtractorManager: re-enabled '%s' (restored saved extractor)", bt)
             else:
                 defn = get_browser_def(bt)
