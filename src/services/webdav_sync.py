@@ -185,7 +185,7 @@ class WebDavSyncService:
             self._set_status(SyncStatus.DISABLED)
             return self._fail(_("WebDAV not configured or disabled"))
         if not self._db_path.exists():
-            return self._fail(f"Database file not found: {self._db_path}")
+            return self._fail(_("Database file not found: {path}").format(path=self._db_path))
 
         def _cb(msg: str) -> None:
             if progress_callback:
