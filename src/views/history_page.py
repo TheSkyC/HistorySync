@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import bisect
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from urllib.parse import urlparse
@@ -1699,6 +1700,9 @@ class HistoryPage(QWidget):
         # the user scrolls to (and pauses on) a region of the table.
         self._sep_counts: dict[int, int] = {}
 
+        # Sorted list of separator row indices for fast lookup
+        self._separator_indices: list[int] = []
+
         # Debounce timer: fires 300 ms after the last scroll event to trigger
         # a batch DB query for visible separator rows that lack counts.
         self._sep_count_timer = QTimer(self)
@@ -1927,6 +1931,8 @@ class HistoryPage(QWidget):
             row = base_row + local_idx
             if row == 0:
                 # First record ever → always a separator
+                if row not in self._separator_rows:
+                    bisect.insort(self._separator_indices, row)
                 self._separator_rows[row] = record.visit_time
                 vh.resizeSection(row, _SEP_TOTAL)
                 continue
@@ -1940,6 +1946,8 @@ class HistoryPage(QWidget):
                 prev = model.peek_record_at(row - 1)
                 if prev is None:
                     # Previous page not in cache — conservatively mark as separator.
+                    if row not in self._separator_rows:
+                        bisect.insort(self._separator_indices, row)
                     self._separator_rows[row] = record.visit_time
                     vh.resizeSection(row, _SEP_TOTAL)
                     continue
@@ -1949,12 +1957,16 @@ class HistoryPage(QWidget):
 
             if curr_day != prev_day:
                 if row not in self._separator_rows:
+                    bisect.insort(self._separator_indices, row)
                     self._separator_rows[row] = record.visit_time
                     vh.resizeSection(row, _SEP_TOTAL)
             elif row in self._separator_rows:
                 # Row was previously marked as a separator (e.g. after a
                 # model reset with different data) - un-mark it.
                 del self._separator_rows[row]
+                idx = bisect.bisect_left(self._separator_indices, row)
+                if idx < len(self._separator_indices) and self._separator_indices[idx] == row:
+                    self._separator_indices.pop(idx)
                 vh.resizeSection(row, _ROW_H)
 
         # Schedule a lazy count fetch for any newly visible separator rows.
@@ -1975,6 +1987,7 @@ class HistoryPage(QWidget):
             vh.resizeSection(row, _ROW_H)
         self._separator_rows.clear()
         self._sep_counts.clear()
+        self._separator_indices.clear()
         self._sep_count_timer.stop()
 
     def _setup_shortcuts(self):
@@ -2105,6 +2118,7 @@ class HistoryPage(QWidget):
         sb = self._table.verticalScrollBar()
         sb.sliderPressed.connect(self._on_sb_pressed)
         sb.sliderReleased.connect(self._on_sb_released)
+        self._scroll_bubble_timer.timeout.connect(self._update_scroll_bubble)
         # Hide bubble when app loses focus (e.g. Win key, right-click outside)
         QApplication.instance().focusChanged.connect(self._on_focus_changed)
         # Inject DB + favicon data sources into the bubble
@@ -2234,17 +2248,26 @@ class HistoryPage(QWidget):
             self._scroll_bubble.hide_animated()
 
     def _update_scroll_bubble(self) -> None:
-        sb = self._table.verticalScrollBar()
-        pos = sb.sliderPosition()
-        vh = self._table.verticalHeader()
-        row = vh.logicalIndexAt(pos)
+        if self._vm.table_model.rowCount() == 0:
+            return
+
+        # Use the row at the vertical center of the viewport.
+        # This is simpler and more accurate than manual height calculation.
+        center_y = self._table.viewport().height() // 2
+        row = self._table.rowAt(center_y)
+
         if row < 0:
-            row_h = max(vh.defaultSectionSize(), 1)
-            row = max(pos // row_h, 0)
+            # If center is empty space (e.g., scrolled past the end),
+            # try to get the last valid row.
+            row = self._vm.table_model.rowCount() - 1
+
+        if row < 0:
+            return
 
         ts = self._vm.table_model.get_visit_time_at_row(row)
         if ts is None:
             return
+
         self._scroll_bubble.set_timestamp(ts)
         self._scroll_bubble.reposition(self._table.verticalScrollBar(), self)
         self._scroll_bubble.raise_()
