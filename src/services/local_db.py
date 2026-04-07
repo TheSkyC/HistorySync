@@ -915,11 +915,11 @@ class LocalDatabase:
         finally:
             src_conn.close()
 
-        # Absorb remote tombstones into local table; the actual DELETE is
-        # handled by merge_user_data_from_db (when include_user_data=True) or
-        # skipped intentionally (plain import without user data).
-        with self._conn() as conn:
-            if remote_deleted:
+        # Absorb remote tombstones only when merging full user data.
+        # Persisting tombstones during a plain import (include_user_data=False)
+        # would silently block those URLs from being re-imported in the future.
+        if include_user_data and remote_deleted:
+            with self._conn() as conn:
                 conn.executemany(
                     "INSERT INTO deleted_records(url, deleted_at) VALUES(?, ?) ON CONFLICT(url) DO UPDATE SET deleted_at = MAX(deleted_at, excluded.deleted_at)",
                     ((r[0], r[1]) for r in remote_deleted),
