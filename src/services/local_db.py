@@ -859,6 +859,19 @@ class LocalDatabase:
             _cb(_("Merging {n} records from backup...").format(n=total_src))
 
             _remote_deleted_urls = {r[0] for r in remote_deleted}
+
+            # Read local tombstones before streaming so we can skip already-deleted
+            # URLs during batch construction, avoiding a write-then-delete FTS churn.
+            with self._conn(write=False) as _ro:
+                try:
+                    _local_deleted_urls: set[str] = {
+                        r[0] for r in _ro.execute("SELECT url FROM deleted_records").fetchall()
+                    }
+                except sqlite3.OperationalError:
+                    _local_deleted_urls = set()
+
+            _skip_urls = _remote_deleted_urls | _local_deleted_urls
+
             cursor = src_conn.execute(
                 "SELECT url, title, visit_time, visit_count, browser_type, profile_name, "
                 "metadata, typed_count, first_visit_time, transition_type, visit_duration, "
@@ -887,7 +900,7 @@ class LocalDatabase:
                         device_id=remote_to_local_id.get(r["device_id"]) if r["device_id"] is not None else None,
                     )
                     for r in raw_batch
-                    if r["url"] not in _remote_deleted_urls
+                    if r["url"] not in _skip_urls
                 ]
                 inserted += self.upsert_records(records)
 
