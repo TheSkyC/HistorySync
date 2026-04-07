@@ -948,6 +948,17 @@ class _ScrollTimeBubble(QWidget):
         self._hiding = False
         self._anim.finished.connect(self._on_anim_done)
 
+        # ── Inertial Y position smoothing ──
+        # _target_y / _current_y are in parent-widget coordinates.
+        # Each timer tick, _current_y is nudged toward _target_y with
+        # exponential decay so the bubble glides rather than teleports.
+        self._target_y: int = 0
+        self._current_y: float = 0.0
+        self._target_x: int = 0  # X never animates, stored for move()
+        # Smoothing factor per 60 ms tick: 0 = no movement, 1 = instant.
+        # 0.35 gives ~3-4 frames to settle — snappy but visibly smooth.
+        self._SMOOTH_FACTOR: float = 0.35
+
         self.setFixedWidth(220)
         self.hide()
         self.apply_theme(ThemeManager.instance().current)
@@ -1269,6 +1280,8 @@ class _ScrollTimeBubble(QWidget):
             self._rank_timer.stop()
             # Expire year cache on hide so the next drag gets a fresh value
             self._cached_year = 0
+            # Reset inertial state so next show starts from the correct position
+            self._last_pos_set = False
 
     def reposition(self, sb: QScrollBar, page: QWidget) -> None:
         # Cache the last scrollbar value so we only recompute thumb geometry
@@ -1290,9 +1303,35 @@ class _ScrollTimeBubble(QWidget):
         )
         thumb_center_y = sb.mapTo(page, QPoint(0, thumb_rect.center().y())).y()
         sb_left_x = sb.mapTo(page, QPoint(0, 0)).x()
-        x = sb_left_x - self.width() - 8
-        y = max(0, min(thumb_center_y - self.height() // 2, page.height() - self.height()))
-        self.move(x, y)
+        self._target_x = sb_left_x - self.width() - 8
+        self._target_y = max(0, min(thumb_center_y - self.height() // 2, page.height() - self.height()))
+
+    def tick_position(self) -> None:
+        """Advance the inertial Y position one step toward _target_y.
+
+        Called every 60 ms by the HistoryPage timer.  Uses exponential
+        smoothing so the bubble glides to its target rather than teleporting.
+        X is never animated — it only changes when the scrollbar moves to the
+        other side of the viewport, which is rare.
+        """
+        delta = self._target_y - self._current_y
+        # Skip sub-pixel moves to avoid perpetual repaints when settled.
+        if abs(delta) < 0.5:
+            if int(self._current_y) != self._target_y:
+                self._current_y = float(self._target_y)
+                self.move(self._target_x, self._target_y)
+            return
+        self._current_y += delta * self._SMOOTH_FACTOR
+        self.move(self._target_x, int(self._current_y))
+
+    def snap_position(self) -> None:
+        """Instantly place the bubble at _target_y with no animation.
+
+        Called on the first tick of a new drag so the bubble appears at the
+        correct position rather than sliding in from wherever it last was.
+        """
+        self._current_y = float(self._target_y)
+        self.move(self._target_x, self._target_y)
 
 
 class _DraggableHistoryTable(QTableView):
@@ -2279,6 +2318,7 @@ class HistoryPage(QWidget):
         self._last_bubble_row: int = -1  # reset row cache on each new drag
         self._scroll_bubble._last_pos_set = False  # force reposition on first tick
         self._update_scroll_bubble()
+        self._scroll_bubble.snap_position()  # instant placement on first show
         self._scroll_bubble.show_animated()
         self._scroll_bubble_timer.start()
 
@@ -2325,6 +2365,9 @@ class HistoryPage(QWidget):
             # Row unchanged — bubble position is still correct; just re-raise
             # so it stays on top if something else was painted over it.
             self._scroll_bubble.raise_()
+        # Advance inertial Y every tick regardless of whether the row changed,
+        # so the bubble glides smoothly even during fast continuous scrolling.
+        self._scroll_bubble.tick_position()
 
     def _on_columns_changed(self):
         QTimer.singleShot(0, self._apply_column_widths)
