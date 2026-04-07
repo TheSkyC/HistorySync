@@ -2153,10 +2153,8 @@ class LocalDatabase:
         params: list = []
         conditions: list[str] = []
 
-        if keyword and len(keyword.strip()) <= 2:
-            # Short keywords (1-2 chars) are below FTS5's default min_token_size=3
-            # and will silently return no results even when matches exist.
-            # Bypass FTS entirely and use LIKE for these cases.
+        _any_short_word = keyword and any(len(w) < 3 for w in keyword.split() if w)
+        if keyword and (_any_short_word or len(keyword.replace(" ", "")) < 3):
             from_clause = "FROM history h"
             conditions.append("(h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')")
             params.extend([f"%{_escape_like(keyword)}%", f"%{_escape_like(keyword)}%"])
