@@ -12,18 +12,21 @@ from PySide6.QtCore import (
     QDate,
     QEasingCurve,
     QItemSelectionModel,
+    QMimeData,
     QPoint,
     QPropertyAnimation,
     QRect,
     QSize,
     Qt,
     QTimer,
+    QUrl,
     Signal,
 )
 from PySide6.QtGui import (
     QBrush,
     QColor,
     QCursor,
+    QDrag,
     QFont,
     QFontMetrics,
     QIcon,
@@ -1249,6 +1252,419 @@ class _ScrollTimeBubble(QWidget):
         self.move(x, y)
 
 
+class _DraggableHistoryTable(QTableView):
+    """QTableView subclass with Alt+drag URL export support.
+
+    • Normal drag (no Alt) → rubber-band selection (unchanged)
+    • Alt + drag from any row → drag URL(s) as text/uri-list and text/plain
+    • Tooltip shown when hovering over rows with Alt held
+    """
+
+    # Maximum number of URLs to drag at once (circuit breaker)
+    MAX_DRAG_URLS = 100
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._drag_start_pos: QPoint | None = None
+        self._drag_start_row: int = -1
+        self._alt_pressed: bool = False
+        self._favicon_drag: bool = False  # True if drag started from favicon area
+
+    # ------------------------------------------------------------------
+    # Mouse events
+    # ------------------------------------------------------------------
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            index = self.indexAt(event.pos())
+            if index.isValid():
+                # Check if click is on favicon area (title column)
+                if self._is_favicon_area(index, event.pos()):
+                    self._drag_start_pos = QPoint(event.pos())
+                    self._drag_start_row = index.row()
+                    self._favicon_drag = True
+                    # Don't call super() - prevent selection change on favicon click
+                    event.accept()
+                    return
+
+                # Check if Alt is pressed
+                mods = QApplication.keyboardModifiers()
+                if mods & Qt.AltModifier:
+                    self._drag_start_pos = QPoint(event.pos())
+                    self._drag_start_row = index.row()
+                    self._alt_pressed = True
+                    # Do NOT call super() — prevents selection change on Alt+press
+                    event.accept()
+                    return
+
+        self._drag_start_pos = None
+        self._drag_start_row = -1
+        self._alt_pressed = False
+        self._favicon_drag = False
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        # Check whether to start a drag first (before cursor update)
+        if (
+            (self._alt_pressed or self._favicon_drag)
+            and self._drag_start_pos is not None
+            and event.buttons() & Qt.LeftButton
+            and (event.pos() - self._drag_start_pos).manhattanLength() >= QApplication.startDragDistance()
+        ):
+            self._start_url_drag()
+            self._drag_start_pos = None
+            self._drag_start_row = -1
+            self._alt_pressed = False
+            self._favicon_drag = False
+            event.accept()
+            return
+
+        # Don't call super() when Alt is pressed or favicon dragging to prevent selection changes
+        if (self._alt_pressed or self._favicon_drag) and event.buttons() & Qt.LeftButton:
+            event.accept()
+            return
+
+        # Update cursor when hovering over favicon area
+        if not (event.buttons() & Qt.LeftButton):
+            index = self.indexAt(event.pos())
+            if index.isValid() and self._is_favicon_area(index, event.pos()):
+                self.setCursor(Qt.PointingHandCursor)
+            else:
+                self.unsetCursor()
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._drag_start_pos = None
+        self._drag_start_row = -1
+        self._alt_pressed = False
+        self._favicon_drag = False
+
+        # Update cursor after release
+        index = self.indexAt(event.pos())
+        if index.isValid() and self._is_favicon_area(index, event.pos()):
+            self.setCursor(Qt.PointingHandCursor)
+        else:
+            self.unsetCursor()
+
+        super().mouseReleaseEvent(event)
+
+    def _is_favicon_area(self, index, pos: QPoint) -> bool:
+        """Check if the click position is within the favicon area of the title column."""
+        model = self.model()
+        if not model or not hasattr(model, "_key_to_col"):
+            return False
+
+        title_col = model._key_to_col.get("title", -1)
+        if title_col < 0 or index.column() != title_col:
+            return False
+
+        # Get visual rect for this cell
+        vr = self.visualRect(index)
+        if vr.isNull():
+            return False
+
+        # Adjust for separator band if this is a separator row
+        page = self.parent()
+        if page and hasattr(page, "_separator_rows") and index.row() in page._separator_rows:
+            # Import _SEP_H from the module level
+            from src.views.history_page import _SEP_H
+
+            vr = QRect(vr.left(), vr.top() + _SEP_H, vr.width(), vr.height() - _SEP_H)
+
+        # Favicon is at x=rect.x()+4, y=centered, w=16, h=16
+        # Add some padding for easier clicking (24x24 hit area)
+        fav_x = vr.x() + 4 - 4  # Add 4px padding on left
+        fav_y = vr.y() + (vr.height() - 24) // 2
+        fav_rect = QRect(fav_x, fav_y, 24, 24)
+
+        return fav_rect.contains(pos)
+
+    # ------------------------------------------------------------------
+    # Drag logic
+    # ------------------------------------------------------------------
+
+    def _start_url_drag(self):
+        """Collect URLs, build MIME data, show preview, execute drag."""
+        if self._drag_start_row < 0:
+            return
+
+        # Decide which rows to drag:
+        # - If drag starts from a selected row → drag all selected rows
+        # - If drag starts from an unselected row → drag only that row (don't change selection)
+        sel_rows = sorted({i.row() for i in self.selectionModel().selectedRows()})
+        rows = sel_rows if self._drag_start_row in sel_rows and len(sel_rows) >= 1 else [self._drag_start_row]
+
+        # Circuit breaker: silently abort if too many URLs selected
+        if len(rows) > self.MAX_DRAG_URLS:
+            return
+
+        model = self.model()
+        records = [model.get_record_at(r) for r in rows]
+        records = [r for r in records if r and getattr(r, "url", None)]
+        if not records:
+            return
+
+        urls = [r.url for r in records]
+        titles = [r.title or urlparse(r.url).netloc or "Link" for r in records]
+
+        mime = QMimeData()
+        mime.setText("\n".join(urls))
+        mime.setUrls([QUrl(u) for u in urls])
+
+        # Add Windows file drag support for creating .url files on desktop
+        import sys
+
+        if sys.platform == "win32":
+            try:
+                self._add_windows_file_drag(mime, urls, titles)
+            except Exception as e:
+                log.warning("Failed to add Windows file drag support: %s", e)
+
+        drag = QDrag(self)
+        drag.setMimeData(mime)
+
+        preview = self._create_drag_preview(rows, records)
+        if not preview.isNull():
+            drag.setPixmap(preview)
+            drag.setHotSpot(QPoint(preview.width() // 2, preview.height() // 2))
+
+        drag.exec(Qt.CopyAction)
+
+    def _add_windows_file_drag(self, mime: QMimeData, urls: list[str], titles: list[str]):
+        """Add Windows-specific MIME data to support dragging .url files to desktop."""
+        import struct
+
+        # FileGroupDescriptorW structure for Windows shell
+        file_count = len(urls)
+
+        # Build FileGroupDescriptorW
+        # UINT cItems (4 bytes) + array of FILEDESCRIPTORW structures
+        fgd = struct.pack("<I", file_count)  # cItems
+
+        file_contents = []
+
+        for _i, (url, title) in enumerate(zip(urls, titles, strict=False)):
+            # Sanitize filename
+            safe_title = "".join(c if c.isalnum() or c in (" ", "-", "_") else "_" for c in title)
+            safe_title = safe_title.strip()[:50]  # Limit length
+            if not safe_title:
+                safe_title = "Link"
+            filename = f"{safe_title}.url"
+
+            # .url file format (INI-style)
+            content = f"[InternetShortcut]\r\nURL={url}\r\n"
+            content_bytes = content.encode("utf-8")
+            file_contents.append(content_bytes)
+
+            # FILEDESCRIPTORW structure (592 bytes)
+            flags = 0x00000001 | 0x00000040  # FD_ATTRIBUTES | FD_FILESIZE
+            filename_wide = filename.encode("utf-16-le")[:520]  # Max 260 wide chars
+            filename_wide = filename_wide.ljust(520, b"\x00")
+
+            descriptor = struct.pack("<I", flags)  # dwFlags
+            descriptor += b"\x00" * 16  # clsid
+            descriptor += b"\x00" * 8  # sizel
+            descriptor += b"\x00" * 8  # pointl
+            descriptor += struct.pack("<I", 0x80)  # dwFileAttributes (FILE_ATTRIBUTE_NORMAL)
+            descriptor += b"\x00" * 8  # ftCreationTime
+            descriptor += b"\x00" * 8  # ftLastAccessTime
+            descriptor += b"\x00" * 8  # ftLastWriteTime
+            descriptor += struct.pack("<I", 0)  # nFileSizeHigh
+            descriptor += struct.pack("<I", len(content_bytes))  # nFileSizeLow
+            descriptor += filename_wide  # cFileName
+
+            fgd += descriptor
+
+        # Set MIME data with proper Qt Windows format
+        mime.setData('application/x-qt-windows-mime;value="FileGroupDescriptorW"', fgd)
+
+        # Set FileContents for each file
+        for i, content_bytes in enumerate(file_contents):
+            mime.setData(f'application/x-qt-windows-mime;value="FileContents";index={i}', content_bytes)
+
+    # ------------------------------------------------------------------
+    # Drag preview pixmap
+    # ------------------------------------------------------------------
+
+    def _create_drag_preview(self, rows: list[int], records: list) -> QPixmap:
+        """Return a rich semi-transparent card pixmap for the drag ghost.
+
+        Args:
+            rows: List of row indices being dragged
+            records: List of HistoryRecord objects corresponding to rows
+        """
+        count = len(records)
+        if count == 0:
+            return QPixmap()
+
+        # Detect current theme
+        theme = ThemeManager.instance().current
+        is_dark = theme == "dark"
+
+        # Theme-aware colors
+        if is_dark:
+            card_bg = QColor(50, 55, 65, 240)  # Dark card background (lighter)
+            card_border = QColor(90, 100, 115, 200)  # Dark border (lighter)
+            shadow_color = QColor(0, 0, 0, 80)  # Darker shadow
+            text_primary = QColor(230, 235, 245)  # Light text
+            text_secondary = QColor(170, 180, 195)  # Muted light text
+            avatar_bg = QColor(100, 120, 180)  # Blue avatar
+            avatar_bg_2 = QColor(120, 100, 180)  # Purple avatar (second)
+            badge_bg = QColor(59, 130, 246)  # Blue badge
+        else:
+            card_bg = QColor(255, 255, 255, 220)  # Light card background
+            card_border = QColor(200, 200, 200, 180)  # Light border
+            shadow_color = QColor(0, 0, 0, 40)  # Light shadow
+            text_primary = QColor(40, 40, 40)  # Dark text
+            text_secondary = QColor(100, 100, 100)  # Muted dark text
+            avatar_bg = QColor(100, 120, 180)  # Blue avatar
+            avatar_bg_2 = QColor(120, 100, 180)  # Purple avatar (second)
+            badge_bg = QColor(59, 130, 246)  # Blue badge
+
+        card_w, card_h = 240, 56
+        layer_offset = 4
+
+        total_w = card_w if count == 1 else card_w + layer_offset
+        total_h = card_h if count == 1 else card_h + layer_offset
+
+        pixmap = QPixmap(total_w, total_h)
+        pixmap.fill(Qt.transparent)
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        num_layers = min(count, 2)
+        model = self.model()
+        title_col = -1
+        if model and hasattr(model, "_key_to_col"):
+            title_col = model._key_to_col.get("title", -1)
+
+        # Draw layered cards back → front
+        for i in range(num_layers - 1, -1, -1):
+            ox = (num_layers - 1 - i) * layer_offset
+            oy = (num_layers - 1 - i) * layer_offset
+
+            # Shadow
+            painter.setBrush(shadow_color)
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(QRect(ox + 2, oy + 2, card_w, card_h), 6, 6)
+
+            # Card face
+            painter.setBrush(card_bg)
+            painter.setPen(QPen(card_border, 1))
+            painter.drawRoundedRect(QRect(ox, oy, card_w, card_h), 6, 6)
+
+            # Draw favicon on back card (second URL) if we have 2+ items
+            if i == 0 and count >= 2 and title_col >= 0 and len(rows) >= 2:
+                idx = model.index(rows[1], title_col)
+                deco = model.data(idx, Qt.DecorationRole)
+                back_favicon: QPixmap | None = None
+                if isinstance(deco, QPixmap):
+                    back_favicon = deco
+                elif isinstance(deco, QIcon) and not deco.isNull():
+                    back_favicon = deco.pixmap(16, 16)
+
+                back_fav_x = ox + 12
+                back_fav_y = oy + (card_h - 16) // 2
+
+                if back_favicon and not back_favicon.isNull():
+                    painter.drawPixmap(back_fav_x, back_fav_y, 16, 16, back_favicon)
+                else:
+                    # Letter avatar for second URL
+                    try:
+                        domain = urlparse(records[1].url).netloc or "?"
+                        letter = domain[0].upper() if domain else "?"
+                    except Exception:
+                        letter = "?"
+                    painter.setBrush(avatar_bg_2)
+                    painter.setPen(Qt.NoPen)
+                    painter.drawRoundedRect(back_fav_x, back_fav_y, 16, 16, 3, 3)
+                    painter.setPen(QColor(255, 255, 255))
+                    painter.setFont(QFont("Arial", 9, QFont.Bold))
+                    painter.drawText(QRect(back_fav_x, back_fav_y, 16, 16), Qt.AlignCenter, letter)
+
+        # Front card offset
+        fx = layer_offset if count > 1 else 0
+        fy = layer_offset if count > 1 else 0
+
+        # ── Retrieve favicon for first URL ────────────────────
+        favicon: QPixmap | None = None
+        if title_col >= 0 and len(rows) > 0:
+            idx = model.index(rows[0], title_col)
+            deco = model.data(idx, Qt.DecorationRole)
+            if isinstance(deco, QPixmap):
+                favicon = deco
+            elif isinstance(deco, QIcon) and not deco.isNull():
+                favicon = deco.pixmap(16, 16)
+
+        # ── Draw favicon (or letter avatar) on front card ─────
+        fav_x = fx + 12
+        fav_y = fy + (card_h - 16) // 2
+
+        if favicon and not favicon.isNull():
+            painter.drawPixmap(fav_x, fav_y, 16, 16, favicon)
+        else:
+            try:
+                domain = urlparse(records[0].url).netloc or "?"
+                letter = domain[0].upper() if domain else "?"
+            except Exception:
+                letter = "?"
+            painter.setBrush(avatar_bg)
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(fav_x, fav_y, 16, 16, 3, 3)
+            painter.setPen(QColor(255, 255, 255))
+            painter.setFont(QFont("Arial", 9, QFont.Bold))
+            painter.drawText(QRect(fav_x, fav_y, 16, 16), Qt.AlignCenter, letter)
+
+        # ── Draw text ─────────────────────────────────────────
+        text_x = fav_x + 16 + 8
+        text_y = fy + 8
+        text_w = card_w - (text_x - fx) - 8
+
+        painter.setPen(text_primary)
+
+        if count == 1:
+            try:
+                domain = urlparse(records[0].url).netloc or records[0].url
+            except Exception:
+                domain = records[0].url
+
+            # Domain bold
+            painter.setFont(QFont("Arial", 10, QFont.Bold))
+            d_text = domain if len(domain) <= 30 else domain[:28] + "…"
+            painter.drawText(QRect(text_x, text_y, text_w, 18), Qt.AlignLeft | Qt.AlignVCenter, d_text)
+
+            # Title small
+            painter.setFont(QFont("Arial", 9))
+            painter.setPen(text_secondary)
+            title = getattr(records[0], "title", "") or ""
+            t_text = title if len(title) <= 35 else title[:33] + "…"
+            painter.drawText(QRect(text_x, text_y + 20, text_w, 18), Qt.AlignLeft | Qt.AlignVCenter, t_text)
+        else:
+            # Multiple: "N links" label
+            painter.setFont(QFont("Arial", 10, QFont.Bold))
+            painter.setPen(text_primary)
+            painter.drawText(
+                QRect(text_x, text_y + 8, text_w - 30, 20),
+                Qt.AlignLeft | Qt.AlignVCenter,
+                f"{count} links",
+            )
+
+            # Count badge
+            bx = fx + card_w - 32
+            by = fy + 8
+            painter.setBrush(badge_bg)
+            painter.setPen(Qt.NoPen)
+            painter.drawEllipse(bx, by, 20, 20)
+            painter.setPen(QColor(255, 255, 255))
+            painter.setFont(QFont("Arial", 10, QFont.Bold))
+            painter.drawText(QRect(bx, by, 20, 20), Qt.AlignCenter, str(count))
+
+        painter.end()
+        return pixmap
+
+
 class HistoryPage(QWidget):
     # Signals to parent for blacklist / hide changes
     blacklist_domain_requested = Signal(str)
@@ -1378,7 +1794,7 @@ class HistoryPage(QWidget):
         root.addWidget(filter_frame)
 
         # ── Table ─────────────────────────────────────────────
-        self._table = QTableView()
+        self._table = _DraggableHistoryTable(self)
         self._table.setModel(self._vm.table_model)
         self._table.setAlternatingRowColors(True)
         self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
