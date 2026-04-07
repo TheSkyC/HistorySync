@@ -632,7 +632,7 @@ class LocalDatabase:
                 conn.execute("PRAGMA journal_mode=WAL")
                 result = conn.execute("PRAGMA wal_checkpoint(RESTART)").fetchone()
                 if result and result[0]:
-                    _cb(_("⚠ WAL checkpoint partially blocked by active readers; proceeding anyway…"))
+                    _cb(_("⚠ WAL checkpoint partially blocked by active readers; VACUUM will handle remaining pages…"))
                 conn.commit()
                 conn.close()
                 conn = None
@@ -640,13 +640,6 @@ class LocalDatabase:
                 if conn:
                     conn.close()
             size_before = db_path.stat().st_size if db_path.exists() else 0
-            for suffix in ("-wal", "-shm"):
-                p = db_path.with_name(db_path.name + suffix)
-                if p.exists():
-                    try:
-                        p.unlink()
-                    except OSError:
-                        pass
             _cb(_("Running VACUUM — rewriting database file…"))
             conn = sqlite3.connect(str(db_path), timeout=120)
             try:
