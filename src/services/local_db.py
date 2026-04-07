@@ -1079,12 +1079,25 @@ class LocalDatabase:
 
             # 6. Merge annotations (skip tombstoned urls, keep newer updated_at)
             deleted_ann_urls: set[str] = {r[0] for r in conn.execute("SELECT url FROM deleted_annotations").fetchall()}
+
+            # Pre-fetch history ids for all annotation urls in bulk
+            ann_urls = [ann["url"] for ann in remote_annotations if ann["url"] not in deleted_ann_urls]
+            ann_history_id_map: dict[str, int] = {}
+            if ann_urls:
+                _ph3 = ",".join("?" * len(ann_urls))
+                ann_history_id_map = {
+                    r["url"]: r["id"]
+                    for r in conn.execute(
+                        f"SELECT url, id FROM history WHERE url IN ({_ph3})",
+                        ann_urls,
+                    ).fetchall()
+                }
+
             for ann in remote_annotations:
                 url = ann["url"]
                 if url in deleted_ann_urls:
                     continue
-                h_row = conn.execute("SELECT id FROM history WHERE url=? LIMIT 1", (url,)).fetchone()
-                history_id = h_row[0] if h_row else None
+                history_id = ann_history_id_map.get(url)
                 conn.execute(
                     """INSERT INTO annotations(url, note, created_at, updated_at, history_id)
                        VALUES(?, ?, ?, ?, ?)
