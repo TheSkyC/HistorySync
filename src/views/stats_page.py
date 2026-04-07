@@ -29,10 +29,12 @@ from PySide6.QtGui import (
     QColor,
     QFont,
     QFontMetrics,
+    QLinearGradient,
     QPainter,
     QPainterPath,
     QPen,
     QPixmap,
+    QRadialGradient,
 )
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -121,7 +123,7 @@ _DARK_PALETTE = _Palette(
     card_bg=QColor("#20232c"),
     card_border=QColor("#252830"),
     text_primary=QColor("#e8eaf0"),
-    text_muted=QColor("#4a5068"),
+    text_muted=QColor("#5e6d87"),
     accent=QColor("#5b9cf6"),
     bg_page=QColor("#1a1d23"),
 )
@@ -130,7 +132,7 @@ _LIGHT_PALETTE = _Palette(
     card_bg=QColor("#ffffff"),
     card_border=QColor("#d8dce8"),
     text_primary=QColor("#1e2128"),
-    text_muted=QColor("#8892a4"),
+    text_muted=QColor("#6b7280"),
     accent=QColor("#2563eb"),
     bg_page=QColor("#f0f2f5"),
 )
@@ -677,10 +679,144 @@ class HeatmapWidget(QWidget):
 # ── Pie chart widget ─────────────────────────────────────────────────────────
 
 
+class _ChartTooltip(QWidget):
+    """Lightweight floating tooltip for chart widgets (pie / bar)."""
+
+    _W = 180
+    _PAD = 10
+
+    def __init__(self, parent=None):
+        super().__init__(
+            parent,
+            Qt.ToolTip | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint,
+        )
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self._lines: list[tuple[str, str, QColor | None]] = []  # (text, role, color)
+        self._anim = QPropertyAnimation(self, b"windowOpacity")
+        self._anim.setDuration(120)
+        self._anim.setEasingCurve(QEasingCurve.OutQuad)
+        self.setFixedWidth(self._W)
+        self.hide()
+
+    def show_lines(self, lines: list[tuple[str, str, QColor | QPixmap | None]], global_pos: QPoint):
+        """lines: list of (text, role, icon) where role is 'title'|'value'|'sub',
+        icon is QPixmap (shown as-is), QColor (shown as swatch), or None."""
+        self._lines = lines
+        self._update_height()
+        self._position(global_pos)
+        self.update()
+        if not self.isVisible():
+            self.setWindowOpacity(0.0)
+            self.show()
+            self.raise_()
+        self._anim.stop()
+        self._anim.setStartValue(self.windowOpacity())
+        self._anim.setEndValue(0.95)
+        self._anim.start()
+
+    def hide_animated(self):
+        if not self.isVisible():
+            return
+        self._anim.stop()
+        self._anim.setStartValue(self.windowOpacity())
+        self._anim.setEndValue(0.0)
+        self._anim.finished.connect(self._on_fade_done, Qt.UniqueConnection)
+        self._anim.start()
+
+    def _on_fade_done(self):
+        self._anim.finished.disconnect(self._on_fade_done)
+        if self.windowOpacity() < 0.05:
+            self.hide()
+
+    def _update_height(self):
+        h = self._PAD
+        for line in self._lines:
+            h += 18 if line[1] == "title" else 16
+        h += self._PAD
+        self.setFixedHeight(h)
+
+    def _position(self, global_pos: QPoint):
+        from PySide6.QtGui import QGuiApplication
+
+        screen = QGuiApplication.screenAt(global_pos) or QGuiApplication.primaryScreen()
+        sg = screen.availableGeometry()
+        x = global_pos.x() + 14
+        y = global_pos.y() - self.height() // 2
+        if x + self._W > sg.right() - 4:
+            x = global_pos.x() - self._W - 8
+        y = max(sg.top() + 4, min(y, sg.bottom() - self.height() - 4))
+        self.move(x, y)
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setRenderHint(QPainter.TextAntialiasing)
+
+        is_dark = _is_dark()
+        bg = QColor(22, 25, 34, 240) if is_dark else QColor(250, 251, 255, 245)
+        border = QColor(70, 80, 100, 120) if is_dark else QColor(200, 208, 228, 180)
+        text_main = QColor("#e2e5f0") if is_dark else QColor("#1a1e2e")
+        text_muted = QColor("#5a6580") if is_dark else QColor("#8896b0")
+
+        w = self.width()
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(0.5, 0.5, w - 1, self.height() - 1), 10, 10)
+        p.fillPath(path, bg)
+        p.setPen(QPen(border, 1))
+        p.drawPath(path)
+
+        pad = self._PAD
+        y = pad
+        for text, role, icon in self._lines:
+            if role == "title":
+                font = QFont()
+                font.setPointSize(10)
+                font.setBold(True)
+                p.setFont(font)
+                fm = QFontMetrics(font)
+                if isinstance(icon, QPixmap) and not icon.isNull():
+                    icon_sz = 14
+                    icon_scaled = icon.scaled(icon_sz, icon_sz, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    p.drawPixmap(pad, y + (18 - icon_sz) // 2, icon_scaled)
+                    p.setPen(QPen(text_main))
+                    p.drawText(pad + icon_sz + 4, y + fm.ascent(), text)
+                elif isinstance(icon, QColor):
+                    p.setBrush(icon)
+                    p.setPen(Qt.NoPen)
+                    p.drawRoundedRect(QRectF(pad, y + 4, 10, 10), 2, 2)
+                    p.setPen(QPen(text_main))
+                    p.drawText(pad + 14, y + fm.ascent(), text)
+                else:
+                    p.setPen(QPen(text_main))
+                    p.drawText(pad, y + fm.ascent(), text)
+                y += 18
+            elif role == "value":
+                font = QFont()
+                font.setPointSize(9)
+                font.setBold(True)
+                p.setFont(font)
+                fm = QFontMetrics(font)
+                c = icon if isinstance(icon, QColor) else text_main
+                p.setPen(QPen(c))
+                p.drawText(pad, y + fm.ascent(), text)
+                y += 16
+            else:  # sub
+                font = QFont()
+                font.setPointSize(8)
+                p.setFont(font)
+                fm = QFontMetrics(font)
+                p.setPen(QPen(text_muted))
+                p.drawText(pad, y + fm.ascent(), text)
+                y += 16
+        p.end()
+
+
 class PieChartWidget(QWidget):
     """Browser-share donut chart rendered purely with QPainter."""
 
     MIN_SIZE = 220
+    _OFFSET_PX = 8  # how far a hovered segment pops out
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -688,6 +824,20 @@ class PieChartWidget(QWidget):
         self._total: int = 0
         self.setMinimumSize(self.MIN_SIZE, self.MIN_SIZE)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._hovered_idx: int = -1
+        self._cx: int = 0
+        self._cy: int = 0
+        self._outer_r: int = 0
+        self._inner_r: int = 0
+        self._seg_angles: list[tuple[float, float]] = []  # (start_cw_from_north_deg, span_deg)
+        # Animated offset: 0.0 = no pop, 1.0 = full _OFFSET_PX pop
+        self._hover_progress: float = 0.0
+        self._offset_anim = QTimer(self)
+        self._offset_anim.setInterval(16)  # ~60 fps
+        self._offset_anim.timeout.connect(self._tick_anim)
+        self._anim_target: float = 0.0
+        self._tooltip = _ChartTooltip()
+        self.setMouseTracking(True)
 
     def load(self, browser_counts: dict[str, int]):
         from src.services.browser_defs import BROWSER_DEF_MAP
@@ -701,6 +851,18 @@ class PieChartWidget(QWidget):
             color = _BROWSER_COLORS[i % len(_BROWSER_COLORS)]
             self._data.append((bt, display, cnt, color))
 
+        self._hovered_idx = -1
+        self._hover_progress = 0.0
+        self.update()
+
+    def _tick_anim(self):
+        """Ease _hover_progress toward _anim_target at ~60 fps."""
+        diff = self._anim_target - self._hover_progress
+        if abs(diff) < 0.02:
+            self._hover_progress = self._anim_target
+            self._offset_anim.stop()
+        else:
+            self._hover_progress += diff * 0.22  # ease-out factor
         self.update()
 
     def paintEvent(self, _event):
@@ -720,8 +882,21 @@ class PieChartWidget(QWidget):
         outer_r = size // 2
         inner_r = int(outer_r * 0.52)  # donut hole
 
+        self._cx = cx
+        self._cy = cy
+        self._outer_r = outer_r
+        self._inner_r = inner_r
+        # Cache legend geometry for hit-testing in mouseMoveEvent
+        font_leg_tmp = QFont()
+        font_leg_tmp.setPointSize(10)
+        fm_leg_tmp = QFontMetrics(font_leg_tmp)
+        row_h_tmp = max(20, fm_leg_tmp.height() + 6)
+        total_legend_h_tmp = len(self._data) * row_h_tmp
+        self._legend_x = chart_w + 8
+        self._legend_y0 = (h - total_legend_h_tmp) // 2
+        self._legend_row_h = row_h_tmp
+
         if not self._data:
-            # Empty state
             p.setPen(QPen(_text_muted()))
             p.drawText(self.rect(), Qt.AlignCenter, _("No data"))
             p.end()
@@ -731,14 +906,31 @@ class PieChartWidget(QWidget):
         start_angle = 90 * 16  # QPainter angles are in 1/16th degrees; start at top
         rect = QRect(cx - outer_r, cy - outer_r, outer_r * 2, outer_r * 2)
 
-        for _bt, _label, count, color in self._data:
+        self._seg_angles = []
+        for i, (_bt, _label, count, color) in enumerate(self._data):
             span_deg = count / self._total * 360
             span = -int(span_deg * 16)  # negative = clockwise
 
-            # Outer slice
-            p.setBrush(color)
+            # Cache angle for hit detection (clockwise from north, plain degrees)
+            start_deg_cw = (90 - start_angle / 16) % 360
+            self._seg_angles.append((start_deg_cw, span_deg))
+
+            # Animated offset outward for hovered segment
+            draw_rect = rect
+            if i == self._hovered_idx and self._hover_progress > 0:
+                mid_rad = math.radians((start_angle / 16) - (span_deg / 2))
+                offset = self._OFFSET_PX * self._hover_progress
+                dx = int(math.cos(mid_rad) * offset)
+                dy = -int(math.sin(mid_rad) * offset)
+                draw_rect = rect.translated(dx, dy)
+
+            is_hovered = i == self._hovered_idx
+            seg_grad = QRadialGradient(cx, cy, outer_r)
+            seg_grad.setColorAt(0.0, color.lighter(150 if is_hovered else 140))
+            seg_grad.setColorAt(1.0, color.lighter(110) if is_hovered else color)
+            p.setBrush(seg_grad)
             p.setPen(Qt.NoPen)
-            p.drawPie(rect, start_angle, span)
+            p.drawPie(draw_rect, start_angle, span)
             start_angle += span
 
         # ── Donut hole ──────────────────────────────────────────────────
@@ -746,26 +938,39 @@ class PieChartWidget(QWidget):
         p.setPen(Qt.NoPen)
         p.drawEllipse(cx - inner_r, cy - inner_r, inner_r * 2, inner_r * 2)
 
-        # ── Center label ────────────────────────────────────────────────
-        total_str = f"{self._total:,}"
-        label_str = _("visits")
+        # ── Center label — show hovered segment info or total ────────────
         font_big = QFont()
         font_big.setPointSize(14)
         font_big.setBold(True)
         font_sm = QFont()
         font_sm.setPointSize(9)
-
-        p.setPen(QPen(_text_primary()))
-        p.setFont(font_big)
         fm = QFontMetrics(font_big)
-        tw = fm.horizontalAdvance(total_str)
-        p.drawText(cx - tw // 2, cy + fm.ascent() // 2 - 6, total_str)
-
-        p.setFont(font_sm)
-        p.setPen(QPen(_text_muted()))
         fm2 = QFontMetrics(font_sm)
-        tw2 = fm2.horizontalAdvance(label_str)
-        p.drawText(cx - tw2 // 2, cy + fm.ascent() // 2 + 12, label_str)
+
+        if self._hovered_idx >= 0 and self._hovered_idx < len(self._data):
+            _bt, label, count, color = self._data[self._hovered_idx]
+            pct = count / self._total * 100
+            top_str = f"{count:,}"
+            bot_str = f"{pct:.1f}%"
+            p.setPen(QPen(color))
+            p.setFont(font_big)
+            tw = fm.horizontalAdvance(top_str)
+            p.drawText(cx - tw // 2, cy + fm.ascent() // 2 - 6, top_str)
+            p.setFont(font_sm)
+            p.setPen(QPen(_text_muted()))
+            tw2 = fm2.horizontalAdvance(bot_str)
+            p.drawText(cx - tw2 // 2, cy + fm.ascent() // 2 + 12, bot_str)
+        else:
+            total_str = f"{self._total:,}"
+            label_str = _("visits")
+            p.setPen(QPen(_text_primary()))
+            p.setFont(font_big)
+            tw = fm.horizontalAdvance(total_str)
+            p.drawText(cx - tw // 2, cy + fm.ascent() // 2 - 6, total_str)
+            p.setFont(font_sm)
+            p.setPen(QPen(_text_muted()))
+            tw2 = fm2.horizontalAdvance(label_str)
+            p.drawText(cx - tw2 // 2, cy + fm.ascent() // 2 + 12, label_str)
 
         # ── Legend ──────────────────────────────────────────────────────
         from src.utils.icon_helper import get_browser_pixmap
@@ -782,6 +987,14 @@ class PieChartWidget(QWidget):
         for i, (bt, label, count, color) in enumerate(self._data):
             y = legend_y0 + i * row_h
             icon_y = y + (row_h - icon_size) // 2
+            is_hov = i == self._hovered_idx
+
+            # Highlight row background
+            if is_hov:
+                hov_bg = QColor(_accent().red(), _accent().green(), _accent().blue(), 30)
+                p.setBrush(hov_bg)
+                p.setPen(Qt.NoPen)
+                p.drawRoundedRect(QRectF(legend_x - 4, y, w - legend_x, row_h), 4, 4)
 
             # Browser icon (fallback: colour swatch)
             px = get_browser_pixmap(bt, icon_size)
@@ -795,10 +1008,72 @@ class PieChartWidget(QWidget):
             # Label
             pct = count / self._total * 100
             text = f"{label}  {pct:.1f}%"
-            p.setPen(QPen(_text_primary()))
+            p.setPen(QPen(_accent() if is_hov else _text_primary()))
             p.drawText(legend_x + icon_size + 4, y + fm_leg.ascent() + (row_h - fm_leg.height()) // 2, text)
 
         p.end()
+
+    def mouseMoveEvent(self, event):
+        mx, my = event.position().x(), event.position().y()
+        dx, dy = mx - self._cx, my - self._cy
+        dist = math.hypot(dx, dy)
+
+        new_idx = -1
+        # Hit-test pie segments
+        if self._inner_r < dist <= self._outer_r:
+            angle_math = math.degrees(math.atan2(-dy, dx))
+            angle_cw = (90 - angle_math) % 360
+            for i, (seg_start, seg_span) in enumerate(self._seg_angles):
+                seg_end = (seg_start + seg_span) % 360
+                if seg_span == 0:
+                    continue
+                if seg_start <= seg_end:
+                    if seg_start <= angle_cw < seg_end:
+                        new_idx = i
+                        break
+                elif angle_cw >= seg_start or angle_cw < seg_end:
+                    new_idx = i
+                    break
+
+        # Hit-test legend rows (if not already over the pie)
+        if new_idx == -1 and mx >= self._legend_x:
+            row = int((my - self._legend_y0) / self._legend_row_h) if self._legend_row_h > 0 else -1
+            if 0 <= row < len(self._data):
+                new_idx = row
+
+        if new_idx != self._hovered_idx:
+            self._hovered_idx = new_idx
+            self._anim_target = 1.0 if new_idx >= 0 else 0.0
+            if not self._offset_anim.isActive():
+                self._offset_anim.start()
+
+        # Show tooltip for hovered segment
+        if new_idx >= 0 and new_idx < len(self._data):
+            bt, label, count, color = self._data[new_idx]
+            pct = count / self._total * 100
+            from src.utils.icon_helper import get_browser_pixmap
+
+            px = get_browser_pixmap(bt, 14)
+            icon = px if not px.isNull() else color
+            lines = [
+                (label, "title", icon),
+                (_("{count} visits").format(count=f"{count:,}"), "value", color),
+                (_("{pct}% of total").format(pct=f"{pct:.1f}"), "sub", None),
+            ]
+            self._tooltip.show_lines(lines, event.globalPosition().toPoint())
+        else:
+            self._tooltip.hide_animated()
+
+        super().mouseMoveEvent(event)
+
+    def leaveEvent(self, event):
+        if self._hovered_idx != -1:
+            self._hovered_idx = -1
+            self._anim_target = 0.0
+            if not self._offset_anim.isActive():
+                self._offset_anim.start()
+        self._tooltip.hide_animated()
+        super().leaveEvent(event)
 
 
 # ── Activity bar chart widget (hour-of-day) ──────────────────────────────────
@@ -811,8 +1086,11 @@ class HourBarWidget(QWidget):
         super().__init__(parent)
         self._hourly: dict[int, int] = {}
         self._max_val: int = 1
+        self._hovered_hour: int = -1
+        self._tooltip = _ChartTooltip()
         self.setMinimumHeight(120)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setMouseTracking(True)
 
     def load(self, hourly: dict[int, int]):
         self._hourly = hourly
@@ -844,12 +1122,18 @@ class HourBarWidget(QWidget):
         real_bar_w = bar_w - gap
 
         accent = _accent()
-        accent_dim = QColor(accent.red(), accent.green(), accent.blue(), 80)
 
         font_sm = QFont()
         font_sm.setPointSize(8)
         p.setFont(font_sm)
         fm = QFontMetrics(font_sm)
+
+        muted = _text_muted()
+        grid_color = QColor(muted.red(), muted.green(), muted.blue(), 55)
+        p.setPen(QPen(grid_color, 1))
+        for frac in (0.25, 0.50, 0.75):
+            gy = int(TOP_MARGIN + chart_h * (1.0 - frac))
+            p.drawLine(LEFT_MARGIN, gy, LEFT_MARGIN + chart_w, gy)
 
         for hour in range(24):
             count = self._hourly.get(hour, 0)
@@ -857,15 +1141,25 @@ class HourBarWidget(QWidget):
 
             x = LEFT_MARGIN + hour * bar_w + gap / 2
             y = TOP_MARGIN + chart_h - bar_h
+            is_hov = hour == self._hovered_hour
 
             # Bar background (empty track)
-            p.setBrush(accent_dim)
+            track_color = QColor(accent.red(), accent.green(), accent.blue(), 110 if is_hov else 80)
+            p.setBrush(track_color)
             p.setPen(Qt.NoPen)
             p.drawRoundedRect(QRectF(x, TOP_MARGIN, real_bar_w, chart_h), 2, 2)
 
             # Filled portion
             if bar_h > 0:
-                p.setBrush(accent)
+                if is_hov:
+                    bar_grad = QLinearGradient(x, y, x, y + bar_h)
+                    bar_grad.setColorAt(0.0, accent.lighter(140))
+                    bar_grad.setColorAt(1.0, accent.lighter(115))
+                else:
+                    bar_grad = QLinearGradient(x, y, x, y + bar_h)
+                    bar_grad.setColorAt(0.0, accent.lighter(120))
+                    bar_grad.setColorAt(1.0, accent)
+                p.setBrush(bar_grad)
                 p.drawRoundedRect(QRectF(x, y, real_bar_w, bar_h), 2, 2)
 
             # Hour label (every 3 hours)
@@ -873,35 +1167,45 @@ class HourBarWidget(QWidget):
                 label = f"{hour:02d}"
                 lw = fm.horizontalAdvance(label)
                 lx = x + real_bar_w / 2 - lw / 2
-                p.setPen(QPen(_text_muted()))
+                p.setPen(QPen(accent if is_hov else _text_muted()))
                 p.drawText(int(lx), h - 4, label)
 
         p.end()
 
-    def mouseMoveEvent(self, event):
-        w = self.width()
-        mx = event.position().x()
+    def _hour_at(self, mx: float) -> int:
         LEFT_MARGIN = 8
         RIGHT_MARGIN = 8
-        chart_w = w - LEFT_MARGIN - RIGHT_MARGIN
+        chart_w = self.width() - LEFT_MARGIN - RIGHT_MARGIN
         bar_w = chart_w / 24
         hour = int((mx - LEFT_MARGIN) / bar_w)
-        if 0 <= hour <= 23:
+        return hour if 0 <= hour <= 23 else -1
+
+    def mouseMoveEvent(self, event):
+        hour = self._hour_at(event.position().x())
+        if hour != self._hovered_hour:
+            self._hovered_hour = hour
+            self.update()
+
+        if hour >= 0:
             count = self._hourly.get(hour, 0)
-            tip = _("{count} visits at {hour}:00 - {next}:00").format(count=count, hour=hour, next=(hour + 1) % 24)
-            from src.views.floating_tooltip import FloatingTooltip
-
-            FloatingTooltip.show_at(tip, event.globalPosition().toPoint(), delay_ms=0)
+            pct = count / self._max_val * 100 if self._max_val else 0
+            accent = _accent()
+            lines = [
+                (_("{start}:00 - {end}:00").format(start=f"{hour:02d}", end=f"{(hour + 1) % 24:02d}"), "title", None),
+                (_("{count} visits").format(count=f"{count:,}"), "value", accent),
+                (_("{pct}% of peak hour").format(pct=f"{pct:.1f}"), "sub", None),
+            ]
+            self._tooltip.show_lines(lines, event.globalPosition().toPoint())
         else:
-            from src.views.floating_tooltip import FloatingTooltip
+            self._tooltip.hide_animated()
 
-            FloatingTooltip.cancel_global()
         super().mouseMoveEvent(event)
 
     def leaveEvent(self, event):
-        from src.views.floating_tooltip import FloatingTooltip
-
-        FloatingTooltip.cancel_global()
+        if self._hovered_hour != -1:
+            self._hovered_hour = -1
+            self.update()
+        self._tooltip.hide_animated()
         super().leaveEvent(event)
 
 
@@ -920,8 +1224,11 @@ class TopDomainsWidget(QWidget):
         self._data: list[tuple[str, int]] = []  # (domain, count)
         self._max_val: int = 1
         self._favicon_manager = None
+        self._hovered_idx: int = -1
+        self._tooltip = _ChartTooltip()
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setMinimumHeight(200)
+        self.setMouseTracking(True)
 
     def set_favicon_manager(self, fm):
         self._favicon_manager = fm
@@ -964,6 +1271,16 @@ class TopDomainsWidget(QWidget):
             bar_y = y + (row_h - bar_h) // 2
             text_y = y + (row_h - fm.height()) // 2 + fm.ascent()
             icon_y = y + (row_h - self._ICON_SIZE) // 2
+            is_hov = i == self._hovered_idx
+            accent = _BROWSER_COLORS[i % len(_BROWSER_COLORS)]
+            hov_color = _accent()
+
+            # Hover row background
+            if is_hov:
+                hov_bg = QColor(hov_color.red(), hov_color.green(), hov_color.blue(), 25)
+                p.setBrush(hov_bg)
+                p.setPen(Qt.NoPen)
+                p.drawRoundedRect(QRectF(0, y, w, row_h), 4, 4)
 
             # Favicon
             icon_x = 0
@@ -977,13 +1294,12 @@ class TopDomainsWidget(QWidget):
                     pass
 
             # Domain label (clipped)
-            p.setPen(QPen(_text_primary()))
+            p.setPen(QPen(hov_color if is_hov else _text_primary()))
             clipped = fm.elidedText(domain, Qt.ElideRight, LABEL_W - ICON_W - 4)
             p.drawText(text_x, text_y, clipped)
 
             # Background track
-            accent = _BROWSER_COLORS[i % len(_BROWSER_COLORS)]
-            accent_dim = QColor(accent.red(), accent.green(), accent.blue(), 50)
+            accent_dim = QColor(accent.red(), accent.green(), accent.blue(), 60 if is_hov else 50)
             p.setBrush(accent_dim)
             p.setPen(Qt.NoPen)
             p.drawRoundedRect(QRectF(LABEL_W, bar_y, bar_area_w, bar_h), 3, 3)
@@ -991,16 +1307,61 @@ class TopDomainsWidget(QWidget):
             # Filled bar
             fill_w = count / self._max_val * bar_area_w
             if fill_w > 0:
-                p.setBrush(accent)
+                fill_grad = QLinearGradient(LABEL_W, bar_y, LABEL_W + fill_w, bar_y)
+                fill_grad.setColorAt(0.0, accent.lighter(115) if is_hov else accent)
+                right_alpha = 210 if is_hov else 179
+                right_color = QColor(accent.red(), accent.green(), accent.blue(), right_alpha)
+                fill_grad.setColorAt(1.0, right_color)
+                p.setBrush(fill_grad)
                 p.drawRoundedRect(QRectF(LABEL_W, bar_y, fill_w, bar_h), 3, 3)
 
             # Count label
             count_str = f"{count:,}"
             cw = fm.horizontalAdvance(count_str)
-            p.setPen(QPen(_text_muted()))
+            p.setPen(QPen(hov_color if is_hov else _text_muted()))
             p.drawText(w - cw, text_y, count_str)
 
         p.end()
+
+    def _row_at(self, my: float) -> int:
+        idx = int((my - self._TOP_MARGIN) / self._ROW_H)
+        return idx if 0 <= idx < len(self._data) else -1
+
+    def mouseMoveEvent(self, event):
+        idx = self._row_at(event.position().y())
+        if idx != self._hovered_idx:
+            self._hovered_idx = idx
+            self.update()
+
+        if idx >= 0:
+            domain, count = self._data[idx]
+            pct = count / self._max_val * 100 if self._max_val else 0
+            color = _BROWSER_COLORS[idx % len(_BROWSER_COLORS)]
+            icon = color
+            if self._favicon_manager:
+                try:
+                    px = self._favicon_manager.get_pixmap(f"https://{domain}", size=14)
+                    if px and not px.isNull():
+                        icon = px
+                except Exception:
+                    pass
+            lines = [
+                (domain, "title", icon),
+                (_("{count} visits").format(count=f"{count:,}"), "value", color),
+                (_("{pct}% of top domain").format(pct=f"{pct:.1f}"), "sub", None),
+            ]
+            self._tooltip.show_lines(lines, event.globalPosition().toPoint())
+        else:
+            self._tooltip.hide_animated()
+
+        super().mouseMoveEvent(event)
+
+    def leaveEvent(self, event):
+        if self._hovered_idx != -1:
+            self._hovered_idx = -1
+            self.update()
+        self._tooltip.hide_animated()
+        super().leaveEvent(event)
 
 
 # ── Card frame helper ────────────────────────────────────────────────────────
