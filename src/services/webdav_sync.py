@@ -127,7 +127,13 @@ class WebDavSyncService:
             return self._last_result
 
     def is_configured(self) -> bool:
-        return bool(self._config.enabled and self._config.url.strip() and self._config.username.strip())
+        with self._lock:
+            return bool(self._config.enabled and self._config.url.strip() and self._config.username.strip())
+
+    @property
+    def auto_backup_enabled(self) -> bool:
+        with self._lock:
+            return self._config.auto_backup
 
     def _set_status(self, status: SyncStatus) -> None:
         with self._lock:
@@ -138,7 +144,8 @@ class WebDavSyncService:
             self._last_result = result
 
     def update_config(self, config: WebDavConfig) -> None:
-        self._config = config
+        with self._lock:
+            self._config = config
         self._set_status(SyncStatus.IDLE)
 
     def set_local_db(self, db: LocalDatabase) -> None:

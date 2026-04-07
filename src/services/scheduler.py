@@ -61,7 +61,7 @@ class SyncWorker(QObject):
                 progress_callback=cb,
                 force_full=self._force_full,
             )
-            if not self._cancelled and self._wdav and self._wdav.is_configured() and self._wdav._config.auto_backup:
+            if not self._cancelled and self._wdav and self._wdav.is_configured() and self._wdav.auto_backup_enabled:
                 self._wdav.sync(favicon_cache_dir=self._favicon_cache_dir)
         except Exception as exc:
             log.error("Sync worker unhandled exception: %s", exc, exc_info=True)
