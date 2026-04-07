@@ -193,10 +193,19 @@ class LocalDatabase:
             self._reset_conn()
 
     def __del__(self) -> None:
-        try:
-            self.close()
-        except Exception:
-            pass
+        # Do not call close() here — joining _fts_thread during interpreter
+        # shutdown can block indefinitely. Just release the DB connections.
+        if self._pconn is not None:
+            try:
+                self._pconn.close()
+            except Exception:
+                pass
+        with self._ro_lock:
+            if self._ro_conn is not None:
+                try:
+                    self._ro_conn.close()
+                except Exception:
+                    pass
 
     def _init_schema_on_conn(self, conn: sqlite3.Connection) -> None:
         """Run schema creation directly on *conn* (called from _ensure_conn to avoid re-entrancy)."""
