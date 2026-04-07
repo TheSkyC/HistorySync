@@ -124,16 +124,28 @@ class ExtractorManager:
         new_disabled = set(disabled_browsers)
 
         newly_disabled = new_disabled - self._disabled
+        # Save extractor instances before removing them so that custom-path
+        # extractors (not present in BROWSER_DEF_MAP) can be restored later.
+        saved_extractors: dict[str, BaseExtractor] = {}
         for bt in newly_disabled:
+            saved = self._registry.get(bt)
+            if saved is not None:
+                saved_extractors[bt] = saved
             self._registry.pop(bt, None)
             log.info("ExtractorManager: disabled '%s'", bt)
 
         newly_enabled = self._disabled - new_disabled
         for bt in newly_enabled:
-            defn = get_browser_def(bt)
-            if defn is not None:
-                self._registry[bt] = _make_extractor(defn)
-                log.info("ExtractorManager: re-enabled '%s'", bt)
+            saved = saved_extractors.get(bt)
+            if saved is not None:
+                # Restore custom-path or other non-global extractors directly.
+                self._registry[bt] = saved
+                log.info("ExtractorManager: re-enabled '%s' (restored saved extractor)", bt)
+            else:
+                defn = get_browser_def(bt)
+                if defn is not None:
+                    self._registry[bt] = _make_extractor(defn)
+                    log.info("ExtractorManager: re-enabled '%s'", bt)
 
         self._disabled = new_disabled
 
