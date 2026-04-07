@@ -624,36 +624,43 @@ class LocalDatabase:
                 f"Not enough disk space for VACUUM: need {required // 1024 // 1024} MB, "
                 f"have {free // 1024 // 1024} MB free."
             )
+        # Close the persistent connection under the lock so no other thread can
+        # acquire it while we are about to rewrite the file.  The slow VACUUM
+        # itself runs outside the lock: SQLite's own file-level locking prevents
+        # concurrent writers, and releasing _lock lets read-only callers (e.g.
+        # search_quick via _ro_conn) proceed normally during the operation.
         with self._lock:
             self._reset_conn()
-            _cb(_("Checkpointing WAL into main file…"))
-            conn = sqlite3.connect(str(db_path), timeout=60)
-            try:
-                conn.execute("PRAGMA journal_mode=WAL")
-                result = conn.execute("PRAGMA wal_checkpoint(RESTART)").fetchone()
-                if result and result[0]:
-                    _cb(_("⚠ WAL checkpoint partially blocked by active readers; VACUUM will handle remaining pages…"))
-                conn.commit()
-                conn.close()
-                conn = None
-            finally:
-                if conn:
-                    conn.close()
-            size_before = db_path.stat().st_size if db_path.exists() else 0
-            _cb(_("Running VACUUM — rewriting database file…"))
-            conn = sqlite3.connect(str(db_path), timeout=120)
-            try:
-                conn.isolation_level = None
-                conn.execute("VACUUM")
-                conn.isolation_level = ""
 
-                _cb(_("Restoring WAL mode and updating statistics…"))
-                conn.execute("PRAGMA journal_mode=WAL")
-                conn.execute("PRAGMA synchronous=NORMAL")
-                conn.execute("ANALYZE")
-                conn.commit()
-            finally:
+        _cb(_("Checkpointing WAL into main file…"))
+        conn = sqlite3.connect(str(db_path), timeout=60)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            result = conn.execute("PRAGMA wal_checkpoint(RESTART)").fetchone()
+            if result and result[0]:
+                _cb(_("⚠ WAL checkpoint partially blocked by active readers; VACUUM will handle remaining pages…"))
+            conn.commit()
+            conn.close()
+            conn = None
+        finally:
+            if conn:
                 conn.close()
+
+        size_before = db_path.stat().st_size if db_path.exists() else 0
+        _cb(_("Running VACUUM — rewriting database file…"))
+        conn = sqlite3.connect(str(db_path), timeout=120)
+        try:
+            conn.isolation_level = None
+            conn.execute("VACUUM")
+            conn.isolation_level = ""
+
+            _cb(_("Restoring WAL mode and updating statistics…"))
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute("ANALYZE")
+            conn.commit()
+        finally:
+            conn.close()
 
         size_after = db_path.stat().st_size if db_path.exists() else 0
         saved = size_before - size_after
