@@ -245,6 +245,15 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         self._pill_fm: QFontMetrics | None = None
         self._base_font_key: str = ""
 
+        # ── Date-label cache ──────────────────────────────────────────────────
+        # Maps visit_time (int, seconds) → formatted date string.
+        # _format_separator_date() builds locale-aware strings; caching avoids
+        # calling it on every paint() tick for the same separator row.
+        # Keyed on (visit_time_day_bucket, today_date) so the cache auto-
+        # invalidates at midnight without an explicit purge.
+        self._date_label_cache: dict[tuple, str] = {}
+        self._date_label_cache_today: object = None  # date object of last cache fill
+
     # ── QStyledItemDelegate interface ─────────────────────────────────────────
 
     def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
@@ -405,7 +414,23 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         """
         self._refresh_theme_cache()
 
-        date_label = _format_separator_date(visit_time)
+        today = date.today()
+        # Invalidate date-label cache at midnight (today changed)
+        if today != self._date_label_cache_today:
+            self._date_label_cache.clear()
+            self._date_label_cache_today = today
+
+        # Use (visit_time // 86400) as cache key — all timestamps on the same
+        # calendar day produce the same label, so this gives maximum reuse.
+        day_bucket = visit_time // 86400
+        cache_key_label = (day_bucket,)
+        date_label = self._date_label_cache.get(cache_key_label)
+        if date_label is None:
+            date_label = _format_separator_date(visit_time)
+            if len(self._date_label_cache) > 400:
+                self._date_label_cache.clear()
+            self._date_label_cache[cache_key_label] = date_label
+
         count = self._sep_counts.get(row)  # None → not yet loaded
 
         pill_font, fm2 = self._get_pill_font_and_fm(painter.font())
@@ -1121,12 +1146,18 @@ class _ScrollTimeBubble(QWidget):
         painter.drawPath(path)
 
     def set_timestamp(self, ts: int) -> None:
-        now = datetime.now()
         dt = datetime.fromtimestamp(ts)
+
+        # Cache the current year to avoid a syscall on every timer tick.
+        # _current_year is refreshed lazily by comparing against _cached_year.
+        now_year = getattr(self, "_cached_year", 0)
+        if now_year == 0:
+            now_year = datetime.now().year
+            self._cached_year = now_year
 
         weekday = _(_WEEKDAY_ABBR[dt.weekday()])  # 0=Mon ... 6=Sun
         new_date = (
-            (dt.strftime("%m-%d") + f" {weekday}") if dt.year == now.year else (dt.strftime("%Y-%m-%d") + f" {weekday}")
+            (dt.strftime("%m-%d") + f" {weekday}") if dt.year == now_year else (dt.strftime("%Y-%m-%d") + f" {weekday}")
         )
         new_time = dt.strftime("%H:%M")
 
@@ -1236,8 +1267,19 @@ class _ScrollTimeBubble(QWidget):
             self._last_rank_key = None
             self._rank_pending_ts = None
             self._rank_timer.stop()
+            # Expire year cache on hide so the next drag gets a fresh value
+            self._cached_year = 0
 
     def reposition(self, sb: QScrollBar, page: QWidget) -> None:
+        # Cache the last scrollbar value so we only recompute thumb geometry
+        # when the slider actually moved.  subControlRect() + mapTo() account
+        # for a significant share of reposition() cost on busy timer ticks.
+        sb_value = sb.value()
+        if sb_value == getattr(self, "_last_sb_value", None) and getattr(self, "_last_pos_set", False):
+            return
+        self._last_sb_value = sb_value
+        self._last_pos_set = True
+
         opt = QStyleOptionSlider()
         sb.initStyleOption(opt)
         thumb_rect = sb.style().subControlRect(
@@ -2234,6 +2276,8 @@ class HistoryPage(QWidget):
 
     def _on_sb_pressed(self) -> None:
         self._scroll_bubble.on_drag_started()
+        self._last_bubble_row: int = -1  # reset row cache on each new drag
+        self._scroll_bubble._last_pos_set = False  # force reposition on first tick
         self._update_scroll_bubble()
         self._scroll_bubble.show_animated()
         self._scroll_bubble_timer.start()
@@ -2264,13 +2308,23 @@ class HistoryPage(QWidget):
         if row < 0:
             return
 
+        # Skip the expensive set_timestamp + reposition work when the center
+        # row hasn't changed since the last timer tick.  reposition() calls
+        # QStyle.subControlRect() on every call which is measurably expensive
+        last_row = getattr(self, "_last_bubble_row", -1)
         ts = self._vm.table_model.get_visit_time_at_row(row)
         if ts is None:
             return
 
         self._scroll_bubble.set_timestamp(ts)
-        self._scroll_bubble.reposition(self._table.verticalScrollBar(), self)
-        self._scroll_bubble.raise_()
+        if row != last_row:
+            self._last_bubble_row = row
+            self._scroll_bubble.reposition(self._table.verticalScrollBar(), self)
+            self._scroll_bubble.raise_()
+        else:
+            # Row unchanged — bubble position is still correct; just re-raise
+            # so it stays on top if something else was painted over it.
+            self._scroll_bubble.raise_()
 
     def _on_columns_changed(self):
         QTimer.singleShot(0, self._apply_column_widths)
