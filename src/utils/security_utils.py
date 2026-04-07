@@ -4,7 +4,6 @@
 import base64
 import hashlib
 import hmac
-import logging
 import os
 from pathlib import Path
 import platform
@@ -12,9 +11,10 @@ import sys
 import threading
 
 from src.utils.constants import ENCRYPTION_PREFIX, KEYRING_SERVICE, KEYRING_USER, SECRET_FILENAME
+from src.utils.logger import get_logger
 from src.utils.path_helper import get_config_dir
 
-logger = logging.getLogger(__name__)
+logger = get_logger("utils.security")
 
 _COLOR_WARN = "\033[93m"
 _COLOR_RESET = "\033[0m"
@@ -47,7 +47,7 @@ def _ensure_keyring():
 
                 _kr.set_keyring(Keyring())
         except Exception as e:
-            logger.debug(f"Explicit keyring init failed, falling back to auto-scan: {e}")
+            logger.debug("Explicit keyring init failed, falling back to auto-scan: %s", e)
         _keyring_state["module"] = _kr
         _keyring_state["ready"] = True
     return _keyring_state["module"]
@@ -132,7 +132,7 @@ def _get_or_create_master_key() -> bytes:
             if key_hex:
                 return bytes.fromhex(key_hex)
         except Exception as e:
-            logger.warning(f"Keyring lookup failed (will try local file): {e}")
+            logger.warning("Keyring lookup failed (will try local file): %s", e)
 
         # 2. Fallback: attempt to read local file
         key_path = get_config_dir() / SECRET_FILENAME
@@ -146,7 +146,7 @@ def _get_or_create_master_key() -> bytes:
                         key = data
                         logger.info("Loaded master key from local file (fallback).")
             except Exception as e:
-                logger.error(f"Failed to read local key file: {e}")
+                logger.error("Failed to read local key file: %s", e)
 
         # 3. Generate new key
         if not key:
@@ -160,7 +160,7 @@ def _get_or_create_master_key() -> bytes:
             saved_to_keyring = True
             logger.info("Master key saved to system Keyring.")
         except Exception as e:
-            logger.error(f"Failed to save key to Keyring: {e}")
+            logger.error("Failed to save key to Keyring: %s", e)
 
         if not saved_to_keyring:
             try:
@@ -171,8 +171,10 @@ def _get_or_create_master_key() -> bytes:
                 else:
                     key_path.chmod(0o600)
                 logger.warning(
-                    f"{_COLOR_WARN}[SECURITY WARNING] Master key saved to UNENCRYPTED local file "
-                    f"(Keyring unavailable): {key_path}{_COLOR_RESET}"
+                    "%s[SECURITY WARNING] Master key saved to UNENCRYPTED local file (Keyring unavailable): %s%s",
+                    _COLOR_WARN,
+                    key_path,
+                    _COLOR_RESET,
                 )
             except Exception as e:
                 raise OSError(
@@ -205,7 +207,7 @@ def encrypt_text(text: str) -> str:
         payload = b"\x01" + salt + signature + encrypted_bytes
         return ENCRYPTION_PREFIX + base64.b64encode(payload).decode("utf-8")
     except Exception as e:
-        logger.error(f"Encryption failed: {e}")
+        logger.error("Encryption failed: %s", e)
         return ""
 
 
@@ -279,5 +281,5 @@ def decrypt_text(text: str) -> str:
             logger.warning("Decryption signature mismatch — data may be tampered.")
         return result or ""
     except Exception as e:
-        logger.error(f"Decryption failed: {e}")
+        logger.error("Decryption failed: %s", e)
         return ""
