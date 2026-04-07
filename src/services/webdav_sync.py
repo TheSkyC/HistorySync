@@ -415,6 +415,7 @@ class WebDavSyncService:
             _cb(_("Verifying backup integrity (SHA-256)..."))
             fd2, tmp_db_path = tempfile.mkstemp(suffix=".db")
             os.close(fd2)
+            _tmp_db_consumed = False
             try:
                 with zipfile.ZipFile(tmp_download_path, "r") as zf:
                     names = zf.namelist()
@@ -426,6 +427,8 @@ class WebDavSyncService:
 
                     # Extract DB
                     if DB_FILENAME not in names:
+                        Path(tmp_db_path).unlink(missing_ok=True)
+                        _tmp_db_consumed = True
                         return self._fail(_("Backup archive missing history.db"))
 
                     # Stream the DB entry directly to disk to avoid loading the
@@ -443,6 +446,8 @@ class WebDavSyncService:
                     # Verify hash
                     expected_hash = hash_info.get(DB_FILENAME, "")
                     if expected_hash and actual_hash != expected_hash:
+                        Path(tmp_db_path).unlink(missing_ok=True)
+                        _tmp_db_consumed = True
                         return self._fail(
                             _("Hash verification FAILED! Expected {exp}, got {act}").format(
                                 exp=expected_hash[:16] + "...",
@@ -483,17 +488,25 @@ class WebDavSyncService:
                                 pass
 
             except zipfile.BadZipFile as exc:
-                try:
-                    Path(tmp_db_path).unlink(missing_ok=True)
-                except OSError:
-                    pass
+                if not _tmp_db_consumed:
+                    try:
+                        Path(tmp_db_path).unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                    _tmp_db_consumed = True
                 return self._fail(_("Bad zip archive: {error}").format(error=str(exc)))
             finally:
+                if not _tmp_db_consumed:
+                    try:
+                        Path(tmp_db_path).unlink(missing_ok=True)
+                    except OSError:
+                        pass
                 try:
                     Path(tmp_download_path).unlink(missing_ok=True)
                 except OSError:
                     pass
             tmp_download_path = tmp_db_path
+            _tmp_db_consumed = True
 
             self._set_status(SyncStatus.SUCCESS)
             result = SyncResult(True, _("Restored from {filename}").format(filename=latest_backup))
