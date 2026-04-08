@@ -29,16 +29,16 @@ class TestFTSQueryBuilder:
     def test_plain_keyword(self):
         assert _build_fts_query("hello") == '"hello"*'
 
-    def test_multiword_treated_as_phrase(self):
-        # Multi-word input is wrapped as a single phrase for contiguous matching.
-        assert _build_fts_query("github actions") == '"github actions"*'
+    def test_multiword_uses_and_semantics(self):
+        # Multi-word input is split into per-word prefix terms joined with AND.
+        assert _build_fts_query("github actions") == '"github"* AND "actions"*'
 
     def test_embedded_double_quotes_escaped(self):
-        assert _build_fts_query('say "hello"') == '"say ""hello"""*'
+        assert _build_fts_query('say "hello"') == '"say"* AND """hello"""*'
 
     def test_fts_operators_neutralised_by_phrase_quoting(self):
         q = _build_fts_query("AND OR NOT")
-        assert q == '"AND OR NOT"*'
+        assert q == '"AND"* AND "OR"* AND "NOT"*'
 
     def test_special_chars_wrapped_in_quotes(self):
         q = _build_fts_query("(test*value)")

@@ -2643,10 +2643,15 @@ def _build_fts_query(keyword: str) -> str:
     filter, causing zero results.  Strip the prefix, quote only the bare
     term, then re-attach the column prefix.
 
+    Multi-word keywords are split and joined with AND so that each word is
+    matched independently (prefix search per word), giving higher recall than
+    phrase matching which requires adjacent occurrence.
+
     Examples:
-        ``github``       →  ``"github"*``
-        ``url:github``   →  ``url:"github"*``
-        ``title:python`` →  ``title:"python"*``
+        ``github``            ->  ``"github"*``
+        ``python tutorial``   ->  ``"python"* AND "tutorial"*``
+        ``url:github``        ->  ``url:"github"*``
+        ``title:python``      ->  ``title:"python"*``
     """
     if not keyword:
         return '""'
@@ -2659,6 +2664,10 @@ def _build_fts_query(keyword: str) -> str:
             escaped = bare.replace('"', '""')
             return f'{prefix}"{escaped}"*'
 
-    # Plain keyword — wrap entirely in phrase quotes
-    escaped = keyword.replace('"', '""')
-    return f'"{escaped}"*'
+    # Split on whitespace; each token gets its own prefix-quoted term
+    tokens = keyword.split()
+    if len(tokens) == 1:
+        escaped = tokens[0].replace('"', '""')
+        return f'"{escaped}"*'
+    parts = [f'"{t.replace(chr(34), chr(34) * 2)}"*' for t in tokens]
+    return " AND ".join(parts)
