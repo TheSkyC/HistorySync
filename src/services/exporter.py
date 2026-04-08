@@ -17,7 +17,7 @@ from src.models.history_record import HistoryRecord
 from src.services.favicon_cache import FaviconCache
 from src.services.local_db import LocalDatabase
 from src.utils.constants import APP_NAME, APP_VERSION
-from src.utils.i18n_core import _
+from src.utils.i18n_core import N_, _
 from src.utils.logger import get_logger
 from src.utils.path_helper import get_templates_dir
 from src.utils.url_utils import extract_display_domain as _extract_domain
@@ -45,20 +45,20 @@ ALL_COLUMNS: list[str] = [
 
 # Human-readable headers (CSV / HTML)
 _COLUMN_HEADERS: dict[str, str] = {
-    "id": "ID",
-    "title": "Title",
-    "url": "URL",
-    "visit_time": "Visit Time",
-    "visit_count": "Visit Count",
-    "browser_type": "Browser",
-    "profile_name": "Profile",
-    "domain": "Domain",
-    "metadata": "Metadata",
-    "typed_count": "Typed Count",
-    "first_visit_time": "First Visit Time",
-    "transition_type": "Transition Type",
-    "visit_duration": "Visit Duration (s)",
-    "device_name": "Device",
+    "id": N_("ID"),
+    "title": N_("Title"),
+    "url": N_("URL"),
+    "visit_time": N_("Visit Time"),
+    "visit_count": N_("Visit Count"),
+    "browser_type": N_("Browser"),
+    "profile_name": N_("Profile"),
+    "domain": N_("Domain"),
+    "metadata": N_("Metadata"),
+    "typed_count": N_("Typed Count"),
+    "first_visit_time": N_("First Visit Time"),
+    "transition_type": N_("Transition Type"),
+    "visit_duration": N_("Visit Duration (s)"),
+    "device_name": N_("Device"),
 }
 
 
