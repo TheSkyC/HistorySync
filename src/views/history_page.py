@@ -1851,6 +1851,7 @@ class HistoryPage(QWidget):
         self._date_from.setDisplayFormat("yyyy-MM-dd")
         self._date_from.setDate(QDate(2020, 1, 1))
         self._date_from.dateChanged.connect(self._do_search)
+        self._customize_calendar(self._date_from)
 
         dash = QLabel("→")
         dash.setObjectName("muted")
@@ -1860,6 +1861,7 @@ class HistoryPage(QWidget):
         self._date_to.setDisplayFormat("yyyy-MM-dd")
         self._date_to.setDate(QDate.currentDate())
         self._date_to.dateChanged.connect(self._do_search)
+        self._customize_calendar(self._date_to)
 
         self._reset_btn = QPushButton(_("Reset"))
         self._reset_btn.setIcon(get_icon("refresh"))
@@ -2070,6 +2072,26 @@ class HistoryPage(QWidget):
         self._sep_counts.clear()
         self._separator_indices.clear()
         self._sep_count_timer.stop()
+
+    def _customize_calendar(self, date_edit: QDateEdit):
+        """Customize calendar widget appearance for better dark mode support."""
+        calendar = date_edit.calendarWidget()
+        if calendar is None:
+            return
+
+        # Get the appropriate text color based on current theme
+        theme = ThemeManager.instance().current
+        text_color = QColor("#c0c8d8") if theme == "dark" else QColor("#1e2128")
+
+        # Remove red color from Sunday (use normal text color instead)
+        text_format = calendar.weekdayTextFormat(Qt.Sunday)
+        text_format.setForeground(QBrush(text_color))
+        calendar.setWeekdayTextFormat(Qt.Sunday, text_format)
+
+        # Also customize Saturday to match
+        text_format_sat = calendar.weekdayTextFormat(Qt.Saturday)
+        text_format_sat.setForeground(QBrush(text_color))
+        calendar.setWeekdayTextFormat(Qt.Saturday, text_format_sat)
 
     def _setup_shortcuts(self):
         """Register Ctrl+F (focus search) and Ctrl+R (sync now)."""
@@ -2310,6 +2332,9 @@ class HistoryPage(QWidget):
             vh.resizeSection(row, _SEP_TOTAL)
         self._table.viewport().update()
         self._scroll_bubble.apply_theme(theme)
+        # Re-apply calendar customization after theme change
+        self._customize_calendar(self._date_from)
+        self._customize_calendar(self._date_to)
         # Re-fetch counts lost when modelReset cleared _sep_counts during theme swap.
         QTimer.singleShot(0, self._load_visible_sep_counts)
 
