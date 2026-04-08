@@ -123,7 +123,11 @@ class LocalDatabase:
             self._pconn = conn
         if not self._schema_initialized:
             self._schema_initialized = True  # set before calling to prevent re-entry
-            self._init_schema_on_conn(self._pconn)
+            try:
+                self._init_schema_on_conn(self._pconn)
+            except Exception:
+                self._schema_initialized = False  # allow retry on next call
+                raise
         return self._pconn
 
     def _reset_conn(self) -> None:
