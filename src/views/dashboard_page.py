@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLayout,
-    QMenu,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -31,6 +30,7 @@ from PySide6.QtWidgets import (
 from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_browser_pixmap, get_icon
 from src.utils.logger import get_logger
+from src.utils.styled_menu import StyledMenu
 from src.utils.theme_manager import ThemeManager
 
 log = get_logger("view.dashboard")
@@ -545,7 +545,7 @@ class BrowserCard(QFrame):
         self.update()
 
     def _show_context_menu(self, _pos):
-        menu = QMenu(self)
+        menu = StyledMenu(self)
 
         # Non-interactive header showing browser name
         header_action = menu.addAction(self._display_name)

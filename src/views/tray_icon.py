@@ -5,11 +5,12 @@ from __future__ import annotations
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QMenu, QMessageBox, QSystemTrayIcon
+from PySide6.QtWidgets import QMessageBox, QSystemTrayIcon
 
 from src.utils.constants import APP_NAME
 from src.utils.i18n import _
 from src.utils.logger import get_logger
+from src.utils.styled_menu import StyledMenu
 
 log = get_logger("view.tray")
 
@@ -62,7 +63,7 @@ class TrayIcon(QObject):
         self._tray = QSystemTrayIcon(parent)
         self._tray.setIcon(_make_tray_icon(False))
         self._tray.setToolTip(APP_NAME)
-        self._menu = QMenu()
+        self._menu = StyledMenu()
         self._build_menu()
         self._tray.setContextMenu(self._menu)
         self._tray.activated.connect(self._on_activated)

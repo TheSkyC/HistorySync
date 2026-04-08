@@ -502,6 +502,7 @@ def _gui_main(args: argparse.Namespace) -> None:
     # and re-use it below.  The full setup (font, theme, etc.) happens later.
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     app = QApplication(sys.argv[:1])
+    app.setAttribute(Qt.AA_DontUseNativeMenuBar, True)
 
     if not args.fresh:
         from src.utils.migration_detector import detect_legacy_installation

@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QMenu,
     QMessageBox,
     QPushButton,
     QScrollArea,
@@ -33,6 +32,7 @@ from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
 from src.utils.search_parser import parse_query
+from src.utils.styled_menu import StyledMenu
 from src.utils.theme_manager import ThemeManager
 from src.views.annotation_dialog import AnnotationDialog
 
@@ -139,7 +139,7 @@ class _BookmarkCard(QFrame):
         self.customContextMenuRequested.connect(self._show_context_menu)
 
     def _show_context_menu(self, pos):
-        menu = QMenu(self)
+        menu = StyledMenu(self)
 
         # Note: QAction.triggered emits checked(bool) as the first positional arg.
         # Each lambda absorbs that arg (named `_`) so `bm` is never shadowed by True/False.

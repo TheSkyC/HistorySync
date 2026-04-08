@@ -41,7 +41,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QMenu,
     QMessageBox,
     QPushButton,
     QScrollArea,
@@ -53,6 +52,7 @@ from PySide6.QtWidgets import (
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
+from src.utils.styled_menu import StyledMenu
 from src.utils.theme_manager import ThemeManager
 
 if TYPE_CHECKING:
@@ -670,7 +670,7 @@ class HeatmapWidget(QWidget):
             friendly = d.strftime("%B %d, %Y")
         except ValueError:
             friendly = date_str
-        menu = QMenu(self)
+        menu = StyledMenu(self)
         action = menu.addAction(_("View records for {date}").format(date=friendly))
         if menu.exec(self.mapToGlobal(pos)) == action:
             self.view_day_requested.emit(date_str)

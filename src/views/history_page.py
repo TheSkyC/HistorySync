@@ -49,7 +49,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QMenu,
     QMessageBox,
     QPushButton,
     QScrollBar,
@@ -67,6 +66,7 @@ from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_browser_icon, get_icon
 from src.utils.logger import get_logger
 from src.utils.search_parser import parse_query
+from src.utils.styled_menu import StyledMenu
 from src.utils.theme_manager import ThemeManager
 from src.viewmodels.history_viewmodel import ANNOTATION_ROLE, BOOKMARK_ROLE, HistoryViewModel
 from src.views.annotation_dialog import AnnotationDialog
@@ -2470,7 +2470,7 @@ class HistoryPage(QWidget):
             self._col_move_timer.stop()
             self._sync_column_order()
 
-        menu = QMenu(self)
+        menu = StyledMenu(self)
 
         all_cols = self._vm.table_model.get_all_columns()
         visible_cols = self._vm.table_model.get_visible_columns()
@@ -2692,7 +2692,7 @@ class HistoryPage(QWidget):
         except Exception:
             primary_domain = ""
 
-        menu = QMenu(self)
+        menu = StyledMenu(self)
 
         # ── Open ──────────────────────────────────────────────
         if not multi:
@@ -2731,7 +2731,7 @@ class HistoryPage(QWidget):
         menu.addSeparator()
 
         # ── Copy submenu ──────────────────────────────────────
-        copy_menu = QMenu(_("Copy"), menu)
+        copy_menu = StyledMenu(_("Copy"), menu)
         copy_menu.setIcon(get_icon("copy"))
 
         if not multi:
@@ -2750,7 +2750,7 @@ class HistoryPage(QWidget):
         menu.addSeparator()
 
         # ── Actions submenu ───────────────────────────────────
-        actions_menu = QMenu(_("Actions"), menu)
+        actions_menu = StyledMenu(_("Actions"), menu)
         actions_menu.setIcon(get_icon("settings"))
 
         # Delete

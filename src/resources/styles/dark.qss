@@ -633,6 +633,7 @@ QMenu::item {
     padding: 7px 20px 7px 14px;
     border-radius: 5px;
     min-width: 160px;
+    background-color: transparent;
 }
 
 QMenu::item:selected {
@@ -648,6 +649,11 @@ QMenu::separator {
     height: 1px;
     background-color: #252830;
     margin: 4px 8px;
+}
+
+QMenu::right-arrow {
+    width: 12px;
+    height: 12px;
 }
 
 /* ── 消息对话框 ────────────────────────────────────── */
