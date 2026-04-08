@@ -1020,25 +1020,27 @@ class LocalDatabase:
 
             # Pre-fetch history_id and existing bookmarked_at for all remote bookmark URLs in bulk
             remote_bm_urls = [bm["url"] for bm in remote_bookmarks if bm["url"] not in deleted_bm_urls]
-            if remote_bm_urls:
-                _ph = ",".join("?" * len(remote_bm_urls))
-                history_id_map: dict[str, int] = {
-                    r["url"]: r["id"]
+            history_id_map: dict[str, int] = {}
+            existing_bm_map: dict[str, int] = {}
+            for _i in range(0, max(len(remote_bm_urls), 1), 900):
+                _chunk = remote_bm_urls[_i : _i + 900]
+                if not _chunk:
+                    break
+                _ph = ",".join("?" * len(_chunk))
+                history_id_map.update(
+                    (r["url"], r["id"])
                     for r in conn.execute(
                         f"SELECT url, id FROM history WHERE url IN ({_ph})",
-                        remote_bm_urls,
+                        _chunk,
                     ).fetchall()
-                }
-                existing_bm_map: dict[str, int] = {
-                    r["url"]: r["bookmarked_at"]
+                )
+                existing_bm_map.update(
+                    (r["url"], r["bookmarked_at"])
                     for r in conn.execute(
                         f"SELECT url, bookmarked_at FROM bookmarks WHERE url IN ({_ph})",
-                        remote_bm_urls,
+                        _chunk,
                     ).fetchall()
-                }
-            else:
-                history_id_map = {}
-                existing_bm_map = {}
+                )
 
             for bm in remote_bookmarks:
                 url = bm["url"]
@@ -1071,14 +1073,16 @@ class LocalDatabase:
             bm_id_map: dict[str, int] = {}
             if tag_replace_urls:
                 _tag_url_list = list(tag_replace_urls)
-                _ph2 = ",".join("?" * len(_tag_url_list))
-                bm_id_map = {
-                    r["url"]: r["id"]
-                    for r in conn.execute(
-                        f"SELECT url, id FROM bookmarks WHERE url IN ({_ph2})",
-                        _tag_url_list,
-                    ).fetchall()
-                }
+                for _i in range(0, len(_tag_url_list), 900):
+                    _chunk = _tag_url_list[_i : _i + 900]
+                    _ph2 = ",".join("?" * len(_chunk))
+                    bm_id_map.update(
+                        (r["url"], r["id"])
+                        for r in conn.execute(
+                            f"SELECT url, id FROM bookmarks WHERE url IN ({_ph2})",
+                            _chunk,
+                        ).fetchall()
+                    )
 
             for url in tag_replace_urls:
                 bm_id = bm_id_map.get(url)
@@ -1098,15 +1102,18 @@ class LocalDatabase:
             # Pre-fetch history ids for all annotation urls in bulk
             ann_urls = [ann["url"] for ann in remote_annotations if ann["url"] not in deleted_ann_urls]
             ann_history_id_map: dict[str, int] = {}
-            if ann_urls:
-                _ph3 = ",".join("?" * len(ann_urls))
-                ann_history_id_map = {
-                    r["url"]: r["id"]
+            for _i in range(0, max(len(ann_urls), 1), 900):
+                _chunk = ann_urls[_i : _i + 900]
+                if not _chunk:
+                    break
+                _ph3 = ",".join("?" * len(_chunk))
+                ann_history_id_map.update(
+                    (r["url"], r["id"])
                     for r in conn.execute(
                         f"SELECT url, id FROM history WHERE url IN ({_ph3})",
-                        ann_urls,
+                        _chunk,
                     ).fetchall()
-                }
+                )
 
             for ann in remote_annotations:
                 url = ann["url"]
