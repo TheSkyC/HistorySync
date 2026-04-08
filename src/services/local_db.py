@@ -776,16 +776,28 @@ class LocalDatabase:
                   AND (domain_id IS NULL OR domain_id NOT IN (SELECT id FROM domains))
             """)
 
-            _cb(_("Back-filling domain_id on history rows…"))
-            cursor = conn.execute("""
-                UPDATE history
-                SET domain_id = (
-                    SELECT d.id FROM domains d
-                    WHERE d.host = _extract_host(history.url)
+        _cb(_("Back-filling domain_id on history rows…"))
+        _BATCH = 5000
+        while True:
+            with self._conn() as conn:
+                cursor = conn.execute(
+                    """
+                    UPDATE history
+                    SET domain_id = (
+                        SELECT d.id FROM domains d
+                        WHERE d.host = _extract_host(history.url)
+                    )
+                    WHERE rowid IN (
+                        SELECT rowid FROM history WHERE domain_id IS NULL LIMIT ?
+                    )
+                """,
+                    (_BATCH,),
                 )
-                WHERE domain_id IS NULL
-            """)
-            updated = cursor.rowcount
+                batch_count = cursor.rowcount
+            if batch_count == 0:
+                break
+            updated += batch_count
+            _cb(_("Back-filling domain_id on history rows… ({n} so far)").format(n=f"{updated:,}"))
 
         _cb(_("Domain normalisation complete — {n} rows updated.").format(n=f"{updated:,}"))
         return updated
