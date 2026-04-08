@@ -12,6 +12,7 @@ class StyledComboBox(QWidget):
     """Fully custom-drawn ComboBox with rounded corners and fade animation."""
 
     currentIndexChanged = Signal(int)
+    currentTextChanged = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -73,8 +74,12 @@ class StyledComboBox(QWidget):
     def setCurrentIndex(self, index: int):
         """Set current index."""
         if 0 <= index < len(self._items) and index != self._current_index:
+            old_text = self.currentText()
             self._current_index = index
+            new_text = self.currentText()
             self.currentIndexChanged.emit(index)
+            if old_text != new_text:
+                self.currentTextChanged.emit(new_text)
             self.update()
 
     def currentText(self) -> str:
