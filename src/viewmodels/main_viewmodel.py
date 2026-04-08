@@ -431,7 +431,10 @@ class MainViewModel(QObject):
     def _on_history_ui_config_changed(self, visible_columns: list, column_widths: dict):
         self._config.ui.visible_columns = visible_columns
         self._config.ui.column_widths = column_widths
-        self.save_config(self._config)
+        # Only persist to disk — do not trigger save_config() which would
+        # call set_hidden_ids() -> reload() -> beginResetModel() and reset
+        # the scroll position after every column resize or theme switch.
+        self._config.save()
 
     def _emit_stats(self):
         self.stats_updated.emit(

@@ -209,6 +209,7 @@ class ThemeManager(QObject):
                 app.setStyleSheet(qss)
 
                 deferred_hscroll: list[tuple] = []  # (hbar, scroll_h) Deferred restoration of horizontal scrolling
+                deferred_vscroll: list[tuple] = []  # (vbar, scroll_v) Deferred restoration of vertical scrolling
 
                 for w, model, col_info, scroll_v, scroll_h in saved_state:
                     hbar = w.horizontalScrollBar()
@@ -225,14 +226,27 @@ class ThemeManager(QObject):
                                 if mode in (QHeaderView.Interactive, QHeaderView.Fixed):
                                     hh.resizeSection(i, width)
                     vbar = w.verticalScrollBar()
-                    if vbar is not None:
-                        vbar.setValue(scroll_v)
+                    if vbar is not None and scroll_v:
+                        deferred_vscroll.append((vbar, scroll_v))
             finally:
                 # Re-enable updates unconditionally so a mid-apply exception can
                 # never leave the UI permanently frozen.
                 for w in top_levels:
                     w.setUpdatesEnabled(True)
                     w.update()
+
+            # Defer vertical scroll restoration so that theme_changed listeners
+            # (e.g. _on_theme_changed in history_page) can restore per-row
+            # section sizes first.  If vbar.setValue() runs before those sizes
+            # are restored, Qt clamps the value against the shrunken content
+            # height and the viewport jumps to the wrong position.
+            if deferred_vscroll:
+
+                def _restore_vscroll(items=deferred_vscroll):
+                    for vbar, val in items:
+                        vbar.setValue(val)
+
+                QTimer.singleShot(0, _restore_vscroll)
 
             if deferred_hscroll:
 
