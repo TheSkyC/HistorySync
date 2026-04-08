@@ -1472,43 +1472,46 @@ class LocalDatabase:
             regex_params = [pat_str, pat_str]
 
         excl = excluded_ids or set()
-        offset = 0
         _COLS = (
             "h.id, h.url, h.title, h.visit_time, h.visit_count, "
             "h.browser_type, h.profile_name, h.metadata, "
             "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
             "h.device_id"
         )
-        while True:
-            with self._conn(write=False) as conn:
-                from_where, base_params, _ = self._build_query_parts(
-                    conn=conn,
-                    keyword="",
-                    browser_type=browser_type,
-                    date_from=date_from,
-                    date_to=date_to,
-                    excluded_ids=excl,
-                    domain_ids=domain_ids,
-                    excludes=excludes,
-                    title_only=False,
-                    url_only=False,
-                    bookmarked_only=bookmarked_only,
-                    has_annotation=has_annotation,
-                    bookmark_tag=bookmark_tag,
-                    _force_like=False,
-                    device_ids=device_ids,
-                )
-                connector = " AND " if "WHERE" in from_where else " WHERE "
-                sql = f"SELECT {_COLS} {from_where}{connector}{regex_cond} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
+
+        # Hold the connection for the entire iteration to avoid lock contention
+        with self._conn(write=False) as conn:
+            from_where, base_params, _ = self._build_query_parts(
+                conn=conn,
+                keyword="",
+                browser_type=browser_type,
+                date_from=date_from,
+                date_to=date_to,
+                excluded_ids=excl,
+                domain_ids=domain_ids,
+                excludes=excludes,
+                title_only=False,
+                url_only=False,
+                bookmarked_only=bookmarked_only,
+                has_annotation=has_annotation,
+                bookmark_tag=bookmark_tag,
+                _force_like=False,
+                device_ids=device_ids,
+            )
+            connector = " AND " if "WHERE" in from_where else " WHERE "
+            sql = f"SELECT {_COLS} {from_where}{connector}{regex_cond} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
+
+            offset = 0
+            while True:
                 params = base_params + regex_params + [batch_size, offset]
                 rows = conn.execute(sql, params).fetchall()
 
-            for row in rows:
-                yield self._row_to_record(row)
+                for row in rows:
+                    yield self._row_to_record(row)
 
-            offset += batch_size
-            if len(rows) < batch_size:
-                break
+                offset += batch_size
+                if len(rows) < batch_size:
+                    break
 
     # ── Query builder (shared core) ───────────────────────────
 
