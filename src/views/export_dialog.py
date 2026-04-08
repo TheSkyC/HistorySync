@@ -16,7 +16,6 @@ from PySide6.QtCore import (
 )
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDateEdit,
     QDialog,
     QFileDialog,
@@ -36,6 +35,7 @@ from src.services.local_db import LocalDatabase
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
+from src.utils.styled_combobox import StyledComboBox
 from src.views.option_selector import OptionSelector
 
 log = get_logger("export_dialog")
@@ -203,7 +203,7 @@ class ExportDialog(QDialog):
         fmt_layout.setSpacing(8)
 
         combo_row = QHBoxLayout()
-        self._fmt_combo = QComboBox()
+        self._fmt_combo = StyledComboBox()
         self._fmt_combo.addItem("CSV (.csv)", "csv")
         self._fmt_combo.addItem("JSON (.json)", "json")
         self._fmt_combo.addItem("HTML (.html)", "html")

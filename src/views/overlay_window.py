@@ -25,7 +25,6 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QApplication,
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -40,6 +39,7 @@ from PySide6.QtWidgets import (
 
 from src.utils.i18n import _
 from src.utils.icon_helper import get_browser_pixmap, get_icon
+from src.utils.styled_combobox import StyledComboBox
 from src.views.floating_tooltip import FloatingTooltip
 
 if TYPE_CHECKING:
@@ -328,7 +328,7 @@ class _SettingsPanel(QWidget):
         row1 = QHBoxLayout()
         row1.addWidget(QLabel(_("Filter browsers")))
         row1.addStretch()
-        self._filter_combo = QComboBox()
+        self._filter_combo = StyledComboBox()
         self._filter_combo.setMinimumWidth(160)
         row1.addWidget(self._filter_combo)
         layout.addLayout(row1)
@@ -337,7 +337,7 @@ class _SettingsPanel(QWidget):
         row2 = QHBoxLayout()
         row2.addWidget(QLabel(_("Open with")))
         row2.addStretch()
-        self._open_combo = QComboBox()
+        self._open_combo = StyledComboBox()
         self._open_combo.setMinimumWidth(160)
         row2.addWidget(self._open_combo)
         layout.addLayout(row2)

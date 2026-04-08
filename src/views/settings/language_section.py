@@ -3,9 +3,10 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from src.utils.i18n import _
+from src.utils.styled_combobox import StyledComboBox
 
 
 class LanguageSection(QWidget):
@@ -26,7 +27,7 @@ class LanguageSection(QWidget):
         lang_row = QHBoxLayout()
         lang_lbl = QLabel(_("Interface language:"))
         lang_lbl.setObjectName("muted")
-        self._combo = QComboBox()
+        self._combo = StyledComboBox()
         self._combo.setMinimumWidth(200)
         lang_row.addWidget(lang_lbl)
         lang_row.addWidget(self._combo)
@@ -60,6 +61,6 @@ class LanguageSection(QWidget):
     # ── Internal ──────────────────────────────────────────────
 
     @property
-    def combo(self) -> QComboBox:
+    def combo(self) -> StyledComboBox:
         """Direct access for connecting currentIndexChanged externally."""
         return self._combo

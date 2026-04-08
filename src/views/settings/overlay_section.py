@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from src.utils.i18n import _
+from src.utils.styled_combobox import StyledComboBox
 
 
 class OverlaySection(QWidget):
@@ -37,7 +38,7 @@ class OverlaySection(QWidget):
         filter_row = QHBoxLayout()
         filter_lbl = QLabel(_("Filter browsers:"))
         filter_lbl.setObjectName("muted")
-        self._filter_combo = QComboBox()
+        self._filter_combo = StyledComboBox()
         self._filter_combo.setMinimumWidth(180)
         filter_row.addWidget(filter_lbl)
         filter_row.addWidget(self._filter_combo)
@@ -48,7 +49,7 @@ class OverlaySection(QWidget):
         open_row = QHBoxLayout()
         open_lbl = QLabel(_("Open with:"))
         open_lbl.setObjectName("muted")
-        self._open_combo = QComboBox()
+        self._open_combo = StyledComboBox()
         self._open_combo.setMinimumWidth(180)
         open_row.addWidget(open_lbl)
         open_row.addWidget(self._open_combo)

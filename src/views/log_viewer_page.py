@@ -9,7 +9,6 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QColor, QFont, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -24,6 +23,7 @@ from src.utils.constants import LOG_FILENAME
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
+from src.utils.styled_combobox import StyledComboBox
 from src.utils.theme_manager import ThemeManager
 
 log = get_logger("view.log_viewer")
@@ -121,7 +121,7 @@ class LogViewerPage(QWidget):
 
         level_lbl = QLabel(_("Level:"))
         level_lbl.setObjectName("muted")
-        self._level_combo = QComboBox()
+        self._level_combo = StyledComboBox()
         self._level_combo.addItems(["ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
         self._level_combo.setCurrentText("INFO")
         self._level_combo.setMinimumWidth(100)

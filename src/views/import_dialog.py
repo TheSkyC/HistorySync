@@ -35,6 +35,7 @@ from src.services.db_importer import (
 from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
+from src.utils.styled_combobox import StyledComboBox
 from src.utils.theme_manager import ThemeManager
 from src.viewmodels.import_viewmodel import ImportTask, ImportViewModel, TaskResult
 
@@ -190,8 +191,8 @@ def _cell_wrap(widget: QWidget) -> QWidget:
     return w
 
 
-def _make_combo(options, current_data=None, palette: _Palette | None = None) -> QComboBox:
-    combo = QComboBox()
+def _make_combo(options, current_data=None, palette: _Palette | None = None) -> StyledComboBox:
+    combo = StyledComboBox()
     combo.setStyleSheet((palette or _get_palette()).combo_style())
     for label, data in options:
         combo.addItem(label, data)

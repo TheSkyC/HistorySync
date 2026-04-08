@@ -42,7 +42,6 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
-    QComboBox,
     QDateEdit,
     QFrame,
     QGraphicsOpacityEffect,
@@ -66,6 +65,7 @@ from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_browser_icon, get_icon
 from src.utils.logger import get_logger
 from src.utils.search_parser import parse_query
+from src.utils.styled_combobox import StyledComboBox
 from src.utils.styled_menu import StyledMenu
 from src.utils.theme_manager import ThemeManager
 from src.viewmodels.history_viewmodel import ANNOTATION_ROLE, BOOKMARK_ROLE, HistoryViewModel
@@ -1838,7 +1838,7 @@ class HistoryPage(QWidget):
         row2 = QHBoxLayout()
         row2.setSpacing(10)
 
-        self._browser_combo = QComboBox()
+        self._browser_combo = StyledComboBox()
         self._browser_combo.addItem(_("All Browsers"), "")
         self._browser_combo.setMinimumWidth(140)
         self._browser_combo.currentIndexChanged.connect(self._do_search)
