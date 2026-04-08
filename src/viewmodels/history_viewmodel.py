@@ -360,10 +360,9 @@ class HistoryTableModel(QAbstractTableModel):
         self._keyword_materialized = False
         self._keyword_index.clear()
 
-        # Load badge URL sets for O(1) lookup during rendering
-        self._bookmarked_urls = self._db.get_bookmarked_urls()
-        self._annotated_urls = self._db.get_annotated_urls()
-        self._device_name_map = self._db.get_device_name_map()
+        # Defer badge loading to avoid blocking initial render
+        # These are only needed when rows are actually painted
+        QTimer.singleShot(0, self._load_badge_data)
 
         if self._use_regex and self._keyword:
             # Regex incremental mode: scan the first batch, store (id, visit_time) in _keyword_index
@@ -411,9 +410,15 @@ class HistoryTableModel(QAbstractTableModel):
 
         self.total_count_changed.emit(self._total_count, self._regex_has_more)
 
-        # Page cache mode only: prefetch the first page
+        # Defer first page fetch to avoid blocking the model reset
         if not self._keyword_materialized and not (self._use_regex and self._keyword) and self._total_count > 0:
-            self._fetch_page(0)
+            QTimer.singleShot(0, lambda: self._fetch_page(0))
+
+    def _load_badge_data(self):
+        """Load badge URL sets for O(1) lookup during rendering (deferred)."""
+        self._bookmarked_urls = self._db.get_bookmarked_urls()
+        self._annotated_urls = self._db.get_annotated_urls()
+        self._device_name_map = self._db.get_device_name_map()
 
     def load_more(self) -> bool:
         """In virtualised mode, delegate to load_more_regex() for regex searches; otherwise no manual loading needed."""
@@ -768,13 +773,29 @@ class HistoryViewModel(QObject):
         self.table_model = HistoryTableModel(db, favicon_manager, visible_columns)
 
     def initialize(self):
+        """Initialize the view model with progressive loading to avoid UI freeze.
+
+        Phase 1: Mark as initialized and emit ready signal immediately
+        Phase 2: Load data asynchronously in stages
+        """
         self._initialized = True
-        self.table_model.reload()
-        self._refresh_browser_list()
-        self._refresh_device_list()
-        self._refresh_tag_list()
         self.model_ready.emit()
-        self._load_top_domains_async()
+
+        # Defer data loading to avoid blocking the UI thread
+        QTimer.singleShot(0, self._load_initial_data)
+
+    def _load_initial_data(self):
+        """Load initial data in stages to keep UI responsive."""
+        # Stage 1: Load the table data (most important)
+        self.table_model.reload()
+
+        # Stage 2: Load filter options (slightly delayed)
+        QTimer.singleShot(50, self._refresh_browser_list)
+        QTimer.singleShot(100, self._refresh_device_list)
+        QTimer.singleShot(150, self._refresh_tag_list)
+
+        # Stage 3: Load top domains (lowest priority, already async)
+        QTimer.singleShot(200, self._load_top_domains_async)
 
     def _load_top_domains_async(self):
         """Fetch top domains in a background thread and emit top_domains_loaded."""
