@@ -11,6 +11,7 @@ from pathlib import Path
 import shutil
 import sqlite3
 
+from src.utils.i18n_core import _
 from src.utils.logger import get_logger
 from src.utils.migration_detector import LegacyDetectionResult
 
@@ -172,7 +173,7 @@ class MigrationService:
 
     def _step_backup(self) -> None:
         """Copy all legacy files to a timestamped backup directory."""
-        self._report(MigrationStep.BACKUP, 0.0, "Creating backup…")
+        self._report(MigrationStep.BACKUP, 0.0, _("Creating backup…"))
 
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         # Place backup next to the config dir so it is never inside the data dir
@@ -197,26 +198,26 @@ class MigrationService:
                 shutil.copy2(f, dest)
                 copied += 1
                 log.info("Backed up: %s → %s", f.name, dest)
-                self._report(MigrationStep.BACKUP, copied / max(total, 1), f"Backed up {f.name}")
+                self._report(MigrationStep.BACKUP, copied / max(total, 1), _("Backed up {name}").format(name=f.name))
 
         self._backup_dir = backup_dir
-        self._report(MigrationStep.BACKUP, 1.0, f"Backup created: {backup_dir}")
+        self._report(MigrationStep.BACKUP, 1.0, _("Backup created: {path}").format(path=backup_dir))
 
     def _step_db_migrate(self) -> None:
         """Upgrade the history.db schema via LocalDatabase (idempotent)."""
-        self._report(MigrationStep.DB_MIGRATE, 0.0, "Upgrading database schema…")
+        self._report(MigrationStep.DB_MIGRATE, 0.0, _("Upgrading database schema…"))
 
         if not self._result.db_file:
-            self._report(MigrationStep.DB_MIGRATE, 1.0, "No database file — skipped")
+            self._report(MigrationStep.DB_MIGRATE, 1.0, _("No database file — skipped"))
             return
 
         # Importing LocalDatabase triggers _init_schema → _migrate_schema
         from src.services.local_db import LocalDatabase
 
-        self._report(MigrationStep.DB_MIGRATE, 0.3, "Running schema migration…")
+        self._report(MigrationStep.DB_MIGRATE, 0.3, _("Running schema migration…"))
         db = LocalDatabase(self._result.db_file)
         db.close()
-        self._report(MigrationStep.DB_MIGRATE, 0.8, "Schema migration complete, verifying columns…")
+        self._report(MigrationStep.DB_MIGRATE, 0.8, _("Schema migration complete, verifying columns…"))
 
         # Verify the new columns exist
         required_cols = {"typed_count", "first_visit_time", "transition_type", "visit_duration"}
@@ -230,16 +231,16 @@ class MigrationService:
         if missing:
             raise RuntimeError(f"Database schema verification failed — missing columns: {', '.join(sorted(missing))}")
 
-        self._report(MigrationStep.DB_MIGRATE, 1.0, "Database schema upgraded successfully")
+        self._report(MigrationStep.DB_MIGRATE, 1.0, _("Database schema upgraded successfully"))
 
     def _step_config_merge(self) -> None:
         """Merge old config.json with new-format defaults and write it back."""
-        self._report(MigrationStep.CONFIG_MERGE, 0.0, "Merging configuration…")
+        self._report(MigrationStep.CONFIG_MERGE, 0.0, _("Merging configuration…"))
 
         from src.models.app_config import AppConfig
 
         raw = self._result.raw_config
-        self._report(MigrationStep.CONFIG_MERGE, 0.4, "Applying new default fields…")
+        self._report(MigrationStep.CONFIG_MERGE, 0.4, _("Applying new default fields…"))
 
         # from_dict already handles unknown / missing fields gracefully
         cfg = AppConfig.from_dict(raw)
@@ -248,13 +249,13 @@ class MigrationService:
         # appearing again after migration completes.
         cfg.first_run_completed = True
 
-        self._report(MigrationStep.CONFIG_MERGE, 0.8, "Writing updated config.json…")
+        self._report(MigrationStep.CONFIG_MERGE, 0.8, _("Writing updated config.json…"))
         cfg.save()
-        self._report(MigrationStep.CONFIG_MERGE, 1.0, "Configuration merged successfully")
+        self._report(MigrationStep.CONFIG_MERGE, 1.0, _("Configuration merged successfully"))
 
     def _step_verify(self) -> int:
         """Verify data integrity after migration.  Returns post-migration record count."""
-        self._report(MigrationStep.VERIFY, 0.0, "Verifying migration…")
+        self._report(MigrationStep.VERIFY, 0.0, _("Verifying migration…"))
 
         # 1. Config must be parseable and mark first_run_completed=True
         from src.models.app_config import AppConfig
@@ -262,7 +263,7 @@ class MigrationService:
         cfg = AppConfig.load()
         if not cfg.first_run_completed:
             raise RuntimeError("Config verification failed: first_run_completed is not True after migration")
-        self._report(MigrationStep.VERIFY, 0.5, "Config verified")
+        self._report(MigrationStep.VERIFY, 0.5, _("Config verified"))
 
         # 2. Record count must not have decreased
         after_count = 0
@@ -282,5 +283,7 @@ class MigrationService:
                     f"Record count decreased after migration: {before} → {after_count}. Data may have been lost."
                 )
 
-        self._report(MigrationStep.VERIFY, 1.0, f"Verification passed — {after_count:,} records intact")
+        self._report(
+            MigrationStep.VERIFY, 1.0, _("Verification passed — {n} records intact").format(n=f"{after_count:,}")
+        )
         return after_count

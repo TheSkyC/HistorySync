@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.services.migration_service import MigrationReport, MigrationService, MigrationStep
+from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
 from src.utils.migration_detector import LegacyDetectionResult
@@ -213,7 +214,7 @@ class _DetectionPage(_PageBase):
         icon = _icon_label("flask" if is_force else "search", 28)
         header.addWidget(icon)
         header.addSpacing(8)
-        title = QLabel("Force Migration" if is_force else "Legacy Data Detected")
+        title = QLabel(_("Force Migration") if is_force else _("Legacy Data Detected"))
         title.setStyleSheet("font-size: 18px; font-weight: 700;")
         header.addWidget(title)
         header.addStretch()
@@ -224,17 +225,19 @@ class _DetectionPage(_PageBase):
             warn = _icon_banner(
                 "alert-triangle",
                 14,
-                "Force-migration mode",
+                _("Force-migration mode"),
                 "font-size: 12px; color: #f59e0b;",
                 "#f0e9dd",  # Light theme: blended orange
                 "#2f2920",  # Dark theme: blended orange
             )
             layout.addWidget(warn)
-            subtitle = QLabel("The following items will be processed:")
+            subtitle = QLabel(_("The following items will be processed:"))
         else:
             subtitle = QLabel(
-                "We found existing HistorySync data from a previous version.\n"
-                "The following items can be safely migrated to the current version:"
+                _(
+                    "We found existing HistorySync data from a previous version.\n"
+                    "The following items can be safely migrated to the current version:"
+                )
             )
         subtitle.setWordWrap(True)
         subtitle.setObjectName("muted")
@@ -248,18 +251,18 @@ class _DetectionPage(_PageBase):
 
         if r.db_file:
             size_str = _fmt_bytes(r.db_size_bytes) if r.db_size_bytes else ""
-            count_str = f"{r.db_record_count:,} records"
+            count_str = _("{n} records").format(n=f"{r.db_record_count:,}")
             detail = f"{count_str}  ({size_str})" if size_str else count_str
-            items.append(("History Database", detail, True))
+            items.append((_("History Database"), detail, True))
 
         if r.webdav_enabled:
-            items.append(("WebDAV Sync Configuration", "Enabled", True))
+            items.append((_("WebDAV Sync Configuration"), _("Enabled"), True))
 
         if r.favicon_db:
-            items.append(("Site Icon Cache", f"{r.favicon_count:,} icons", True))
+            items.append((_("Site Icon Cache"), _("{n} icons").format(n=f"{r.favicon_count:,}"), True))
 
         if r.secret_key:
-            items.append(("Encryption Key", "Found", True))
+            items.append((_("Encryption Key"), _("Found"), True))
 
         for label, detail, _ok in items:
             row = QHBoxLayout()
@@ -280,7 +283,7 @@ class _DetectionPage(_PageBase):
         layout.addWidget(_divider())
 
         # Path info
-        path_lbl = QLabel(f"Data location:  {r.config_dir}")
+        path_lbl = QLabel(_("Data location:  {path}").format(path=r.config_dir))
         path_lbl.setObjectName("muted")
         path_lbl.setWordWrap(True)
         path_lbl.setStyleSheet("font-size: 11px;")
@@ -290,8 +293,10 @@ class _DetectionPage(_PageBase):
         note = _icon_banner(
             "shield",
             14,
-            "Migration is safe — your data will be backed up first.\n"
-            "If anything fails, we will automatically restore everything.",
+            _(
+                "Migration is safe — your data will be backed up first.\n"
+                "If anything fails, we will automatically restore everything."
+            ),
             "font-size: 12px; color: #5b9cf6;",
             "#e4ebf5",  # Light theme: blended blue
             "#1f2733",  # Dark theme: blended blue
@@ -320,23 +325,23 @@ class _ConfirmPage(_PageBase):
         icon = _icon_label("clipboard", 28)
         header.addWidget(icon)
         header.addSpacing(8)
-        title = QLabel("Migration Plan")
+        title = QLabel(_("Migration Plan"))
         title.setStyleSheet("font-size: 18px; font-weight: 700;")
         header.addWidget(title)
         header.addStretch()
         layout.addLayout(header)
 
-        intro = QLabel("The following steps will be performed (all are reversible):")
+        intro = QLabel(_("The following steps will be performed (all are reversible):"))
         intro.setObjectName("muted")
         layout.addWidget(intro)
 
         layout.addWidget(_divider())
 
         steps = [
-            ("1", "Create a backup of your current data"),
-            ("2", "Upgrade the database schema"),
-            ("3", "Merge your configuration"),
-            ("4", "Verify the migration result"),
+            ("1", _("Create a backup of your current data")),
+            ("2", _("Upgrade the database schema")),
+            ("3", _("Merge your configuration")),
+            ("4", _("Verify the migration result")),
         ]
         for num, desc in steps:
             row = QHBoxLayout()
@@ -359,9 +364,11 @@ class _ConfirmPage(_PageBase):
             guarantee = _icon_banner(
                 "alert-triangle",
                 14,
-                "Force-migration mode: this will run the real migration pipeline on your "
-                "current live data.\n"
-                "A backup is created in the first step.  All records will be preserved.",
+                _(
+                    "Force-migration mode: this will run the real migration pipeline on your "
+                    "current live data.\n"
+                    "A backup is created in the first step.  All records will be preserved."
+                ),
                 "font-size: 12px; color: #f59e0b;",
                 "#f0e9dd",  # Light theme: blended orange
                 "#2f2920",  # Dark theme: blended orange
@@ -370,8 +377,10 @@ class _ConfirmPage(_PageBase):
             guarantee = _icon_banner(
                 "info",
                 14,
-                "All history records, WebDAV settings, privacy rules and UI "
-                "preferences will be fully preserved — nothing will be deleted.",
+                _(
+                    "All history records, WebDAV settings, privacy rules and UI "
+                    "preferences will be fully preserved — nothing will be deleted."
+                ),
                 "font-size: 12px; color: #5b9cf6;",
                 "#e4ebf5",  # Light theme: blended blue
                 "#1f2733",  # Dark theme: blended blue
@@ -381,7 +390,7 @@ class _ConfirmPage(_PageBase):
         warning_row = QHBoxLayout()
         warning_row.setSpacing(6)
         warning_row.addWidget(_icon_label("alert-circle", 13))
-        warning_lbl = QLabel("Please do not close the application during migration.   Estimated time: < 30 s")
+        warning_lbl = QLabel(_("Please do not close the application during migration.   Estimated time: < 30 s"))
         warning_lbl.setObjectName("muted")
         warning_lbl.setStyleSheet("font-size: 11px;")
         warning_row.addWidget(warning_lbl)
@@ -396,10 +405,10 @@ class _ConfirmPage(_PageBase):
 # ---------------------------------------------------------------------------
 
 _STEP_LABELS = {
-    MigrationStep.BACKUP: "Create backup",
-    MigrationStep.DB_MIGRATE: "Upgrade database schema",
-    MigrationStep.CONFIG_MERGE: "Merge configuration",
-    MigrationStep.VERIFY: "Verify result",
+    MigrationStep.BACKUP: N_("Create backup"),
+    MigrationStep.DB_MIGRATE: N_("Upgrade database schema"),
+    MigrationStep.CONFIG_MERGE: N_("Merge configuration"),
+    MigrationStep.VERIFY: N_("Verify result"),
 }
 
 _STEP_ICON_PENDING = "circle"
@@ -427,7 +436,7 @@ class _ProgressPage(_PageBase):
         icon = _icon_label("settings", 28)
         header.addWidget(icon)
         header.addSpacing(8)
-        self._title_lbl = QLabel("Migrating Data…")
+        self._title_lbl = QLabel(_("Migrating Data…"))
         self._title_lbl.setStyleSheet("font-size: 18px; font-weight: 700;")
         header.addWidget(self._title_lbl)
         header.addStretch()
@@ -454,7 +463,7 @@ class _ProgressPage(_PageBase):
             row.setSpacing(10)
             status_icon = _icon_label(_STEP_ICON_PENDING, _ICON_SIZE_STEP)
             status_icon.setFixedSize(_ICON_SIZE_STEP, _ICON_SIZE_STEP)
-            desc_lbl = QLabel(_STEP_LABELS[step])
+            desc_lbl = QLabel(_(_STEP_LABELS[step]))
             desc_lbl.setObjectName("muted")
             row.addWidget(status_icon)
             row.addWidget(desc_lbl, 1)
@@ -506,18 +515,18 @@ class _ProgressPage(_PageBase):
         self._detail_lbl.setText(text)
 
     def show_error(self, step: MigrationStep, message: str) -> None:
-        self._title_lbl.setText("Migration Failed")
+        self._title_lbl.setText(_("Migration Failed"))
         self._title_lbl.setStyleSheet("font-size: 18px; font-weight: 700; color: #ef4444;")
         self.mark_step_failed(step)
-        self._error_lbl.setText(f"Error: {message}")
+        self._error_lbl.setText(_("Error: {msg}").format(msg=message))
         self._error_lbl.setVisible(True)
 
     def show_rollback_done(self) -> None:
-        self._detail_lbl.setText("Your original data has been restored from backup.")
+        self._detail_lbl.setText(_("Your original data has been restored from backup."))
 
     def reset(self) -> None:
         """Reset to initial state before starting a migration run."""
-        self._title_lbl.setText("Migrating Data…")
+        self._title_lbl.setText(_("Migrating Data…"))
         self._title_lbl.setStyleSheet("font-size: 18px; font-weight: 700;")
         self._prog_bar.setValue(0)
         self._error_lbl.setVisible(False)
@@ -552,7 +561,7 @@ class _DonePage(_PageBase):
         icon.setAlignment(Qt.AlignCenter)
         layout.addWidget(icon, 0, Qt.AlignCenter)
 
-        title = QLabel("Migration Complete!")
+        title = QLabel(_("Migration Complete!"))
         title.setStyleSheet("font-size: 20px; font-weight: 700; color: #22c55e;")
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
@@ -584,10 +593,10 @@ class _DonePage(_PageBase):
     def populate(self, report: MigrationReport) -> None:
         after = report.db_record_count_after
         self._summary_lbl.setText(
-            f"All your data has been migrated successfully.\n{after:,} history records are intact."
+            _("All your data has been migrated successfully.\n{n} history records are intact.").format(n=f"{after:,}")
         )
         if report.backup_dir:
-            self._backup_lbl.setText(f"Backup saved to:  {report.backup_dir}")
+            self._backup_lbl.setText(_("Backup saved to:  {path}").format(path=report.backup_dir))
         else:
             self._backup_lbl.setText("")
 
@@ -613,16 +622,18 @@ class _SkipPage(_PageBase):
         icon.setAlignment(Qt.AlignCenter)
         layout.addWidget(icon, 0, Qt.AlignCenter)
 
-        title = QLabel("Migration Skipped")
+        title = QLabel(_("Migration Skipped"))
         title.setStyleSheet("font-size: 18px; font-weight: 700;")
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
         note = QLabel(
-            "Your previous data has not been changed.\n\n"
-            "HistorySync will start with a fresh configuration.\n"
-            "You can always run the migration later from\n"
-            "Settings → Maintenance → Migrate from Legacy Data."
+            _(
+                "Your previous data has not been changed.\n\n"
+                "HistorySync will start with a fresh configuration.\n"
+                "You can always run the migration later from\n"
+                "Settings → Maintenance → Migrate from Legacy Data."
+            )
         )
         note.setWordWrap(True)
         note.setAlignment(Qt.AlignCenter)
@@ -695,7 +706,7 @@ class MigrationWizard(QDialog):
         self._user_quit = False  # True if user closed the window mid-migration
         self._migration_done = False  # True once migration finished (success or rollback)
 
-        self.setWindowTitle("HistorySync — Migration Wizard")
+        self.setWindowTitle(_("HistorySync — Migration Wizard"))
         self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
         self.setMinimumSize(540, 460)
         self.setMaximumHeight(560)
@@ -740,16 +751,16 @@ class MigrationWizard(QDialog):
         nav.setContentsMargins(20, 10, 20, 16)
         nav.setSpacing(8)
 
-        self._skip_btn = QPushButton("Skip — Start Fresh")
+        self._skip_btn = QPushButton(_("Skip — Start Fresh"))
         self._skip_btn.setObjectName("muted")
         self._skip_btn.clicked.connect(self._on_skip)
 
-        self._back_btn = QPushButton("Back")
+        self._back_btn = QPushButton(_("Back"))
         self._back_btn.setIcon(get_icon("chevron-left", 16))
         self._back_btn.setVisible(False)
         self._back_btn.clicked.connect(self._go_back)
 
-        self._next_btn = QPushButton("Start Migration")
+        self._next_btn = QPushButton(_("Start Migration"))
         self._next_btn.setIcon(get_icon("chevron-right", 16))
         self._next_btn.setLayoutDirection(Qt.RightToLeft)
         self._next_btn.setObjectName("primary_btn")
@@ -807,17 +818,17 @@ class MigrationWizard(QDialog):
         self._back_btn.setVisible(idx == _PAGE_CONFIRM)
         # Next button text / icon
         if idx == _PAGE_DETECTION:
-            self._next_btn.setText("Start Migration")
+            self._next_btn.setText(_("Start Migration"))
             self._next_btn.setEnabled(True)
             self._next_btn.setVisible(True)
         elif idx == _PAGE_CONFIRM:
-            self._next_btn.setText("Migrate Now")
+            self._next_btn.setText(_("Migrate Now"))
             self._next_btn.setEnabled(True)
             self._next_btn.setVisible(True)
         elif idx == _PAGE_PROGRESS:
             self._next_btn.setVisible(False)
         elif idx in (_PAGE_DONE, _PAGE_SKIP):
-            self._next_btn.setText("Launch HistorySync")
+            self._next_btn.setText(_("Launch HistorySync"))
             self._next_btn.setIcon(get_icon("play", 16))
             self._next_btn.setEnabled(True)
             self._next_btn.setVisible(True)
@@ -866,19 +877,22 @@ class MigrationWizard(QDialog):
                 self._page_progress.show_rollback_done()
             # Show error dialog
             rb_note = (
-                "\n\nYour original data has been restored from the backup."
+                _("\n\nYour original data has been restored from the backup.")
                 if report.rollback_ok
-                else "\n\nAutomatic rollback also failed. Please restore from the backup directory manually."
+                else _("\n\nAutomatic rollback also failed. Please restore from the backup directory manually.")
             )
             QMessageBox.critical(
                 self,
-                "Migration Failed",
-                f"Migration failed at step: {report.error_step.value if report.error_step else 'unknown'}\n\n"
-                f"Error: {report.error}{rb_note}",
+                _("Migration Failed"),
+                _("Migration failed at step: {step}\n\nError: {err}{note}").format(
+                    step=_(report.error_step.value) if report.error_step else _("unknown"),
+                    err=report.error,
+                    note=rb_note,
+                ),
             )
             # Stay on progress page, re-enable skip/close
             self._skip_btn.setVisible(True)
-            self._skip_btn.setText("Close")
+            self._skip_btn.setText(_("Close"))
             self._skip_btn.clicked.disconnect()
             self._skip_btn.clicked.connect(self.reject)
 
@@ -889,11 +903,13 @@ class MigrationWizard(QDialog):
     def _on_skip(self) -> None:
         reply = QMessageBox.question(
             self,
-            "Skip Migration?",
-            "Are you sure you want to skip migration?\n\n"
-            "HistorySync will start fresh with default settings.\n"
-            "Your legacy data will not be changed.\n\n"
-            "You can run the migration later from Settings → Maintenance.",
+            _("Skip Migration?"),
+            _(
+                "Are you sure you want to skip migration?\n\n"
+                "HistorySync will start fresh with default settings.\n"
+                "Your legacy data will not be changed.\n\n"
+                "You can run the migration later from Settings → Maintenance."
+            ),
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
@@ -926,10 +942,12 @@ class MigrationWizard(QDialog):
         if self._worker is not None and self._worker.isRunning():
             reply = QMessageBox.question(
                 self,
-                "Migration in Progress",
-                "Migration is still running.\n\n"
-                "Closing now may leave your data in an inconsistent state.\n"
-                "Are you sure you want to quit?",
+                _("Migration in Progress"),
+                _(
+                    "Migration is still running.\n\n"
+                    "Closing now may leave your data in an inconsistent state.\n"
+                    "Are you sure you want to quit?"
+                ),
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No,
             )

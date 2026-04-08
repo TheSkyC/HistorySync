@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: HistorySync 1.0.0\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-04-08 11:35+0000\n"
-"PO-Revision-Date: 2026-04-08 11:34+0000\n"
+"POT-Creation-Date: 2026-04-08 14:09+0000\n"
+"PO-Revision-Date: 2026-04-08 14:00+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: es_ES\n"
 "Language-Team: none\n"
@@ -17,6 +17,28 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
+
+#: src/views/migration_wizard.py:882
+msgid ""
+"\n"
+"\n"
+"Automatic rollback also failed. Please restore from the backup directory "
+"manually."
+msgstr ""
+"\n"
+"\n"
+"La reversión automática también ha fallado. Por favor, restaura "
+"manualmente desde el directorio de copia de seguridad."
+
+#: src/views/migration_wizard.py:880
+msgid ""
+"\n"
+"\n"
+"Your original data has been restored from the backup."
+msgstr ""
+"\n"
+"\n"
+"Se han restaurado los datos originales desde la copia de seguridad."
 
 #: src/views/import_dialog.py:251
 msgid "  ·  Drag & drop files, or click  Add Files"
@@ -215,6 +237,15 @@ msgstr "Todos los navegadores"
 msgid "All Files (*)"
 msgstr "Todos los archivos (*)"
 
+#: src/views/migration_wizard.py:381
+msgid ""
+"All history records, WebDAV settings, privacy rules and UI preferences "
+"will be fully preserved — nothing will be deleted."
+msgstr ""
+"Todos los registros de historial, configuraciones de WebDAV, reglas de "
+"privacidad y preferencias de la interfaz de usuario se conservarán "
+"completamente — no se eliminará nada."
+
 #: src/views/settings/devices_section.py:82
 msgid "All known devices in this database:"
 msgstr "Todos los dispositivos conocidos en esta base de datos:"
@@ -231,11 +262,24 @@ msgstr "¡Todo listo!"
 msgid "All time"
 msgstr "Todo el tiempo"
 
+#: src/views/migration_wizard.py:596
+#, python-brace-format
+msgid ""
+"All your data has been migrated successfully.\n"
+"{n} history records are intact."
+msgstr ""
+"Todos tus datos se han migrado correctamente.\n"
+"{n} registros de historial están intactos."
+
 #: src/views/dashboard_page.py:660
 msgid "Also delete all synced history records for this browser"
 msgstr ""
 "También eliminar todos los registros de historial sincronizados para este"
 " navegador"
+
+#: src/services/migration_service.py:243
+msgid "Applying new default fields…"
+msgstr "Aplicando nuevos campos predeterminados…"
 
 #: src/views/settings/security_section.py:179
 msgid ""
@@ -246,6 +290,23 @@ msgstr ""
 "¿Estás seguro de que quieres eliminar la contraseña maestra?\n"
 "\n"
 "Esto dejará tus ajustes sin protección."
+
+#: src/views/migration_wizard.py:908
+msgid ""
+"Are you sure you want to skip migration?\n"
+"\n"
+"HistorySync will start fresh with default settings.\n"
+"Your legacy data will not be changed.\n"
+"\n"
+"You can run the migration later from Settings → Maintenance."
+msgstr ""
+"¿Estás seguro de que quieres omitir la migración?\n"
+"\n"
+"HistorySync se iniciará con una configuración limpia.\n"
+"Tus datos antiguos no se modificarán.\n"
+"\n"
+"Puedes ejecutar la migración más tarde desde Configuración → "
+"Mantenimiento."
 
 #: src/views/first_run_wizard.py:934
 msgid ""
@@ -287,7 +348,7 @@ msgstr "Respaldar automáticamente a WebDAV después del escaneo local"
 msgid "Available"
 msgstr "Disponible"
 
-#: src/views/first_run_wizard.py:860
+#: src/views/first_run_wizard.py:860 src/views/migration_wizard.py:758
 msgid "Back"
 msgstr "Atrás"
 
@@ -299,6 +360,11 @@ msgstr "Rellenando domain_id en las filas del historial…"
 #, python-brace-format
 msgid "Back-filling domain_id on history rows… ({n} so far)"
 msgstr "Rellenando domain_id en las filas del historial… ({n} hasta ahora)"
+
+#: src/services/migration_service.py:201
+#, python-brace-format
+msgid "Backed up {name}"
+msgstr "Copia de seguridad de {name} realizada"
 
 #: src/views/settings/webdav_section.py:95
 msgid "Backs up the favicon database alongside history. Increases backup size."
@@ -315,9 +381,19 @@ msgstr "ZIP de copia de seguridad subido pero falló sync_manifest.json: {error}
 msgid "Backup archive missing history.db"
 msgstr "Al archivo de copia de seguridad le falta history.db"
 
+#: src/services/migration_service.py:204
+#, python-brace-format
+msgid "Backup created: {path}"
+msgstr "Copia de seguridad creada: {path}"
+
 #: src/views/first_run_wizard.py:209
 msgid "Backup interval:"
 msgstr "Intervalo de copia de seguridad:"
+
+#: src/views/migration_wizard.py:599
+#, python-brace-format
+msgid "Backup saved to:  {path}"
+msgstr "Copia de seguridad guardada en: {path}"
 
 #: src/views/settings/webdav_section.py:151
 msgid "Backup to WebDAV"
@@ -575,6 +651,7 @@ msgstr "Limpiar vista"
 #: src/views/dialogs/browser_scan_dialog.py:223
 #: src/views/dialogs/browser_scan_dialog.py:228 src/views/export_dialog.py:509
 #: src/views/export_dialog.py:519 src/views/import_dialog.py:633
+#: src/views/migration_wizard.py:895
 msgid "Close"
 msgstr "Cerrar"
 
@@ -586,9 +663,17 @@ msgstr "Columnas"
 msgid "Compressing and packaging backup..."
 msgstr "Comprimiendo y empaquetando la copia de seguridad..."
 
+#: src/services/migration_service.py:266
+msgid "Config verified"
+msgstr "Configuración verificada"
+
 #: src/main.py:633
 msgid "Configuration Load Error"
 msgstr "Error al cargar la configuración"
+
+#: src/services/migration_service.py:254
+msgid "Configuration merged successfully"
+msgstr "Configuración combinada correctamente"
 
 #: src/views/first_run_wizard.py:290
 msgid "Configure Blacklist…"
@@ -682,6 +767,18 @@ msgstr ""
 msgid "Count error: {e}"
 msgstr "Error de conteo: {e}"
 
+#: src/views/migration_wizard.py:341
+msgid "Create a backup of your current data"
+msgstr "Crea una copia de seguridad de tus datos actuales"
+
+#: src/views/migration_wizard.py:408
+msgid "Create backup"
+msgstr "Crear copia de seguridad"
+
+#: src/services/migration_service.py:176
+msgid "Creating backup…"
+msgstr "Creando copia de seguridad…"
+
 #: src/views/export_dialog.py:321
 msgid "Current filter: "
 msgstr "Filtro actual: "
@@ -718,6 +815,11 @@ msgstr "Promedio diario"
 msgid "Daily visit volume"
 msgstr "Volumen de visitas diario"
 
+#: src/views/migration_wizard.py:286
+#, python-brace-format
+msgid "Data location:  {path}"
+msgstr "Ubicación de los datos:  {path}"
+
 #: src/views/import_dialog.py:432
 msgid "Database Files (History *.sqlite *.db);;All Files (*)"
 msgstr "Archivos de base de datos (History *.sqlite *.db);;Todos los archivos (*)"
@@ -726,6 +828,10 @@ msgstr "Archivos de base de datos (History *.sqlite *.db);;Todos los archivos (*
 #, python-brace-format
 msgid "Database file not found: {path}"
 msgstr "Archivo de base de datos no encontrado: {path}"
+
+#: src/services/migration_service.py:234
+msgid "Database schema upgraded successfully"
+msgstr "Esquema de la base de datos actualizado correctamente"
 
 #: src/views/settings/maintenance_section.py:63
 msgid "Database size"
@@ -979,6 +1085,14 @@ msgstr "Activar superposición de acceso rápido (Ctrl+Mayús+H)"
 msgid "Enable scheduled auto-sync"
 msgstr "Activar sincronización automática programada"
 
+#: src/views/migration_wizard.py:259
+msgid "Enabled"
+msgstr "Activado"
+
+#: src/views/migration_wizard.py:265
+msgid "Encryption Key"
+msgstr "Clave de cifrado"
+
 #: src/views/master_password_dialog.py:90
 msgid "Enter master password…"
 msgstr "Introduce la contraseña maestra…"
@@ -991,6 +1105,11 @@ msgstr "Introduce el nuevo nombre para {}:"
 #: src/views/settings_page.py:534
 msgid "Error"
 msgstr "Error"
+
+#: src/views/migration_wizard.py:521
+#, python-brace-format
+msgid "Error: {msg}"
+msgstr "Error: {msg}"
 
 #: src/views/export_dialog.py:280 src/views/log_viewer_page.py:354
 #: src/views/log_viewer_page.py:366
@@ -1175,9 +1294,32 @@ msgstr ""
 msgid "Force Migrate…"
 msgstr "Forzar migración…"
 
+#: src/views/migration_wizard.py:217
+msgid "Force Migration"
+msgstr "Forzar migración"
+
+#: src/views/migration_wizard.py:228
+msgid "Force-migration mode"
+msgstr "Modo de migración forzada"
+
+#: src/views/migration_wizard.py:368
+msgid ""
+"Force-migration mode: this will run the real migration pipeline on your "
+"current live data.\n"
+"A backup is created in the first step.  All records will be preserved."
+msgstr ""
+"Modo de migración forzada: esto ejecutará la canalización de migración "
+"real en sus datos actuales en vivo.\n"
+"Se crea una copia de seguridad en el primer paso.  Todos los registros se"
+" conservarán."
+
 #: src/views/import_dialog.py:274
 msgid "Format"
 msgstr "Formato"
+
+#: src/views/migration_wizard.py:265
+msgid "Found"
+msgstr "Encontrados"
 
 #: src/views/dialogs/browser_scan_dialog.py:97
 #: src/views/dialogs/browser_scan_dialog.py:221
@@ -1278,6 +1420,10 @@ msgstr "Ocultar este registro"
 msgid "History"
 msgstr "Historial"
 
+#: src/views/migration_wizard.py:256
+msgid "History Database"
+msgstr "Base de datos del historial"
+
 #: src/services/exporter.py:564
 msgid "History Report"
 msgstr "Informe de historial"
@@ -1339,6 +1485,10 @@ msgstr ""
 #: src/views/first_run_wizard.py:806
 msgid "HistorySync — First-Time Setup"
 msgstr "HistorySync — Configuración inicial"
+
+#: src/views/migration_wizard.py:709
+msgid "HistorySync — Migration Wizard"
+msgstr "HistorySync — Asistente de migración"
 
 #: src/services/exporter.py:48
 msgid "ID"
@@ -1497,9 +1647,17 @@ msgstr "Último {weekday}"
 msgid "Launch Error"
 msgstr "Error al iniciar"
 
+#: src/views/migration_wizard.py:831
+msgid "Launch HistorySync"
+msgstr "Iniciar HistorySync"
+
 #: src/views/settings/startup_section.py:28
 msgid "Launch at system startup (minimized to tray)"
 msgstr "Iniciar al arrancar el sistema (minimizado en la bandeja)"
+
+#: src/views/migration_wizard.py:217
+msgid "Legacy Data Detected"
+msgstr "Se han detectado datos de versiones anteriores"
 
 #: src/views/stats_page.py:1716
 msgid "Less"
@@ -1623,6 +1781,18 @@ msgstr ""
 "Fusión completada: {inserted} registros nuevos añadidos (de {total} en la"
 " copia de seguridad)."
 
+#: src/views/migration_wizard.py:410
+msgid "Merge configuration"
+msgstr "Fusionar configuración"
+
+#: src/views/migration_wizard.py:343
+msgid "Merge your configuration"
+msgstr "Fusiona tu configuración"
+
+#: src/services/migration_service.py:238
+msgid "Merging configuration…"
+msgstr "Fusionando configuración…"
+
 #: src/services/local_db.py:984
 msgid "Merging user data (bookmarks, annotations, hidden records)..."
 msgstr ""
@@ -1641,6 +1811,66 @@ msgstr "Metadatos"
 #: src/views/settings/maintenance_section.py:145
 msgid "Migrate Legacy Data…"
 msgstr "Migrar datos heredados…"
+
+#: src/views/migration_wizard.py:825
+msgid "Migrate Now"
+msgstr ""
+
+#: src/views/migration_wizard.py:439 src/views/migration_wizard.py:529
+msgid "Migrating Data…"
+msgstr "Migrando datos…"
+
+#: src/views/migration_wizard.py:564
+msgid "Migration Complete!"
+msgstr "¡Migración completada!"
+
+#: src/views/migration_wizard.py:518 src/views/migration_wizard.py:886
+msgid "Migration Failed"
+msgstr "Migración fallida"
+
+#: src/views/migration_wizard.py:328
+msgid "Migration Plan"
+msgstr "Plan de Migración"
+
+#: src/views/migration_wizard.py:625
+msgid "Migration Skipped"
+msgstr "Migración Omitida"
+
+#: src/views/migration_wizard.py:887
+#, python-brace-format
+msgid ""
+"Migration failed at step: {step}\n"
+"\n"
+"Error: {err}{note}"
+msgstr ""
+"Migración fallida en el paso: {step}\n"
+"\n"
+"Error: {err}{note}"
+
+#: src/views/migration_wizard.py:945
+msgid "Migration in Progress"
+msgstr "Migración en curso"
+
+#: src/views/migration_wizard.py:297
+msgid ""
+"Migration is safe — your data will be backed up first.\n"
+"If anything fails, we will automatically restore everything."
+msgstr ""
+"La migración es segura: primero se hará una copia de seguridad de tus "
+"datos.\n"
+"Si algo falla, restauraremos todo automáticamente."
+
+#: src/views/migration_wizard.py:947
+msgid ""
+"Migration is still running.\n"
+"\n"
+"Closing now may leave your data in an inconsistent state.\n"
+"Are you sure you want to quit?"
+msgstr ""
+"La migración aún está en curso.\n"
+"\n"
+"Si cierra ahora, sus datos podrían quedar en un estado inconsistente.\n"
+"¿Está seguro de que desea salir?"
 
 #: src/views/history_page.py:79 src/views/stats_page.py:563
 msgid "Mon"
@@ -1752,6 +1982,10 @@ msgstr "No se detectaron navegadores"
 #: src/views/stats_page.py:1252
 msgid "No data"
 msgstr "Sin datos"
+
+#: src/services/migration_service.py:211
+msgid "No database file — skipped"
+msgstr "No hay archivo de base de datos — omitido"
 
 #: src/viewmodels/history_viewmodel.py:282
 msgid "No description available"
@@ -1966,6 +2200,14 @@ msgstr "Pausar"
 #: src/views/stats_page.py:1594
 msgid "Peak day"
 msgstr "Día de mayor actividad"
+
+#: src/views/migration_wizard.py:393
+msgid ""
+"Please do not close the application during migration.   Estimated time: <"
+" 30 s"
+msgstr ""
+"Por favor, no cierres la aplicación durante la migración. Tiempo "
+"estimado: < 30 s"
 
 #: src/views/master_password_dialog.py:110
 msgid "Please enter the password."
@@ -2251,6 +2493,10 @@ msgstr "Ejecutar sincronización inicial ahora"
 msgid "Running VACUUM — rewriting database file…"
 msgstr "Ejecutando VACUUM — reescribiendo archivo de base de datos…"
 
+#: src/services/migration_service.py:217
+msgid "Running schema migration…"
+msgstr "Ejecutando migración de esquema…"
+
 #: src/views/settings_page.py:113
 msgid "SECURITY"
 msgstr "SEGURIDAD"
@@ -2324,6 +2570,10 @@ msgstr "Escaneando... ({} directorios)"
 #: src/views/settings/webdav_section.py:67
 msgid "Scheduled automatic backup every"
 msgstr "Copia de seguridad automática programada cada"
+
+#: src/services/migration_service.py:220
+msgid "Schema migration complete, verifying columns…"
+msgstr "Migración del esquema completada, verificando columnas…"
 
 #: src/services/exporter.py:587
 msgid "Scroll to Top"
@@ -2434,9 +2684,17 @@ msgstr "Mostrar contraseña"
 msgid "Showing"
 msgstr "Mostrando"
 
+#: src/views/migration_wizard.py:262
+msgid "Site Icon Cache"
+msgstr "Caché del icono del sitio"
+
 #: src/views/settings/font_section.py:159
 msgid "Size:"
 msgstr "Tamaño:"
+
+#: src/views/migration_wizard.py:906
+msgid "Skip Migration?"
+msgstr "¿Omitir migración?"
 
 #: src/views/first_run_wizard.py:856
 msgid "Skip Setup"
@@ -2446,9 +2704,17 @@ msgstr "Omitir configuración"
 msgid "Skip Setup?"
 msgstr "¿Omitir configuración?"
 
+#: src/views/migration_wizard.py:754
+msgid "Skip — Start Fresh"
+msgstr "Omitir — Empezar de nuevo"
+
 #: src/views/import_dialog.py:331
 msgid "Start Import"
 msgstr "Iniciar importación"
+
+#: src/views/migration_wizard.py:763 src/views/migration_wizard.py:821
+msgid "Start Migration"
+msgstr "Iniciar migración"
 
 #: src/views/import_dialog.py:597
 msgid "Starting import…"
@@ -2622,6 +2888,14 @@ msgstr ""
 "\n"
 "El archivo corrupto se ha respaldado en:\n"
 "{bak_path}"
+
+#: src/views/migration_wizard.py:234
+msgid "The following items will be processed:"
+msgstr "Los siguientes elementos serán procesados:"
+
+#: src/views/migration_wizard.py:334
+msgid "The following steps will be performed (all are reversible):"
+msgstr "Se realizarán los siguientes pasos (todos son reversibles):"
 
 #: src/views/master_password_dialog.py:163
 msgid ""
@@ -2874,6 +3148,18 @@ msgstr "Desbloquear"
 msgid "Up to date"
 msgstr "Actualizado"
 
+#: src/views/migration_wizard.py:409
+msgid "Upgrade database schema"
+msgstr "Actualizar esquema de base de datos"
+
+#: src/views/migration_wizard.py:342
+msgid "Upgrade the database schema"
+msgstr "Actualizar el esquema de la base de datos"
+
+#: src/services/migration_service.py:208
+msgid "Upgrading database schema…"
+msgstr "Actualizando el esquema de la base de datos…"
+
 #: src/services/webdav_sync.py:359
 #, python-brace-format
 msgid "Upload failed: {error}"
@@ -2920,13 +3206,30 @@ msgstr "Vaciar y optimizar"
 msgid "Vacuum complete"
 msgstr "Vaciar completado"
 
+#: src/services/migration_service.py:287
+#, python-brace-format
+msgid "Verification passed — {n} records intact"
+msgstr "Verificación superada — {n} registros preservados"
+
 #: src/views/settings/webdav_section.py:120
 msgid "Verify SSL certificate"
 msgstr "Verificar certificado SSL"
 
+#: src/views/migration_wizard.py:411
+msgid "Verify result"
+msgstr "Verificar resultado"
+
+#: src/views/migration_wizard.py:344
+msgid "Verify the migration result"
+msgstr "Verificar el resultado de la migración"
+
 #: src/services/webdav_sync.py:422
 msgid "Verifying backup integrity (SHA-256)..."
 msgstr "Verificando integridad de la copia de seguridad (SHA-256)..."
+
+#: src/services/migration_service.py:258
+msgid "Verifying migration…"
+msgstr "Verificando migración…"
 
 #: src/views/first_run_wizard.py:554
 msgid "Very weak"
@@ -2983,6 +3286,15 @@ msgstr "¿Quieres excluir las URL internas del navegador?"
 msgid "Wasted space"
 msgstr "Espacio desperdiciado"
 
+#: src/views/migration_wizard.py:238
+msgid ""
+"We found existing HistorySync data from a previous version.\n"
+"The following items can be safely migrated to the current version:"
+msgstr ""
+"Hemos encontrado datos de HistorySync de una versión anterior.\n"
+"Los siguientes elementos se pueden migrar de forma segura a la versión "
+"actual:"
+
 #: src/views/first_run_wizard.py:555
 msgid "Weak"
 msgstr "Débil"
@@ -2990,6 +3302,10 @@ msgstr "Débil"
 #: src/views/dashboard_page.py:1015
 msgid "WebDAV Status"
 msgstr "Estado WebDAV"
+
+#: src/views/migration_wizard.py:259
+msgid "WebDAV Sync Configuration"
+msgstr "Configuración de sincronización WebDAV"
 
 #: src/services/webdav_sync.py:165
 msgid "WebDAV not configured"
@@ -3027,6 +3343,10 @@ msgstr ""
 msgid "Write anything you want to remember about this page…"
 msgstr "Escribe cualquier cosa que quieras recordar sobre esta página…"
 
+#: src/services/migration_service.py:252
+msgid "Writing updated config.json…"
+msgstr "Actualizando config.json…"
+
 #: src/views/stats_page.py:1574
 msgid "Year"
 msgstr "Año"
@@ -3046,6 +3366,24 @@ msgstr "Puedes activar «Iniciar al arrancar» más tarde en Configuración → 
 #: src/views/annotation_dialog.py:57
 msgid "Your note:"
 msgstr "Tu nota:"
+
+#: src/views/migration_wizard.py:525
+msgid "Your original data has been restored from backup."
+msgstr "Se han restaurado los datos originales desde la copia de seguridad."
+
+#: src/views/migration_wizard.py:632
+msgid ""
+"Your previous data has not been changed.\n"
+"\n"
+"HistorySync will start with a fresh configuration.\n"
+"You can always run the migration later from\n"
+"Settings → Maintenance → Migrate from Legacy Data."
+msgstr ""
+"Tus datos anteriores no se han modificado.\n"
+"\n"
+"HistorySync comenzará con una configuración nueva.\n"
+"Siempre puedes ejecutar la migración más tarde en\n"
+"Configuración → Mantenimiento → Migrar desde datos heredados."
 
 #: src/views/main_window.py:50
 msgid "[Fresh Mode]"
@@ -3118,6 +3456,10 @@ msgstr "sincronizar"
 #: src/views/tray_icon.py:130
 msgid "sync and backup"
 msgstr "sincronizar y copia de seguridad"
+
+#: src/views/migration_wizard.py:888
+msgid "unknown"
+msgstr "desconocido"
 
 #: src/views/stats_page.py:965
 msgid "visits"
@@ -3193,6 +3535,11 @@ msgstr "{n} marcadores"
 msgid "{n} domains"
 msgstr "{n} dominios"
 
+#: src/views/migration_wizard.py:262
+#, python-brace-format
+msgid "{n} icons"
+msgstr "{n} iconos"
+
 #: src/views/log_viewer_page.py:331
 #, python-brace-format
 msgid "{n} lines displayed"
@@ -3203,7 +3550,7 @@ msgstr "{n} líneas mostradas"
 msgid "{n} more drag(s) to close"
 msgstr "{n} arrastre(s) más para cerrar"
 
-#: src/views/history_page.py:1234
+#: src/views/history_page.py:1234 src/views/migration_wizard.py:254
 #, python-brace-format
 msgid "{n} records"
 msgstr "{n} registros"
