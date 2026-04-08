@@ -74,6 +74,18 @@ from src.views.search_autocomplete import SmartSearchLineEdit
 
 log = get_logger("view.history")
 
+
+class _CustomScrollBar(QScrollBar):
+    """QScrollBar with custom context menu for bubble display mode."""
+
+    context_menu_requested = Signal(QPoint)  # global position
+
+    def contextMenuEvent(self, event):
+        """Override to disable default menu and emit custom signal."""
+        self.context_menu_requested.emit(event.globalPos())
+        event.accept()  # Prevent default menu
+
+
 # Weekday abbreviations for scroll bubble — N_() marks for extraction, _() translates at display time
 _WEEKDAY_ABBR = [
     N_("Mon"),
@@ -803,6 +815,9 @@ class _ScrollTimeBubble(QWidget):
         self._bg_color = QColor(28, 31, 38, 237)
         self._border_color = QColor(70, 80, 100, 140)
 
+        # ── Display mode ──
+        self._display_mode: str = "show"  # "show" | "simplified" | "hidden"
+
         # ── DB / favicon references (set by HistoryPage) ──
         self._db = None
         self._favicon_manager = None
@@ -829,9 +844,10 @@ class _ScrollTimeBubble(QWidget):
         self._rank_timer.timeout.connect(self._flush_rank_query)
 
         # ── Layout ──
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(12, 9, 12, 9)
-        outer.setSpacing(0)
+        self._outer_layout = QVBoxLayout(self)
+        self._outer_layout.setContentsMargins(12, 9, 12, 9)
+        self._outer_layout.setSpacing(0)
+        outer = self._outer_layout
 
         # Date + time row
         time_row = QHBoxLayout()
@@ -845,13 +861,18 @@ class _ScrollTimeBubble(QWidget):
         time_row.addWidget(self._time_lbl)
         outer.addLayout(time_row)
 
-        # Divider
+        # Divider with spacing (wrapped in container)
+        self._divider_container = QWidget(self)
+        divider_layout = QVBoxLayout(self._divider_container)
+        divider_layout.setContentsMargins(0, 5, 0, 5)
+        divider_layout.setSpacing(0)
+
         self._divider = QFrame()
         self._divider.setFrameShape(QFrame.HLine)
         self._divider.setFixedHeight(1)
-        outer.addSpacing(5)
-        outer.addWidget(self._divider)
-        outer.addSpacing(5)
+        divider_layout.addWidget(self._divider)
+
+        outer.addWidget(self._divider_container)
 
         # Domain rows (up to 3)
         self._domain_rows: list[_DomainRow] = []
@@ -861,9 +882,14 @@ class _ScrollTimeBubble(QWidget):
             outer.addWidget(row)
             self._domain_rows.append(row)
 
-        # Bottom: density bar + total count
-        outer.addSpacing(6)
+        # Bottom: density bar + total count (wrapped in container with spacing)
+        self._bottom_container = QWidget(self)
+        bottom_container_layout = QVBoxLayout(self._bottom_container)
+        bottom_container_layout.setContentsMargins(0, 6, 0, 0)
+        bottom_container_layout.setSpacing(0)
+
         bottom_row = QHBoxLayout()
+        bottom_row.setContentsMargins(0, 0, 0, 0)
         bottom_row.setSpacing(8)
         self._density_bar = _DensityBar(self)
         self._density_bar.setFixedHeight(6)
@@ -872,7 +898,9 @@ class _ScrollTimeBubble(QWidget):
         self._total_lbl.setFixedWidth(62)  # Wide enough for "999 records", prevents bar jitter
         bottom_row.addWidget(self._density_bar, 1)
         bottom_row.addWidget(self._total_lbl)
-        outer.addLayout(bottom_row)
+        bottom_container_layout.addLayout(bottom_row)
+
+        outer.addWidget(self._bottom_container)
 
         # ── Tutorial section ──────────────────────
         # Dismissed after TUTORIAL_DISMISS_DRAGS drags.
@@ -905,7 +933,7 @@ class _ScrollTimeBubble(QWidget):
 
         # Three legend rows — each is a mini QHBoxLayout: icon-widget + label
         self._tut_rows: list[QHBoxLayout] = []
-        for __ in range(3):
+        for __ in range(4):  # Changed from 3 to 4 for new tutorial line
             row = QHBoxLayout()
             row.setContentsMargins(0, 0, 0, 0)
             row.setSpacing(8)
@@ -1132,16 +1160,21 @@ class _ScrollTimeBubble(QWidget):
             (_draw_bar, N_("Daily visit volume")),
             (_draw_dot, N_("Time position within the day")),
             (_draw_line, N_("Record rank within the day")),
+            (None, N_("Right-click scrollbar to change settings")),  # Text-only, no icon
         ]
 
         for (draw_fn, desc_key), (icon_lbl, text_lbl) in zip(legend_defs, self._tut_rows, strict=False):
-            pm = QPixmap(icon_lbl.size())
-            pm.fill(Qt.transparent)
-            p = QPainter(pm)
-            p.setRenderHint(QPainter.Antialiasing)
-            draw_fn(p, pm.rect())
-            p.end()
-            icon_lbl.setPixmap(pm)
+            if draw_fn is not None:
+                pm = QPixmap(icon_lbl.size())
+                pm.fill(Qt.transparent)
+                p = QPainter(pm)
+                p.setRenderHint(QPainter.Antialiasing)
+                draw_fn(p, pm.rect())
+                p.end()
+                icon_lbl.setPixmap(pm)
+                icon_lbl.show()
+            else:
+                icon_lbl.hide()  # No icon for text-only rows
             text_lbl.setText(_(desc_key))
             text_lbl.setStyleSheet(f"color: {tut_text_color}; font-size: 10px; background: transparent;")
 
@@ -1237,6 +1270,11 @@ class _ScrollTimeBubble(QWidget):
 
     def _render_domain_rows(self, stats: dict) -> None:
         """Populate domain row widgets from cached stats."""
+        if self._display_mode in ("compact", "minimal"):
+            # Keep domains hidden in compact/minimal mode
+            for row in self._domain_rows:
+                row.hide()
+            return
         domains = stats.get("domains", [])
         for i, row_widget in enumerate(self._domain_rows):
             if i < len(domains):
@@ -1252,7 +1290,51 @@ class _ScrollTimeBubble(QWidget):
             else:
                 row_widget.hide()
 
+    def set_display_mode(self, mode: str) -> None:
+        """Change bubble display mode and update visibility immediately.
+
+        Modes:
+        - "full": Full display (date, time, domains, density bar, tutorial)
+        - "compact": Date, time, and density bar only (hide domains + tutorial)
+        - "minimal": Date and time only (hide domains, density bar, tutorial)
+        - "hidden": Never show bubble (handled by caller, not here)
+        """
+        self._display_mode = mode
+
+        if mode == "minimal":
+            # Hide everything except date and time
+            for row in self._domain_rows:
+                row.hide()
+            self._tutorial_widget.hide()
+            self._divider_container.hide()
+            self._bottom_container.hide()
+            # Reduce bottom padding in minimal mode to match top
+            self._outer_layout.setContentsMargins(12, 9, 12, 9)
+            self.adjustSize()
+        elif mode == "compact":
+            # Hide domain rows and tutorial
+            for row in self._domain_rows:
+                row.hide()
+            self._tutorial_widget.hide()
+            self._divider_container.hide()
+            self._bottom_container.show()
+            # Restore default margins
+            self._outer_layout.setContentsMargins(12, 9, 12, 9)
+            self.adjustSize()
+        elif mode == "full":
+            # Show divider; domains are shown/hidden dynamically in _render_domain_rows
+            self._divider_container.show()
+            self._bottom_container.show()
+            # Restore default margins
+            self._outer_layout.setContentsMargins(12, 9, 12, 9)
+            # Tutorial visibility depends on dismissed state
+            if not self._tutorial_dismissed:
+                self._tutorial_widget.show()
+            self.adjustSize()
+
     def show_animated(self) -> None:
+        if self._display_mode == "hidden":
+            return  # Don't show at all
         self._hiding = False
         self._anim.stop()
         self._anim.setStartValue(self._effect.opacity())
@@ -1922,6 +2004,10 @@ class HistoryPage(QWidget):
         # Set badge delegate for title column
         self._setup_badge_delegate()
 
+        # Replace standard scrollbar with custom one for context menu support
+        custom_sb = _CustomScrollBar(Qt.Vertical, self._table)
+        self._table.setVerticalScrollBar(custom_sb)
+
         # Floating time bubble shown while dragging the scrollbar
         self._scroll_bubble = _ScrollTimeBubble(self)
         # Data sources are injected in _connect_vm after vm is ready
@@ -2228,6 +2314,12 @@ class HistoryPage(QWidget):
         self._scroll_bubble.set_data_sources(self._vm._db, self._vm._favicon_manager)
         # Inject config so the bubble can persist the tutorial dismissed state
         self._scroll_bubble.set_config(self._config)
+        # Apply saved display mode
+        saved_mode = getattr(self._config.ui, "scroll_bubble_mode", "full")
+        self._scroll_bubble.set_display_mode(saved_mode)
+        # Connect custom scrollbar context menu if using custom scrollbar
+        if isinstance(sb, _CustomScrollBar):
+            sb.context_menu_requested.connect(self._show_scrollbar_context_menu)
         # Date-separator: track which rows start a new calendar day
         self._vm.table_model.records_loaded.connect(self._on_records_loaded)
         self._vm.table_model.modelReset.connect(self._on_model_reset)
@@ -2339,6 +2431,9 @@ class HistoryPage(QWidget):
         QTimer.singleShot(0, self._load_visible_sep_counts)
 
     def _on_sb_pressed(self) -> None:
+        mode = self._config.ui.scroll_bubble_mode
+        if mode == "hidden":
+            return  # Don't show bubble at all
         self._scroll_bubble.on_drag_started()
         self._last_bubble_row: int = -1  # reset row cache on each new drag
         self._scroll_bubble._last_pos_set = False  # force reposition on first tick
@@ -2691,6 +2786,40 @@ class HistoryPage(QWidget):
                 log.warning("Failed to open URL: %s", exc)
 
     # ── Context menu ──────────────────────────────────────────
+
+    def _show_scrollbar_context_menu(self, global_pos: QPoint) -> None:
+        """Show custom context menu for scrollbar to change bubble display mode."""
+        menu = StyledMenu(self)
+
+        current_mode = self._config.ui.scroll_bubble_mode
+
+        # Four radio-style checkable options
+        full_act = menu.addAction(_("Full bubble"))
+        full_act.setCheckable(True)
+        full_act.setChecked(current_mode == "full")
+        full_act.setData("full")
+
+        compact_act = menu.addAction(_("Compact bubble"))
+        compact_act.setCheckable(True)
+        compact_act.setChecked(current_mode == "compact")
+        compact_act.setData("compact")
+
+        minimal_act = menu.addAction(_("Minimal bubble"))
+        minimal_act.setCheckable(True)
+        minimal_act.setChecked(current_mode == "minimal")
+        minimal_act.setData("minimal")
+
+        hidden_act = menu.addAction(_("Hide bubble"))
+        hidden_act.setCheckable(True)
+        hidden_act.setChecked(current_mode == "hidden")
+        hidden_act.setData("hidden")
+
+        action = menu.exec(global_pos)
+        if action:
+            new_mode = action.data()
+            self._config.ui.scroll_bubble_mode = new_mode
+            self._config.save()
+            self._scroll_bubble.set_display_mode(new_mode)
 
     def _show_context_menu(self, pos):
         index = self._table.indexAt(pos)
