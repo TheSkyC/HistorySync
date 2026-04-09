@@ -31,6 +31,16 @@ Show database statistics:
   SUBCOMMANDS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+Search history:
+    hsync search                             # browse recent history (latest 20)
+    hsync search --limit 100                 # browse latest 100 records
+    hsync search -i                          # interactive mode with keyboard navigation
+    hsync search python                      # simple keyword search
+    hsync search "domain:github.com python"  # structured query
+    hsync search "after:2024-01-01 browser:chrome" --limit 50
+    hsync search "is:bookmarked tag:work" --format json
+    hsync search "react -tutorial" --open   # open first result in browser
+
 Database maintenance:
     hsync db vacuum           # VACUUM + ANALYZE
     hsync db rebuild-fts      # rebuild full-text search index
@@ -265,6 +275,31 @@ def _setup_shell_completion(parser: argparse.ArgumentParser) -> None:
         ]
         return [b for b in common_browsers if b.startswith(prefix)]
 
+    # Custom completer for search query tokens
+    def _search_query_completer(prefix, **_kwargs):
+        tokens = [
+            "domain:",
+            "after:",
+            "before:",
+            "title:",
+            "url:",
+            "browser:",
+            "device:",
+            "is:bookmarked",
+            "has:note",
+            "tag:",
+        ]
+        if ":" in prefix:
+            token_type = prefix.split(":")[0] + ":"
+            if token_type == "browser:":
+                browser_prefix = prefix.split(":", 1)[1]
+                return [token_type + b for b in _browser_completer(browser_prefix)]
+            if token_type == "is:":
+                return ["is:bookmarked"]
+            if token_type == "has:":
+                return ["has:note"]
+        return [t for t in tokens if t.startswith(prefix)]
+
     # Attach completers to specific arguments
     for action in parser._actions:
         if action.dest == "format":
@@ -272,9 +307,21 @@ def _setup_shell_completion(parser: argparse.ArgumentParser) -> None:
         elif action.dest == "browser":
             action.completer = _browser_completer
 
-    # Find config subparser and attach completers
+    # Find subparsers and attach completers
     for action in parser._actions:
         if isinstance(action, argparse._SubParsersAction):
+            # Search subcommand
+            if "search" in action.choices:
+                search_parser = action.choices["search"]
+                for search_action in search_parser._actions:
+                    if search_action.dest == "query":
+                        search_action.completer = _search_query_completer
+                    elif search_action.dest == "format":
+                        search_action.completer = argcomplete.completers.ChoicesCompleter(
+                            ["table", "json", "tsv", "csv"]
+                        )
+
+            # Config subcommand
             if "config" in action.choices:
                 config_parser = action.choices["config"]
                 for cfg_action in config_parser._actions:
@@ -420,6 +467,57 @@ def _build_parser() -> argparse.ArgumentParser:
     p_dst.add_argument("--json", action="store_true", help="Emit JSON instead of human-readable text")
     for p in (p_vac, p_fts, p_nor, p_dst):
         _add_global_args(p)
+
+    # --- search ---------------------------------------------------------------
+    search_p = subs.add_parser(
+        "search",
+        help="Search history records with structured query syntax",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Query syntax:\n"
+            "  domain:github.com      - filter by domain\n"
+            "  after:2023-01-01       - date range start\n"
+            "  before:2024-01-01      - date range end\n"
+            "  title:python           - search in title only\n"
+            "  url:github             - search in URL only\n"
+            "  browser:chrome         - filter by browser\n"
+            "  device:laptop          - filter by device name/UUID\n"
+            "  -react                 - exclude term\n"
+            "  is:bookmarked          - only bookmarked records\n"
+            "  has:note               - only records with annotations\n"
+            "  tag:work               - filter bookmarks by tag\n\n"
+            "Examples:\n"
+            "  hsync search                                # browse recent history\n"
+            "  hsync search -i                             # interactive mode\n"
+            "  hsync search python\n"
+            "  hsync search 'domain:github.com python'\n"
+            "  hsync search 'after:2024-01-01 browser:chrome'\n"
+            "  hsync search 'is:bookmarked tag:work' --limit 50\n"
+            "  hsync search 'react -tutorial' --format json\n"
+            "  hsync search 'python async' --open\n"
+        ),
+    )
+    search_p.add_argument("query", nargs="?", default="", help="Search query with structured tokens")
+    search_p.add_argument("--limit", type=int, default=20, help="Maximum number of results (default: 20)")
+    search_p.add_argument(
+        "--format",
+        choices=["table", "json", "tsv", "csv"],
+        default="table",
+        help="Output format: table (default) | json | tsv | csv",
+    )
+    search_p.add_argument("--open", action="store_true", help="Open the first result URL in default browser")
+    search_p.add_argument(
+        "--columns",
+        metavar="COLS",
+        help="Comma-separated columns for table/tsv/csv (default: title,url,visit_time,browser_type)",
+    )
+    search_p.add_argument(
+        "-i",
+        "--interactive",
+        action="store_true",
+        help="Interactive mode: refine search and browse results with keyboard navigation",
+    )
+    _add_global_args(search_p)
 
     # --- config ---------------------------------------------------------------
     cfg_p = subs.add_parser(
@@ -1054,6 +1152,352 @@ def _cmd_db_normalize(config, args: argparse.Namespace) -> int:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# hsync search  subcommand
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def _cmd_search(config, args: argparse.Namespace) -> int:
+    from datetime import datetime
+
+    from src.services.local_db import LocalDatabase
+    from src.utils.logger import get_logger
+    from src.utils.search_parser import parse_query
+
+    log = get_logger("cli.search")
+    quiet = getattr(args, "quiet", False)
+    query_str = getattr(args, "query", "")
+    limit = getattr(args, "limit", 20)
+    fmt = getattr(args, "format", "table")
+    open_first = getattr(args, "open", False)
+    columns_arg = getattr(args, "columns", None)
+    interactive = getattr(args, "interactive", False)
+
+    db_path = config.get_db_path()
+    if not db_path.exists():
+        _err(f"Database not found: {db_path}")
+        _hint("Run  hsync -s  first to populate the database.")
+        return 1
+
+    db = LocalDatabase(db_path)
+
+    # Interactive mode
+    if interactive:
+        return _cmd_search_interactive(db, query_str, limit, quiet, log)
+
+    # If no query provided, show recent records
+    if not query_str:
+        if not quiet:
+            _section(f"Recent History (latest {limit} records)")
+        query = parse_query("")
+    else:
+        query = parse_query(query_str)
+    log.info("Search query: %s", query_str)
+
+    db = LocalDatabase(db_path)
+
+    # Resolve date range
+    date_from = int(datetime.combine(query.after, datetime.min.time()).timestamp()) if query.after else None
+    date_to = int(datetime.combine(query.before, datetime.max.time()).timestamp()) if query.before else None
+
+    # Resolve domain IDs
+    domain_ids: list[int] | None = None
+    if query.domains:
+        ids: list[int] = []
+        with db._conn(write=False) as conn:
+            for d in query.domains:
+                ids.extend(LocalDatabase._domain_ids_for(conn, d))
+        domain_ids = list(set(ids)) if ids else None
+        if not domain_ids and not quiet:
+            _warn(f"No records found for domain(s): {', '.join(query.domains)}")
+            return 0
+
+    # Resolve device IDs
+    device_ids: list[int] | None = None
+    if query.device:
+        device_ids = db.resolve_device_ids(query.device)
+        if not device_ids and not quiet:
+            _warn(f"No device found matching: {query.device}")
+            return 0
+
+    try:
+        records = db.get_records(
+            keyword=query.keyword,
+            browser_type=query.browser,
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            offset=0,
+            domain_ids=domain_ids,
+            excludes=query.excludes,
+            title_only=query.title_only,
+            url_only=query.url_only,
+            use_regex=query.use_regex,
+            bookmarked_only=query.bookmarked_only,
+            has_annotation=query.has_annotation,
+            bookmark_tag=query.bookmark_tag,
+            device_ids=device_ids,
+        )
+    except Exception as exc:
+        _err(f"Search failed: {exc}")
+        log.exception("Search failed")
+        return 1
+
+    if not records:
+        if not quiet:
+            _info("No results found.")
+        return 0
+
+    log.info("Found %d results", len(records))
+
+    # Open first result if requested
+    if open_first and records:
+        import webbrowser
+
+        url = records[0].url
+        try:
+            webbrowser.open(url)
+            if not quiet:
+                _ok(f"Opened in browser: {url}")
+        except Exception as exc:
+            _warn(f"Could not open URL: {exc}")
+
+    # Output results
+    if fmt == "json":
+        import json
+
+        output = [
+            {
+                "id": r.id,
+                "title": r.title,
+                "url": r.url,
+                "visit_time": r.visit_time,
+                "visit_count": r.visit_count,
+                "browser_type": r.browser_type,
+                "profile_name": r.profile_name,
+                "domain": r.domain,
+            }
+            for r in records
+        ]
+        print(json.dumps(output, indent=2, ensure_ascii=False))
+        return 0
+
+    # Determine columns
+    default_cols = ["title", "url", "visit_time", "browser_type"]
+    cols = [c.strip() for c in columns_arg.split(",") if c.strip()] if columns_arg else default_cols
+
+    if fmt == "tsv":
+        print("\t".join(cols))
+        for r in records:
+            row = []
+            for col in cols:
+                val = getattr(r, col, "")
+                if col == "visit_time" and isinstance(val, int):
+                    val = datetime.fromtimestamp(val).strftime("%Y-%m-%d %H:%M:%S")
+                row.append(str(val))
+            print("\t".join(row))
+        return 0
+
+    if fmt == "csv":
+        import csv
+        import sys
+
+        writer = csv.writer(sys.stdout)
+        writer.writerow(cols)
+        for r in records:
+            row = []
+            for col in cols:
+                val = getattr(r, col, "")
+                if col == "visit_time" and isinstance(val, int):
+                    val = datetime.fromtimestamp(val).strftime("%Y-%m-%d %H:%M:%S")
+                row.append(str(val))
+            writer.writerow(row)
+        return 0
+
+    # Table format (default)
+    if not quiet:
+        _section(f"Search Results ({len(records)} found)")
+
+    term_width = shutil.get_terminal_size((80, 24)).columns
+    title_width = max(20, min(50, term_width - 60))
+    url_width = max(30, term_width - title_width - 30)
+
+    for i, r in enumerate(records, 1):
+        title = r.title[:title_width] if len(r.title) > title_width else r.title
+        url = r.url[:url_width] if len(r.url) > url_width else r.url
+        ts = datetime.fromtimestamp(r.visit_time).strftime("%Y-%m-%d %H:%M")
+
+        print(f"\n  {_bold(_cyan(f'[{i}]'))}  {_bold(title)}")
+        print(f"      {_dim('URL:')} {url}")
+        print(f"      {_dim('Time:')} {ts}  {_dim('Browser:')} {r.browser_type}  {_dim('Visits:')} {r.visit_count}")
+
+    print()
+    return 0
+
+
+def _cmd_search_interactive(db, initial_query: str, limit: int, quiet: bool, log) -> int:
+    """Interactive search mode with prompt-based refinement."""
+    from datetime import datetime
+
+    from src.models.history_record import HistoryRecord
+    from src.services.local_db import LocalDatabase
+    from src.utils.search_parser import parse_query
+
+    current_query = initial_query
+    current_page = 0
+
+    def _fetch_results(query_str: str, page: int) -> list[HistoryRecord]:
+        query = parse_query(query_str)
+        date_from = int(datetime.combine(query.after, datetime.min.time()).timestamp()) if query.after else None
+        date_to = int(datetime.combine(query.before, datetime.max.time()).timestamp()) if query.before else None
+
+        domain_ids: list[int] | None = None
+        if query.domains:
+            ids: list[int] = []
+            with db._conn(write=False) as conn:
+                for d in query.domains:
+                    ids.extend(LocalDatabase._domain_ids_for(conn, d))
+            domain_ids = list(set(ids)) if ids else None
+
+        device_ids: list[int] | None = None
+        if query.device:
+            device_ids = db.resolve_device_ids(query.device)
+
+        try:
+            return db.get_records(
+                keyword=query.keyword,
+                browser_type=query.browser,
+                date_from=date_from,
+                date_to=date_to,
+                limit=limit,
+                offset=page * limit,
+                domain_ids=domain_ids,
+                excludes=query.excludes,
+                title_only=query.title_only,
+                url_only=query.url_only,
+                use_regex=query.use_regex,
+                bookmarked_only=query.bookmarked_only,
+                has_annotation=query.has_annotation,
+                bookmark_tag=query.bookmark_tag,
+                device_ids=device_ids,
+            )
+        except Exception:
+            log.exception("Search failed in interactive mode")
+            return []
+
+    def _display_results(records: list[HistoryRecord], query: str, page: int) -> None:
+        print("\n" + _bold(_cyan("═" * 80)))
+        print(_bold("  Interactive Search Mode"))
+        print(_bold(_cyan("═" * 80)))
+        print(f"  Query: {_yellow(query or '(browse mode)')}")
+        print(f"  Results: {_bold(str(len(records)))}  |  Page: {page + 1}  |  Limit: {limit}")
+        print(_dim("  Commands: [n]ext page  [p]rev page  [/]new search  [o]pen URL  [q]uit"))
+        print(_bold(_cyan("─" * 80)))
+
+        if not records:
+            print("\n  " + _dim("No results found."))
+            print()
+            return
+
+        term_width = shutil.get_terminal_size((80, 24)).columns
+        title_width = max(20, min(50, term_width - 60))
+        url_width = max(30, term_width - title_width - 30)
+
+        for i, r in enumerate(records, 1):
+            title = r.title[:title_width] if len(r.title) > title_width else r.title
+            url = r.url[:url_width] if len(r.url) > url_width else r.url
+            ts = datetime.fromtimestamp(r.visit_time).strftime("%Y-%m-%d %H:%M")
+
+            print(f"\n  {_bold(_cyan(f'[{i}]'))}  {_bold(title)}")
+            print(f"      {_dim('URL:')} {url}")
+            print(f"      {_dim('Time:')} {ts}  {_dim('Browser:')} {r.browser_type}  {_dim('Visits:')} {r.visit_count}")
+
+        print("\n" + _bold(_cyan("─" * 80)))
+
+    if not quiet:
+        _section("Interactive Search")
+        print(_dim("  Tip: Use structured queries like 'domain:github.com python' or 'after:2024-01-01'"))
+        print()
+
+    records = _fetch_results(current_query, current_page)
+    _display_results(records, current_query, current_page)
+
+    try:
+        while True:
+            try:
+                cmd = input(f"\n  {_bold('Command:')} ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                print()
+                return 0
+
+            if not cmd:
+                continue
+
+            if cmd in ("q", "quit", "exit"):
+                return 0
+
+            if cmd in ("n", "next"):
+                current_page += 1
+                records = _fetch_results(current_query, current_page)
+                if not records:
+                    _warn("No more results.")
+                    current_page -= 1
+                else:
+                    _display_results(records, current_query, current_page)
+
+            elif cmd in ("p", "prev", "previous"):
+                if current_page > 0:
+                    current_page -= 1
+                    records = _fetch_results(current_query, current_page)
+                    _display_results(records, current_query, current_page)
+                else:
+                    _warn("Already at first page.")
+
+            elif cmd.startswith("/"):
+                new_query = cmd[1:].strip()
+                current_query = new_query
+                current_page = 0
+                records = _fetch_results(current_query, current_page)
+                _display_results(records, current_query, current_page)
+
+            elif cmd.startswith("o"):
+                parts = cmd.split()
+                if len(parts) == 2 and parts[1].isdigit():
+                    idx = int(parts[1]) - 1
+                    if 0 <= idx < len(records):
+                        import webbrowser
+
+                        url = records[idx].url
+                        _ok(f"Opening: {url}")
+                        try:
+                            webbrowser.open(url)
+                        except Exception as exc:
+                            _warn(f"Could not open URL: {exc}")
+                    else:
+                        _warn(f"Invalid index. Choose 1-{len(records)}")
+                else:
+                    _warn("Usage: o <number>  (e.g., 'o 1' to open first result)")
+
+            elif cmd in {"h", "help"}:
+                print()
+                print(_bold("  Available Commands:"))
+                print(f"    {_cyan('n, next')}       - Next page")
+                print(f"    {_cyan('p, prev')}       - Previous page")
+                print(f"    {_cyan('/query')}        - New search (e.g., '/python domain:github.com')")
+                print(f"    {_cyan('o <num>')}       - Open URL by number (e.g., 'o 1')")
+                print(f"    {_cyan('h, help')}       - Show this help")
+                print(f"    {_cyan('q, quit')}       - Exit interactive mode")
+                print()
+
+            else:
+                _warn(f"Unknown command: {cmd}")
+                _hint("Type 'h' for help")
+
+    except KeyboardInterrupt:
+        print()
+        return 0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # hsync config  subcommands
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1283,6 +1727,9 @@ def _dispatch(config, args: argparse.Namespace, parser: argparse.ArgumentParser)
             return dispatch[db_cmd](config, args)
         _err(f"Unknown db command: {db_cmd}")
         return 2
+
+    if subcommand == "search":
+        return _cmd_search(config, args)
 
     if subcommand == "config":
         cfg_cmd = getattr(args, "cfg_cmd", None)
