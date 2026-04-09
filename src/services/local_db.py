@@ -12,7 +12,6 @@ import shutil
 import sqlite3
 import threading
 import time
-import weakref
 
 from src.models.history_record import AnnotationRecord, BackupStats, BookmarkRecord, HistoryRecord
 from src.utils.constants import DB_BATCH_SIZE
@@ -95,7 +94,7 @@ class LocalDatabase:
         self._schema_initialized: bool = False
         self._vacuuming: bool = False
         self._fts_thread: threading.Thread | None = None
-        self._excl_cache: weakref.WeakKeyDictionary[sqlite3.Connection, set[int]] = weakref.WeakKeyDictionary()
+        self._excl_cache: dict[int, set[int]] = {}  # keyed by id(conn)
         self._excl_cache_lock = threading.Lock()
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1417,11 +1416,11 @@ class LocalDatabase:
         # Skip the expensive DELETE + re-insert when the set hasn't changed since
         # the last call on this connection (common in UI scroll / pagination).
         with self._excl_cache_lock:
-            cached: set[int] | None = self._excl_cache.get(conn)
+            cached: set[int] | None = self._excl_cache.get(id(conn))
             if cached != excl:
                 conn.execute("DELETE FROM _excl_ids")
                 conn.executemany("INSERT OR IGNORE INTO _excl_ids VALUES(?)", ((i,) for i in excl))
-                self._excl_cache[conn] = excl
+                self._excl_cache[id(conn)] = excl
         return True
 
     @staticmethod
