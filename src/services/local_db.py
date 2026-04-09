@@ -589,16 +589,11 @@ class LocalDatabase:
             rc = conn.execute("SELECT COUNT(*) FROM history").fetchone()[0]
             dc = conn.execute("SELECT COUNT(*) FROM domains").fetchone()[0]
 
-            # FTS size estimate: count pages allocated to FTS shadow tables and
-            # multiply by page_size.  This avoids a full dbstat payload scan
-            # (which reads every page) and is fast even on large databases.
+            # FTS size: sum the compressed block payloads stored in the FTS5
+            # data shadow table.  This is accurate and does not require the
+            # optional dbstat virtual table.
             try:
-                fts_pages = conn.execute("""
-                    SELECT COALESCE(SUM(pgsize), 0)
-                    FROM dbstat
-                    WHERE name LIKE 'history_fts%'
-                """).fetchone()
-                fts_bytes = fts_pages[0] if fts_pages else 0
+                fts_bytes = conn.execute("SELECT COALESCE(SUM(LENGTH(block)), 0) FROM history_fts_data").fetchone()[0]
             except Exception:
                 fts_bytes = 0
 
