@@ -41,6 +41,12 @@ Search history:
     hsync search "is:bookmarked tag:work" --format json
     hsync search "react -tutorial" --open   # open first result in browser
 
+Restore from WebDAV:
+    hsync restore                            # list backups and merge interactively
+    hsync restore --latest                   # merge latest backup automatically
+    hsync restore --list                     # list available backups (JSON)
+    hsync restore --replace                  # replace mode: overwrite local database
+
 Database maintenance:
     hsync db vacuum           # VACUUM + ANALYZE
     hsync db rebuild-fts      # rebuild full-text search index
@@ -518,6 +524,35 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Interactive mode: refine search and browse results with keyboard navigation",
     )
     _add_global_args(search_p)
+
+    # --- restore --------------------------------------------------------------
+    restore_p = subs.add_parser(
+        "restore",
+        help="Restore database from WebDAV backup",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "By default, restore merges backup records with your local database.\n"
+            "Use --replace to completely replace the local database instead.\n\n"
+            "Examples:\n"
+            "  hsync restore                    # list backups and merge interactively\n"
+            "  hsync restore --latest           # merge latest backup automatically\n"
+            "  hsync restore --list             # list backups in JSON format\n"
+            "  hsync restore --replace          # replace mode: overwrite local database\n"
+        ),
+    )
+    restore_p.add_argument(
+        "--latest", action="store_true", help="Automatically restore the latest backup without prompting"
+    )
+    restore_p.add_argument("--list", action="store_true", help="List available backups in JSON format and exit")
+    restore_p.add_argument(
+        "--replace",
+        action="store_true",
+        help="Replace mode: completely overwrite local database (default is merge)",
+    )
+    restore_p.add_argument(
+        "--restore-favicons", action="store_true", help="Also restore favicon cache (if available in backup)"
+    )
+    _add_global_args(restore_p)
 
     # --- config ---------------------------------------------------------------
     cfg_p = subs.add_parser(
@@ -1498,6 +1533,215 @@ def _cmd_search_interactive(db, initial_query: str, limit: int, quiet: bool, log
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# hsync restore  subcommand
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def _cmd_restore(config, args: argparse.Namespace) -> int:
+    from src.services.local_db import LocalDatabase
+    from src.services.webdav_sync import WebDavSyncService
+    from src.utils.logger import get_logger
+
+    log = get_logger("cli.restore")
+    quiet = getattr(args, "quiet", False)
+    dry_run = getattr(args, "dry_run", False)
+    list_only = getattr(args, "list", False)
+    latest = getattr(args, "latest", False)
+    replace_mode = getattr(args, "replace", False)
+    restore_favicons = getattr(args, "restore_favicons", False)
+
+    if not config.webdav.enabled:
+        _err("WebDAV is not enabled in config.")
+        _hint("Run  hsync config set webdav.enabled true  and configure the URL.")
+        return 1
+
+    if not config.webdav.url.strip():
+        _err("WebDAV URL is empty.")
+        _hint("Run  hsync config set webdav.url https://your-server/dav/")
+        return 1
+
+    db_path = config.get_db_path()
+    service = WebDavSyncService(config.webdav, db_path)
+
+    # List backups
+    if not quiet:
+        _section("WebDAV Restore")
+        _kv("Server", config.webdav.url)
+        _kv("User", config.webdav.username)
+        _kv("Path", config.webdav.remote_path)
+        print()
+
+    try:
+        backups = service.list_backups()
+    except Exception as exc:
+        _err(f"Failed to list backups: {exc}")
+        log.exception("Failed to list backups")
+        return 1
+
+    if not backups:
+        _warn("No backups found on server.")
+        return 0
+
+    # List mode
+    if list_only:
+        import json
+
+        print(json.dumps(backups, indent=2))
+        return 0
+
+    # Display available backups
+    if not quiet:
+        _info(f"Found {_bold(str(len(backups)))} backup(s):")
+        print()
+        for i, backup in enumerate(backups, 1):
+            import datetime
+
+            ts = backup.get("timestamp", 0)
+            size_mb = backup.get("size_bytes", 0) / (1024 * 1024)
+            date_str = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S") if ts else "unknown"
+            print(f"  {_bold(_cyan(f'[{i}]'))}  {backup.get('filename', 'unknown')}")
+            print(f"      {_dim('Date:')} {date_str}  {_dim('Size:')} {size_mb:.1f} MB")
+
+        print()
+
+    # Auto-select latest
+    if latest:
+        selected_backup = backups[0]
+        if not quiet:
+            _info(f"Auto-selecting latest backup: {selected_backup.get('filename', 'unknown')}")
+    else:
+        # Interactive selection
+        if dry_run:
+            _info(_dim("Dry-run mode — no restore will be performed."))
+            return 0
+
+        try:
+            choice = input(
+                f"  {_bold('Select backup to restore [1-' + str(len(backups)) + ', or q to quit]:')} "
+            ).strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 0
+
+        if choice.lower() in ("q", "quit", "exit"):
+            return 0
+
+        if not choice.isdigit() or not (1 <= int(choice) <= len(backups)):
+            _err(f"Invalid choice: {choice}")
+            return 1
+
+        selected_backup = backups[int(choice) - 1]
+
+    # Confirm action
+    if not latest and not quiet:
+        if replace_mode:
+            _warn("This will REPLACE your local database completely!")
+        else:
+            _info("This will merge backup records with your local database.")
+        try:
+            confirm = input(f"  {_bold('Continue? [y/N]:')} ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 0
+
+        if confirm not in ("y", "yes"):
+            _info("Restore cancelled.")
+            return 0
+
+    if dry_run:
+        _info(_dim("Dry-run mode — no restore will be performed."))
+        return 0
+
+    # Perform restore
+    favicon_cache_dir: Path | None = None
+    if restore_favicons:
+        favicon_db_path = config.get_favicon_db_path()
+        if favicon_db_path.exists():
+            favicon_cache_dir = favicon_db_path.parent
+
+    def _progress(msg: str) -> None:
+        if not quiet:
+            _info(msg)
+        log.info("Restore: %s", msg)
+
+    log.info("Starting WebDAV restore from %s", selected_backup.get("filename", "unknown"))
+    t0 = time.monotonic()
+
+    if not replace_mode:
+        # Merge mode (default): download and merge records
+        _progress("Downloading backup for merge...")
+
+        try:
+            result = service.restore(progress_callback=_progress, restore_favicons=False, favicon_cache_dir=None)
+            if not result.success:
+                _err(f"Restore failed: {result.message}")
+                return 1
+
+            # Merge downloaded DB with local DB
+            downloaded_db = result.downloaded_path
+            if not downloaded_db or not downloaded_db.exists():
+                _err("Downloaded database file not found.")
+                return 1
+
+            _progress("Merging records into local database...")
+            db = LocalDatabase(db_path)
+            try:
+                db.merge_from_db(downloaded_db)
+                _progress("Merge complete.")
+            except Exception as exc:
+                _err(f"Merge failed: {exc}")
+                log.exception("Merge failed")
+                return 1
+            finally:
+                # Clean up temp file
+                try:
+                    downloaded_db.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+        except Exception as exc:
+            _err(f"Restore failed: {exc}")
+            log.exception("Restore failed")
+            return 1
+    else:
+        # Replace mode: overwrite local database
+        _progress("Downloading backup to replace local database...")
+        try:
+            result = service.restore(
+                progress_callback=_progress,
+                restore_favicons=restore_favicons,
+                favicon_cache_dir=favicon_cache_dir,
+            )
+        except Exception as exc:
+            _err(f"Restore failed: {exc}")
+            log.exception("Restore failed")
+            return 1
+
+        if not result.success:
+            _err(f"Restore failed: {result.message}")
+            return 1
+
+        # Move downloaded DB to replace local DB
+        downloaded_db = result.downloaded_path
+        if downloaded_db and downloaded_db.exists():
+            try:
+                import shutil
+
+                shutil.move(str(downloaded_db), str(db_path))
+                _progress("Database replaced successfully.")
+            except Exception as exc:
+                _err(f"Failed to replace database: {exc}")
+                return 1
+
+    elapsed = time.monotonic() - t0
+
+    log.info("Restore succeeded in %.1fs", elapsed)
+    if not quiet:
+        _ok(f"Restore complete  {_dim(f'({elapsed:.1f}s)')}")
+    return 0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # hsync config  subcommands
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1730,6 +1974,9 @@ def _dispatch(config, args: argparse.Namespace, parser: argparse.ArgumentParser)
 
     if subcommand == "search":
         return _cmd_search(config, args)
+
+    if subcommand == "restore":
+        return _cmd_restore(config, args)
 
     if subcommand == "config":
         cfg_cmd = getattr(args, "cfg_cmd", None)

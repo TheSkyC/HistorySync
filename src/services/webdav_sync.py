@@ -494,6 +494,10 @@ class WebDavSyncService:
                             except OSError:
                                 pass
 
+                    # Mark the extracted DB as owned by the caller so the
+                    # finally block below does not delete it.
+                    _tmp_db_consumed = True
+
             except zipfile.BadZipFile as exc:
                 if not _tmp_db_consumed:
                     try:
@@ -578,7 +582,16 @@ class WebDavSyncService:
                     ts = int(ts_part)
                 except Exception:
                     ts = 0
-                backups.append({"filename": item, "format": "zip", "timestamp": ts})
+
+                # Get file size
+                remote_path = f"{remote_dir.rstrip('/')}/{item}"
+                try:
+                    info = client.info(remote_path)
+                    size_bytes = int(info.get("size", 0))
+                except Exception:
+                    size_bytes = 0
+
+                backups.append({"filename": item, "format": "zip", "timestamp": ts, "size_bytes": size_bytes})
             return backups
         except Exception as exc:
             log.warning("list_backups failed: %s", exc)
