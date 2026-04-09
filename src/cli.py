@@ -204,6 +204,99 @@ class _ProgressBar:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Shell completion setup
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def _setup_shell_completion(parser: argparse.ArgumentParser) -> None:
+    """Configure argcomplete for intelligent shell completion.
+
+    Provides context-aware completions for:
+    - Subcommands (db, config)
+    - Format choices (csv, json, html)
+    - Config keys (webdav.url, scheduler.auto_sync_enabled, etc.)
+    - Boolean values (true, false)
+
+    Installation (one-time setup):
+        # Bash
+        activate-global-python-argcomplete --user
+        # or add to ~/.bashrc:
+        eval "$(register-python-argcomplete hsync)"
+
+        # Zsh
+        autoload -U bashcompinit && bashcompinit
+        eval "$(register-python-argcomplete hsync)"
+        # or add to ~/.zshrc
+
+        # Fish
+        register-python-argcomplete --shell fish hsync > ~/.config/fish/completions/hsync.fish
+    """
+    try:
+        import argcomplete
+    except ImportError:
+        return
+
+    # Custom completer for config keys
+    def _config_key_completer(prefix, **_kwargs):
+        return [k for k in _CONFIG_KEYS if k.startswith(prefix)]
+
+    # Custom completer for config values (context-aware)
+    def _config_value_completer(_prefix, parsed_args, **_kwargs):
+        key = getattr(parsed_args, "key", None)
+        if not key or key not in _CONFIG_KEYS:
+            return []
+        _, _, expected_type = _CONFIG_KEYS[key]
+        if expected_type is bool:
+            return ["true", "false"]
+        return []
+
+    # Custom completer for browser types
+    def _browser_completer(prefix, **_kwargs):
+        common_browsers = [
+            "chrome",
+            "firefox",
+            "edge",
+            "safari",
+            "brave",
+            "opera",
+            "vivaldi",
+            "arc",
+            "chromium",
+        ]
+        return [b for b in common_browsers if b.startswith(prefix)]
+
+    # Attach completers to specific arguments
+    for action in parser._actions:
+        if action.dest == "format":
+            action.completer = argcomplete.completers.ChoicesCompleter(["csv", "json", "html"])
+        elif action.dest == "browser":
+            action.completer = _browser_completer
+
+    # Find config subparser and attach completers
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            if "config" in action.choices:
+                config_parser = action.choices["config"]
+                for cfg_action in config_parser._actions:
+                    if isinstance(cfg_action, argparse._SubParsersAction):
+                        if "get" in cfg_action.choices:
+                            get_parser = cfg_action.choices["get"]
+                            for get_action in get_parser._actions:
+                                if get_action.dest == "key":
+                                    get_action.completer = _config_key_completer
+                        if "set" in cfg_action.choices:
+                            set_parser = cfg_action.choices["set"]
+                            for set_action in set_parser._actions:
+                                if set_action.dest == "key":
+                                    set_action.completer = _config_key_completer
+                                elif set_action.dest == "value":
+                                    set_action.completer = _config_value_completer
+
+    # Enable argcomplete
+    argcomplete.autocomplete(parser)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Argument parser
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -358,6 +451,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_cst.add_argument("value", help="New value (booleans: true/false, integers: digits)")
     for p in (p_cls, p_cgt, p_cst):
         _add_global_args(p)
+
+    # ── Shell completion ──────────────────────────────────────────────────────
+    _setup_shell_completion(parser)
 
     return parser
 
