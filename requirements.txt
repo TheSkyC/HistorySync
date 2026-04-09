@@ -28,11 +28,11 @@ more-itertools==10.8.0
     #   jaraco-functools
 psutil==7.2.2
     # via -r requirements.in
-pyside6==6.10.2
+pyside6==6.11.0
     # via -r requirements.in
-pyside6-addons==6.10.2
+pyside6-addons==6.11.0
     # via pyside6
-pyside6-essentials==6.10.2
+pyside6-essentials==6.11.0
     # via
     #   pyside6
     #   pyside6-addons
@@ -42,7 +42,7 @@ pywin32-ctypes==0.2.3
     # via keyring
 requests==2.32.5
     # via webdavclient3
-shiboken6==6.10.2
+shiboken6==6.11.0
     # via
     #   pyside6
     #   pyside6-addons
