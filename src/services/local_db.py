@@ -2244,6 +2244,8 @@ class LocalDatabase:
             conditions.append("h.browser_type = ?")
             params.append(browser_type)
 
+        conditions.append("h.url NOT IN (SELECT url FROM hidden_records)")
+
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
@@ -2261,7 +2263,10 @@ class LocalDatabase:
                 # FTS index unavailable — fall back to LIKE
                 if keyword:
                     from_clause = "FROM history h"
-                    conditions = ["(h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')"]
+                    conditions = [
+                        "(h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')",
+                        "h.url NOT IN (SELECT url FROM hidden_records)",
+                    ]
                     params = [f"%{_escape_like(keyword)}%", f"%{_escape_like(keyword)}%"]
                     if browser_type and browser_type not in ("auto", "all"):
                         conditions.append("h.browser_type = ?")
