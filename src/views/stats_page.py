@@ -49,7 +49,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.utils.i18n import _
+from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
 from src.utils.styled_menu import StyledMenu
@@ -59,6 +59,25 @@ if TYPE_CHECKING:
     from src.services.local_db import LocalDatabase
 
 log = get_logger("view.stats")
+
+# ── Month name table ─────────────────────────────────────────────────────────
+# Full month names marked for translation.  Use _MONTH_NAMES[month - 1] to get
+# the N_()-marked string, then wrap with _() at the point of display so the
+# active locale is applied at runtime, not at import time.
+_MONTH_NAMES = [
+    N_("January"),
+    N_("February"),
+    N_("March"),
+    N_("April"),
+    N_("May"),
+    N_("June"),
+    N_("July"),
+    N_("August"),
+    N_("September"),
+    N_("October"),
+    N_("November"),
+    N_("December"),
+]
 
 # ── Colour palettes ─────────────────────────────────────────────────────────
 
@@ -1765,8 +1784,8 @@ class StatsPage(QWidget):
 
     def _update_date_label(self):
         if self._granularity == "month":
-            abbr = calendar.month_abbr[self._current_month]
-            self._date_lbl.setText(f"{abbr} {self._current_year}")
+            month_name = _(_MONTH_NAMES[self._current_month - 1])
+            self._date_lbl.setText(f"{month_name} {self._current_year}")
         else:
             self._date_lbl.setText(str(self._current_year))
 
@@ -1941,7 +1960,7 @@ class StatsPage(QWidget):
         if self._granularity == "overview":
             self._summary_card._title_lbl.setText(_("All time"))
         elif self._granularity == "month":
-            month_name = calendar.month_name[self._current_month]
+            month_name = _(_MONTH_NAMES[self._current_month - 1])
             self._summary_card._title_lbl.setText(f"{month_name} {self._current_year}")
         else:
             self._summary_card._title_lbl.setText(_("Year at a glance"))
@@ -2101,10 +2120,14 @@ class StatsPage(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.TextAntialiasing)
 
+        from PySide6.QtWidgets import QApplication
+
+        base_font = QApplication.font()
+
         y = margin
 
         # ── App title + year ────────────────────────────────────────
-        font_title = QFont()
+        font_title = QFont(base_font)
         font_title.setPointSize(18)
         font_title.setBold(True)
         p.setFont(font_title)
@@ -2112,13 +2135,13 @@ class StatsPage(QWidget):
         if self._granularity == "overview":
             export_title = _("Browsing Statistics — All Time")
         elif self._granularity == "month":
-            month_name = calendar.month_name[self._current_month]
+            month_name = _(_MONTH_NAMES[self._current_month - 1])
             export_title = _("Browsing Statistics — {month} {year}").format(month=month_name, year=year)
         else:
             export_title = _("Browsing Statistics — {year}").format(year=year)
         p.drawText(margin, y + 28, export_title)
 
-        font_sub = QFont()
+        font_sub = QFont(base_font)
         font_sub.setPointSize(10)
         p.setFont(font_sub)
         p.setPen(QPen(text_muted))
@@ -2135,10 +2158,10 @@ class StatsPage(QWidget):
         ]
         card_w = (logical_w - margin * 2 - pad * 3) // 4
         accent = pal.accent
-        font_val = QFont()
+        font_val = QFont(base_font)
         font_val.setPointSize(18)
         font_val.setBold(True)
-        font_lbl = QFont()
+        font_lbl = QFont(base_font)
         font_lbl.setPointSize(8)
         for i, (val, lbl) in enumerate(summary_items):
             cx = margin + i * (card_w + pad)
@@ -2155,7 +2178,7 @@ class StatsPage(QWidget):
         # All drawing coordinates below are in logical pixels; Qt maps them to
         # physical pixels automatically via the canvas's devicePixelRatio.
         self._draw_card(p, margin, y, logical_w - margin * 2, heatmap_h - 4)
-        font_sect = QFont()
+        font_sect = QFont(base_font)
         font_sect.setPointSize(11)
         font_sect.setBold(True)
         p.setFont(font_sect)
@@ -2200,7 +2223,7 @@ class StatsPage(QWidget):
         icon_sz = 20
         app_icon_px = get_app_icon().pixmap(QSize(icon_sz, icon_sz) * int(dpr))
         app_icon_px.setDevicePixelRatio(dpr)
-        font_brand = QFont()
+        font_brand = QFont(base_font)
         font_brand.setPointSize(11)
         font_brand.setBold(True)
         font_brand.setLetterSpacing(QFont.AbsoluteSpacing, 1.2)
@@ -2218,7 +2241,7 @@ class StatsPage(QWidget):
         p.drawText(brand_x, text_y, "HistorySync")
 
         # Tagline (right-aligned)
-        font_tag = QFont()
+        font_tag = QFont(base_font)
         font_tag.setPointSize(9)
         p.setFont(font_tag)
         p.setPen(QPen(text_muted))

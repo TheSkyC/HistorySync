@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: HistorySync 1.0.0\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-04-10 13:01+0000\n"
-"PO-Revision-Date: 2026-04-10 12:58+0000\n"
+"POT-Creation-Date: 2026-04-10 16:01+0000\n"
+"PO-Revision-Date: 2026-04-10 15:48+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: fr_FR\n"
 "Language-Team: none\n"
@@ -161,11 +161,11 @@ msgstr ""
 msgid "AUTO SYNC"
 msgstr "SYNCHRONISATION AUTO"
 
-#: src/views/history_page.py:2907
+#: src/views/history_page.py:2908
 msgid "Actions"
 msgstr "Actions"
 
-#: src/views/stats_page.py:1658 src/views/stats_page.py:2113
+#: src/views/stats_page.py:1739 src/views/stats_page.py:2199
 msgid "Activity by hour"
 msgstr "Activité par heure"
 
@@ -176,7 +176,7 @@ msgstr "Activité par heure"
 msgid "Add"
 msgstr "Ajouter"
 
-#: src/views/history_page.py:2869
+#: src/views/history_page.py:2870
 msgid "Add Bookmark"
 msgstr "Ajouter un marque-page"
 
@@ -188,7 +188,7 @@ msgstr "Ajouter des fichiers…"
 msgid "Add Note"
 msgstr "Ajouter une note"
 
-#: src/views/history_page.py:2881
+#: src/views/history_page.py:2882
 msgid "Add Note…"
 msgstr "Ajouter une note…"
 
@@ -230,7 +230,7 @@ msgid "All Bookmarks"
 msgstr "Tous les marque-pages"
 
 #: src/services/exporter.py:570 src/views/history_page.py:1924
-#: src/views/history_page.py:2740
+#: src/views/history_page.py:2741
 msgid "All Browsers"
 msgstr "Tous les navigateurs"
 
@@ -259,7 +259,7 @@ msgstr "Tous les enregistrements affichés"
 msgid "All set!"
 msgstr "Tout est prêt !"
 
-#: src/views/stats_page.py:1880
+#: src/views/stats_page.py:1961
 msgid "All time"
 msgstr "Tout le temps"
 
@@ -281,6 +281,10 @@ msgstr ""
 #: src/services/migration_service.py:243
 msgid "Applying new default fields…"
 msgstr "Application des nouveaux champs par défaut…"
+
+#: src/views/stats_page.py:71
+msgid "April"
+msgstr "Avril"
 
 #: src/views/settings/security_section.py:179
 msgid ""
@@ -321,6 +325,10 @@ msgstr ""
 "HistorySync utilisera les paramètres par défaut. Vous pourrez tout "
 "configurer plus tard dans la page Paramètres."
 
+#: src/views/stats_page.py:75
+msgid "August"
+msgstr "Août"
+
 #: src/views/overlay_window.py:371 src/views/settings/overlay_section.py:84
 msgid "Auto"
 msgstr "Auto"
@@ -329,11 +337,11 @@ msgstr "Auto"
 msgid "Auto (Active / All)"
 msgstr "Auto (Actif / Tout)"
 
-#: src/views/history_page.py:2617
+#: src/views/history_page.py:2618
 msgid "Auto-fit All Columns"
 msgstr "Ajustement automatique de toutes les colonnes"
 
-#: src/views/history_page.py:2613
+#: src/views/history_page.py:2614
 msgid "Auto-fit This Column"
 msgstr "Ajustement automatique de cette colonne"
 
@@ -431,11 +439,11 @@ msgstr "Avant l’année dernière"
 msgid "Before today"
 msgstr "Avant aujourd’hui"
 
-#: src/views/history_page.py:3010
+#: src/views/history_page.py:3011
 msgid "Blacklist Domain"
 msgstr "Ajouter le domaine à la liste noire"
 
-#: src/views/history_page.py:2932
+#: src/views/history_page.py:2933
 #, python-brace-format
 msgid "Blacklist Domain: {domain}"
 msgstr "Ajouter à la liste noire : {domain}"
@@ -466,7 +474,7 @@ msgstr ""
 msgid "Bookmark"
 msgstr "Marque-page"
 
-#: src/views/history_page.py:2872
+#: src/views/history_page.py:2873
 #, python-brace-format
 msgid "Bookmark All Selected ({n})"
 msgstr "Ajouter un marque-page à tous les éléments sélectionnés ({n})"
@@ -528,7 +536,7 @@ msgstr "Paramètres de synchronisation du navigateur"
 msgid "Browser Sync Settings & Re-detect"
 msgstr "Paramètres de synchronisation du navigateur & Redétecter"
 
-#: src/views/stats_page.py:1652 src/views/stats_page.py:2108
+#: src/views/stats_page.py:1733 src/views/stats_page.py:2194
 msgid "Browser distribution"
 msgstr "Répartition des navigateurs"
 
@@ -543,7 +551,7 @@ msgstr ""
 msgid "Browser: {b}"
 msgstr "Navigateur : {b}"
 
-#: src/views/first_run_wizard.py:981 src/views/stats_page.py:1596
+#: src/views/first_run_wizard.py:981 src/views/stats_page.py:1677
 msgid "Browsers"
 msgstr "Navigateurs"
 
@@ -555,16 +563,16 @@ msgstr "Navigateurs détectés"
 msgid "Browse…"
 msgstr "Parcourir…"
 
-#: src/views/stats_page.py:2050
+#: src/views/stats_page.py:2136
 msgid "Browsing Statistics — All Time"
 msgstr "Statistiques de navigation — Tout le temps"
 
-#: src/views/stats_page.py:2053
+#: src/views/stats_page.py:2139
 #, python-brace-format
 msgid "Browsing Statistics — {month} {year}"
 msgstr "Statistiques de navigation — {month} {year}"
 
-#: src/views/stats_page.py:2055
+#: src/views/stats_page.py:2141
 #, python-brace-format
 msgid "Browsing Statistics — {year}"
 msgstr "Statistiques de navigation — {year}"
@@ -662,7 +670,7 @@ msgstr "Fermer"
 msgid "Columns"
 msgstr "Colonnes"
 
-#: src/views/history_page.py:2802
+#: src/views/history_page.py:2803
 msgid "Compact bubble"
 msgstr "Bulle compacte"
 
@@ -730,11 +738,11 @@ msgstr "Connexion en cours..."
 msgid "Connection successful"
 msgstr "Connexion réussie"
 
-#: src/views/history_page.py:2888
+#: src/views/history_page.py:2889
 msgid "Copy"
 msgstr "Copier"
 
-#: src/views/history_page.py:2897
+#: src/views/history_page.py:2898
 #, python-brace-format
 msgid "Copy All URLs ({n})"
 msgstr "Copier toutes les URL ({n})"
@@ -743,15 +751,15 @@ msgstr "Copier toutes les URL ({n})"
 msgid "Copy Browser Name"
 msgstr "Copier le nom du navigateur"
 
-#: src/views/history_page.py:2893
+#: src/views/history_page.py:2894
 msgid "Copy Title"
 msgstr "Copier le titre"
 
-#: src/views/history_page.py:2894
+#: src/views/history_page.py:2895
 msgid "Copy Title + URL"
 msgstr "Copier le titre + URL"
 
-#: src/views/bookmarks_page.py:148 src/views/history_page.py:2892
+#: src/views/bookmarks_page.py:148 src/views/history_page.py:2893
 msgid "Copy URL"
 msgstr "Copier l’URL"
 
@@ -760,7 +768,7 @@ msgstr "Copier l’URL"
 msgid "Could not launch {browser}. Please make sure it is installed."
 msgstr "Impossible de lancer {browser}. Veuillez vérifier qu’il est installé."
 
-#: src/views/stats_page.py:1953
+#: src/views/stats_page.py:2035
 #, python-brace-format
 msgid ""
 "Could not save the image to:\n"
@@ -810,11 +818,11 @@ msgstr "Polices personnalisées"
 msgid "DATABASE MAINTENANCE"
 msgstr "MAINTENANCE DE LA BASE DE DONNÉES"
 
-#: src/views/stats_page.py:1627 src/views/stats_page.py:2100
+#: src/views/stats_page.py:1708 src/views/stats_page.py:2186
 msgid "Daily activity heatmap"
 msgstr "Carte thermique de l’activité quotidienne"
 
-#: src/views/stats_page.py:1595
+#: src/views/stats_page.py:1676
 msgid "Daily average"
 msgstr "Moyenne quotidienne"
 
@@ -856,6 +864,10 @@ msgstr "Plage de dates"
 msgid "Date:"
 msgstr "Date :"
 
+#: src/views/stats_page.py:79
+msgid "December"
+msgstr "Décembre"
+
 # Browser Scanner translations
 #: src/views/dialogs/browser_scan_dialog.py:67
 msgid "Deep Browser Scan"
@@ -890,16 +902,16 @@ msgstr "Supprimer les fichiers journaux"
 msgid "Delete Logs"
 msgstr "Supprimer les journaux"
 
-#: src/views/history_page.py:2995
+#: src/views/history_page.py:2996
 msgid "Delete Records"
 msgstr "Supprimer les enregistrements"
 
-#: src/views/history_page.py:2913
+#: src/views/history_page.py:2914
 #, python-brace-format
 msgid "Delete Selected ({n} records)"
 msgstr "Supprimer la sélection ({n} enregistrements)"
 
-#: src/views/history_page.py:2917
+#: src/views/history_page.py:2918
 msgid "Delete This Record"
 msgstr "Supprimer cet enregistrement"
 
@@ -917,7 +929,7 @@ msgstr ""
 "conservés mais ne seront plus associés à aucun appareil. Cette action est"
 " irréversible."
 
-#: src/views/history_page.py:2996
+#: src/views/history_page.py:2997
 #, python-brace-format
 msgid "Delete {n} record(s)? This cannot be undone."
 msgstr "Supprimer {n} enregistrement(s) ? Cette action est irréversible."
@@ -932,7 +944,7 @@ msgstr "{n} fichier(s) journal supprimé(s)"
 msgid "Deleted {n} record(s)"
 msgstr "{n} enregistrement(s) supprimé(s)"
 
-#: src/views/history_page.py:2934
+#: src/views/history_page.py:2935
 msgid "Deletes all records from this domain and adds it to blacklist"
 msgstr ""
 "Supprime tous les enregistrements de ce domaine et l’ajoute à la liste "
@@ -1039,7 +1051,7 @@ msgstr "Edge WebAssistDatabase"
 msgid "Edit Note"
 msgstr "Modifier la note"
 
-#: src/views/history_page.py:2879
+#: src/views/history_page.py:2880
 msgid "Edit Note…"
 msgstr "Modifier la note…"
 
@@ -1152,7 +1164,7 @@ msgstr "Exporter l’historique…"
 msgid "Export Log"
 msgstr "Exporter le journal"
 
-#: src/views/stats_page.py:1583
+#: src/views/stats_page.py:1664
 msgid "Export PNG"
 msgstr "Exporter en PNG"
 
@@ -1160,7 +1172,7 @@ msgstr "Exporter en PNG"
 msgid "Export current filtered results to CSV / JSON / HTML"
 msgstr "Exporter les résultats filtrés actuels vers CSV / JSON / HTML"
 
-#: src/views/stats_page.py:1952
+#: src/views/stats_page.py:2034
 msgid "Export failed"
 msgstr "Échec de l’exportation"
 
@@ -1168,11 +1180,11 @@ msgstr "Échec de l’exportation"
 msgid "Export failed."
 msgstr "Échec de l’exportation."
 
-#: src/views/stats_page.py:1931
+#: src/views/stats_page.py:2013
 msgid "Export statistics as image"
 msgstr "Exporter les statistiques en image"
 
-#: src/views/stats_page.py:1946
+#: src/views/stats_page.py:2028
 msgid "Export successful"
 msgstr "Exportation réussie"
 
@@ -1246,6 +1258,10 @@ msgstr ""
 #: src/views/first_run_wizard.py:556
 msgid "Fair"
 msgstr "Moyen"
+
+#: src/views/stats_page.py:69
+msgid "February"
+msgstr "Février"
 
 #: src/views/import_dialog.py:275
 msgid "File"
@@ -1343,7 +1359,7 @@ msgstr "Navigateurs trouvés :"
 msgid "Found {} browser(s)..."
 msgstr "{} navigateur(s) trouvé(s)..."
 
-#: src/views/history_page.py:95 src/views/stats_page.py:563
+#: src/views/history_page.py:95 src/views/stats_page.py:636
 msgid "Fri"
 msgstr "Ven"
 
@@ -1359,7 +1375,7 @@ msgstr "Du :"
 msgid "Full Resync"
 msgstr "Resynchronisation complète"
 
-#: src/views/history_page.py:2797
+#: src/views/history_page.py:2798
 msgid "Full bubble"
 msgstr "Bulle complète"
 
@@ -1369,7 +1385,7 @@ msgstr ""
 "Resynchronisation complète en cours — relecture de tout l’historique des "
 "navigateurs…"
 
-#: src/views/stats_page.py:2063
+#: src/views/stats_page.py:2149
 #, python-brace-format
 msgid "Generated {ts}"
 msgstr "Généré le {ts}"
@@ -1407,7 +1423,7 @@ msgstr "Vérification du hash ÉCHOUÉE ! Attendu {exp}, obtenu {act}"
 msgid "Hidden Records:"
 msgstr "Enregistrements masqués :"
 
-#: src/views/history_page.py:3005
+#: src/views/history_page.py:3006
 #, python-brace-format
 msgid "Hidden {n} record(s). Manage in Settings → Privacy."
 msgstr ""
@@ -1425,16 +1441,16 @@ msgstr ""
 msgid "Hide Password"
 msgstr "Masquer le mot de passe"
 
-#: src/views/history_page.py:2923
+#: src/views/history_page.py:2924
 #, python-brace-format
 msgid "Hide Selected ({n} records)"
 msgstr "Masquer la sélection ({n} enregistrements)"
 
-#: src/views/history_page.py:2926
+#: src/views/history_page.py:2927
 msgid "Hide This Record"
 msgstr "Masquer cet enregistrement"
 
-#: src/views/history_page.py:2812
+#: src/views/history_page.py:2813
 msgid "Hide bubble"
 msgstr "Masquer la bulle"
 
@@ -1621,6 +1637,18 @@ msgstr "Préfixe invalide"
 msgid "JSON Files (*.json);;All Files (*)"
 msgstr "Fichiers JSON (*.json);;Tous les fichiers (*)"
 
+#: src/views/stats_page.py:68
+msgid "January"
+msgstr "Janvier"
+
+#: src/views/stats_page.py:74
+msgid "July"
+msgstr "Juillet"
+
+#: src/views/stats_page.py:73
+msgid "June"
+msgstr "Juin"
+
 #: src/views/export_dialog.py:307
 #, python-brace-format
 msgid "Keyword: {kw}"
@@ -1681,7 +1709,7 @@ msgstr "Lancer au démarrage du système (réduit dans la barre d’état)"
 msgid "Legacy Data Detected"
 msgstr "Données héritées détectées"
 
-#: src/views/stats_page.py:1716
+#: src/views/stats_page.py:1797
 msgid "Less"
 msgstr "Moins"
 
@@ -1772,6 +1800,10 @@ msgstr ""
 msgid "Manually typed in address bar {count} time(s)"
 msgstr "Saisi manuellement dans la barre d’adresse {count} fois"
 
+#: src/views/stats_page.py:70
+msgid "March"
+msgstr "Mars"
+
 #: src/views/first_run_wizard.py:653
 msgid "Master Password (Optional)"
 msgstr "Mot de passe principal (optionnel)"
@@ -1795,6 +1827,10 @@ msgstr "Mot de passe principal mis à jour"
 #: src/views/settings/webdav_section.py:126
 msgid "Max backups:"
 msgstr "Nombre maximum de sauvegardes :"
+
+#: src/views/stats_page.py:72
+msgid "May"
+msgstr "Mai"
 
 #: src/services/local_db.py:954
 #, python-brace-format
@@ -1894,11 +1930,11 @@ msgstr ""
 "\n"
 "Êtes-vous sûr de vouloir quitter ?"
 
-#: src/views/history_page.py:2807
+#: src/views/history_page.py:2808
 msgid "Minimal bubble"
 msgstr "Bulle minimale"
 
-#: src/views/history_page.py:91 src/views/stats_page.py:563
+#: src/views/history_page.py:91 src/views/stats_page.py:636
 msgid "Mon"
 msgstr "Lun"
 
@@ -1910,11 +1946,11 @@ msgstr "Lundi"
 msgid "Monospace Font  (log viewer)"
 msgstr "Police à chasse fixe (visionneuse de journaux)"
 
-#: src/views/stats_page.py:1575
+#: src/views/stats_page.py:1656
 msgid "Month"
 msgstr "Mois"
 
-#: src/views/stats_page.py:1729
+#: src/views/stats_page.py:1810
 msgid "More"
 msgstr "Plus"
 
@@ -2004,8 +2040,8 @@ msgstr "Aucune sauvegarde trouvée sur le serveur."
 msgid "No browsers detected"
 msgstr "Aucun navigateur détecté"
 
-#: src/views/stats_page.py:901 src/views/stats_page.py:1115
-#: src/views/stats_page.py:1252
+#: src/views/stats_page.py:982 src/views/stats_page.py:1196
+#: src/views/stats_page.py:1333
 msgid "No data"
 msgstr "Aucune donnée"
 
@@ -2115,13 +2151,21 @@ msgstr "Non synchronisé"
 msgid "Note: {note}"
 msgstr "Note : {note}"
 
+#: src/views/stats_page.py:78
+msgid "November"
+msgstr "Novembre"
+
+#: src/views/stats_page.py:77
+msgid "October"
+msgstr "Octobre"
+
 #: src/views/settings/overlay_section.py:32
 msgid "On Linux/macOS, bind 'python -m src.main --quick' to a system hotkey."
 msgstr ""
 "Sur Linux/macOS, associez 'python -m src.main --quick' à un raccourci "
 "système."
 
-#: src/views/history_page.py:2857
+#: src/views/history_page.py:2858
 #, python-brace-format
 msgid "Open All Selected in Browser ({n})"
 msgstr "Ouvrir toute la sélection dans le navigateur ({n})"
@@ -2138,7 +2182,7 @@ msgstr "Ouvrir le dossier"
 msgid "Open Main Window"
 msgstr "Ouvrir la fenêtre principale"
 
-#: src/views/bookmarks_page.py:147 src/views/history_page.py:2853
+#: src/views/bookmarks_page.py:147 src/views/history_page.py:2854
 msgid "Open in Browser"
 msgstr "Ouvrir dans le navigateur"
 
@@ -2170,7 +2214,7 @@ msgstr "Opération en cours"
 msgid "Output File"
 msgstr "Fichier de sortie"
 
-#: src/views/overlay_window.py:878
+#: src/views/overlay_window.py:880
 msgid "Overlay settings"
 msgstr "Paramètres de la superposition"
 
@@ -2186,7 +2230,7 @@ msgstr ""
 "police, la suivante est essayée automatiquement."
 
 #: src/views/dashboard_page.py:989 src/views/main_window.py:116
-#: src/views/stats_page.py:1573
+#: src/views/stats_page.py:1654
 msgid "Overview"
 msgstr "Aperçu"
 
@@ -2223,7 +2267,7 @@ msgstr "Les mots de passe ne correspondent pas."
 msgid "Pause"
 msgstr "Pause"
 
-#: src/views/stats_page.py:1594
+#: src/views/stats_page.py:1675
 msgid "Peak day"
 msgstr "Jour le plus actif"
 
@@ -2400,7 +2444,7 @@ msgid "Remove <b>{}</b> from config?"
 msgstr "Supprimer <b>{}</b> de la configuration ?"
 
 #: src/views/bookmarks_page.py:155 src/views/bookmarks_page.py:896
-#: src/views/history_page.py:2867
+#: src/views/history_page.py:2868
 msgid "Remove Bookmark"
 msgstr "Supprimer le marque-page"
 
@@ -2476,7 +2520,7 @@ msgstr "Redémarrage nécessaire pour appliquer les changements de langue."
 msgid "Restore Database"
 msgstr "Restaurer la base de données"
 
-#: src/views/history_page.py:2622
+#: src/views/history_page.py:2623
 msgid "Restore Default View"
 msgstr "Restaurer la vue par défaut"
 
@@ -2644,7 +2688,7 @@ msgstr "Rechercher un titre ou une URL..."
 msgid "Search title, URL, or domain..."
 msgstr "Rechercher un titre, une URL ou un domaine..."
 
-#: src/views/history_page.py:2944
+#: src/views/history_page.py:2945
 #, python-brace-format
 msgid "Search: {domain}"
 msgstr "Recherche : {domain}"
@@ -2669,6 +2713,10 @@ msgstr "Sélectionner le fichier de base de données d’historique"
 #: src/views/export_dialog.py:230
 msgid "Select None"
 msgstr "Tout désélectionner"
+
+#: src/views/stats_page.py:76
+msgid "September"
+msgstr "Septembre"
 
 #: src/views/settings/webdav_section.py:122
 msgid "Server URL:"
@@ -2763,11 +2811,11 @@ msgstr "Démarrage..."
 msgid "Starting…"
 msgstr "Démarrage…"
 
-#: src/views/main_window.py:121 src/views/stats_page.py:1557
+#: src/views/main_window.py:121 src/views/stats_page.py:1638
 msgid "Statistics"
 msgstr "Statistiques"
 
-#: src/views/stats_page.py:1947
+#: src/views/stats_page.py:2029
 #, python-brace-format
 msgid ""
 "Statistics image saved to:\n"
@@ -2849,7 +2897,7 @@ msgstr "Échec de la synchronisation : {error}"
 msgid "Sync interval:"
 msgstr "Intervalle de synchronisation :"
 
-#: src/views/history_page.py:2272
+#: src/views/history_page.py:2273
 msgid "Sync triggered..."
 msgstr "Synchronisation déclenchée..."
 
@@ -3033,7 +3081,7 @@ msgstr ""
 "\n"
 "Continuer ?"
 
-#: src/views/history_page.py:3011
+#: src/views/history_page.py:3012
 #, python-brace-format
 msgid ""
 "This will:\n"
@@ -3085,7 +3133,7 @@ msgstr "Aujourd’hui"
 msgid "Toggle Theme"
 msgstr "Basculer le thème"
 
-#: src/views/stats_page.py:1667 src/views/stats_page.py:2121
+#: src/views/stats_page.py:1748 src/views/stats_page.py:2207
 msgid "Top 10 domains"
 msgstr "Top 10 des domaines"
 
@@ -3097,7 +3145,7 @@ msgstr "Total des éléments"
 msgid "Total Local Records"
 msgstr "Total des enregistrements locaux"
 
-#: src/views/stats_page.py:1593
+#: src/views/stats_page.py:1674
 msgid "Total visits"
 msgstr "Total des visites"
 
@@ -3274,7 +3322,7 @@ msgstr "Très faible"
 msgid "View History"
 msgstr "Voir l’historique"
 
-#: src/views/stats_page.py:674
+#: src/views/stats_page.py:755
 #, python-brace-format
 msgid "View records for {date}"
 msgstr "Voir les enregistrements du {date}"
@@ -3301,7 +3349,7 @@ msgstr "Heure de visite"
 msgid "Visited {count} times"
 msgstr "Visité {count} fois"
 
-#: src/views/stats_page.py:1559
+#: src/views/stats_page.py:1640
 msgid "Visualize your browsing activity"
 msgstr "Visualisez votre activité de navigation"
 
@@ -3351,7 +3399,7 @@ msgstr "WebDAV non configuré"
 msgid "WebDAV not configured or disabled"
 msgstr "WebDAV non configuré ou désactivé"
 
-#: src/views/history_page.py:93 src/views/stats_page.py:563
+#: src/views/history_page.py:93 src/views/stats_page.py:636
 msgid "Wed"
 msgstr "Mer"
 
@@ -3383,11 +3431,11 @@ msgstr "Écrivez tout ce que vous voulez retenir de cette page…"
 msgid "Writing updated config.json…"
 msgstr "Écriture du fichier config.json mise à jour…"
 
-#: src/views/stats_page.py:1574
+#: src/views/stats_page.py:1655
 msgid "Year"
 msgstr "Année"
 
-#: src/views/stats_page.py:1615 src/views/stats_page.py:1885
+#: src/views/stats_page.py:1696 src/views/stats_page.py:1966
 msgid "Year at a glance"
 msgstr "Vue d’ensemble de l’année"
 
@@ -3499,7 +3547,7 @@ msgstr "synchronisation et sauvegarde"
 msgid "unknown"
 msgstr "inconnu"
 
-#: src/views/stats_page.py:965
+#: src/views/stats_page.py:1046
 msgid "visits"
 msgstr "visites"
 
@@ -3532,8 +3580,8 @@ msgid "{count} records will be exported"
 msgstr "{count} enregistrements seront exportés"
 
 #: src/views/history_page.py:454 src/views/search_autocomplete.py:608
-#: src/views/stats_page.py:1060 src/views/stats_page.py:1195
-#: src/views/stats_page.py:1350
+#: src/views/stats_page.py:1141 src/views/stats_page.py:1276
+#: src/views/stats_page.py:1431
 #, python-brace-format
 msgid "{count} visits"
 msgstr "{count} visites"
@@ -3598,27 +3646,27 @@ msgstr "{n} enregistrements"
 msgid "{n} records hidden"
 msgstr "{n} enregistrements masqués"
 
-#: src/views/history_page.py:2668
+#: src/views/history_page.py:2669
 #, python-brace-format
 msgid "{n} rows selected"
 msgstr "{n} lignes sélectionnées"
 
-#: src/views/stats_page.py:1196
+#: src/views/stats_page.py:1277
 #, python-brace-format
 msgid "{pct}% of peak hour"
 msgstr "{pct}% de l’heure de pointe"
 
-#: src/views/stats_page.py:1351
+#: src/views/stats_page.py:1432
 #, python-brace-format
 msgid "{pct}% of top domain"
 msgstr "{pct}% du domaine principal"
 
-#: src/views/stats_page.py:1061
+#: src/views/stats_page.py:1142
 #, python-brace-format
 msgid "{pct}% of total"
 msgstr "{pct}% du total"
 
-#: src/views/stats_page.py:1194
+#: src/views/stats_page.py:1275
 #, python-brace-format
 msgid "{start}:00 - {end}:00"
 msgstr "{start}:00 - {end}:00"
@@ -3629,7 +3677,7 @@ msgid "{s}s"
 msgstr "{s}s"
 
 #: src/viewmodels/history_viewmodel.py:857
-#: src/viewmodels/history_viewmodel.py:869 src/views/history_page.py:2734
+#: src/viewmodels/history_viewmodel.py:869 src/views/history_page.py:2735
 #, python-brace-format
 msgid "{total} records"
 msgstr "{total} enregistrements"
@@ -3640,7 +3688,7 @@ msgid "{total} records in total"
 msgstr "{total} enregistrements au total"
 
 #: src/viewmodels/history_viewmodel.py:855
-#: src/viewmodels/history_viewmodel.py:867 src/views/history_page.py:2732
+#: src/viewmodels/history_viewmodel.py:867 src/views/history_page.py:2733
 #, python-brace-format
 msgid "{total}+ records"
 msgstr "{total}+ enregistrements"
