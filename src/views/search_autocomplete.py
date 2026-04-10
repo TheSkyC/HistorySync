@@ -1786,7 +1786,7 @@ class SmartSearchLineEdit(QWidget):
         super().focusOutEvent(event)
 
     def _on_focus_gained(self, new_widget) -> None:
-        """Show dropdown when editor gains focus — based on text before cursor."""
+        """Show dropdown and ghost text when editor gains focus."""
         if new_widget is not self._editor and new_widget is not self._editor.viewport():
             return
         if self._use_regex or self._focus_gained_reentrancy_guard:
@@ -1798,6 +1798,7 @@ class SmartSearchLineEdit(QWidget):
             self._suggestion_model.update_suggestions(text_before)
             if self._suggestion_model.has_suggestions():
                 self._dropdown.show_below(self)
+                self._update_ghost_text()
         finally:
             self._focus_gained_reentrancy_guard = False
 
@@ -1807,22 +1808,19 @@ class SmartSearchLineEdit(QWidget):
         if new_widget is self._editor or new_widget is self._editor.viewport():
             self._on_focus_gained(new_widget)
             return
-        # Hide when focus moves outside the editor and dropdown
-        if not self._dropdown.isVisible():
-            return
-        if new_widget is None:
-            self._dropdown.hide()
-            return
-        # Keep if focus moved into the dropdown container or any of its children
-        w = new_widget
-        while w is not None:
-            if w is self._dropdown:
-                return
-            w = w.parent()
-        self._dropdown.hide()
+        # Keep ghost text and dropdown when focus moves into the dropdown itself
+        if new_widget is not None:
+            w = new_widget
+            while w is not None:
+                if w is self._dropdown:
+                    return
+                w = w.parent()
+        # Focus left the editor and dropdown — clear ghost text and hide dropdown
         self._editor.clear_ghost_text()
         self._ghost_insert_text = ""
         self._ghost_stype = ""
+        if self._dropdown.isVisible():
+            self._dropdown.hide()
 
     def _maybe_hide_dropdown(self) -> None:
         if not self._dropdown.isVisible():
