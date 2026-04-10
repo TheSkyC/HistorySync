@@ -368,15 +368,19 @@ class FaviconManager(QObject):
 
     # ── Main Thread QPixmap Retrieval ─────────────────────────
 
-    def get_pixmap(self, url: str, size: int = 16) -> QPixmap:
+    def get_pixmap(self, url: str, size: int = 16, domain: str | None = None) -> QPixmap:
         """
         Returns the QPixmap icon for the given URL's domain.
         Must be called from the main thread.
 
+        Pass *domain* when the caller has already computed it (e.g. from
+        HistoryRecord.domain) to skip the extract_domain(url) call entirely.
+
         Lookup chain:
           In-memory LRU -> FaviconCache (Persistent SQLite connection) -> Letter placeholder
         """
-        domain = extract_domain(url)
+        if domain is None:
+            domain = extract_domain(url)
         cache_key = (domain or url, size)
 
         pixmap = self._lru.get(cache_key)

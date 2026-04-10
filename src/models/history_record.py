@@ -15,6 +15,10 @@ class HistoryRecord:
     profile_name: str  # Profile name, e.g. 'Default', 'default-release'
 
     # --- Extended fields ---
+    # Pre-computed display domain (e.g. "github.com") — derived from url at load time.
+    # Stored here so data() and get_pixmap() never call urlparse on the hot render path.
+    domain: str = field(default="", compare=False)
+
     metadata: str = ""  # Page summary/description; may be empty
 
     # Number of times the URL was manually typed in the address bar.

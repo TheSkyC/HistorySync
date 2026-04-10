@@ -17,7 +17,11 @@ from src.models.history_record import AnnotationRecord, BackupStats, BookmarkRec
 from src.utils.constants import DB_BATCH_SIZE
 from src.utils.i18n_core import _
 from src.utils.logger import get_logger
-from src.utils.url_utils import extract_host as _extract_url_host, normalize_domain
+from src.utils.url_utils import (
+    extract_display_domain as _extract_display_domain,
+    extract_host as _extract_url_host,
+    normalize_domain,
+)
 
 log = get_logger("local_db")
 
@@ -2633,6 +2637,7 @@ class LocalDatabase:
             visit_count=row["visit_count"],
             browser_type=row["browser_type"],
             profile_name=row["profile_name"],
+            domain=_extract_display_domain(row["url"]),
             metadata=row["metadata"],
             typed_count=row["typed_count"],
             first_visit_time=row["first_visit_time"],

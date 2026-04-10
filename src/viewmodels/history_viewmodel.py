@@ -9,7 +9,6 @@ from functools import lru_cache
 import re
 import time as _time
 from typing import Any
-from urllib.parse import urlparse
 
 from PySide6.QtCore import (
     QAbstractTableModel,
@@ -23,7 +22,6 @@ from PySide6.QtCore import (
 )
 
 from src.models.history_record import HistoryRecord
-from src.services.extractors.favicon_extractor import extract_domain as _favicon_extract_domain
 from src.services.favicon_manager import FaviconManager
 from src.services.local_db import LocalDatabase
 from src.utils.i18n import N_, _
@@ -123,6 +121,12 @@ class HistoryTableModel(QAbstractTableModel):
 
         self._favicon_manager.favicons_updated.connect(self._on_favicons_updated)
 
+        # ── Row-level cache ───────────────────────────────────────────────────
+        # Qt calls data() once per column for the same row; cache the last
+        # looked-up record so the 2nd-7th column calls skip the OrderedDict lookup.
+        self._last_row: int = -1
+        self._last_record: HistoryRecord | None = None
+
         # ── Prefetch debounce ─────────────────────────────────────────────────
         # Coalesce rapid prefetch_pixmaps calls (one per _fetch_page) into a
         # single batched call after a short idle period.  During fast scrolling
@@ -131,7 +135,7 @@ class HistoryTableModel(QAbstractTableModel):
         self._prefetch_pending: list[HistoryRecord] = []
         self._prefetch_timer = QTimer()
         self._prefetch_timer.setSingleShot(True)
-        self._prefetch_timer.setInterval(80)  # 80 ms idle before flushing
+        self._prefetch_timer.setInterval(150)  # 150 ms idle before flushing
         self._prefetch_timer.timeout.connect(self._flush_prefetch)
 
     # ── Public API ───────────────────────────────────────────
@@ -239,7 +243,7 @@ class HistoryTableModel(QAbstractTableModel):
             if col_key == "visit_count":
                 return str(record.visit_count)
             if col_key == "domain":
-                return self._extract_domain(record.url)
+                return record.domain
             if col_key == "profile_name":
                 return record.profile_name or ""
             if col_key == "metadata":
@@ -261,7 +265,7 @@ class HistoryTableModel(QAbstractTableModel):
 
         elif role == Qt.DecorationRole:
             if col_key == "title":
-                return self._favicon_manager.get_pixmap(record.url, size=16)
+                return self._favicon_manager.get_pixmap(record.url, size=16, domain=record.domain)
             if col_key == "browser":
                 return get_browser_pixmap(record.browser_type or "web", size=20)
 
@@ -275,7 +279,7 @@ class HistoryTableModel(QAbstractTableModel):
             if col_key == "visit_count":
                 return _("Visited {count} times").format(count=record.visit_count)
             if col_key == "domain":
-                return self._extract_domain(record.url)
+                return record.domain
             if col_key == "profile_name":
                 return _("Browser Profile: {profile}").format(profile=record.profile_name or _("Default"))
             if col_key == "metadata":
@@ -310,10 +314,6 @@ class HistoryTableModel(QAbstractTableModel):
             return int(align | Qt.AlignVCenter)
 
         return None
-
-    def _extract_domain(self, url: str) -> str:
-        """Extract domain from URL (cached)."""
-        return _extract_domain_cached(url)
 
     # ── Data loading ─────────────────────────────────────────
 
@@ -359,6 +359,8 @@ class HistoryTableModel(QAbstractTableModel):
         self._regex_has_more = False
         self._keyword_materialized = False
         self._keyword_index.clear()
+        self._last_row = -1
+        self._last_record = None
 
         # Defer badge loading to avoid blocking initial render
         # These are only needed when rows are actually painted
@@ -631,15 +633,18 @@ class HistoryTableModel(QAbstractTableModel):
     # ── Internal: virtual page cache ─────────────────────────
 
     def _get_record_at(self, row: int) -> HistoryRecord | None:
+        if row == self._last_row:
+            return self._last_record
         if row < 0 or row >= self._total_count:
             return None
         # All modes (regex, keyword, full history) use the page cache for full records
         page_index = row // CACHE_PAGE_SIZE
         page = self._get_or_fetch_page(page_index)
         local_row = row % CACHE_PAGE_SIZE
-        if local_row < len(page):
-            return page[local_row]
-        return None
+        record = page[local_row] if local_row < len(page) else None
+        self._last_row = row
+        self._last_record = record
+        return record
 
     def _get_or_fetch_page(self, page_index: int) -> list[HistoryRecord]:
         if page_index in self._page_cache:
@@ -724,7 +729,7 @@ class HistoryTableModel(QAbstractTableModel):
         for page_index, records in self._page_cache.items():
             base = page_index * CACHE_PAGE_SIZE
             for local_idx, record in enumerate(records):
-                if _favicon_extract_domain(record.url) in updated_domains:
+                if record.domain in updated_domains:
                     affected_rows.append(base + local_idx)
 
         if not affected_rows:
@@ -932,19 +937,6 @@ _BROWSER_NAMES: dict[str, str] = {
 
 def _browser_display_name(bt: str) -> str:
     return _BROWSER_NAMES.get(bt, bt.title())
-
-
-@lru_cache(maxsize=4096)
-def _extract_domain_cached(url: str) -> str:
-    """Extract and normalise domain from a URL (cached)."""
-    try:
-        netloc = urlparse(url).netloc or ""
-        domain = netloc.rsplit(":", 1)[0] if ":" in netloc and not netloc.startswith("[") else netloc
-        if domain.lower().startswith("www."):
-            domain = domain[4:]
-        return domain.lower()
-    except Exception:
-        return ""
 
 
 @lru_cache(maxsize=4096)
