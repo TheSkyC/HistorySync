@@ -459,6 +459,8 @@ class HeatmapWidget(QWidget):
             collections.OrderedDict()
         )  # LRU: date_str → (hourly, top_domains)
         self._day_cache_max = 120
+        self._highlight_month: int | None = None
+        self._highlight_path: QPainterPath | None = None
         self._hover_date: str = ""
         self._last_mouse_pos = QPoint()
         self._popup = _HeatmapPopup()
@@ -475,7 +477,44 @@ class HeatmapWidget(QWidget):
         self._year = year
         self._max_count = max(daily.values(), default=1)
         self._recalc_size()
+        self._rebuild_highlight_path()
         self.update()
+
+    def set_highlight_month(self, month: int | None):
+        self._highlight_month = month
+        self._rebuild_highlight_path()
+        self.update()
+
+    def _rebuild_highlight_path(self):
+        """Build and cache the QPainterPath for the highlighted month.
+
+        Each day cell is expanded by 0.5 px on all sides so adjacent cells
+        overlap slightly, allowing QPainterPath.united() to merge them into
+        a single smooth outer contour.  The path is rebuilt whenever the
+        year or the highlighted month changes.
+        """
+        if not self._highlight_month:
+            self._highlight_path = None
+            return
+        year = self._year
+        month = self._highlight_month
+        jan1 = datetime.date(year, 1, 1)
+        start_weekday = jan1.weekday()
+        last_day_num = calendar.monthrange(year, month)[1]
+        expand = 0.5
+        r = float(self.RADIUS)
+        path = QPainterPath()
+        for day in range(1, last_day_num + 1):
+            d = datetime.date(year, month, day)
+            day_offset = (d - jan1).days
+            col = (start_weekday + day_offset) // 7
+            row = d.weekday()
+            x = self.LEFT_MARGIN + col * self.STEP - expand
+            y = self.TOP_MARGIN + row * self.STEP - expand
+            cell_path = QPainterPath()
+            cell_path.addRoundedRect(QRectF(x, y, self.STEP + expand * 2, self.STEP + expand * 2), r, r)
+            path = path.united(cell_path)
+        self._highlight_path = path
 
     # ── Geometry ───────────────────────────────────────────────────────────
 
@@ -535,6 +574,10 @@ class HeatmapWidget(QWidget):
         start_weekday = jan1.weekday()  # 0=Mon
         total_days = (dec31 - jan1).days + 1
 
+        # ── Month highlight (month-granularity mode) ─────────────────────
+        # Fill and outline are drawn AFTER cells (see end of cell loop below)
+        # so the outline sits on top of the cell colours.
+
         font_small = QFont()
         font_small.setPointSize(9)
         p.setFont(font_small)
@@ -553,9 +596,20 @@ class HeatmapWidget(QWidget):
 
         # Draw month labels (skip if too close to previous)
         prev_x = -99
+        muted = _text_muted()
+        muted_dim = QColor(muted.red(), muted.green(), muted.blue(), 80 if self._highlight_month else 255)
         for col, abbr in month_starts:
             x = self.LEFT_MARGIN + col * self.STEP
             if x - prev_x >= 28:
+                m_num = calendar.month_abbr[:].index(abbr) if abbr in calendar.month_abbr else 0
+                if self._highlight_month and m_num == self._highlight_month:
+                    p.setPen(QPen(_accent()))
+                    font_bold = QFont(font_small)
+                    font_bold.setBold(True)
+                    p.setFont(font_bold)
+                else:
+                    p.setPen(QPen(muted_dim))
+                    p.setFont(font_small)
                 p.drawText(x, self.TOP_MARGIN - 5, abbr)
                 prev_x = x
 
@@ -582,6 +636,14 @@ class HeatmapWidget(QWidget):
             p.setBrush(color)
             p.setPen(Qt.NoPen)
             p.drawRoundedRect(QRect(x, y, self.CELL, self.CELL), self.RADIUS, self.RADIUS)
+
+        # ── Dim non-highlighted months ───────────────────────────────────
+        if self._highlight_path is not None:
+            # Subtle fill + 2px outline on top of everything
+            accent = _accent()
+            p.setBrush(QColor(accent.red(), accent.green(), accent.blue(), 22))
+            p.setPen(QPen(QColor(accent.red(), accent.green(), accent.blue(), 180), 2))
+            p.drawPath(self._highlight_path)
 
         p.end()
 
@@ -1886,6 +1948,7 @@ class StatsPage(QWidget):
 
         # Heatmap (always full year)
         self._heatmap.load(heatmap_daily, self._current_year)
+        self._heatmap.set_highlight_month(self._current_month if self._granularity == "month" else None)
 
         # Pie chart
         self._pie.load(browser)
