@@ -617,10 +617,12 @@ class OverlayWindow(QWidget):
         self._search_input.set_browser_badge(self._active_browser)
         self._search_input.clear()
         self._stack.setCurrentIndex(0)
-        self._position_on_screen()
+        self._results.hide()
+        self._results.setFixedHeight(0)
         self._is_hiding = False
         self.setWindowOpacity(0.0)
         self.show()
+        self._position_on_screen()
 
         if sys.platform == "win32":
             try:
