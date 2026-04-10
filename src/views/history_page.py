@@ -2158,6 +2158,7 @@ class HistoryPage(QWidget):
         self._sep_counts.clear()
         self._separator_indices.clear()
         self._sep_count_timer.stop()
+        self._table.verticalScrollBar().setValue(0)
 
     def _customize_calendar(self, date_edit: QDateEdit):
         """Customize calendar widget appearance for better dark mode support."""
