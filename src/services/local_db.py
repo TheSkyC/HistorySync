@@ -2094,7 +2094,7 @@ class LocalDatabase:
                     "SELECT strftime('%Y-%m-%d', visit_time, 'unixepoch', 'localtime') AS day, "
                     "COUNT(*) AS cnt FROM history "
                     "WHERE visit_time >= ? AND visit_time < ? "
-                    "AND url NOT IN (SELECT url FROM hidden_records) GROUP BY day ORDER BY day",
+                    "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY day ORDER BY day",
                     (start_ts, end_ts),
                 ).fetchall()
         else:
@@ -2102,7 +2102,7 @@ class LocalDatabase:
                 rows = conn.execute(
                     "SELECT strftime('%Y-%m-%d', visit_time, 'unixepoch', 'localtime') AS day, "
                     "COUNT(*) AS cnt FROM history "
-                    "WHERE url NOT IN (SELECT url FROM hidden_records) GROUP BY day ORDER BY day"
+                    "WHERE NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY day ORDER BY day"
                 ).fetchall()
         return {r[0]: r[1] for r in rows}
 
@@ -2114,13 +2114,13 @@ class LocalDatabase:
             sql = (
                 "SELECT browser_type, COUNT(*) AS cnt FROM history "
                 "WHERE visit_time >= ? AND visit_time < ? "
-                "AND url NOT IN (SELECT url FROM hidden_records) GROUP BY browser_type"
+                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY browser_type"
             )
             params: tuple = (start_ts, end_ts)
         else:
             sql = (
                 "SELECT browser_type, COUNT(*) AS cnt FROM history "
-                "WHERE url NOT IN (SELECT url FROM hidden_records) GROUP BY browser_type"
+                "WHERE NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY browser_type"
             )
             params = ()
         with self._conn(write=False) as conn:
@@ -2136,14 +2136,14 @@ class LocalDatabase:
                 "SELECT CAST(strftime('%H', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS hr, "
                 "COUNT(*) AS cnt FROM history "
                 "WHERE visit_time >= ? AND visit_time < ? "
-                "AND url NOT IN (SELECT url FROM hidden_records) GROUP BY hr"
+                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY hr"
             )
             params: tuple = (start_ts, end_ts)
         else:
             sql = (
                 "SELECT CAST(strftime('%H', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS hr, "
                 "COUNT(*) AS cnt FROM history "
-                "WHERE url NOT IN (SELECT url FROM hidden_records) GROUP BY hr"
+                "WHERE NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY hr"
             )
             params = ()
         with self._conn(write=False) as conn:
@@ -2161,7 +2161,7 @@ class LocalDatabase:
                 "SELECT d.host, COUNT(*) AS cnt FROM history h "
                 "JOIN domains d ON h.domain_id = d.id "
                 "WHERE h.visit_time >= ? AND h.visit_time < ? "
-                "AND h.url NOT IN (SELECT url FROM hidden_records) "
+                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = h.url) "
                 "GROUP BY d.host ORDER BY cnt DESC LIMIT ?"
             )
             params: tuple = (start_ts, end_ts, limit)
@@ -2169,7 +2169,7 @@ class LocalDatabase:
             sql = (
                 "SELECT d.host, COUNT(*) AS cnt FROM history h "
                 "JOIN domains d ON h.domain_id = d.id "
-                "WHERE h.url NOT IN (SELECT url FROM hidden_records) "
+                "WHERE NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = h.url) "
                 "GROUP BY d.host ORDER BY cnt DESC LIMIT ?"
             )
             params = (limit,)
@@ -2188,7 +2188,7 @@ class LocalDatabase:
             rows = conn.execute(
                 "SELECT MAX(title) AS title, url, SUM(visit_count) AS total_visits FROM history "
                 "WHERE visit_time >= ? AND visit_time < ? "
-                "AND url NOT IN (SELECT url FROM hidden_records) "
+                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) "
                 "GROUP BY url "
                 "ORDER BY total_visits DESC LIMIT ?",
                 (start_ts, end_ts, limit),
@@ -2207,7 +2207,7 @@ class LocalDatabase:
                 "SELECT CAST(strftime('%H', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS hr, "
                 "COUNT(*) AS cnt FROM history "
                 "WHERE visit_time >= ? AND visit_time < ? "
-                "AND url NOT IN (SELECT url FROM hidden_records) GROUP BY hr",
+                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY hr",
                 (start_ts, end_ts),
             ).fetchall()
         return {r[0]: r[1] for r in rows}
@@ -2256,7 +2256,7 @@ class LocalDatabase:
             conditions.append("h.browser_type = ?")
             params.append(browser_type)
 
-        conditions.append("h.url NOT IN (SELECT url FROM hidden_records)")
+        conditions.append("NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = h.url)")
 
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
@@ -2277,7 +2277,7 @@ class LocalDatabase:
                     from_clause = "FROM history h"
                     conditions = [
                         "(h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')",
-                        "h.url NOT IN (SELECT url FROM hidden_records)",
+                        "NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = h.url)",
                     ]
                     params = [f"%{_escape_like(keyword)}%", f"%{_escape_like(keyword)}%"]
                     if browser_type and browser_type not in ("auto", "all"):
@@ -2341,7 +2341,7 @@ class LocalDatabase:
             row = conn.execute(
                 "SELECT COUNT(*) FROM history "
                 "WHERE visit_time BETWEEN ? AND ? "
-                "AND url NOT IN (SELECT url FROM hidden_records)",
+                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url)",
                 (day_start_ts, ts),
             ).fetchone()
         return row[0] if row else 1
@@ -2362,7 +2362,7 @@ class LocalDatabase:
             total_row = conn.execute(
                 "SELECT COUNT(*) FROM history "
                 "WHERE visit_time >= ? AND visit_time < ? "
-                "AND url NOT IN (SELECT url FROM hidden_records)",
+                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url)",
                 (day_start_ts, day_end_ts),
             ).fetchone()
             total = total_row[0] if total_row else 0
@@ -2373,7 +2373,7 @@ class LocalDatabase:
                 FROM history h
                 JOIN domains d ON h.domain_id = d.id
                 WHERE h.visit_time >= ? AND h.visit_time < ?
-                AND h.url NOT IN (SELECT url FROM hidden_records)
+                AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = h.url)
                 GROUP BY d.id
                 ORDER BY cnt DESC
                 LIMIT ?
