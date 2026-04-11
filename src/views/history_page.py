@@ -664,6 +664,7 @@ class BookmarkBadgeDelegate(QStyledItemDelegate):
 
         # Refresh badge cache
         page._vm.table_model.invalidate_badge_cache(page._table)
+        page.bookmark_changed.emit()
 
     def _handle_annotation_click(self, index):
         """Open annotation edit dialog."""
@@ -1837,6 +1838,7 @@ class HistoryPage(QWidget):
     blacklist_domain_requested = Signal(str)
     hide_records_requested = Signal(list)  # list of record IDs
     delete_records_requested = Signal(list)  # list of record IDs
+    bookmark_changed = Signal()  # emitted after any add/remove bookmark action
 
     def __init__(self, vm: HistoryViewModel, config=None, parent=None):
         super().__init__(parent)
@@ -3040,6 +3042,7 @@ class HistoryPage(QWidget):
 
         # Refresh badge cache to show/hide bookmark icons
         self._vm.table_model.invalidate_badge_cache(self._table)
+        self.bookmark_changed.emit()
 
     def _edit_annotation(self, record):
         db = self._vm._db

@@ -416,12 +416,9 @@ class BookmarksPage(QWidget):
         self._pending_bms.clear()
 
     def showEvent(self, event):
-        """Rebuild cards from the in-memory cache when the page becomes visible."""
+        """Reload bookmarks from the database each time the page becomes visible."""
         super().showEvent(event)
-        if self._all_bookmarks:
-            self._rebuild_cards_from_cache()
-        else:
-            self._start_load()
+        self._start_load()
 
     def _on_theme_changed(self, _theme: str) -> None:
         """Re-polish the tag list after a theme switch.
