@@ -1996,8 +1996,13 @@ class HistoryPage(QWidget):
         hh.sectionMoved.connect(lambda: self._col_move_timer.start(500))
         hh.sectionResized.connect(self._on_section_resized)
 
-        # Apply dynamic column widths
-        self._apply_column_widths()
+        # Defer column width application until the widget has been added to the
+        # layout and the viewport has its real size.  Calling _apply_column_widths()
+        # synchronously here means the viewport width is still 0 (the widget hasn't
+        # been inserted into the QStackedWidget yet), so setStretchLastSection has
+        # nothing to stretch against and the explicit section widths exceed the
+        # viewport once the page becomes visible — causing a spurious horizontal scrollbar.
+        QTimer.singleShot(0, self._apply_column_widths)
 
         vh = self._table.verticalHeader()
         vh.setDefaultSectionSize(_ROW_H)
@@ -2155,6 +2160,12 @@ class HistoryPage(QWidget):
         Qt does NOT automatically reset per-section sizes on beginResetModel /
         endResetModel, so we must restore every enlarged row back to _ROW_H
         before dropping the separator_rows dict.
+
+        Qt's QHeaderView.initializeSections() IS called on endResetModel and
+        resets every horizontal section to defaultSectionSize, discarding the
+        widths set by _apply_column_widths().  Re-apply them here so the header
+        always reflects the user's saved (or default) column widths after any
+        model reset, including the initial load triggered by initialize().
         """
         vh = self._table.verticalHeader()
         for row in self._separator_rows:
@@ -2164,6 +2175,7 @@ class HistoryPage(QWidget):
         self._separator_indices.clear()
         self._sep_count_timer.stop()
         self._table.verticalScrollBar().setValue(0)
+        self._apply_column_widths()
 
     def _customize_calendar(self, date_edit: QDateEdit):
         """Customize calendar widget appearance for better dark mode support."""
