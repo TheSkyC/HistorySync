@@ -863,6 +863,7 @@ class _ScrollTimeBubble(QWidget):
 
         # Divider with spacing (wrapped in container)
         self._divider_container = QWidget(self)
+        self._divider_container.setAttribute(Qt.WA_NoSystemBackground)
         divider_layout = QVBoxLayout(self._divider_container)
         divider_layout.setContentsMargins(0, 5, 0, 5)
         divider_layout.setSpacing(0)
@@ -884,6 +885,7 @@ class _ScrollTimeBubble(QWidget):
 
         # Bottom: density bar + total count (wrapped in container with spacing)
         self._bottom_container = QWidget(self)
+        self._bottom_container.setAttribute(Qt.WA_NoSystemBackground)
         bottom_container_layout = QVBoxLayout(self._bottom_container)
         bottom_container_layout.setContentsMargins(0, 6, 0, 0)
         bottom_container_layout.setSpacing(0)
@@ -908,6 +910,7 @@ class _ScrollTimeBubble(QWidget):
         # shrinks back to its normal height without any layout rebuild.
         self._tutorial_widget = QWidget(self)
         self._tutorial_widget.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        self._tutorial_widget.setAttribute(Qt.WA_NoSystemBackground)
         tut_layout = QVBoxLayout(self._tutorial_widget)
         tut_layout.setContentsMargins(0, 6, 0, 0)
         tut_layout.setSpacing(0)
