@@ -1474,7 +1474,7 @@ class LocalDatabase:
             "h.id, h.url, h.title, h.visit_time, h.visit_count, "
             "h.browser_type, h.profile_name, h.metadata, "
             "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
-            "h.device_id"
+            "h.device_id, d.host AS domain"
         )
 
         # Hold the connection for the entire iteration to avoid lock contention
@@ -1626,6 +1626,15 @@ class LocalDatabase:
             connector = " AND " if "WHERE" in from_where else " WHERE "
             from_where += connector + " AND ".join(extra_conditions)
 
+        # ── Inject domains JOIN so callers can SELECT d.host AS domain ──
+        # Placed after WHERE injection so it never disturbs condition building.
+        # LEFT JOIN is safe even when domain_id IS NULL (host will be NULL).
+        from_where = from_where.replace(
+            "FROM history h",
+            "FROM history h LEFT JOIN domains d ON h.domain_id = d.id",
+            1,
+        )
+
         return from_where, params, use_fts
 
     # ── Public query methods ──────────────────────────────────
@@ -1691,7 +1700,7 @@ class LocalDatabase:
             "h.id, h.url, h.title, h.visit_time, h.visit_count, "
             "h.browser_type, h.profile_name, h.metadata, "
             "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
-            "h.device_id"
+            "h.device_id, d.host AS domain"
         )
         with self._conn(write=False) as conn:
             from_where, params, _use_fts = self._build_query_parts(
@@ -2234,7 +2243,7 @@ class LocalDatabase:
             "h.id, h.url, h.title, h.visit_time, h.visit_count, "
             "h.browser_type, h.profile_name, h.metadata, "
             "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
-            "h.device_id"
+            "h.device_id, d.host AS domain"
         )
         params: list = []
         conditions: list[str] = []
@@ -2259,7 +2268,13 @@ class LocalDatabase:
         conditions.append("NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = h.url)")
 
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-        sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
+        # Inject domains JOIN so _row_to_record can read d.host AS domain directly.
+        from_clause_with_join = from_clause.replace(
+            "FROM history h",
+            "FROM history h LEFT JOIN domains d ON h.domain_id = d.id",
+            1,
+        )
+        sql = f"SELECT {_COLS} {from_clause_with_join} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
         with self._ro_lock:
@@ -2274,7 +2289,7 @@ class LocalDatabase:
             except sqlite3.OperationalError:
                 # FTS index unavailable — fall back to LIKE
                 if keyword:
-                    from_clause = "FROM history h"
+                    from_clause = "FROM history h LEFT JOIN domains d ON h.domain_id = d.id"
                     conditions = [
                         "(h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')",
                         "NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = h.url)",
@@ -2590,9 +2605,12 @@ class LocalDatabase:
                 placeholders = ",".join("?" * len(chunk))
                 rows.extend(
                     conn.execute(
-                        f"SELECT id, url, title, visit_time, visit_count, browser_type, profile_name, metadata, "
-                        f"typed_count, first_visit_time, transition_type, visit_duration, device_id "
-                        f"FROM history WHERE id IN ({placeholders})",
+                        f"SELECT h.id, h.url, h.title, h.visit_time, h.visit_count, "
+                        f"h.browser_type, h.profile_name, h.metadata, "
+                        f"h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
+                        f"h.device_id, d.host AS domain "
+                        f"FROM history h LEFT JOIN domains d ON h.domain_id = d.id "
+                        f"WHERE h.id IN ({placeholders})",
                         chunk,
                     ).fetchall()
                 )
@@ -2629,6 +2647,13 @@ class LocalDatabase:
             device_id = row["device_id"]
         except IndexError:
             device_id = None
+        # Prefer the pre-joined d.host value (avoids per-row Python URL parsing).
+        # Fall back to _extract_display_domain only when domain_id was NULL or the
+        # column is absent (e.g. legacy callers that haven't added the JOIN yet).
+        try:
+            domain = row["domain"] or _extract_display_domain(row["url"])
+        except IndexError:
+            domain = _extract_display_domain(row["url"])
         return HistoryRecord(
             id=row["id"],
             url=row["url"],
@@ -2637,7 +2662,7 @@ class LocalDatabase:
             visit_count=row["visit_count"],
             browser_type=row["browser_type"],
             profile_name=row["profile_name"],
-            domain=_extract_display_domain(row["url"]),
+            domain=domain,
             metadata=row["metadata"],
             typed_count=row["typed_count"],
             first_visit_time=row["first_visit_time"],
