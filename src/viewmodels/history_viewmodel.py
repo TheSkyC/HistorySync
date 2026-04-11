@@ -63,6 +63,82 @@ ALL_COLUMNS = {
 DEFAULT_VISIBLE_COLUMNS = ["title", "url", "browser", "visit_time", "visit_count", "domain", "profile_name"]
 
 
+# ── Background worker ────────────────────────────────────────
+
+
+class _ReloadWorker(QThread):
+    """Run one reload DB query off the main thread.
+
+    Emits ``done(generation, keyword_index, total_count, keyword_materialized)``
+    on the thread that *started* this worker (i.e. the main thread), so the
+    connected slot in :class:`HistoryTableModel` can safely mutate Qt objects.
+
+    Parameters
+    ----------
+    db:
+        The shared :class:`LocalDatabase` instance.
+    params:
+        A snapshot of all filter parameters (taken at the moment ``reload()``
+        was called) so that a concurrent ``set_filter()`` cannot mutate them
+        while the worker is running.
+    use_id_index:
+        When ``True``, call ``get_filtered_id_times`` and return the full
+        ``(id, visit_time)`` index.  When ``False``, call ``get_filtered_count``
+        and return an empty index.
+    generation:
+        Monotonic counter from the owning model; the model discards results
+        whose generation does not match the current value.
+    """
+
+    # (generation, keyword_index, total_count, keyword_materialized)
+    done: Signal = Signal(int, list, int, bool)
+
+    def __init__(
+        self,
+        db: LocalDatabase,
+        params: dict,
+        use_id_index: bool,
+        generation: int,
+        parent: QObject | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._db = db
+        self._params = params
+        self._use_id_index = use_id_index
+        self._generation = generation
+
+    def run(self) -> None:  # executed in worker thread
+        try:
+            p = self._params
+            kw = {
+                "keyword": p["keyword"],
+                "browser_type": p["browser_type"],
+                "date_from": p["date_from"],
+                "date_to": p["date_to"],
+                "excluded_ids": p["excluded_ids"],
+                "domain_ids": p["domain_ids"],
+                "excludes": p["excludes"],
+                "title_only": p["title_only"],
+                "url_only": p["url_only"],
+                "bookmarked_only": p["bookmarked_only"],
+                "has_annotation": p["has_annotation"],
+                "bookmark_tag": p["bookmark_tag"],
+                "device_ids": p["device_ids"],
+            }
+            if self._use_id_index:
+                index = self._db.get_filtered_id_times(**kw)
+                self.done.emit(self._generation, index, len(index), True)
+            else:
+                count = self._db.get_filtered_count(**kw)
+                self.done.emit(self._generation, [], count, False)
+        except Exception:
+            log.exception("_ReloadWorker failed (generation=%d)", self._generation)
+            self.done.emit(self._generation, [], 0, False)
+
+
+# ── Table model ──────────────────────────────────────────────
+
+
 class HistoryTableModel(QAbstractTableModel):
     """Virtualised history table model with virtual scrolling support."""
 
@@ -352,7 +428,13 @@ class HistoryTableModel(QAbstractTableModel):
         self.reload()
 
     def reload(self):
-        """Reset cache, re-query total count, and trigger a full view refresh."""
+        """Reset cache and kick off an async DB query to get the new row count.
+
+        The actual DB work runs in a background QThread (_ReloadWorker) so the
+        main thread — and therefore the UI — is never blocked.  A monotonically
+        increasing generation counter is used to discard results that arrive
+        after a newer reload() has already been issued (e.g. rapid user input).
+        """
         self._page_cache.clear()
         self._page_lru.clear()
         self._regex_scan_offset = 0
@@ -362,57 +444,83 @@ class HistoryTableModel(QAbstractTableModel):
         self._last_row = -1
         self._last_record = None
 
-        # Defer badge loading to avoid blocking initial render
-        # These are only needed when rows are actually painted
+        # Bump generation so any in-flight worker result is treated as stale.
+        self._reload_generation: int = getattr(self, "_reload_generation", 0) + 1
+        generation = self._reload_generation
+
+        # Defer badge loading — only needed when rows are actually painted.
         QTimer.singleShot(0, self._load_badge_data)
 
         if self._use_regex and self._keyword:
-            # Regex incremental mode: scan the first batch, store (id, visit_time) in _keyword_index
+            # Regex incremental mode runs synchronously (already batched / cheap).
             self._scan_regex_batch()
-            new_count = len(self._keyword_index)
-        elif self._keyword:
-            # Normal keyword mode: build a lightweight (id, visit_time) index for the full result set.
-            self._keyword_index = self._db.get_filtered_id_times(
-                keyword=self._keyword,
-                browser_type=self._browser_type,
-                date_from=self._date_from,
-                date_to=self._date_to,
-                excluded_ids=self._hidden_ids,
-                domain_ids=self._domain_ids,
-                excludes=self._excludes,
-                title_only=self._title_only,
-                url_only=self._url_only,
-                bookmarked_only=self._bookmarked_only,
-                has_annotation=self._has_annotation,
-                bookmark_tag=self._bookmark_tag,
-                device_ids=self._device_ids,
+            self._apply_reload_result(
+                generation=generation,
+                keyword_index=list(self._keyword_index),
+                total_count=len(self._keyword_index),
+                keyword_materialized=False,
             )
+            return
+
+        # Snapshot filter params for the worker (avoids races if set_filter is
+        # called again before the worker finishes).
+        params = {
+            "keyword": self._keyword,
+            "browser_type": self._browser_type,
+            "date_from": self._date_from,
+            "date_to": self._date_to,
+            "excluded_ids": frozenset(self._hidden_ids),
+            "domain_ids": list(self._domain_ids) if self._domain_ids is not None else None,
+            "excludes": list(self._excludes) if self._excludes is not None else None,
+            "title_only": self._title_only,
+            "url_only": self._url_only,
+            "bookmarked_only": self._bookmarked_only,
+            "has_annotation": self._has_annotation,
+            "bookmark_tag": self._bookmark_tag,
+            "device_ids": list(self._device_ids) if self._device_ids is not None else None,
+        }
+        use_id_index = bool(self._keyword)
+
+        worker = _ReloadWorker(self._db, params, use_id_index, generation, parent=self)
+        worker.done.connect(self._on_reload_done)
+        worker.done.connect(worker.deleteLater)
+        # Keep a reference so the thread is not garbage-collected mid-run.
+        self._reload_worker = worker
+        worker.start()
+
+    @Slot(int, list, int, bool)
+    def _on_reload_done(
+        self,
+        generation: int,
+        keyword_index: list,
+        total_count: int,
+        keyword_materialized: bool,
+    ) -> None:
+        """Receive async reload result and update the model (main-thread slot)."""
+        # Discard stale results from superseded reload() calls.
+        if generation != self._reload_generation:
+            return
+        self._apply_reload_result(generation, keyword_index, total_count, keyword_materialized)
+
+    def _apply_reload_result(
+        self,
+        generation: int,
+        keyword_index: list,
+        total_count: int,
+        keyword_materialized: bool,
+    ) -> None:
+        """Apply a (possibly async) reload result to the model state."""
+        if keyword_materialized:
+            self._keyword_index = keyword_index
             self._keyword_materialized = True
-            new_count = len(self._keyword_index)
-        else:
-            new_count = self._db.get_filtered_count(
-                keyword=self._keyword,
-                browser_type=self._browser_type,
-                date_from=self._date_from,
-                date_to=self._date_to,
-                excluded_ids=self._hidden_ids,
-                domain_ids=self._domain_ids,
-                excludes=self._excludes,
-                title_only=self._title_only,
-                url_only=self._url_only,
-                bookmarked_only=self._bookmarked_only,
-                has_annotation=self._has_annotation,
-                bookmark_tag=self._bookmark_tag,
-                device_ids=self._device_ids,
-            )
 
         self.beginResetModel()
-        self._total_count = new_count
+        self._total_count = total_count
         self.endResetModel()
 
         self.total_count_changed.emit(self._total_count, self._regex_has_more)
 
-        # Defer first page fetch to avoid blocking the model reset
+        # Defer first page fetch to avoid blocking the model reset.
         if not self._keyword_materialized and not (self._use_regex and self._keyword) and self._total_count > 0:
             QTimer.singleShot(0, lambda: self._fetch_page(0))
 
