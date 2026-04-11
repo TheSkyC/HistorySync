@@ -2576,8 +2576,8 @@ class LocalDatabase:
                 device_ids=device_ids,
             )
             sql = f"SELECT h.id, h.visit_time {from_where} ORDER BY h.visit_time DESC"
-            rows = conn.execute(sql, params).fetchall()
-        return [(r[0], r[1]) for r in rows]
+            cur = conn.execute(sql, params)
+            return [(row[0], row[1]) for row in cur]
 
     def get_records_by_ids(self, ids: list[int]) -> list[HistoryRecord]:
         if not ids:
