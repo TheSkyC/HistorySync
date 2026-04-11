@@ -622,6 +622,13 @@ class OverlayWindow(QWidget):
         self._is_hiding = False
         self.setWindowOpacity(0.0)
         self.show()
+        # Load results first (window is still invisible at opacity=0.0) so the
+        # window reaches its final height before _position_on_screen runs.
+        # Without this, _position_on_screen would see a zero-height results list
+        # and place the short window using the saved center-based offset; when
+        # _do_search then expanded the window downward the effective center
+        # shifted ~100 px below the intended position on every re-open.
+        self._do_search()
         self._position_on_screen()
 
         if sys.platform == "win32":
@@ -635,8 +642,6 @@ class OverlayWindow(QWidget):
         self.activateWindow()
         self.raise_()
         self._search_input.set_focus()
-        # Show recent history immediately on open
-        self._do_search()
         # Start fade-in animation
         self._fade_in_anim.start()
 
