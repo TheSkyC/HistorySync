@@ -70,7 +70,33 @@ from src.utils.styled_menu import StyledMenu
 from src.utils.theme_manager import ThemeManager
 from src.viewmodels.history_viewmodel import ANNOTATION_ROLE, BOOKMARK_ROLE, HistoryViewModel
 from src.views.annotation_dialog import AnnotationDialog
+from src.views.dialogs.hide_domain_dialog import HideDomainDialog
 from src.views.search_autocomplete import SmartSearchLineEdit
+
+
+def _extract_main_domain(host: str) -> str:
+    """Heuristically extract eTLD+1 from *host* without an external library.
+
+    Handles common two-part ccTLD/SLD patterns (co.uk, com.au, org.uk …) by
+    checking whether the second-to-last label is a well-known SLD and the TLD
+    is a two-letter country code.  Falls back to the last two labels for all
+    other cases.
+
+    Examples::
+
+        mail.google.com  →  google.com
+        api.github.com   →  github.com
+        bbc.co.uk        →  bbc.co.uk
+        example.com      →  example.com  (already eTLD+1)
+    """
+    parts = host.split(".")
+    if len(parts) <= 2:
+        return host
+    _COMMON_SLD = {"co", "com", "org", "net", "gov", "edu", "ac", "ne", "or", "ltd", "plc"}
+    if len(parts) >= 3 and parts[-2] in _COMMON_SLD and len(parts[-1]) == 2:
+        return ".".join(parts[-3:])
+    return ".".join(parts[-2:])
+
 
 log = get_logger("view.history")
 
@@ -1837,6 +1863,7 @@ class HistoryPage(QWidget):
     # Signals to parent for blacklist / hide changes
     blacklist_domain_requested = Signal(str)
     hide_records_requested = Signal(list)  # list of record IDs
+    hide_domain_requested = Signal(str, bool, bool)  # domain, subdomain_only, auto_hide
     delete_records_requested = Signal(list)  # list of record IDs
     bookmark_changed = Signal()  # emitted after any add/remove bookmark action
 
@@ -2935,15 +2962,60 @@ class HistoryPage(QWidget):
             delete_act = actions_menu.addAction(get_icon("trash"), _("Delete This Record"))
             delete_act.setShortcut("Del")
 
-        # Hide
+        # ── Hide submenu ──────────────────────────────────────
+        hide_menu = StyledMenu(_("Hide…"), actions_menu)
+        hide_menu.setIcon(get_icon("eye-off"))
+
+        # Hide this record / selected records
         if multi:
-            hide_act = actions_menu.addAction(
-                get_icon("eye"), _("Hide Selected ({n} records)").format(n=len(selected_records))
+            hide_rec_act = hide_menu.addAction(
+                get_icon("eye-off"), _("Hide Selected ({n} records)").format(n=len(selected_records))
             )
         else:
-            hide_act = actions_menu.addAction(get_icon("eye"), _("Hide This Record"))
+            hide_rec_act = hide_menu.addAction(get_icon("eye-off"), _("Hide This Record"))
 
-        # Blacklist domain
+        # Domain-level hide options (single-select only for clarity)
+        hide_sub_act = None
+        hide_main_act = None
+        if primary_domain and not multi:
+            hide_menu.addSeparator()
+            main_domain = _extract_main_domain(primary_domain)
+            if main_domain != primary_domain:
+                # primary_domain is a subdomain → offer both options
+                hide_sub_act = hide_menu.addAction(
+                    get_icon("eye-off"),
+                    _("Hide Subdomain: {domain}").format(domain=primary_domain),
+                )
+                hide_sub_act.setToolTip(_("Hide only records from {domain}").format(domain=primary_domain))
+                hide_main_act = hide_menu.addAction(
+                    get_icon("eye-off"),
+                    _("Hide Domain: {domain}").format(domain=main_domain),
+                )
+                hide_main_act.setToolTip(
+                    _("Hide records from {domain} and all its subdomains").format(domain=main_domain)
+                )
+            else:
+                # primary_domain is already eTLD+1
+                hide_main_act = hide_menu.addAction(
+                    get_icon("eye-off"),
+                    _("Hide Domain: {domain}").format(domain=primary_domain),
+                )
+                hide_main_act.setToolTip(
+                    _("Hide records from {domain} and all its subdomains").format(domain=primary_domain)
+                )
+        elif primary_domain and multi:
+            # Multi-select: only offer main-domain hide for the primary record's domain
+            hide_menu.addSeparator()
+            main_domain = _extract_main_domain(primary_domain)
+            hide_main_act = hide_menu.addAction(
+                get_icon("eye-off"),
+                _("Hide Domain: {domain}").format(domain=main_domain),
+            )
+            hide_main_act.setToolTip(_("Hide records from {domain} and all its subdomains").format(domain=main_domain))
+
+        actions_menu.addMenu(hide_menu)
+
+        # Blacklist domain (destructive — kept outside Hide submenu intentionally)
         if primary_domain:
             actions_menu.addSeparator()
             blacklist_act = actions_menu.addAction(
@@ -2990,8 +3062,16 @@ class HistoryPage(QWidget):
         elif action == delete_act:
             self._confirm_delete(selected_records, ids)
 
-        elif action == hide_act:
+        elif action == hide_rec_act:
             self._hide_records(ids)
+
+        elif hide_sub_act and action == hide_sub_act:
+            self._hide_domain(primary_domain, subdomain_only=True)
+
+        elif hide_main_act and action == hide_main_act:
+            resolved_main = _extract_main_domain(primary_domain) if primary_domain else ""
+            target = primary_domain if (primary_domain == resolved_main) else resolved_main
+            self._hide_domain(target, subdomain_only=False)
 
         elif blacklist_act and action == blacklist_act:
             self._blacklist_domain(primary_domain)
@@ -3021,6 +3101,16 @@ class HistoryPage(QWidget):
     def _hide_records(self, ids: list[int]):
         self.hide_records_requested.emit(ids)
         self._status_label.setText(_("Hidden {n} record(s). Manage in Settings → Privacy.").format(n=len(ids)))
+
+    def _hide_domain(self, domain: str, subdomain_only: bool) -> None:
+        """Show the HideDomainDialog then emit hide_domain_requested if confirmed."""
+        if not domain:
+            return
+        count = self._vm._db.count_records_for_domain(domain, subdomain_only)
+        dlg = HideDomainDialog(domain, subdomain_only, count, parent=self)
+        if dlg.exec() != HideDomainDialog.Accepted:
+            return
+        self.hide_domain_requested.emit(domain, subdomain_only, dlg.auto_hide)
 
     def _blacklist_domain(self, domain: str):
         reply = QMessageBox.warning(

@@ -24,6 +24,7 @@ from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
 from src.viewmodels.settings_viewmodel import SettingsViewModel
+from src.views.dialogs.hidden_domains_manager_dialog import HiddenDomainsManagerDialog
 from src.views.settings.countdown import (
     compute_next_backup_ts,
     compute_next_sync_ts,
@@ -197,9 +198,11 @@ class SettingsPage(QWidget):
         # Privacy
         self._sec_privacy.refresh_blacklist_count(len(cfg.privacy.blacklisted_domains))
         self._sec_privacy.refresh_hidden_count(len(self._vm._main_vm.get_hidden_ids()))
+        self._sec_privacy.refresh_hidden_domains_count(len(self._vm._main_vm.get_hidden_domains()))
         self._sec_privacy.configure_blacklist_requested.connect(self._on_configure_blacklist)
         self._sec_privacy.clear_hidden_requested.connect(self._on_clear_hidden)
         self._sec_privacy.configure_url_filters_requested.connect(self._on_configure_url_filters)
+        self._sec_privacy.configure_hidden_domains_requested.connect(self._on_configure_hidden_domains)
 
         # Custom paths
         self._sec_paths.refresh_paths(cfg.extractor.custom_paths)
@@ -499,6 +502,26 @@ class SettingsPage(QWidget):
             new_prefixes = dlg.get_prefixes()
             self._vm._main_vm.set_filtered_url_prefixes(new_prefixes)
             self._set_status(_("URL prefix filters saved"), "success")
+
+    def _on_configure_hidden_domains(self) -> None:
+        """Open the Hidden Domains manager dialog."""
+        main_vm = self._vm._main_vm
+        dlg = HiddenDomainsManagerDialog(main_vm.get_hidden_domains(), parent=self)
+        dlg.exec()
+        for domain in dlg.domains_to_remove:
+            main_vm.unhide_domain(domain)
+        for entry in dlg.domains_to_add:
+            main_vm.hide_domain(entry["domain"], entry["subdomain_only"], auto_hide=True)
+        changed = len(dlg.domains_to_remove) + len(dlg.domains_to_add)
+        if changed:
+            remaining = len(main_vm.get_hidden_domains())
+            self._sec_privacy.refresh_hidden_domains_count(remaining)
+            parts = []
+            if dlg.domains_to_remove:
+                parts.append(_("Unhid {n} domain(s)").format(n=len(dlg.domains_to_remove)))
+            if dlg.domains_to_add:
+                parts.append(_("Added {n} hidden domain(s)").format(n=len(dlg.domains_to_add)))
+            self._set_status(", ".join(parts), "success")
 
     # ── Custom paths handlers ─────────────────────────────────
 

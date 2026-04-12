@@ -247,6 +247,7 @@ class MainWindow(QMainWindow):
             # Wire up signals now that the page exists.
             self._page_history.delete_records_requested.connect(self._on_delete_records)
             self._page_history.hide_records_requested.connect(self._on_hide_records)
+            self._page_history.hide_domain_requested.connect(self._on_hide_domain)
             self._page_history.blacklist_domain_requested.connect(self._on_blacklist_domain)
 
         elif index == PAGE_BOOKMARKS and self._page_bookmarks is None:
@@ -360,6 +361,17 @@ class MainWindow(QMainWindow):
         self._status_bar.showMessage(
             _("Hidden {n} record(s). Unhide anytime in Settings → Privacy.").format(n=len(ids)), 5000
         )
+
+    def _on_hide_domain(self, domain: str, subdomain_only: bool, auto_hide: bool) -> None:
+        """Handle hide_domain_requested from history page."""
+        hidden_count = self._vm.hide_domain(domain, subdomain_only, auto_hide)
+        if auto_hide:
+            msg = _("'{domain}' hidden ({n} record(s) affected). Manage hidden domains in Settings → Privacy.").format(
+                domain=domain, n=hidden_count
+            )
+        else:
+            msg = _("Hidden {n} record(s) from '{domain}'.").format(domain=domain, n=hidden_count)
+        self._status_bar.showMessage(msg, 6000)
 
     def _on_blacklist_domain(self, domain: str):
         deleted = self._vm.blacklist_domain(domain)

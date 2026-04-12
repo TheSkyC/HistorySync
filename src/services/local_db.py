@@ -286,6 +286,15 @@ class LocalDatabase:
                     hidden_at  INTEGER NOT NULL DEFAULT (strftime('%s','now'))
                 );
 
+                -- Soft-hide by domain; synced across devices like hidden_records.
+                -- subdomain_only=0 → hide main domain + all subdomains
+                -- subdomain_only=1 → hide only the exact subdomain stored in `domain`
+                CREATE TABLE IF NOT EXISTS hidden_domains (
+                    domain         TEXT    NOT NULL PRIMARY KEY,
+                    subdomain_only INTEGER NOT NULL DEFAULT 0,
+                    hidden_at      INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+                );
+
                 CREATE VIRTUAL TABLE IF NOT EXISTS history_fts
                     USING fts5(
                         url, title,
@@ -413,6 +422,17 @@ class LocalDatabase:
                 "CREATE INDEX IF NOT EXISTS idx_history_browser_time ON history(browser_type, visit_time DESC)"
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_history_domain_time ON history(domain_id, visit_time DESC)")
+
+            # hidden_domains table — added in later release; safe to run on existing DBs.
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS hidden_domains (
+                    domain         TEXT    NOT NULL PRIMARY KEY,
+                    subdomain_only INTEGER NOT NULL DEFAULT 0,
+                    hidden_at      INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+                )
+                """
+            )
 
     def _verify_fts_integrity(self) -> None:
         """Run an FTS5 integrity check on startup and auto-rebuild if corrupt.
@@ -583,6 +603,154 @@ class LocalDatabase:
         with self._conn() as conn:
             cursor = conn.execute("DELETE FROM hidden_records")
             return cursor.rowcount
+
+    def hide_records_by_domain(self, domain: str, subdomain_only: bool) -> int:
+        """Insert all current records matching *domain* into hidden_records (URL-level).
+
+        Used when the user hides a domain without enabling auto-hide, so only
+        the records that exist right now are hidden — future synced records are
+        **not** filtered.  Returns the number of distinct URLs hidden.
+        """
+        with self._conn() as conn:
+            d_ids = self._domain_ids_for_hide(conn, domain, subdomain_only)
+            if not d_ids:
+                return 0
+            placeholders = ",".join("?" * len(d_ids))
+            urls = conn.execute(
+                f"SELECT DISTINCT url FROM history WHERE domain_id IN ({placeholders})", d_ids
+            ).fetchall()
+            if urls:
+                conn.executemany(
+                    "INSERT OR IGNORE INTO hidden_records(url) VALUES(?)",
+                    ((r[0],) for r in urls),
+                )
+            return len(urls)
+
+    # ── Stats filter helpers ──────────────────────────────────
+
+    @staticmethod
+    def _hr_filter(alias: str = "history") -> str:
+        """SQL fragment: exclude URL-level hidden records."""
+        return f"NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = {alias}.url)"
+
+    @staticmethod
+    def _hd_filter(history_alias: str = "history", domain_alias: str | None = None) -> str:
+        """SQL fragment: exclude hidden-domain records.
+
+        If *domain_alias* names an already-joined ``domains`` table alias the
+        host column is referenced directly (no extra join).  Otherwise an
+        inline ``JOIN domains`` subquery is used.
+        """
+        if domain_alias:
+            return (
+                f"NOT EXISTS (SELECT 1 FROM hidden_domains hd "
+                f"WHERE (hd.subdomain_only = 1 AND {domain_alias}.host = hd.domain) "
+                f"OR (hd.subdomain_only = 0 AND "
+                f"({domain_alias}.host = hd.domain OR {domain_alias}.host LIKE '%.' || hd.domain)))"
+            )
+        return (
+            f"NOT EXISTS (SELECT 1 FROM hidden_domains hd "
+            f"JOIN domains _hdd ON _hdd.id = {history_alias}.domain_id "
+            f"WHERE (hd.subdomain_only = 1 AND _hdd.host = hd.domain) "
+            f"OR (hd.subdomain_only = 0 AND "
+            f"(_hdd.host = hd.domain OR _hdd.host LIKE '%.' || hd.domain)))"
+        )
+
+    # ── Hidden domains CRUD ───────────────────────────────────
+
+    def hide_domain(self, domain: str, subdomain_only: bool = False) -> None:
+        """Persist *domain* in hidden_domains for query-time filtering.
+
+        If the domain is already present, REPLACE updates the subdomain_only
+        flag and resets hidden_at so the most-recent intent wins.
+        """
+        if not domain:
+            return
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO hidden_domains(domain, subdomain_only) VALUES(?, ?)",
+                (domain, 1 if subdomain_only else 0),
+            )
+        log.debug("hide_domain: added '%s' (subdomain_only=%s)", domain, subdomain_only)
+
+    def unhide_domain(self, domain: str) -> None:
+        """Remove *domain* from hidden_domains."""
+        with self._conn() as conn:
+            conn.execute("DELETE FROM hidden_domains WHERE domain = ?", (domain,))
+        log.debug("unhide_domain: removed '%s'", domain)
+
+    def get_hidden_domains(self) -> list[dict]:
+        """Return all hidden-domain entries as dicts, newest first."""
+        with self._conn(write=False) as conn:
+            rows = conn.execute(
+                "SELECT domain, subdomain_only, hidden_at FROM hidden_domains ORDER BY hidden_at DESC"
+            ).fetchall()
+        return [{"domain": r[0], "subdomain_only": bool(r[1]), "hidden_at": r[2]} for r in rows]
+
+    def count_records_for_domain(self, domain: str, subdomain_only: bool) -> int:
+        """Return the number of history rows currently matching *domain*.
+
+        Used by the confirmation dialog to preview how many records will be
+        hidden.  Does *not* exclude records already in hidden_records.
+        """
+        with self._conn(write=False) as conn:
+            d_ids = self._domain_ids_for_hide(conn, domain, subdomain_only)
+            if not d_ids:
+                return 0
+            placeholders = ",".join("?" * len(d_ids))
+            row = conn.execute(f"SELECT COUNT(*) FROM history WHERE domain_id IN ({placeholders})", d_ids).fetchone()
+            return row[0] if row else 0
+
+    def get_hidden_domain_ids(self) -> set[int]:
+        """Return history record IDs that match any entry in hidden_domains.
+
+        Called by the viewmodel to build the combined excluded-IDs set, which
+        is then passed to ``HistoryViewModel.set_hidden_ids()`` so the table
+        model filters both URL-hidden and domain-hidden records in one pass.
+        """
+        with self._conn(write=False) as conn:
+            domain_rows = conn.execute("SELECT domain, subdomain_only FROM hidden_domains").fetchall()
+            if not domain_rows:
+                return set()
+            result: set[int] = set()
+            _CHUNK = 900
+            for domain, subdomain_only in domain_rows:
+                d_ids = self._domain_ids_for_hide(conn, domain, bool(subdomain_only))
+                if not d_ids:
+                    continue
+                for i in range(0, len(d_ids), _CHUNK):
+                    chunk = d_ids[i : i + _CHUNK]
+                    placeholders = ",".join("?" * len(chunk))
+                    rows = conn.execute(f"SELECT id FROM history WHERE domain_id IN ({placeholders})", chunk).fetchall()
+                    result.update(r[0] for r in rows)
+            return result
+
+    def clear_hidden_domains(self) -> int:
+        """Remove all entries from hidden_domains.  Returns count removed."""
+        with self._conn() as conn:
+            cursor = conn.execute("DELETE FROM hidden_domains")
+            return cursor.rowcount
+
+    @staticmethod
+    def _domain_ids_for_hide(conn: sqlite3.Connection, domain: str, subdomain_only: bool) -> list[int]:
+        """Resolve *domain* to a list of ``domains.id`` values.
+
+        If *subdomain_only* is True only the exact host is matched; otherwise
+        the domain itself **and** all subdomains (``LIKE '%.domain'``) match.
+        Delegates normalisation to :meth:`_normalize_domain` so callers need
+        not pre-process the string.
+        """
+        domain_norm = LocalDatabase._normalize_domain(domain)
+        if not domain_norm:
+            return []
+        if subdomain_only:
+            rows = conn.execute("SELECT id FROM domains WHERE host = ?", (domain_norm,)).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id FROM domains WHERE host = ? OR host LIKE ?",
+                (domain_norm, "%." + domain_norm),
+            ).fetchall()
+        return [r[0] for r in rows]
 
     # ═══════════════════════════════════════════════════════════
     # Maintenance operations
@@ -1003,6 +1171,7 @@ class LocalDatabase:
             remote_deleted_bookmarks = _safe_fetch("SELECT url, deleted_at FROM deleted_bookmarks")
             remote_deleted_annots = _safe_fetch("SELECT url, deleted_at FROM deleted_annotations")
             remote_hidden = _safe_fetch("SELECT url FROM hidden_records")
+            remote_hidden_domains = _safe_fetch("SELECT domain, subdomain_only, hidden_at FROM hidden_domains")
             remote_bookmarks = _safe_fetch("SELECT url, title, tags, bookmarked_at FROM bookmarks")
             # Build url→tags map from bookmark_tags (preferred) falling back to legacy tags column
             try:
@@ -1041,6 +1210,14 @@ class LocalDatabase:
                 conn.executemany(
                     "INSERT OR IGNORE INTO hidden_records(url) VALUES(?)",
                     ((r["url"],) for r in remote_hidden),
+                )
+
+            # 3b. Merge hidden_domains — IGNORE keeps the local entry if the same
+            #     domain is already present (local intent wins on conflict).
+            if remote_hidden_domains:
+                conn.executemany(
+                    "INSERT OR IGNORE INTO hidden_domains(domain, subdomain_only, hidden_at) VALUES(?, ?, ?)",
+                    ((r["domain"], r["subdomain_only"], r["hidden_at"]) for r in remote_hidden_domains),
                 )
 
             # 4. Merge bookmarks (skip tombstoned urls, keep newer bookmarked_at)
@@ -2103,42 +2280,40 @@ class LocalDatabase:
 
     def get_daily_visit_counts(self, year: int | None = None, month: int | None = None) -> dict[str, int]:
         """Return {YYYY-MM-DD: count} for days with visits, filtered by year/month."""
+        hr = self._hr_filter()
+        hd = self._hd_filter()
         tr = self._time_range(year, month)
         if tr is not None:
             start_ts, end_ts = tr
             with self._conn(write=False) as conn:
                 rows = conn.execute(
-                    "SELECT strftime('%Y-%m-%d', visit_time, 'unixepoch', 'localtime') AS day, "
-                    "COUNT(*) AS cnt FROM history "
-                    "WHERE visit_time >= ? AND visit_time < ? "
-                    "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY day ORDER BY day",
+                    f"SELECT strftime('%Y-%m-%d', visit_time, 'unixepoch', 'localtime') AS day, "
+                    f"COUNT(*) AS cnt FROM history "
+                    f"WHERE visit_time >= ? AND visit_time < ? AND {hr} AND {hd} GROUP BY day ORDER BY day",
                     (start_ts, end_ts),
                 ).fetchall()
         else:
             with self._conn(write=False) as conn:
                 rows = conn.execute(
-                    "SELECT strftime('%Y-%m-%d', visit_time, 'unixepoch', 'localtime') AS day, "
-                    "COUNT(*) AS cnt FROM history "
-                    "WHERE NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY day ORDER BY day"
+                    f"SELECT strftime('%Y-%m-%d', visit_time, 'unixepoch', 'localtime') AS day, "
+                    f"COUNT(*) AS cnt FROM history WHERE {hr} AND {hd} GROUP BY day ORDER BY day"
                 ).fetchall()
         return {r[0]: r[1] for r in rows}
 
     def get_browser_visit_counts(self, year: int | None = None, month: int | None = None) -> dict[str, int]:
         """Return {browser_type: count}, optionally filtered to *year*/*month*."""
+        hr = self._hr_filter()
+        hd = self._hd_filter()
         tr = self._time_range(year, month)
         if tr is not None:
             start_ts, end_ts = tr
             sql = (
-                "SELECT browser_type, COUNT(*) AS cnt FROM history "
-                "WHERE visit_time >= ? AND visit_time < ? "
-                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY browser_type"
+                f"SELECT browser_type, COUNT(*) AS cnt FROM history "
+                f"WHERE visit_time >= ? AND visit_time < ? AND {hr} AND {hd} GROUP BY browser_type"
             )
             params: tuple = (start_ts, end_ts)
         else:
-            sql = (
-                "SELECT browser_type, COUNT(*) AS cnt FROM history "
-                "WHERE NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY browser_type"
-            )
+            sql = f"SELECT browser_type, COUNT(*) AS cnt FROM history WHERE {hr} AND {hd} GROUP BY browser_type"
             params = ()
         with self._conn(write=False) as conn:
             rows = conn.execute(sql, params).fetchall()
@@ -2146,21 +2321,21 @@ class LocalDatabase:
 
     def get_hourly_visit_counts(self, year: int | None = None, month: int | None = None) -> dict[int, int]:
         """Return {hour_0_to_23: count} for a heat-of-day chart."""
+        hr = self._hr_filter()
+        hd = self._hd_filter()
         tr = self._time_range(year, month)
         if tr is not None:
             start_ts, end_ts = tr
             sql = (
-                "SELECT CAST(strftime('%H', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS hr, "
-                "COUNT(*) AS cnt FROM history "
-                "WHERE visit_time >= ? AND visit_time < ? "
-                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY hr"
+                f"SELECT CAST(strftime('%H', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS hr, "
+                f"COUNT(*) AS cnt FROM history "
+                f"WHERE visit_time >= ? AND visit_time < ? AND {hr} AND {hd} GROUP BY hr"
             )
             params: tuple = (start_ts, end_ts)
         else:
             sql = (
-                "SELECT CAST(strftime('%H', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS hr, "
-                "COUNT(*) AS cnt FROM history "
-                "WHERE NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY hr"
+                f"SELECT CAST(strftime('%H', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS hr, "
+                f"COUNT(*) AS cnt FROM history WHERE {hr} AND {hd} GROUP BY hr"
             )
             params = ()
         with self._conn(write=False) as conn:
@@ -2171,23 +2346,23 @@ class LocalDatabase:
         self, limit: int = 10, year: int | None = None, month: int | None = None
     ) -> list[tuple[str, int]]:
         """Return [(domain, count)] for the most-visited domains."""
+        hr = self._hr_filter("h")
+        hd = self._hd_filter(domain_alias="d")
         tr = self._time_range(year, month)
         if tr is not None:
             start_ts, end_ts = tr
             sql = (
-                "SELECT d.host, COUNT(*) AS cnt FROM history h "
-                "JOIN domains d ON h.domain_id = d.id "
-                "WHERE h.visit_time >= ? AND h.visit_time < ? "
-                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = h.url) "
-                "GROUP BY d.host ORDER BY cnt DESC LIMIT ?"
+                f"SELECT d.host, COUNT(*) AS cnt FROM history h "
+                f"JOIN domains d ON h.domain_id = d.id "
+                f"WHERE h.visit_time >= ? AND h.visit_time < ? AND {hr} AND {hd} "
+                f"GROUP BY d.host ORDER BY cnt DESC LIMIT ?"
             )
             params: tuple = (start_ts, end_ts, limit)
         else:
             sql = (
-                "SELECT d.host, COUNT(*) AS cnt FROM history h "
-                "JOIN domains d ON h.domain_id = d.id "
-                "WHERE NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = h.url) "
-                "GROUP BY d.host ORDER BY cnt DESC LIMIT ?"
+                f"SELECT d.host, COUNT(*) AS cnt FROM history h "
+                f"JOIN domains d ON h.domain_id = d.id "
+                f"WHERE {hr} AND {hd} GROUP BY d.host ORDER BY cnt DESC LIMIT ?"
             )
             params = (limit,)
         with self._conn(write=False) as conn:
@@ -2201,13 +2376,13 @@ class LocalDatabase:
         d = _dt.date.fromisoformat(date_str)
         start_ts = int(_dt.datetime(d.year, d.month, d.day).timestamp())
         end_ts = start_ts + 86400
+        hr = self._hr_filter()
+        hd = self._hd_filter()
         with self._conn(write=False) as conn:
             rows = conn.execute(
-                "SELECT MAX(title) AS title, url, SUM(visit_count) AS total_visits FROM history "
-                "WHERE visit_time >= ? AND visit_time < ? "
-                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) "
-                "GROUP BY url "
-                "ORDER BY total_visits DESC LIMIT ?",
+                f"SELECT MAX(title) AS title, url, SUM(visit_count) AS total_visits FROM history "
+                f"WHERE visit_time >= ? AND visit_time < ? AND {hr} AND {hd} "
+                f"GROUP BY url ORDER BY total_visits DESC LIMIT ?",
                 (start_ts, end_ts, limit),
             ).fetchall()
         return [(r[0] or r[1], r[1], r[2]) for r in rows]
@@ -2219,12 +2394,13 @@ class LocalDatabase:
         d = _dt.date.fromisoformat(date_str)
         start_ts = int(_dt.datetime(d.year, d.month, d.day).timestamp())
         end_ts = start_ts + 86400
+        hr = self._hr_filter()
+        hd = self._hd_filter()
         with self._conn(write=False) as conn:
             rows = conn.execute(
-                "SELECT CAST(strftime('%H', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS hr, "
-                "COUNT(*) AS cnt FROM history "
-                "WHERE visit_time >= ? AND visit_time < ? "
-                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url) GROUP BY hr",
+                f"SELECT CAST(strftime('%H', visit_time, 'unixepoch', 'localtime') AS INTEGER) AS hr, "
+                f"COUNT(*) AS cnt FROM history "
+                f"WHERE visit_time >= ? AND visit_time < ? AND {hr} AND {hd} GROUP BY hr",
                 (start_ts, end_ts),
             ).fetchall()
         return {r[0]: r[1] for r in rows}
@@ -2354,11 +2530,14 @@ class LocalDatabase:
         if not day_starts:
             return {}
         union_clause = " UNION ALL ".join("SELECT ? AS ds" for _ in day_starts)
+        hr = self._hr_filter("h")
+        hd = self._hd_filter("h")
         sql = f"""
             WITH ranges(ds) AS ({union_clause})
             SELECT r.ds, COUNT(h.id)
             FROM   ranges r
             LEFT JOIN history h ON h.visit_time >= r.ds AND h.visit_time < r.ds + 86400
+                AND {hr} AND {hd}
             GROUP  BY r.ds
         """
         with self._conn(write=False) as conn:
@@ -2367,11 +2546,11 @@ class LocalDatabase:
 
     def get_day_rank(self, day_start_ts: int, ts: int) -> int:
         """Return the 1-based rank of ts among all records in the same day (ordered by visit_time)."""
+        hr = self._hr_filter()
+        hd = self._hd_filter()
         with self._conn(write=False) as conn:
             row = conn.execute(
-                "SELECT COUNT(*) FROM history "
-                "WHERE visit_time BETWEEN ? AND ? "
-                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url)",
+                f"SELECT COUNT(*) FROM history WHERE visit_time BETWEEN ? AND ? AND {hr} AND {hd}",
                 (day_start_ts, ts),
             ).fetchone()
         return row[0] if row else 1
@@ -2388,22 +2567,25 @@ class LocalDatabase:
                 "domains": [(host, count), ...]  # top N domains by visit count
             }
         """
+        hr_h = self._hr_filter("h")
+        self._hd_filter("h")
+        hr = self._hr_filter()
+        hd = self._hd_filter()
+        hd_d = self._hd_filter("h", domain_alias="d")
         with self._conn(write=False) as conn:
             total_row = conn.execute(
-                "SELECT COUNT(*) FROM history "
-                "WHERE visit_time >= ? AND visit_time < ? "
-                "AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = history.url)",
+                f"SELECT COUNT(*) FROM history WHERE visit_time >= ? AND visit_time < ? AND {hr} AND {hd}",
                 (day_start_ts, day_end_ts),
             ).fetchone()
             total = total_row[0] if total_row else 0
 
             domain_rows = conn.execute(
-                """
+                f"""
                 SELECT d.host, COUNT(h.id) AS cnt
                 FROM history h
                 JOIN domains d ON h.domain_id = d.id
                 WHERE h.visit_time >= ? AND h.visit_time < ?
-                AND NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = h.url)
+                AND {hr_h} AND {hd_d}
                 GROUP BY d.id
                 ORDER BY cnt DESC
                 LIMIT ?

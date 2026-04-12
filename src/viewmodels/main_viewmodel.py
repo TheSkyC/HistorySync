@@ -36,6 +36,7 @@ class MainViewModel(QObject):
     # Privacy signals
     records_deleted = Signal(int)  # n records deleted
     domain_blacklisted = Signal(str)  # domain just blacklisted
+    domain_hidden = Signal(str)  # domain just added to hidden_domains
     records_hidden = Signal(list)  # list of hidden IDs
 
     # Overlay signal
@@ -90,7 +91,7 @@ class MainViewModel(QObject):
         dashboard is responsive while the wizard is open."""
         from PySide6.QtCore import QTimer
 
-        self.history_vm.set_hidden_ids(self._db.get_hidden_ids())
+        self._refresh_hidden_ids()
         QTimer.singleShot(1000, self._monitor.start)
         self._emit_stats()
 
@@ -302,10 +303,60 @@ class MainViewModel(QObject):
 
     def hide_records(self, ids: list[int]) -> None:
         self._db.hide_records_by_ids(ids)
-        hidden = self._db.get_hidden_ids()
+        self._refresh_hidden_ids()
         self.records_hidden.emit(ids)
-        self.history_vm.set_hidden_ids(hidden)
-        log.info("Hidden %d records; total hidden: %d", len(ids), len(hidden))
+        log.info("Hidden %d records by ID", len(ids))
+
+    def _refresh_hidden_ids(self) -> None:
+        """Recompute the combined hidden-ID set (URL-level U domain-level) and
+        push it to the history view-model so the table re-filters immediately."""
+        url_ids = self._db.get_hidden_ids()
+        domain_ids = self._db.get_hidden_domain_ids()
+        self.history_vm.set_hidden_ids(url_ids | domain_ids)
+
+    # ── Hidden-domain operations ─────────────────────────────
+
+    def hide_domain(self, domain: str, subdomain_only: bool, auto_hide: bool) -> int:
+        """Hide all records for *domain*.
+
+        If *auto_hide* is True the domain is persisted to ``hidden_domains``
+        so that records arriving in future syncs are automatically filtered.
+        If False only the records that exist right now are added to
+        ``hidden_records`` (URL-level, no future filtering).
+
+        Returns the approximate count of records that were affected.
+        """
+        if not domain:
+            return 0
+        count = self._db.count_records_for_domain(domain, subdomain_only)
+        if auto_hide:
+            self._db.hide_domain(domain, subdomain_only)
+        else:
+            self._db.hide_records_by_domain(domain, subdomain_only)
+        self._refresh_hidden_ids()
+        self.domain_hidden.emit(domain)
+        log.info(
+            "Domain hidden: '%s' subdomain_only=%s auto_hide=%s (~%d records)",
+            domain,
+            subdomain_only,
+            auto_hide,
+            count,
+        )
+        return count
+
+    def unhide_domain(self, domain: str) -> None:
+        """Remove *domain* from hidden_domains and refresh the view."""
+        self._db.unhide_domain(domain)
+        self._refresh_hidden_ids()
+        log.info("Domain unhidden: '%s'", domain)
+
+    def get_hidden_domains(self) -> list[dict]:
+        """Return all entries in hidden_domains (newest first)."""
+        return self._db.get_hidden_domains()
+
+    def count_records_for_domain(self, domain: str, subdomain_only: bool) -> int:
+        """Delegate to DB for the confirmation-dialog preview count."""
+        return self._db.count_records_for_domain(domain, subdomain_only)
 
     def blacklist_domain(self, domain: str) -> int:
         if not domain:
@@ -335,7 +386,8 @@ class MainViewModel(QObject):
         log.info("filtered_url_prefixes updated (%d entries)", len(prefixes))
 
     def get_hidden_ids(self) -> set[int]:
-        return self._db.get_hidden_ids()
+        """Return combined URL-level + domain-level hidden record IDs."""
+        return self._db.get_hidden_ids() | self._db.get_hidden_domain_ids()
 
     # ── Settings ────────────────────────────────────────────────
 
@@ -355,8 +407,8 @@ class MainViewModel(QObject):
         )
         self._favicon_manager.update_config(config)
         self._monitor.force_check()
-        # Reload hidden IDs from DB (source of truth is the hidden_records table)
-        self.history_vm.set_hidden_ids(self._db.get_hidden_ids())
+        # Reload hidden IDs from DB — combine URL-level and domain-level hidden sets.
+        self._refresh_hidden_ids()
         log.info("Config saved and applied")
 
     def set_launch_on_startup(self, enabled: bool) -> bool:

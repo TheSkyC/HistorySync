@@ -31,6 +31,7 @@ class PrivacySection(QWidget):
 
     configure_blacklist_requested = Signal()
     configure_url_filters_requested = Signal()
+    configure_hidden_domains_requested = Signal()
     clear_hidden_requested = Signal()
 
     def __init__(self, parent=None):
@@ -38,16 +39,6 @@ class PrivacySection(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
         layout.setContentsMargins(20, 16, 20, 16)
-
-        desc = QLabel(
-            _(
-                "Blacklisted domains are never synced and all their records are deleted. "
-                "Hidden records are excluded from the History view but kept in the database."
-            )
-        )
-        desc.setObjectName("muted")
-        desc.setWordWrap(True)
-        layout.addWidget(desc)
 
         # ── Blacklist row ─────────────────────────────────────
         bl_row = QHBoxLayout()
@@ -82,12 +73,25 @@ class PrivacySection(QWidget):
         url_filter_row.addWidget(cfg_btn)
         layout.addLayout(url_filter_row)
 
-        url_filter_hint = QLabel(
-            _("URLs starting with filtered prefixes are never stored (e.g. chrome://, about:, data:).")
+        # ── Hidden Domains row ────────────────────────────────
+        hd_row = QHBoxLayout()
+        hd_lbl = QLabel(_("Hidden Domains:"))
+        hd_lbl.setObjectName("stat_label")
+        self._hd_count_lbl = QLabel("")
+        self._hd_count_lbl.setObjectName("muted")
+        hd_manage_btn = QPushButton(_("Configure…"))
+        hd_manage_btn.setIcon(get_icon("eye-off"))
+        hd_manage_btn.setToolTip(
+            _(
+                "Manage soft-hidden domains. Records from hidden domains remain in the database but are excluded from the History view."
+            )
         )
-        url_filter_hint.setObjectName("muted")
-        url_filter_hint.setWordWrap(True)
-        layout.addWidget(url_filter_hint)
+        hd_manage_btn.clicked.connect(self.configure_hidden_domains_requested)
+        hd_row.addWidget(hd_lbl)
+        hd_row.addWidget(self._hd_count_lbl)
+        hd_row.addStretch()
+        hd_row.addWidget(hd_manage_btn)
+        layout.addLayout(hd_row)
 
         # ── Hidden records row ────────────────────────────────
         hidden_header = QHBoxLayout()
@@ -112,6 +116,13 @@ class PrivacySection(QWidget):
             self._bl_count_lbl.setText(_("{n} domains").format(n=count))
         else:
             self._bl_count_lbl.setText(_("none"))
+
+    def refresh_hidden_domains_count(self, count: int) -> None:
+        """Update the count label next to the Hidden Domains header."""
+        if count:
+            self._hd_count_lbl.setText(_("{n} domains").format(n=count))
+        else:
+            self._hd_count_lbl.setText(_("none"))
 
     def refresh_hidden_count(self, count: int) -> None:
         self._hidden_count_lbl.setText(_("{n} records hidden").format(n=count))
