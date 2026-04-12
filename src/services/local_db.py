@@ -2341,7 +2341,7 @@ class LocalDatabase:
         Executes a **single** SQL statement regardless of batch size by
         constructing a VALUES-based CTE at call time.  Each ``day_start``
         value is a local-midnight Unix timestamp; records are counted in the
-        half-open interval [day_start, day_start + 86399].
+        half-open interval [day_start, day_start + 86400).
 
         Performance characteristics
         ---------------------------
