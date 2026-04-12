@@ -1875,6 +1875,7 @@ class LocalDatabase:
                    ON CONFLICT(url) DO UPDATE SET
                        title=excluded.title,
                        tags=excluded.tags,
+                       bookmarked_at=excluded.bookmarked_at,
                        history_id=excluded.history_id""",
                 (url, title, tags_str, now, history_id),
             )
@@ -2308,7 +2309,14 @@ class LocalDatabase:
                     where = "WHERE " + " AND ".join(conditions)
                     sql = f"SELECT {_COLS} {from_clause} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
                     params.extend([limit, offset])
-                    rows = conn.execute(sql, params).fetchall()
+                    try:
+                        rows = conn.execute(sql, params).fetchall()
+                    except sqlite3.ProgrammingError:
+                        # Connection was closed between the first failure and the
+                        # fallback execute — rebuild once and retry.
+                        self._ro_conn = None
+                        conn = self._ensure_ro_conn()
+                        rows = conn.execute(sql, params).fetchall()
                 else:
                     rows = []
         return [self._row_to_record(r) for r in rows]
