@@ -90,8 +90,9 @@ class _ReloadWorker(QThread):
         whose generation does not match the current value.
     """
 
-    # (generation, keyword_index, total_count, keyword_materialized)
-    done: Signal = Signal(int, list, int, bool)
+    # (generation, keyword_index, total_count, keyword_materialized,
+    #  bookmarked_urls, annotated_urls, device_name_map)
+    done: Signal = Signal(int, list, int, bool, object, object, object)
 
     def __init__(
         self,
@@ -125,15 +126,21 @@ class _ReloadWorker(QThread):
                 "bookmark_tag": p["bookmark_tag"],
                 "device_ids": p["device_ids"],
             }
+            # Fetch badge data in the worker thread so the main thread never
+            # blocks on _lock while a sync write is in progress.
+            bookmarked = self._db.get_bookmarked_urls()
+            annotated = self._db.get_annotated_urls()
+            device_map = self._db.get_device_name_map()
+
             if self._use_id_index:
                 index = self._db.get_filtered_id_times(**kw)
-                self.done.emit(self._generation, index, len(index), True)
+                self.done.emit(self._generation, index, len(index), True, bookmarked, annotated, device_map)
             else:
                 count = self._db.get_filtered_count(**kw)
-                self.done.emit(self._generation, [], count, False)
+                self.done.emit(self._generation, [], count, False, bookmarked, annotated, device_map)
         except Exception:
             log.exception("_ReloadWorker failed (generation=%d)", self._generation)
-            self.done.emit(self._generation, [], 0, False)
+            self.done.emit(self._generation, [], 0, False, set(), set(), {})
 
 
 # ── Table model ──────────────────────────────────────────────
@@ -448,11 +455,11 @@ class HistoryTableModel(QAbstractTableModel):
         self._reload_generation: int = getattr(self, "_reload_generation", 0) + 1
         generation = self._reload_generation
 
-        # Defer badge loading — only needed when rows are actually painted.
-        QTimer.singleShot(0, self._load_badge_data)
-
         if self._use_regex and self._keyword:
             # Regex incremental mode runs synchronously (already batched / cheap).
+            # Badge data is not fetched by the worker in this path, so load it
+            # on the next event-loop tick (small tables, negligible cost).
+            QTimer.singleShot(0, self._load_badge_data)
             self._scan_regex_batch()
             self._apply_reload_result(
                 generation=generation,
@@ -488,18 +495,25 @@ class HistoryTableModel(QAbstractTableModel):
         self._reload_worker = worker
         worker.start()
 
-    @Slot(int, list, int, bool)
+    @Slot(int, list, int, bool, object, object, object)
     def _on_reload_done(
         self,
         generation: int,
         keyword_index: list,
         total_count: int,
         keyword_materialized: bool,
+        bookmarked_urls: set,
+        annotated_urls: set,
+        device_name_map: dict,
     ) -> None:
         """Receive async reload result and update the model (main-thread slot)."""
         # Discard stale results from superseded reload() calls.
         if generation != self._reload_generation:
             return
+        # Apply badge data fetched in the worker thread.
+        self._bookmarked_urls = bookmarked_urls
+        self._annotated_urls = annotated_urls
+        self._device_name_map = device_name_map
         self._apply_reload_result(generation, keyword_index, total_count, keyword_materialized)
 
     def _apply_reload_result(
