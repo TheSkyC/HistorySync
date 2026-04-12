@@ -600,14 +600,22 @@ class WebDavSyncService:
     # ── Helpers ───────────────────────────────────────────────
 
     def _make_client(self):
+        # Snapshot all config fields under the lock so a concurrent update_config()
+        # call cannot replace self._config mid-read, which would mix credentials
+        # from two different configurations.
+        with self._lock:
+            url = self._config.url.rstrip("/")
+            username = self._config.username
+            password = self._config.password
+            verify_ssl = self._config.verify_ssl
         options = {
-            "webdav_hostname": self._config.url.rstrip("/"),
-            "webdav_login": self._config.username,
-            "webdav_password": self._config.password,
+            "webdav_hostname": url,
+            "webdav_login": username,
+            "webdav_password": password,
             "webdav_timeout": 30,
         }
         client = _WdavClient(options)
-        client.verify = self._config.verify_ssl
+        client.verify = verify_ssl
         return client
 
     @staticmethod
