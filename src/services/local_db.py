@@ -1572,8 +1572,7 @@ class LocalDatabase:
             # FTS5 trigram tokenizer cannot index tokens shorter than 3 characters,
             # so any individual word under that threshold would return no results.
             # Force LIKE path when any word in the keyword is shorter than 3 chars.
-            _any_short_word = any(len(w) < 3 for w in keyword.split() if w)
-            use_fts = not _force_like and not _any_short_word and len(keyword.replace(" ", "")) >= 3
+            use_fts = not _force_like and _keyword_eligible_for_fts(keyword)
             if use_fts:
                 from_where = (
                     "FROM history h\n    JOIN history_fts fts ON h.id = fts.rowid\n    WHERE history_fts MATCH ?"
@@ -2256,8 +2255,8 @@ class LocalDatabase:
         params: list = []
         conditions: list[str] = []
 
-        _any_short_word = keyword and any(len(w) < 3 for w in keyword.split() if w)
-        if keyword and (_any_short_word or len(keyword.replace(" ", "")) < 3):
+        _any_short_word = keyword and not _keyword_eligible_for_fts(keyword)
+        if keyword and _any_short_word:
             from_clause = "FROM history h"
             conditions.append("(h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')")
             params.extend([f"%{_escape_like(keyword)}%", f"%{_escape_like(keyword)}%"])
@@ -2703,6 +2702,22 @@ def _is_fts_special(keyword: str) -> bool:
 def _escape_like(value: str) -> str:
     """Escape LIKE wildcard characters in *value* for use with ``ESCAPE '\\'``."""
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _keyword_eligible_for_fts(keyword: str) -> bool:
+    """Return True when *keyword* can be handled by the FTS5 trigram index.
+
+    The trigram tokenizer requires every individual token to be at least
+    3 characters long.  A keyword fails this check when:
+    - it is empty, or
+    - any whitespace-separated word is shorter than 3 characters, or
+    - the keyword stripped of spaces is shorter than 3 characters.
+    """
+    if not keyword:
+        return False
+    if any(len(w) < 3 for w in keyword.split() if w):
+        return False
+    return len(keyword.replace(" ", "")) >= 3
 
 
 def _build_fts_query(keyword: str) -> str:
