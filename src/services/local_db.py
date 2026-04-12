@@ -98,7 +98,7 @@ class LocalDatabase:
         self._schema_initialized: bool = False
         self._vacuuming: bool = False
         self._fts_thread: threading.Thread | None = None
-        self._excl_cache: dict[int, set[int]] = {}  # keyed by id(conn)
+        self._excl_cache: dict[int, frozenset[int]] = {}  # keyed by id(conn)
         self._excl_cache_lock = threading.Lock()
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1427,7 +1427,7 @@ class LocalDatabase:
             if cached != excl:
                 conn.execute("DELETE FROM _excl_ids")
                 conn.executemany("INSERT OR IGNORE INTO _excl_ids VALUES(?)", ((i,) for i in excl))
-                self._excl_cache[id(conn)] = excl
+                self._excl_cache[id(conn)] = frozenset(excl)
         return True
 
     @staticmethod
