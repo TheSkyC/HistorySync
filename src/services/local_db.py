@@ -144,6 +144,12 @@ class LocalDatabase:
             except Exception:
                 pass
             self._pconn = None
+        # Clear the excluded-ids cache so that a new connection (which may
+        # receive the same id() address) does not incorrectly skip the temp
+        # table population.  Without this, hidden-record filtering can silently
+        # break after a connection reset.
+        with self._excl_cache_lock:
+            self._excl_cache.clear()
         with self._ro_lock:
             if self._ro_conn is not None:
                 try:
