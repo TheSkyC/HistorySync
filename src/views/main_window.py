@@ -249,6 +249,7 @@ class MainWindow(QMainWindow):
             self._page_history.hide_records_requested.connect(self._on_hide_records)
             self._page_history.hide_domain_requested.connect(self._on_hide_domain)
             self._page_history.blacklist_domain_requested.connect(self._on_blacklist_domain)
+            self._page_history.unhide_records_requested.connect(self._on_unhide_records)
 
         elif index == PAGE_BOOKMARKS and self._page_bookmarks is None:
             from src.views.bookmarks_page import BookmarksPage
@@ -256,6 +257,7 @@ class MainWindow(QMainWindow):
             self._page_bookmarks = BookmarksPage(self._vm._db)
             self._replace_placeholder(PAGE_BOOKMARKS, self._page_bookmarks)
             self._page_bookmarks.navigate_to_history.connect(self._navigate_to_history_url)
+            self._page_bookmarks.navigate_to_history_hidden.connect(self._on_bookmarks_locate_hidden)
             self._page_bookmarks.bookmark_changed.connect(self._on_bookmark_changed)
 
         elif index == PAGE_SETTINGS and self._page_settings is None:
@@ -284,6 +286,17 @@ class MainWindow(QMainWindow):
             self._history_initialized = True
             QTimer.singleShot(0, self._vm.history_vm.initialize)
 
+        # ── Hidden-mode sync ───────────────────────────────────
+        # When navigating away from history, bookmarks page inherits the current
+        # hidden-mode state so both pages stay consistent.
+        if index == PAGE_BOOKMARKS and self._page_bookmarks is not None and self._page_history is not None:
+            self._page_bookmarks.set_hidden_mode(self._page_history.hidden_mode)
+
+        # Leaving the bookmarks page back to history resets bookmarks to normal
+        # mode — the user controls hidden mode via the history page's toggle only.
+        if index == PAGE_HISTORY and self._page_bookmarks is not None:
+            self._page_bookmarks.leave_hidden_mode()
+
     def _focus_history_search(self):
         self._switch_page(PAGE_HISTORY)  # creates page if needed
         self._page_history._focus_search()
@@ -297,6 +310,15 @@ class MainWindow(QMainWindow):
         """Switch to history page and filter by the given URL (from bookmarks 'Locate in History')."""
         self._switch_page(PAGE_HISTORY)  # creates page if needed
         self._page_history.filter_by_url(url)
+
+    def _on_bookmarks_locate_hidden(self):
+        """Called when 'Locate in History' is triggered from the bookmarks hidden-mode view.
+
+        Ensures the history page is in hidden mode before filtering so the
+        record is actually visible (it would be hidden in normal mode).
+        """
+        if self._page_history is not None and not self._page_history.hidden_mode:
+            self._page_history.set_hidden_mode(True)
 
     # ── VM signal handlers ────────────────────────────────────
 
@@ -362,6 +384,10 @@ class MainWindow(QMainWindow):
             _("Hidden {n} record(s). Unhide anytime in Settings → Privacy.").format(n=len(ids)), 5000
         )
 
+    def _on_unhide_records(self, ids: list[int]):
+        self._vm.unhide_records(ids)
+        self._status_bar.showMessage(_("Restored {n} record(s).").format(n=len(ids)), 5000)
+
     def _on_hide_domain(self, domain: str, subdomain_only: bool, auto_hide: bool) -> None:
         """Handle hide_domain_requested from history page."""
         hidden_count = self._vm.hide_domain(domain, subdomain_only, auto_hide)
@@ -402,6 +428,11 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent):
         self._save_geometry()
+        # Auto-exit hidden-records mode so next open shows normal history/bookmarks
+        if self._page_history is not None:
+            self._page_history.leave_hidden_mode()
+        if self._page_bookmarks is not None:
+            self._page_bookmarks.leave_hidden_mode()
         event.ignore()
         self.hide()
         self.close_to_tray.emit()

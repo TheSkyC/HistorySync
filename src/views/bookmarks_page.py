@@ -76,14 +76,15 @@ class _LoadWorker(QThread):
     result = Signal(list, list, list)
     error = Signal(str)
 
-    def __init__(self, db: LocalDatabase, tag: str, parent=None):
+    def __init__(self, db: LocalDatabase, tag: str, hidden_mode: bool = False, parent=None):
         super().__init__(parent)
         self._db = db
         self._tag = tag
+        self._hidden_mode = hidden_mode
 
     def run(self):
         try:
-            bookmarks = self._db.get_all_bookmarks(tag=self._tag)
+            bookmarks = self._db.get_all_bookmarks(tag=self._tag, hidden_mode=self._hidden_mode)
             annotations = self._db.get_all_annotations()
             tags = self._db.get_all_bookmark_tags()
             self.result.emit(bookmarks, annotations, tags)
@@ -369,6 +370,7 @@ class BookmarksPage(QWidget):
     """
 
     navigate_to_history = Signal(str)
+    navigate_to_history_hidden = Signal()  # emitted when locate-in-history is triggered from hidden mode
     bookmark_changed = Signal()
 
     def __init__(self, db: LocalDatabase, parent=None):
@@ -377,6 +379,7 @@ class BookmarksPage(QWidget):
         self._active_tag: str = ""
         self._show_annotated_only: bool = False
         self._search_text: str = ""
+        self._hidden_mode: bool = False
 
         self._cards: list[_BookmarkCard] = []
         self._card_index: dict[str, _BookmarkCard] = {}  # url -> card (O(1) lookup)
@@ -492,6 +495,24 @@ class BookmarksPage(QWidget):
 
         ma_layout.addLayout(bar)
 
+        # Hidden mode banner (shown only when in hidden mode)
+        self._hidden_banner = QFrame()
+        self._hidden_banner.setObjectName("hidden_mode_banner")
+        self._hidden_banner.setStyleSheet(
+            "QFrame#hidden_mode_banner { background: rgba(255,140,0,0.15);"
+            " border: 1px solid rgba(255,140,0,0.5); border-radius: 4px; }"
+        )
+        banner_layout = QHBoxLayout(self._hidden_banner)
+        banner_layout.setContentsMargins(10, 4, 10, 4)
+        banner_icon = QLabel()
+        banner_icon.setPixmap(get_icon("eye").pixmap(14, 14))
+        banner_layout.addWidget(banner_icon)
+        banner_lbl = QLabel(_("Hidden mode — showing only bookmarks pointing to hidden records"))
+        banner_lbl.setObjectName("muted")
+        banner_layout.addWidget(banner_lbl, 1)
+        self._hidden_banner.hide()
+        ma_layout.addWidget(self._hidden_banner)
+
         self._count_lbl = QLabel()
         self._count_lbl.setObjectName("muted")
         ma_layout.addWidget(self._count_lbl)
@@ -562,7 +583,9 @@ class BookmarksPage(QWidget):
 
         self._count_lbl.setText(_("Loading…"))
 
-        worker = _LoadWorker(self._db, "", parent=self)  # always load all; tag filtering is done client-side
+        worker = _LoadWorker(
+            self._db, "", hidden_mode=self._hidden_mode, parent=self
+        )  # tag filtering is done client-side
         worker.result.connect(lambda bms, anns, tags: self._on_load_finished(bms, anns, tags, gen))
         worker.error.connect(lambda e: log.error("Bookmark load error: %s", e))
 
@@ -919,7 +942,12 @@ class BookmarksPage(QWidget):
         self._refresh_tags_only()
 
     def _locate_in_history(self, bm: BookmarkRecord):
+        # When locating from hidden mode, pass a sentinel so the history page
+        # knows to enter hidden mode before filtering — otherwise the record
+        # would be invisible (normal mode hides it) and the locate would fail.
         self.navigate_to_history.emit(bm.url)
+        if self._hidden_mode:
+            self.navigate_to_history_hidden.emit()
 
     # --- Tag Refresh ---
 
@@ -951,3 +979,20 @@ class BookmarksPage(QWidget):
     def refresh(self):
         """Public method to trigger a full refresh of the bookmarks data."""
         self._start_load()
+
+    def set_hidden_mode(self, enabled: bool) -> None:
+        """Switch between normal and hidden-record bookmark views.
+
+        In normal mode bookmarks pointing to hidden URLs/domains are invisible.
+        In hidden mode *only* those bookmarks are shown, mirroring the history
+        page behaviour.
+        """
+        if self._hidden_mode == enabled:
+            return
+        self._hidden_mode = enabled
+        self._hidden_banner.setVisible(enabled)
+        self._start_load()
+
+    def leave_hidden_mode(self) -> None:
+        """Return to normal mode (no-op if already in normal mode)."""
+        self.set_hidden_mode(False)

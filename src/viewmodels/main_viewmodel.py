@@ -307,6 +307,12 @@ class MainViewModel(QObject):
         self.records_hidden.emit(ids)
         log.info("Hidden %d records by ID", len(ids))
 
+    def unhide_records(self, ids: list[int]) -> None:
+        """Remove hidden_records entries for the given record IDs and refresh."""
+        self._db.unhide_records_by_ids(ids)
+        self._refresh_hidden_ids()
+        log.info("Unhidden %d records by ID", len(ids))
+
     def _refresh_hidden_ids(self) -> None:
         """Recompute the combined hidden-ID set (URL-level U domain-level) and
         push it to the history view-model so the table re-filters immediately."""

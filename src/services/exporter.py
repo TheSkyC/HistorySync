@@ -177,6 +177,9 @@ class ResolvedExportParams:
     # Device filter
     device_ids: list[int] | None = None
 
+    # Hidden-only mode
+    hidden_only: bool = False
+
 
 # ── Exporter ──────────────────────────────────────────────────────────────────
 
@@ -254,6 +257,7 @@ class Exporter:
                     has_annotation=params.has_annotation,
                     bookmark_tag=params.bookmark_tag,
                     device_ids=params.device_ids,
+                    hidden_only=params.hidden_only,
                 )
                 exported = self._write_batched(
                     params,
@@ -307,6 +311,7 @@ class Exporter:
             has_annotation=params.has_annotation,
             bookmark_tag=params.bookmark_tag,
             device_ids=params.device_ids,
+            hidden_only=params.hidden_only,
         )
 
         matched_ids: list[int] = []
@@ -361,6 +366,7 @@ class Exporter:
                     has_annotation=params.has_annotation,
                     bookmark_tag=params.bookmark_tag,
                     device_ids=params.device_ids,
+                    hidden_only=params.hidden_only,
                 )
                 if not batch:
                     break

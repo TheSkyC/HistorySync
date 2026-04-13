@@ -1865,6 +1865,7 @@ class HistoryPage(QWidget):
     hide_records_requested = Signal(list)  # list of record IDs
     hide_domain_requested = Signal(str, bool, bool)  # domain, subdomain_only, auto_hide
     delete_records_requested = Signal(list)  # list of record IDs
+    unhide_records_requested = Signal(list)  # list of record IDs to unhide
     bookmark_changed = Signal()  # emitted after any add/remove bookmark action
 
     def __init__(self, vm: HistoryViewModel, config=None, parent=None):
@@ -1917,11 +1918,27 @@ class HistoryPage(QWidget):
         hdr = QHBoxLayout()
         title_col = QVBoxLayout()
         title_col.setSpacing(2)
+
+        title_row = QHBoxLayout()
+        title_row.setSpacing(6)
         self._title_lbl = QLabel(_("History"))
         self._title_lbl.setObjectName("page_title")
+        title_row.addWidget(self._title_lbl)
+
+        self._hidden_mode_btn = QPushButton()
+        self._hidden_mode_btn.setIcon(get_icon("eye-off"))
+        self._hidden_mode_btn.setToolTip(_("View hidden records"))
+        self._hidden_mode_btn.setFlat(True)
+        self._hidden_mode_btn.setFixedSize(28, 28)
+        self._hidden_mode_btn.setIconSize(QSize(16, 16))
+        self._hidden_mode_btn.setCursor(Qt.PointingHandCursor)
+        self._hidden_mode_btn.clicked.connect(self._toggle_hidden_mode)
+        title_row.addWidget(self._hidden_mode_btn)
+        title_row.addStretch()
+
+        title_col.addLayout(title_row)
         self._subtitle_lbl = QLabel(_("Double-click any row to open the link in browser"))
         self._subtitle_lbl.setObjectName("page_subtitle")
-        title_col.addWidget(self._title_lbl)
         title_col.addWidget(self._subtitle_lbl)
 
         self._count_label = QLabel(_("0 total"))
@@ -2242,7 +2259,11 @@ class HistoryPage(QWidget):
 
     def filter_by_url(self, url: str):
         """When navigating from 'Locate in History' in the bookmarks page, clear filters and scroll to the row containing the URL."""
-        # Step 1: clear all filters so the full list is shown
+        # Step 1: find the row offset BEFORE triggering the reload, while the DB
+        # state is still consistent with the about-to-be-applied unfiltered view.
+        row = self._vm._db.get_row_offset_for_url(url)
+
+        # Step 2: clear all filters so the full list is shown
         self._search.blockSignals(True)
         self._search.clear()
         self._search.blockSignals(False)
@@ -2255,27 +2276,37 @@ class HistoryPage(QWidget):
         self._date_to.blockSignals(True)
         self._date_to.setDate(QDate.currentDate())
         self._date_to.blockSignals(False)
-        self._do_search()
 
-        # Step 2: find the row offset for this URL in the unfiltered list
-        row = self._vm._db.get_row_offset_for_url(url)
         if row < 0:
             # URL not found - fall back to a url: search so the user sees something
+            self._search.blockSignals(False)
             self._search.setText(f"url:{url}")
             self._focus_search()
             self._do_search()
             return
 
-        # Step 3: scroll to and select the row
+        # Step 3: trigger the async reload, then scroll AFTER endResetModel fires.
+        # _do_search() starts a background worker; the model emits total_count_changed
+        # once the worker finishes and endResetModel() has been called. Scrolling
+        # before that signal would be undone by the model reset.
         model = self._vm.table_model
-        idx = model.index(row, 0)
-        self._table.selectionModel().clearSelection()
-        self._table.selectionModel().select(
-            idx,
-            QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
-        )
-        self._table.scrollTo(idx, QAbstractItemView.ScrollHint.PositionAtCenter)
-        self._focus_search()
+
+        def _scroll_after_reset(count: int, _has_more: bool):
+            model.total_count_changed.disconnect(_scroll_after_reset)
+            if count == 0:
+                return
+            idx = model.index(row, 0)
+            if not idx.isValid():
+                return
+            self._table.selectionModel().clearSelection()
+            self._table.selectionModel().select(
+                idx,
+                QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+            )
+            self._table.scrollTo(idx, QAbstractItemView.ScrollHint.PositionAtCenter)
+
+        model.total_count_changed.connect(_scroll_after_reset)
+        self._do_search()
 
     def filter_by_date(self, date_str: str):
         """Switch to history page and show only records for *date_str* (YYYY-MM-DD)."""
@@ -2962,31 +2993,65 @@ class HistoryPage(QWidget):
             delete_act = actions_menu.addAction(get_icon("trash"), _("Delete This Record"))
             delete_act.setShortcut("Del")
 
-        # ── Hide submenu ──────────────────────────────────────
-        hide_menu = StyledMenu(_("Hide…"), actions_menu)
-        hide_menu.setIcon(get_icon("eye-off"))
-
-        # Hide this record / selected records
-        if multi:
-            hide_rec_act = hide_menu.addAction(
-                get_icon("eye-off"), _("Hide Selected ({n} records)").format(n=len(selected_records))
-            )
-        else:
-            hide_rec_act = hide_menu.addAction(get_icon("eye-off"), _("Hide This Record"))
-
-        # Domain-level hide options (single-select only for clarity)
+        # ── Hide / Unhide submenu ─────────────────────────────
+        in_hidden_mode = self._vm.hidden_mode
+        unhide_rec_act = None
+        hide_rec_act = None
         hide_sub_act = None
         hide_main_act = None
-        if primary_domain and not multi:
-            hide_menu.addSeparator()
-            main_domain = _extract_main_domain(primary_domain)
-            if main_domain != primary_domain:
-                # primary_domain is a subdomain → offer both options
-                hide_sub_act = hide_menu.addAction(
-                    get_icon("eye-off"),
-                    _("Hide Subdomain: {domain}").format(domain=primary_domain),
+
+        if in_hidden_mode:
+            # In hidden-records mode: offer Unhide instead
+            if multi:
+                unhide_rec_act = actions_menu.addAction(
+                    get_icon("eye"), _("Unhide Selected ({n} records)").format(n=len(selected_records))
                 )
-                hide_sub_act.setToolTip(_("Hide only records from {domain}").format(domain=primary_domain))
+            else:
+                unhide_rec_act = actions_menu.addAction(get_icon("eye"), _("Unhide This Record"))
+        else:
+            # Normal mode: offer Hide
+            hide_menu = StyledMenu(_("Hide…"), actions_menu)
+            hide_menu.setIcon(get_icon("eye-off"))
+
+            # Hide this record / selected records
+            if multi:
+                hide_rec_act = hide_menu.addAction(
+                    get_icon("eye-off"), _("Hide Selected ({n} records)").format(n=len(selected_records))
+                )
+            else:
+                hide_rec_act = hide_menu.addAction(get_icon("eye-off"), _("Hide This Record"))
+
+            # Domain-level hide options (single-select only for clarity)
+            if primary_domain and not multi:
+                hide_menu.addSeparator()
+                main_domain = _extract_main_domain(primary_domain)
+                if main_domain != primary_domain:
+                    # primary_domain is a subdomain - offer both options
+                    hide_sub_act = hide_menu.addAction(
+                        get_icon("eye-off"),
+                        _("Hide Subdomain: {domain}").format(domain=primary_domain),
+                    )
+                    hide_sub_act.setToolTip(_("Hide only records from {domain}").format(domain=primary_domain))
+                    hide_main_act = hide_menu.addAction(
+                        get_icon("eye-off"),
+                        _("Hide Domain: {domain}").format(domain=main_domain),
+                    )
+                    hide_main_act.setToolTip(
+                        _("Hide records from {domain} and all its subdomains").format(domain=main_domain)
+                    )
+                else:
+                    # primary_domain is already eTLD+1
+                    hide_main_act = hide_menu.addAction(
+                        get_icon("eye-off"),
+                        _("Hide Domain: {domain}").format(domain=primary_domain),
+                    )
+                    hide_main_act.setToolTip(
+                        _("Hide records from {domain} and all its subdomains").format(domain=primary_domain)
+                    )
+            elif primary_domain and multi:
+                # Multi-select: only offer main-domain hide for the primary record's domain
+                hide_menu.addSeparator()
+                main_domain = _extract_main_domain(primary_domain)
                 hide_main_act = hide_menu.addAction(
                     get_icon("eye-off"),
                     _("Hide Domain: {domain}").format(domain=main_domain),
@@ -2994,26 +3059,8 @@ class HistoryPage(QWidget):
                 hide_main_act.setToolTip(
                     _("Hide records from {domain} and all its subdomains").format(domain=main_domain)
                 )
-            else:
-                # primary_domain is already eTLD+1
-                hide_main_act = hide_menu.addAction(
-                    get_icon("eye-off"),
-                    _("Hide Domain: {domain}").format(domain=primary_domain),
-                )
-                hide_main_act.setToolTip(
-                    _("Hide records from {domain} and all its subdomains").format(domain=primary_domain)
-                )
-        elif primary_domain and multi:
-            # Multi-select: only offer main-domain hide for the primary record's domain
-            hide_menu.addSeparator()
-            main_domain = _extract_main_domain(primary_domain)
-            hide_main_act = hide_menu.addAction(
-                get_icon("eye-off"),
-                _("Hide Domain: {domain}").format(domain=main_domain),
-            )
-            hide_main_act.setToolTip(_("Hide records from {domain} and all its subdomains").format(domain=main_domain))
 
-        actions_menu.addMenu(hide_menu)
+            actions_menu.addMenu(hide_menu)
 
         # Blacklist domain (destructive — kept outside Hide submenu intentionally)
         if primary_domain:
@@ -3062,7 +3109,10 @@ class HistoryPage(QWidget):
         elif action == delete_act:
             self._confirm_delete(selected_records, ids)
 
-        elif action == hide_rec_act:
+        elif unhide_rec_act and action == unhide_rec_act:
+            self._unhide_records(ids)
+
+        elif hide_rec_act and action == hide_rec_act:
             self._hide_records(ids)
 
         elif hide_sub_act and action == hide_sub_act:
@@ -3101,6 +3151,11 @@ class HistoryPage(QWidget):
     def _hide_records(self, ids: list[int]):
         self.hide_records_requested.emit(ids)
         self._status_label.setText(_("Hidden {n} record(s). Manage in Settings → Privacy.").format(n=len(ids)))
+
+    def _unhide_records(self, ids: list[int]):
+        """Unhide records by emitting the signal, then refresh the view."""
+        self.unhide_records_requested.emit(ids)
+        self._status_label.setText(_("Restored {n} record(s).").format(n=len(ids)))
 
     def _hide_domain(self, domain: str, subdomain_only: bool) -> None:
         """Show the HideDomainDialog then emit hide_domain_requested if confirmed."""
@@ -3163,6 +3218,59 @@ class HistoryPage(QWidget):
     def refresh(self):
         self._vm.refresh()
 
+    # ── Hidden-mode toggle ────────────────────────────────────
+
+    def _toggle_hidden_mode(self) -> None:
+        """Toggle between normal and hidden-records-only viewing mode."""
+        entering = not self._vm.hidden_mode
+        if entering:
+            # Gate: require master password if one is set
+            if self._config and self._config.master_password_hash:
+                from src.views.master_password_dialog import require_master_password
+
+                if not require_master_password(self._config.master_password_hash, self):
+                    return
+            self._vm.set_hidden_mode(True)
+        else:
+            self._vm.set_hidden_mode(False)
+        self._update_hidden_mode_ui()
+
+    def leave_hidden_mode(self) -> None:
+        """Exit hidden-mode if active.  Called on window close."""
+        if self._vm.hidden_mode:
+            self._vm.set_hidden_mode(False)
+            self._update_hidden_mode_ui()
+
+    @property
+    def hidden_mode(self) -> bool:
+        """Return whether the page is currently showing hidden records."""
+        return self._vm.hidden_mode
+
+    def set_hidden_mode(self, enabled: bool) -> None:
+        """Programmatically enter or leave hidden mode (e.g. from bookmarks page)."""
+        if self._vm.hidden_mode == enabled:
+            return
+        self._vm.set_hidden_mode(enabled)
+        self._update_hidden_mode_ui()
+
+    def _update_hidden_mode_ui(self) -> None:
+        """Sync title, subtitle, icon, and button styling to hidden-mode state."""
+        active = self._vm.hidden_mode
+        if active:
+            self._title_lbl.setText(_("Hidden Records"))
+            self._subtitle_lbl.setText(_("Showing only hidden records."))
+            self._hidden_mode_btn.setIcon(get_icon("eye"))
+            self._hidden_mode_btn.setToolTip(_("Return to normal view"))
+            self._hidden_mode_btn.setStyleSheet(
+                "QPushButton { border: 1px solid #e05252; border-radius: 6px; background: rgba(224,82,82,0.12); }"
+            )
+        else:
+            self._title_lbl.setText(_("History"))
+            self._subtitle_lbl.setText(_("Double-click any row to open the link in browser"))
+            self._hidden_mode_btn.setIcon(get_icon("eye-off"))
+            self._hidden_mode_btn.setToolTip(_("View hidden records"))
+            self._hidden_mode_btn.setStyleSheet("")
+
     def _open_export_dialog(self):
         """Open the export dialog pre-filled with the current filter state (Entry A)."""
         from pathlib import Path
@@ -3196,6 +3304,7 @@ class HistoryPage(QWidget):
             bookmarked_only=vm._bookmarked_only,
             has_annotation=vm._has_annotation,
             bookmark_tag=vm._bookmark_tag,
+            hidden_only=vm._hidden_mode,
         )
         dlg = ExportDialog(
             db=self._vm._db,

@@ -442,6 +442,7 @@ class ExportDialog(QDialog):
                 bookmarked_only=p.bookmarked_only,
                 has_annotation=p.has_annotation,
                 bookmark_tag=p.bookmark_tag,
+                hidden_only=p.hidden_only,
             )
         return ResolvedExportParams(
             output_path=output_path,

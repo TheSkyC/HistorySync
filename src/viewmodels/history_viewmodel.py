@@ -125,6 +125,7 @@ class _ReloadWorker(QThread):
                 "has_annotation": p["has_annotation"],
                 "bookmark_tag": p["bookmark_tag"],
                 "device_ids": p["device_ids"],
+                "hidden_only": p.get("hidden_only", False),
             }
             # Fetch badge data in the worker thread so the main thread never
             # blocks on _lock while a sync write is in progress.
@@ -171,6 +172,7 @@ class HistoryTableModel(QAbstractTableModel):
         self._date_from: int | None = None
         self._date_to: int | None = None
         self._hidden_ids: set[int] = set()
+        self._hidden_mode: bool = False
 
         # Extended search params
         self._domain_ids: list[int] | None = None
@@ -249,6 +251,14 @@ class HistoryTableModel(QAbstractTableModel):
 
     def set_hidden_ids(self, ids: set[int]) -> None:
         self._hidden_ids = ids
+        self.reload()
+
+    def set_hidden_mode(self, enabled: bool) -> None:
+        """Toggle hidden-only mode.  When True the table shows only hidden
+        records; when False it reverts to the normal exclusion behaviour."""
+        if self._hidden_mode == enabled:
+            return
+        self._hidden_mode = enabled
         self.reload()
 
     # ── QAbstractTableModel interface ────────────────────────
@@ -485,6 +495,7 @@ class HistoryTableModel(QAbstractTableModel):
             "has_annotation": self._has_annotation,
             "bookmark_tag": self._bookmark_tag,
             "device_ids": list(self._device_ids) if self._device_ids is not None else None,
+            "hidden_only": self._hidden_mode,
         }
         use_id_index = bool(self._keyword)
 
@@ -576,6 +587,7 @@ class HistoryTableModel(QAbstractTableModel):
             has_annotation=self._has_annotation,
             bookmark_tag=self._bookmark_tag,
             device_ids=self._device_ids,
+            hidden_only=self._hidden_mode,
         )
 
         before = len(self._keyword_index)
@@ -801,6 +813,7 @@ class HistoryTableModel(QAbstractTableModel):
                 has_annotation=self._has_annotation,
                 bookmark_tag=self._bookmark_tag,
                 device_ids=self._device_ids,
+                hidden_only=self._hidden_mode,
             )
 
         self._page_cache[page_index] = records
@@ -1008,6 +1021,14 @@ class HistoryViewModel(QObject):
             self.table_model.set_hidden_ids(ids)
         else:
             self.table_model._hidden_ids = ids
+
+    @property
+    def hidden_mode(self) -> bool:
+        return self.table_model._hidden_mode
+
+    def set_hidden_mode(self, enabled: bool) -> None:
+        """Toggle hidden-only viewing mode on the table model."""
+        self.table_model.set_hidden_mode(enabled)
 
     def resolve_domain_ids(self, domains: list[str]) -> list[int]:
         return self._db.resolve_domain_ids(domains)

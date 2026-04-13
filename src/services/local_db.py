@@ -604,6 +604,20 @@ class LocalDatabase:
             cursor = conn.execute("DELETE FROM hidden_records")
             return cursor.rowcount
 
+    def unhide_records_by_ids(self, ids: list[int]) -> None:
+        """Remove hidden_records entries for the given record IDs."""
+        if not ids:
+            return
+        _CHUNK = 900
+        with self._conn() as conn:
+            for i in range(0, len(ids), _CHUNK):
+                chunk = ids[i : i + _CHUNK]
+                placeholders = ",".join("?" * len(chunk))
+                conn.execute(
+                    f"DELETE FROM hidden_records WHERE url IN (SELECT url FROM history WHERE id IN ({placeholders}))",
+                    chunk,
+                )
+
     def hide_records_by_domain(self, domain: str, subdomain_only: bool) -> int:
         """Insert all current records matching *domain* into hidden_records (URL-level).
 
@@ -1612,6 +1626,12 @@ class LocalDatabase:
         col = f"{alias}id" if alias else "id"
         return f"{col} NOT IN (SELECT id FROM _excl_ids)"
 
+    @staticmethod
+    def _incl_clause(alias: str = "") -> str:
+        """SQL fragment: restrict to only the IDs in the temp table (hidden-only mode)."""
+        col = f"{alias}id" if alias else "id"
+        return f"{col} IN (SELECT id FROM _excl_ids)"
+
     def get_records_regex_iter(
         self,
         pattern: re.Pattern,
@@ -1628,6 +1648,7 @@ class LocalDatabase:
         has_annotation: bool = False,
         bookmark_tag: str = "",
         device_ids: list[int] | None = None,
+        hidden_only: bool = False,
     ) -> Iterator[HistoryRecord]:
         """Incremental regex search iterator backed by a SQL REGEXP filter.
 
@@ -1680,6 +1701,7 @@ class LocalDatabase:
                 bookmark_tag=bookmark_tag,
                 _force_like=False,
                 device_ids=device_ids,
+                hidden_only=hidden_only,
             )
             connector = " AND " if "WHERE" in from_where else " WHERE "
             sql = f"SELECT {_COLS} {from_where}{connector}{regex_cond} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
@@ -1715,6 +1737,7 @@ class LocalDatabase:
         bookmark_tag: str,
         _force_like: bool,
         device_ids: list[int] | None = None,
+        hidden_only: bool = False,
     ) -> tuple[str, list, bool]:
         """Build the shared FROM/WHERE fragment used by both get_records and get_filtered_count.
 
@@ -1797,7 +1820,10 @@ class LocalDatabase:
                 extra_conditions.append("h.url NOT LIKE ? ESCAPE '\\' AND h.title NOT LIKE ? ESCAPE '\\'")
                 params.extend([f"%{_escape_like(ex)}%", f"%{_escape_like(ex)}%"])
         if excluded_ids:
-            extra_conditions.append(self._excl_clause("h."))
+            if hidden_only:
+                extra_conditions.append(self._incl_clause("h."))
+            else:
+                extra_conditions.append(self._excl_clause("h."))
 
         # ── Inject bookmark/annotation JOIN into FROM clause ───
         if bm_joins:
@@ -1843,6 +1869,7 @@ class LocalDatabase:
         bookmark_tag: str = "",
         device_ids: list[int] | None = None,
         _force_like: bool = False,  # Internal use for FTS fallback
+        hidden_only: bool = False,
     ) -> list[HistoryRecord]:
         excl = excluded_ids or set()
 
@@ -1868,6 +1895,7 @@ class LocalDatabase:
                 has_annotation=has_annotation,
                 bookmark_tag=bookmark_tag,
                 device_ids=device_ids,
+                hidden_only=hidden_only,
             )
             results = []
             match_count = 0
@@ -1903,6 +1931,7 @@ class LocalDatabase:
                 bookmark_tag=bookmark_tag,
                 _force_like=_force_like,
                 device_ids=device_ids,
+                hidden_only=hidden_only,
             )
             sql = f"SELECT {_COLS} {from_where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
             params += [limit, offset]
@@ -1928,6 +1957,7 @@ class LocalDatabase:
                         has_annotation=has_annotation,
                         bookmark_tag=bookmark_tag,
                         _force_like=True,
+                        hidden_only=hidden_only,
                     )
                 raise
         return [self._row_to_record(r) for r in rows]
@@ -1948,6 +1978,7 @@ class LocalDatabase:
         has_annotation: bool = False,
         bookmark_tag: str = "",
         device_ids: list[int] | None = None,
+        hidden_only: bool = False,
     ) -> int | None:
         """Return only the visit_time of the record at *offset* in the current
         filtered result set.  Much cheaper than get_records() for scroll-bubble
@@ -1970,6 +2001,7 @@ class LocalDatabase:
                 bookmark_tag=bookmark_tag,
                 _force_like=False,
                 device_ids=device_ids,
+                hidden_only=hidden_only,
             )
             sql = f"SELECT h.visit_time {from_where} ORDER BY h.visit_time DESC LIMIT 1 OFFSET ?"
             params.append(offset)
@@ -1993,6 +2025,7 @@ class LocalDatabase:
         bookmark_tag: str = "",
         device_ids: list[int] | None = None,
         _force_like: bool = False,  # Internal use for FTS fallback
+        hidden_only: bool = False,
     ) -> int:
         excl = excluded_ids or set()
 
@@ -2013,6 +2046,7 @@ class LocalDatabase:
                 bookmark_tag=bookmark_tag,
                 _force_like=_force_like,
                 device_ids=device_ids,
+                hidden_only=hidden_only,
             )
             sql = f"SELECT COUNT(*) {from_where}"
             try:
@@ -2034,6 +2068,7 @@ class LocalDatabase:
                         bookmark_tag=bookmark_tag,
                         device_ids=device_ids,
                         _force_like=True,
+                        hidden_only=hidden_only,
                     )
                 raise
             return row[0] if row else 0
@@ -2111,26 +2146,68 @@ class LocalDatabase:
             rows = conn.execute("SELECT url FROM bookmarks").fetchall()
         return {r[0] for r in rows}
 
-    def get_all_bookmarks(self, tag: str = "") -> list[BookmarkRecord]:
+    def get_all_bookmarks(self, tag: str = "", hidden_mode: bool = False) -> list[BookmarkRecord]:
+        """Return bookmarks, optionally filtered by tag.
+
+        When *hidden_mode* is False (the default / normal view) bookmarks whose
+        URL appears in ``hidden_records`` **or** whose domain appears in
+        ``hidden_domains`` are excluded — they remain invisible just like the
+        corresponding history records.
+
+        When *hidden_mode* is True only bookmarks that point to a hidden URL or
+        hidden domain are returned, mirroring the history page's hidden-only
+        view.
+        """
+        # Build the visibility WHERE clause that mirrors history-page filtering.
+        # The `domains` table stores hosts for history rows only — it has no
+        # `url` column and bookmarks may point to URLs never in history.  We
+        # therefore resolve the host on-the-fly with _extract_host(b.url) and
+        # compare directly against hidden_domains.domain, bypassing the
+        # `domains` table entirely.
+        if hidden_mode:
+            # Show ONLY bookmarks pointing to hidden URLs or hidden domains.
+            visibility_filter = (
+                "(EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = b.url)"
+                " OR EXISTS ("
+                "  SELECT 1 FROM hidden_domains hd"
+                "  WHERE (hd.subdomain_only = 1 AND _extract_host(b.url) = hd.domain)"
+                "     OR (hd.subdomain_only = 0 AND"
+                "         (_extract_host(b.url) = hd.domain"
+                "          OR _extract_host(b.url) LIKE '%.' || hd.domain))))"
+            )
+        else:
+            # Normal mode: exclude bookmarks whose URL or domain is hidden.
+            visibility_filter = (
+                "NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = b.url)"
+                " AND NOT EXISTS ("
+                "  SELECT 1 FROM hidden_domains hd"
+                "  WHERE (hd.subdomain_only = 1 AND _extract_host(b.url) = hd.domain)"
+                "     OR (hd.subdomain_only = 0 AND"
+                "         (_extract_host(b.url) = hd.domain"
+                "          OR _extract_host(b.url) LIKE '%.' || hd.domain)))"
+            )
+
         with self._conn(write=False) as conn:
             if tag:
                 # Filter by tag via JOIN, then LEFT JOIN again to collect all tags per bookmark.
                 rows = conn.execute(
-                    """SELECT b.id, b.url, b.title, b.bookmarked_at, b.history_id,
+                    f"""SELECT b.id, b.url, b.title, b.bookmarked_at, b.history_id,
                               GROUP_CONCAT(bt2.tag, ',') AS tags
                        FROM bookmarks b
                        JOIN bookmark_tags bt  ON b.id = bt.bookmark_id  AND bt.tag = ?
                        LEFT JOIN bookmark_tags bt2 ON b.id = bt2.bookmark_id
+                       WHERE {visibility_filter}
                        GROUP BY b.id
                        ORDER BY b.bookmarked_at DESC""",
                     (tag,),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    """SELECT b.id, b.url, b.title, b.bookmarked_at, b.history_id,
+                    f"""SELECT b.id, b.url, b.title, b.bookmarked_at, b.history_id,
                               GROUP_CONCAT(bt.tag, ',') AS tags
                        FROM bookmarks b
                        LEFT JOIN bookmark_tags bt ON b.id = bt.bookmark_id
+                       WHERE {visibility_filter}
                        GROUP BY b.id
                        ORDER BY b.bookmarked_at DESC"""
                 ).fetchall()
@@ -2761,6 +2838,7 @@ class LocalDatabase:
         has_annotation: bool = False,
         bookmark_tag: str = "",
         device_ids: list[int] | None = None,
+        hidden_only: bool = False,
     ) -> list[tuple[int, int]]:
         """Return (id, visit_time) for all matching rows ordered visit_time DESC.
 
@@ -2786,6 +2864,7 @@ class LocalDatabase:
                 bookmark_tag=bookmark_tag,
                 _force_like=False,
                 device_ids=device_ids,
+                hidden_only=hidden_only,
             )
             sql = f"SELECT h.id, h.visit_time {from_where} ORDER BY h.visit_time DESC"
             cur = conn.execute(sql, params)
