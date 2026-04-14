@@ -7,6 +7,8 @@ import ctypes as _ctypes
 from datetime import date, timedelta
 import json
 import re
+import urllib.parse
+import webbrowser
 
 from PySide6.QtCore import (
     QAbstractListModel,
@@ -564,6 +566,18 @@ class SearchSuggestionModel(QAbstractListModel):
             self._rows.append({"display": _("Domains"), "type": "header", "insert": "", "header": True})
             self._rows.extend(_domain_rows)
 
+        # ── "Search xxx" web search entry at the bottom ──
+        if stripped:
+            self._rows.append(
+                {
+                    "display": stripped,
+                    "type": "web_search",
+                    "insert": stripped,
+                    "icon": "search",
+                    "match_spans": [],
+                }
+            )
+
         self.endResetModel()
 
     def has_suggestions(self) -> bool:
@@ -582,6 +596,8 @@ class SearchSuggestionModel(QAbstractListModel):
         if role == _ROLE_HEADER:
             return row.get("header", False)
         if role == Qt.DisplayRole:
+            if row.get("type") == "web_search":
+                return _("Search {query}").format(query=row["display"])
             return row["display"]
         if role == _ROLE_TYPE:
             return row["type"]
@@ -608,6 +624,8 @@ class SearchSuggestionModel(QAbstractListModel):
                 return _("{count} visits").format(count=row.get("count", 0))
             if stype in ("field", "browser", "date", "tag"):
                 return _("Search filter")
+            if stype == "web_search":
+                return _('Search "{query}" on Google').format(query=row["display"])
             return _("Recent search")
         return None
 
@@ -751,7 +769,9 @@ class _SuggestionDelegate(QStyledItemDelegate):
                 badge = _("Bookmark")
             else:  # browser (not pinned) or recent fallback
                 accent = None
-                badge = _("Browser") if stype == "browser" else _("Recent")
+                badge = (
+                    _("Browser") if stype == "browser" else _("Web Search") if stype == "web_search" else _("Recent")
+                )
 
             if accent is not None:
                 bg_color = QColor(accent)
@@ -1043,17 +1063,26 @@ class SuggestionDropdown(QFrame):
             return
         self.set_anchor_widget(widget)
 
-        # Accumulate height: 22px headers, 32px normal rows; cap at 8 data rows
+        # Accumulate height: 22px headers, 32px normal rows; cap at 8 data rows.
+        # Always include the trailing web_search row regardless of the cap.
         data_rows_seen = 0
         list_h = 4  # border padding
+        last_row = model.rowCount() - 1
         for r in range(model.rowCount()):
             idx = model.index(r, 0)
             is_hdr = idx.data(_ROLE_HEADER)
+            is_web_search = idx.data(_ROLE_TYPE) == "web_search"
+            # Skip the web_search row here; it is appended unconditionally below.
+            if is_web_search:
+                continue
             list_h += 22 if is_hdr else 32
             if not is_hdr:
                 data_rows_seen += 1
             if data_rows_seen >= 8:
                 break
+        # Always reserve space for the web_search entry if one exists.
+        if last_row >= 0 and model.index(last_row, 0).data(_ROLE_TYPE) == "web_search":
+            list_h += 32
 
         footer_h = self._footer.sizeHint().height()
         w = widget.width()
@@ -1524,9 +1553,9 @@ class SmartSearchLineEdit(QWidget):
             if idx.data(_ROLE_HEADER):
                 continue
             stype: str = idx.data(_ROLE_TYPE) or ""
-            # Skip "recent" suggestions for inline ghost text — they replace the
-            # whole query, which is better confirmed from the dropdown list.
-            if stype == "recent":
+            # Skip "recent" and "web_search" suggestions for inline ghost text — they
+            # replace the whole query, which is better confirmed from the dropdown list.
+            if stype in ("recent", "web_search"):
                 continue
             insert_text: str = idx.data(_ROLE_INSERT) or ""
             if not insert_text:
@@ -1574,6 +1603,18 @@ class SmartSearchLineEdit(QWidget):
         self._suggest_timer.start()
 
     def _accept_suggestion(self, insert_text: str, stype: str = "") -> None:
+        # ── Web search: open browser immediately, don't modify the search box ──
+        if stype == "web_search":
+            query_url = "https://www.google.com/search?q=" + urllib.parse.quote_plus(insert_text)
+            webbrowser.open(query_url)
+            self._suggest_timer.stop()
+            self._dropdown.hide()
+            self._editor.clear_ghost_text()
+            self._ghost_insert_text = ""
+            self._ghost_stype = ""
+            QTimer.singleShot(0, self._editor.setFocus)
+            return
+
         full_text = self.text()
         cursor_pos = self._editor.textCursor().position()
 

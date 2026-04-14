@@ -219,12 +219,28 @@ class _SearchInput(QWidget):
         self._input.setFocus()
 
 
+_WEB_SEARCH_ROLE = Qt.UserRole + 1  # bool: True for the "Search xxx" sentinel row
+
+
+class _WebSearchItem(QListWidgetItem):
+    """Sentinel list item that opens a Google search when activated."""
+
+    def __init__(self, query: str) -> None:
+        super().__init__()
+        self.query = query
+        self.setText(_('Search "{query}"').format(query=query))
+        self.setIcon(get_icon("search", 16))
+        self.setData(_WEB_SEARCH_ROLE, True)
+        self.setData(Qt.UserRole, "")  # no URL — handled specially in _open_selected
+
+
 class _ResultItem(QListWidgetItem):
     def __init__(self, record: HistoryRecord, favicon_cache=None) -> None:
         super().__init__()
         self.record = record
         title = record.title or record.url
         self.setText(title)
+        self.setData(_WEB_SEARCH_ROLE, False)
 
         icon = None
         # Try favicon cache first (website icon), fall back to browser icon
@@ -787,6 +803,14 @@ class OverlayWindow(QWidget):
 
         self._search_offset = offset + len(records)
 
+        # Show the "Search xxx" sentinel only when all results have been loaded
+        # (no more pages). Remove any stale sentinel first (always the last row).
+        last_idx = self._results.count() - 1
+        if last_idx >= 0 and self._results.item(last_idx).data(_WEB_SEARCH_ROLE):
+            self._results.takeItem(last_idx)
+        if keyword and not self._search_has_more:
+            self._results.addItem(_WebSearchItem(keyword))
+
         total = self._results.count()
         was_visible = self._results.isVisible()
         visible = total > 0
@@ -796,7 +820,8 @@ class OverlayWindow(QWidget):
             self._row_height = self._results.sizeHintForRow(0) + 2
 
         # Always resize the list to fit the actual number of rows (capped at
-        # _MAX_RESULTS), so the window shrinks/grows as results change.
+        # _MAX_RESULTS). The web-search sentinel counts as one of those rows,
+        # so the window height never grows when it appears.
         if visible and self._row_height > 0:
             capped = min(total, _MAX_RESULTS)
             self._results.setFixedHeight(self._row_height * capped)
@@ -826,15 +851,24 @@ class OverlayWindow(QWidget):
         # small and the incremental-load trigger fires correctly.
         new_row = min(cur + delta, count - 1) if delta > 0 else max(cur + delta, 0)
         self._results.setCurrentRow(new_row)
-        # Trigger incremental load when within _INCREMENTAL_TRIGGER rows of bottom
+        # Trigger incremental load when within _INCREMENTAL_TRIGGER rows of bottom.
+        # Exclude the web-search sentinel from the bottom count.
         if delta > 0 and self._search_has_more and not self._incremental_loading:
-            rows_from_bottom = count - 1 - new_row
+            last = self._results.item(count - 1)
+            sentinel_offset = 1 if (last and last.data(_WEB_SEARCH_ROLE)) else 0
+            rows_from_bottom = count - 1 - sentinel_offset - new_row
             if rows_from_bottom < _INCREMENTAL_TRIGGER:
                 self._load_more()
 
     def _open_selected(self) -> None:
         item = self._results.currentItem()
         if item is None:
+            return
+        if item.data(_WEB_SEARCH_ROLE):
+            import urllib.parse
+
+            webbrowser.open("https://www.google.com/search?q=" + urllib.parse.quote_plus(item.query))
+            self.hide()
             return
         url = item.data(Qt.UserRole)
         open_with = self._config.overlay.open_with
@@ -845,7 +879,7 @@ class OverlayWindow(QWidget):
 
     def _copy_selected(self) -> None:
         item = self._results.currentItem()
-        if item is None:
+        if item is None or item.data(_WEB_SEARCH_ROLE):
             return
         url = item.data(Qt.UserRole)
         QApplication.clipboard().setText(url)
