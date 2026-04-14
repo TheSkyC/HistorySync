@@ -540,18 +540,36 @@ class BookmarkBadgeDelegate(QStyledItemDelegate):
         """Draw favicon and badge icons if present."""
         from PySide6.QtGui import QPixmap
 
-        # Let the default delegate draw the background and selection
+        # Fetch the record once via UserRole — avoids 4 separate data() calls
+        # (DisplayRole, DecorationRole, BOOKMARK_ROLE, ANNOTATION_ROLE) each of
+        # which would trigger a full role-dispatch + _get_record_at() round-trip.
+        record = index.data(Qt.UserRole)
+        if record is None:
+            super().paint(painter, option, index)
+            return
+
+        has_bookmark = record.url in self._model._bookmarked_urls
+        has_annotation = record.url in self._model._annotated_urls
+        display_text = record.title or record.url
+
+        state = option.state
+        needs_full_style = bool(state & (QStyle.State_Selected | QStyle.State_MouseOver | QStyle.State_HasFocus))
+
         opt = QStyleOptionViewItem(option)
         self.initStyleOption(opt, index)
-        opt.text = ""  # We'll draw text manually
-        opt.icon = QIcon()  # We'll draw icon manually
-        option.widget.style().drawControl(QStyle.CE_ItemViewItem, opt, painter, option.widget)
+        opt.text = ""
+        opt.icon = QIcon()
 
-        # Get data
-        display_text = index.data(Qt.DisplayRole) or ""
-        favicon = index.data(Qt.DecorationRole)
-        has_bookmark = index.data(BOOKMARK_ROLE) or False
-        has_annotation = index.data(ANNOTATION_ROLE) or False
+        if needs_full_style:
+            option.widget.style().drawControl(QStyle.CE_ItemViewItem, opt, painter, option.widget)
+        else:
+            # Fast path: just fill the background color
+            bg = opt.palette.color(opt.palette.ColorRole.Base)
+            if state & QStyle.State_Enabled and (opt.features & QStyleOptionViewItem.ViewItemFeature.Alternate):
+                bg = opt.palette.color(opt.palette.ColorRole.AlternateBase)
+            painter.fillRect(option.rect, bg)
+
+        favicon = self._model.data(index, Qt.DecorationRole)
 
         painter.save()
 
@@ -584,6 +602,16 @@ class BookmarkBadgeDelegate(QStyledItemDelegate):
 
         # Draw text
         text_rect = QRect(x + 4, rect.y(), rect.width() - (x - rect.x()) - 4, rect.height())
+        if needs_full_style:
+            painter.setPen(
+                opt.palette.color(
+                    opt.palette.ColorRole.HighlightedText
+                    if opt.state & QStyle.State_Selected
+                    else opt.palette.ColorRole.Text
+                )
+            )
+        else:
+            painter.setPen(opt.palette.color(opt.palette.ColorRole.Text))
         painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, display_text)
 
         painter.restore()

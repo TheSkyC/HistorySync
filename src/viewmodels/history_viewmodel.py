@@ -34,6 +34,18 @@ log = get_logger("viewmodel.history")
 BOOKMARK_ROLE = Qt.UserRole + 1
 ANNOTATION_ROLE = Qt.UserRole + 2
 
+_VALID_ROLES: frozenset[int] = frozenset(
+    {
+        Qt.DisplayRole,
+        Qt.DecorationRole,
+        Qt.ToolTipRole,
+        Qt.UserRole,
+        Qt.TextAlignmentRole,
+        BOOKMARK_ROLE,
+        ANNOTATION_ROLE,
+    }
+)
+
 # Page size for each database prefetch
 PAGE_SIZE = 200
 CACHE_PAGE_SIZE = PAGE_SIZE
@@ -301,15 +313,7 @@ class HistoryTableModel(QAbstractTableModel):
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:  # noqa: PLR0911
         if not index.isValid():
             return None
-        if role not in (
-            Qt.DisplayRole,
-            Qt.DecorationRole,
-            Qt.ToolTipRole,
-            Qt.UserRole,
-            Qt.TextAlignmentRole,
-            BOOKMARK_ROLE,
-            ANNOTATION_ROLE,
-        ):
+        if role not in _VALID_ROLES:
             return None
 
         row = index.row()

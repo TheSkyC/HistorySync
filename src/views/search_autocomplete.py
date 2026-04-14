@@ -1694,8 +1694,9 @@ class SmartSearchLineEdit(QWidget):
     # ── Keyboard navigation ───────────────────────────────
 
     def eventFilter(self, obj, event) -> bool:
-        # App-level mouse press: hide dropdown and blur editor when clicking outside
-        if event.type() == QEvent.MouseButtonPress and isinstance(event, QMouseEvent):
+        # App-level mouse press: hide dropdown and blur editor when clicking outside.
+        etype = event.type()
+        if etype == QEvent.MouseButtonPress and isinstance(event, QMouseEvent):
             if self._dropdown.isVisible() or self._editor.hasFocus():
                 # Use object identity — coordinate math is unreliable because the
                 # dropdown (ToolTip top-level) visually overlaps the editor's rect.
@@ -1714,7 +1715,6 @@ class SmartSearchLineEdit(QWidget):
                     self._editor.clearFocus()
 
         if obj is self._editor:
-            etype = event.type()
             # Recalculate search box height when font changes (after FontManager/QSS modification)
             if etype == QEvent.Type.FontChange:
                 self._editor.setFixedHeight(self._editor.fontMetrics().height() + 18)

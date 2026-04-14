@@ -426,7 +426,7 @@ class FaviconManager(QObject):
         true_domains: set[str] = set()
 
         for rec in records:
-            domain = extract_domain(rec.url)
+            domain = rec.domain or extract_domain(rec.url)
             key = domain or rec.url
             if self._lru.get((key, size)) is None:
                 domain_to_url[key] = rec.url
