@@ -98,7 +98,7 @@ class LocalDatabase:
         self._schema_initialized: bool = False
         self._vacuuming: bool = False
         self._fts_thread: threading.Thread | None = None
-        self._excl_cache: dict[int, frozenset[int]] = {}  # keyed by id(conn)
+        self._excl_cache: dict[sqlite3.Connection, frozenset[int]] = {}
         self._excl_cache_lock = threading.Lock()
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1622,11 +1622,11 @@ class LocalDatabase:
         # Skip the expensive DELETE + re-insert when the set hasn't changed since
         # the last call on this connection (common in UI scroll / pagination).
         with self._excl_cache_lock:
-            cached: set[int] | None = self._excl_cache.get(id(conn))
+            cached: frozenset[int] | None = self._excl_cache.get(conn)
             if cached != excl:
                 conn.execute("DELETE FROM _excl_ids")
                 conn.executemany("INSERT OR IGNORE INTO _excl_ids VALUES(?)", ((i,) for i in excl))
-                self._excl_cache[id(conn)] = frozenset(excl)
+                self._excl_cache[conn] = frozenset(excl)
         return True
 
     @staticmethod
