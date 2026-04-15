@@ -1866,6 +1866,7 @@ class LocalDatabase:
         limit: int = 200,
         offset: int = 0,
         excluded_ids: set[int] | None = None,
+        cursor: tuple[int, int] | None = None,  # (visit_time, id) for keyset pagination
         # Extended search params
         domain_ids: list[int] | None = None,
         excludes: list[str] | None = None,
@@ -1925,7 +1926,7 @@ class LocalDatabase:
                     hidden_only=hidden_only,
                 )
                 connector = " AND " if "WHERE" in from_where else " WHERE "
-                sql = f"SELECT {_RCOLS} {from_where}{connector}{regex_cond} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
+                sql = f"SELECT {_RCOLS} {from_where}{connector}{regex_cond} ORDER BY h.visit_time DESC, h.id DESC LIMIT ? OFFSET ?"
                 rows = conn.execute(sql, base_params + regex_params + [limit, offset]).fetchall()
             return [self._row_to_record(row) for row in rows]
 
@@ -1954,8 +1955,15 @@ class LocalDatabase:
                 device_ids=device_ids,
                 hidden_only=hidden_only,
             )
-            sql = f"SELECT {_COLS} {from_where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
-            params += [limit, offset]
+            if cursor is not None:
+                vt, rid = cursor
+                connector = " AND " if "WHERE" in from_where else " WHERE "
+                from_where += f"{connector}(h.visit_time < ? OR (h.visit_time = ? AND h.id < ?))"
+                params += [vt, vt, rid, limit]
+                sql = f"SELECT {_COLS} {from_where} ORDER BY h.visit_time DESC, h.id DESC LIMIT ?"
+            else:
+                sql = f"SELECT {_COLS} {from_where} ORDER BY h.visit_time DESC, h.id DESC LIMIT ? OFFSET ?"
+                params += [limit, offset]
             try:
                 rows = conn.execute(sql, params).fetchall()
             except sqlite3.OperationalError as exc:
@@ -1968,6 +1976,7 @@ class LocalDatabase:
                         limit=limit,
                         offset=offset,
                         excluded_ids=excl,
+                        cursor=cursor,
                         domain_ids=domain_ids,
                         excludes=excludes,
                         title_only=title_only,

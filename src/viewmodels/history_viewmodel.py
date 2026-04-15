@@ -800,13 +800,20 @@ class HistoryTableModel(QAbstractTableModel):
             ids = [entry[0] for entry in self._keyword_index[start : start + CACHE_PAGE_SIZE]]
             records = self._db.get_records_by_ids(ids)
         else:
+            # Use keyset pagination when the previous page is cached — avoids O(N) OFFSET scan.
+            cursor = None
+            if page_index > 0 and (page_index - 1) in self._page_cache:
+                prev = self._page_cache[page_index - 1]
+                if prev and prev[-1].id is not None:
+                    cursor = (prev[-1].visit_time, prev[-1].id)
             records = self._db.get_records(
                 keyword=self._keyword,
                 browser_type=self._browser_type,
                 date_from=self._date_from,
                 date_to=self._date_to,
                 limit=CACHE_PAGE_SIZE,
-                offset=start,
+                offset=start if cursor is None else 0,
+                cursor=cursor,
                 excluded_ids=self._hidden_ids,
                 domain_ids=self._domain_ids,
                 excludes=self._excludes,
