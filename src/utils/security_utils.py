@@ -73,7 +73,11 @@ def _unpad(data: bytes) -> bytes:
 
 
 def _hkdf_expand(prk: bytes, length: int) -> bytes:
-    """HKDF-Expand (RFC 5869) using HMAC-SHA256. Max output: 255 * 32 = 8160 bytes."""
+    """HKDF-Expand variant using HMAC-SHA256. Max output: 255 * 32 = 8160 bytes.
+
+    Follows RFC 5869 structure but uses a custom Info value (_HKDF_INFO) rather
+    than a caller-supplied one, making this a fixed-purpose internal KDF.
+    """
     if length > 255 * 32:
         raise ValueError(f"HKDF-Expand: requested length {length} exceeds maximum 8160 bytes")
     output = b""
