@@ -76,6 +76,7 @@ class ThemeManager(QObject):
         self._pending: str | None = None
         self._pending_app: QApplication | None = None
         self._applied: str | None = None
+        self._system_watcher_connected: bool = False
         self._apply_timer = QTimer(self)
         self._apply_timer.setSingleShot(True)
         self._apply_timer.setInterval(0)
@@ -132,7 +133,30 @@ class ThemeManager(QObject):
         self._pending = resolved
         self._pending_app = app
         self._apply_timer.stop()
+        self._connect_system_watcher()
         self._do_apply(app, resolved)
+
+    def _connect_system_watcher(self) -> None:
+        """Connect to Qt's colorSchemeChanged signal once so we can follow system theme changes."""
+        if self._system_watcher_connected:
+            return
+        try:
+            from PySide6.QtGui import QGuiApplication
+
+            QGuiApplication.styleHints().colorSchemeChanged.connect(self._on_system_color_scheme_changed)
+            self._system_watcher_connected = True
+            log.debug("Connected to colorSchemeChanged signal for system theme tracking")
+        except Exception as exc:
+            log.warning("Could not connect to colorSchemeChanged: %s", exc)
+
+    def _on_system_color_scheme_changed(self) -> None:
+        """Re-apply theme when Windows/OS switches dark/light mode, but only in system-follow mode."""
+        if self._raw != THEME_SYSTEM:
+            return
+        app = self._pending_app or QApplication.instance()
+        if app is not None:
+            log.info("System color scheme changed, re-applying theme")
+            self.apply(app, THEME_SYSTEM)
 
     def _do_apply(self, app: QApplication, resolved: str) -> None:
         if self._pending != resolved:
