@@ -158,7 +158,7 @@ class Scheduler(QObject):
         # Sync timer
         self._sync_timer.stop()
         if config.auto_sync_enabled and config.sync_interval_hours > 0:
-            interval_ms = config.sync_interval_hours * 3600 * 1000
+            interval_ms = min(config.sync_interval_hours * 3600 * 1000, 2_147_483_647)
             sync_ts = last_sync_ts if last_sync_ts > 0 else None
             first_ms = self._calc_first_interval_ms(interval_ms, sync_ts)
             if first_ms <= 0:
@@ -182,7 +182,7 @@ class Scheduler(QObject):
         # Backup timer
         self._backup_timer.stop()
         if config.auto_backup_enabled and config.auto_backup_interval_hours > 0:
-            backup_interval_ms = config.auto_backup_interval_hours * 3600 * 1000
+            backup_interval_ms = min(config.auto_backup_interval_hours * 3600 * 1000, 2_147_483_647)
             backup_ts = last_backup_ts if last_backup_ts > 0 else None
             first_backup_ms = self._calc_first_interval_ms(backup_interval_ms, backup_ts)
             if first_backup_ms <= 0:
