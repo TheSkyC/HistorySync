@@ -32,6 +32,7 @@ def _patch_config_dirs(tmp_path: Path):
     patches = [
         unittest.mock.patch("src.models.app_config._resolve_config_dir", return_value=tmp_path),
         unittest.mock.patch("src.models.app_config._resolve_data_dir", return_value=tmp_path),
+        unittest.mock.patch("src.utils.security_utils.get_config_dir", return_value=tmp_path),
     ]
     for p in patches:
         p.start()
