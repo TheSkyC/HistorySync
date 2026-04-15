@@ -992,25 +992,12 @@ class HistoryViewModel(QObject):
             bookmark_tag=bookmark_tag,
             device_ids=device_ids,
         )
-        count = self.table_model.total_count
-        has_more = self.table_model.can_load_more
-        # When regex search has more unscanned results, show "N+" instead of an exact count
-        if use_regex and has_more:
-            self.status_message.emit(_("{total}+ records").format(total=f"{count:,}"))
-        else:
-            self.status_message.emit(_("{total} records").format(total=f"{count:,}"))
 
     def load_more(self) -> bool:
         """Called when the user scrolls to the bottom; triggers regex incremental loading.
         No manual loading is needed in non-regex mode."""
         if self._use_regex:
             result = self.table_model.load_more_regex()
-            count = self.table_model.total_count
-            has_more = self.table_model.can_load_more
-            if has_more:
-                self.status_message.emit(_("{total}+ records").format(total=f"{count:,}"))
-            else:
-                self.status_message.emit(_("{total} records").format(total=f"{count:,}"))
             return result
         return False
 

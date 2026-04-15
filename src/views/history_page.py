@@ -950,11 +950,7 @@ class _ScrollTimeBubble(QWidget):
         bottom_row.setSpacing(8)
         self._density_bar = _DensityBar(self)
         self._density_bar.setFixedHeight(6)
-        self._total_lbl = QLabel()
-        self._total_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self._total_lbl.setFixedWidth(62)  # Wide enough for "999 records", prevents bar jitter
         bottom_row.addWidget(self._density_bar, 1)
-        bottom_row.addWidget(self._total_lbl)
         bottom_container_layout.addLayout(bottom_row)
 
         outer.addWidget(self._bottom_container)
@@ -1154,7 +1150,6 @@ class _ScrollTimeBubble(QWidget):
             f"color: {self._date_color}; font-size: 13px; font-weight: 700; background: transparent;"
         )
         self._time_lbl.setStyleSheet(f"color: {self._time_color}; font-size: 11px; background: transparent;")
-        self._total_lbl.setStyleSheet(f"color: {self._total_color}; font-size: 10px; background: transparent;")
         # Force domain rows to repaint with new colors if data is already loaded
         if self._cached_stats:
             self._render_domain_rows(self._cached_stats)
@@ -1321,7 +1316,6 @@ class _ScrollTimeBubble(QWidget):
             total = stats.get("total", 0)
             density = min(total / max(self._avg_daily, 1.0), 1.0)
             self._density_bar.set_density(density)
-            self._total_lbl.setText(_("{n} records").format(n=total))
         except Exception:
             self._cached_stats = None
 
