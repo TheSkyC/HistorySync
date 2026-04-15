@@ -39,6 +39,7 @@ from src.views.settings.maintenance_section import MaintenanceSection
 from src.views.settings.overlay_section import OverlaySection
 from src.views.settings.privacy_section import PrivacySection
 from src.views.settings.scheduler_section import SchedulerSection
+from src.views.settings.search_engine_section import SearchEngineSection
 from src.views.settings.security_section import SecuritySection
 from src.views.settings.startup_section import StartupSection
 from src.views.settings.webdav_section import WebDavSection
@@ -105,6 +106,7 @@ class SettingsPage(QWidget):
         self._sec_maint = MaintenanceSection()
         self._sec_font = FontSection()
         self._sec_overlay = OverlaySection()
+        self._sec_search_engine = SearchEngineSection()
 
         self._add_card(_("LANGUAGE"), self._sec_language)
         self._add_card(_("AUTO SYNC"), self._sec_scheduler)
@@ -118,6 +120,7 @@ class SettingsPage(QWidget):
         self._add_card(_("DATABASE MAINTENANCE"), self._sec_maint)
         self._add_card(_("FONTS"), self._sec_font)
         self._add_card(_("QUICK ACCESS OVERLAY"), self._sec_overlay)
+        self._add_card(_("SEARCH ENGINE"), self._sec_search_engine)
 
         self._content_layout.addStretch()
         scroll.setWidget(content)
@@ -232,6 +235,9 @@ class SettingsPage(QWidget):
         # Overlay
         self._sec_overlay.load(cfg, self._vm._main_vm._db)
 
+        # Search engine
+        self._sec_search_engine.load(cfg)
+
         # Devices
         self._load_devices()
         self._sec_devices.rename_requested.connect(self._on_device_rename)
@@ -288,6 +294,9 @@ class SettingsPage(QWidget):
         cfg.overlay.enabled = oc.enabled
         cfg.overlay.filter_browsers = oc.filter_browsers
         cfg.overlay.open_with = oc.open_with
+
+        # Search engine
+        cfg.search_engine = self._sec_search_engine.get_search_engine_config()
 
         self._vm.save(cfg)
         self._compute_next_times()

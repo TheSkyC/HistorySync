@@ -74,6 +74,44 @@ class ExtractorConfig:
     # }
 
 
+BUILTIN_SEARCH_ENGINES: list[tuple[str, str]] = [
+    ("Google", "https://www.google.com/search?q={query}"),
+    ("Bing", "https://www.bing.com/search?q={query}"),
+    ("Baidu", "https://www.baidu.com/s?wd={query}"),
+    ("DuckDuckGo", "https://duckduckgo.com/?q={query}"),
+    ("Yandex", "https://yandex.com/search/?text={query}"),
+    ("Brave Search", "https://search.brave.com/search?q={query}"),
+]
+
+BUILTIN_SEARCH_ENGINE_NAMES: list[str] = [name for name, _ in BUILTIN_SEARCH_ENGINES]
+
+CUSTOM_ENGINE_KEY = "custom"
+
+
+@dataclass
+class SearchEngineConfig:
+    """Search engine used by the web-search autocomplete action."""
+
+    # Name of a builtin engine (e.g. "Google") or CUSTOM_ENGINE_KEY
+    engine: str = "Google"
+    # URL template — always kept in sync with the builtin selection.
+    # For custom engines the user edits this directly.
+    # Placeholder: {query}  →  replaced with URL-encoded query text.
+    url_template: str = "https://www.google.com/search?q={query}"
+
+    def build_url(self, query: str) -> str:
+        import urllib.parse as _up
+
+        return self.url_template.replace("{query}", _up.quote_plus(query))
+
+    @property
+    def display_name(self) -> str:
+        """Return a short label for badges (max ~12 chars)."""
+        if self.engine == CUSTOM_ENGINE_KEY:
+            return "Custom"
+        return self.engine
+
+
 DEFAULT_FILTERED_URL_PREFIXES: list[str] = [
     # Chromium-based browser internal UI
     "chrome://",
@@ -156,6 +194,7 @@ class AppConfig:
     ui: UIConfig = field(default_factory=UIConfig)
     font: FontConfig = field(default_factory=FontConfig)
     overlay: OverlayConfig = field(default_factory=OverlayConfig)
+    search_engine: SearchEngineConfig = field(default_factory=SearchEngineConfig)
     window_x: int = -1
     window_y: int = -1
     window_width: int = DEFAULT_WINDOW_WIDTH
@@ -242,6 +281,7 @@ class AppConfig:
             "ui": asdict(self.ui),
             "font": asdict(self.font),
             "overlay": asdict(self.overlay),
+            "search_engine": asdict(self.search_engine),
             "window_x": self.window_x,
             "window_y": self.window_y,
             "window_width": self.window_width,
@@ -292,6 +332,10 @@ class AppConfig:
         if "overlay" in d:
             cfg.overlay = OverlayConfig(
                 **{k: v for k, v in d["overlay"].items() if k in OverlayConfig.__dataclass_fields__}
+            )
+        if "search_engine" in d:
+            cfg.search_engine = SearchEngineConfig(
+                **{k: v for k, v in d["search_engine"].items() if k in SearchEngineConfig.__dataclass_fields__}
             )
         for key in (
             "window_x",

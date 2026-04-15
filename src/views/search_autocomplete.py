@@ -7,7 +7,6 @@ import ctypes as _ctypes
 from datetime import date, timedelta
 import json
 import re
-import urllib.parse
 import webbrowser
 
 from PySide6.QtCore import (
@@ -625,7 +624,10 @@ class SearchSuggestionModel(QAbstractListModel):
             if stype in ("field", "browser", "date", "tag"):
                 return _("Search filter")
             if stype == "web_search":
-                return _('Search "{query}" on Google').format(query=row["display"])
+                from src.models.app_config import AppConfig as _AppConfig
+
+                _engine_name = _AppConfig.load().search_engine.display_name
+                return _('Search "{query}" on {engine}').format(query=row["display"], engine=_engine_name)
             return _("Recent search")
         return None
 
@@ -769,9 +771,12 @@ class _SuggestionDelegate(QStyledItemDelegate):
                 badge = _("Bookmark")
             else:  # browser (not pinned) or recent fallback
                 accent = None
-                badge = (
-                    _("Browser") if stype == "browser" else _("Web Search") if stype == "web_search" else _("Recent")
-                )
+                if stype == "web_search":
+                    from src.models.app_config import AppConfig as _AppConfig
+
+                    badge = _AppConfig.load().search_engine.display_name
+                else:
+                    badge = _("Browser") if stype == "browser" else _("Recent")
 
             if accent is not None:
                 bg_color = QColor(accent)
@@ -1605,7 +1610,9 @@ class SmartSearchLineEdit(QWidget):
     def _accept_suggestion(self, insert_text: str, stype: str = "") -> None:
         # ── Web search: open browser immediately, don't modify the search box ──
         if stype == "web_search":
-            query_url = "https://www.google.com/search?q=" + urllib.parse.quote_plus(insert_text)
+            from src.models.app_config import AppConfig as _AppConfig
+
+            query_url = _AppConfig.load().search_engine.build_url(insert_text)
             webbrowser.open(query_url)
             self._suggest_timer.stop()
             self._dropdown.hide()

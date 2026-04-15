@@ -894,9 +894,9 @@ class OverlayWindow(QWidget):
         if item is None:
             return
         if item.data(_WEB_SEARCH_ROLE):
-            import urllib.parse
+            from src.models.app_config import AppConfig as _AppConfig
 
-            webbrowser.open("https://www.google.com/search?q=" + urllib.parse.quote_plus(item.query))
+            webbrowser.open(_AppConfig.load().search_engine.build_url(item.query))
             self.hide()
             return
         url = item.data(Qt.UserRole)
