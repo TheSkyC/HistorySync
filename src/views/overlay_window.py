@@ -754,6 +754,9 @@ class OverlayWindow(QWidget):
         When *append* is True the next batch is fetched at the current offset
         and appended to the existing list — this is the incremental-load path.
         """
+        self._do_search_inner(append=append)
+
+    def _do_search_inner(self, *, append: bool = False) -> None:
         keyword = self._search_input.text().strip()
         filter_bt = self._config.overlay.filter_browsers
         if filter_bt == "auto":
@@ -794,6 +797,39 @@ class OverlayWindow(QWidget):
         else:
             self._search_has_more = False
 
+        # ── Compute final height before touching the list widget ──────────────
+        # This ensures only one geometry change happens, eliminating jitter in
+        # both the grow and shrink directions.
+        existing_real = (
+            (
+                self._results.count()
+                - (
+                    1
+                    if self._results.count() > 0
+                    and self._results.item(self._results.count() - 1).data(_WEB_SEARCH_ROLE)
+                    else 0
+                )
+            )
+            if append
+            else 0
+        )
+        new_real = existing_real + len(records)
+        has_sentinel = bool(keyword and not self._search_has_more)
+        new_total = new_real + (1 if has_sentinel else 0)
+        visible_new = new_total > 0
+        was_visible = self._results.isVisible()
+
+        # Row height may not be known yet on the very first search; in that case
+        # we skip the pre-sizing and let the post-sizing path handle it as before.
+        if self._row_height > 0:
+            if visible_new:
+                capped = min(new_total, _MAX_RESULTS)
+                self._results.setFixedHeight(self._row_height * capped)
+            else:
+                self._results.setFixedHeight(0)
+            if visible_new != was_visible:
+                self._results.setVisible(visible_new)
+
         if not append:
             self._results.clear()
 
@@ -803,39 +839,32 @@ class OverlayWindow(QWidget):
 
         self._search_offset = offset + len(records)
 
-        # Show the "Search xxx" sentinel only when all results have been loaded
-        # (no more pages). Remove any stale sentinel first (always the last row).
+        # Show the "Search xxx" sentinel only when all results have been loaded.
+        # Remove any stale sentinel first (always the last row).
         last_idx = self._results.count() - 1
         if last_idx >= 0 and self._results.item(last_idx).data(_WEB_SEARCH_ROLE):
             self._results.takeItem(last_idx)
-        if keyword and not self._search_has_more:
+        if has_sentinel:
             self._results.addItem(_WebSearchItem(keyword))
 
         total = self._results.count()
-        was_visible = self._results.isVisible()
-        visible = total > 0
 
-        # Compute row height once from the first real row.
-        if visible and self._row_height == 0:
+        # First-search path: row height was unknown above, size now.
+        if self._row_height == 0 and total > 0:
             self._row_height = self._results.sizeHintForRow(0) + 2
-
-        # Always resize the list to fit the actual number of rows (capped at
-        # _MAX_RESULTS). The web-search sentinel counts as one of those rows,
-        # so the window height never grows when it appears.
-        if visible and self._row_height > 0:
-            capped = min(total, _MAX_RESULTS)
-            self._results.setFixedHeight(self._row_height * capped)
-        elif not visible:
-            self._results.setFixedHeight(0)
-
-        if visible != was_visible:
-            self._results.setVisible(visible)
+        if self._row_height > 0:
+            if total > 0:
+                self._results.setFixedHeight(self._row_height * min(total, _MAX_RESULTS))
+            else:
+                self._results.setFixedHeight(0)
+        if (total > 0) != was_visible:
+            self._results.setVisible(total > 0)
 
         old_pos = self.pos()
         self.adjustSize()
         self.move(old_pos)
 
-        if visible:
+        if total > 0:
             if not append:
                 self._results.setCurrentRow(0)
             else:
