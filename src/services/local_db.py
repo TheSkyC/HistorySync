@@ -799,6 +799,14 @@ class LocalDatabase:
             fts_size_bytes=fts_bytes,
         )
 
+    def get_visit_time_range(self) -> tuple[int, int] | None:
+        """Return (min_visit_time, max_visit_time) across all history records, or None if empty."""
+        with self._conn(write=False) as conn:
+            row = conn.execute("SELECT MIN(visit_time), MAX(visit_time) FROM history").fetchone()
+        if row and row[0] and row[1]:
+            return (row[0], row[1])
+        return None
+
     def vacuum_and_analyze(
         self,
         progress_cb: Callable[[str], None] | None = None,

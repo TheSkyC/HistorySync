@@ -1118,9 +1118,8 @@ class _ScrollTimeBubble(QWidget):
                 self._avg_daily = 100.0
                 return
 
-            with self._db._conn(write=False) as conn:
-                row = conn.execute("SELECT MIN(visit_time), MAX(visit_time) FROM history").fetchone()
-                span_days = max((row[1] - row[0]) / 86400, 1) if row and row[0] and row[1] else 365
+            time_range = self._db.get_visit_time_range()
+            span_days = max((time_range[1] - time_range[0]) / 86400, 1) if time_range else 365
 
             real_avg = total / span_days
             self._avg_daily = max(real_avg, 50.0)
