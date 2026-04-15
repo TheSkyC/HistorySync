@@ -264,14 +264,9 @@ class AppConfig:
         webdav_dict = asdict(self.webdav)
 
         if webdav_dict.get("password"):
-            try:
-                from src.utils.security_utils import encrypt_text
+            from src.utils.security_utils import encrypt_text
 
-                webdav_dict["password"] = encrypt_text(webdav_dict["password"])
-            except Exception as e:
-                import logging
-
-                logging.getLogger(__name__).warning(f"Password encryption failed, storing as plaintext: {e}")
+            webdav_dict["password"] = encrypt_text(webdav_dict["password"])
 
         return {
             "webdav": webdav_dict,
@@ -310,7 +305,7 @@ class AppConfig:
                 except Exception as e:
                     import logging
 
-                    logging.getLogger(__name__).warning(f"Password decryption failed, using raw value: {e}")
+                    logging.getLogger(__name__).warning("Password decryption failed, using raw value: %s", e)
             cfg.webdav = WebDavConfig(**webdav_data)
 
         if "scheduler" in d:

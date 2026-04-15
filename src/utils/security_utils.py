@@ -189,26 +189,21 @@ def encrypt_text(text: str) -> str:
     """
     Encrypts a plaintext string, returning ciphertext in "ENC:<base64>" format.
     Empty strings are returned as-is (unencrypted).
+    Raises OSError if the master key cannot be obtained or persisted.
 
     Algorithm: HKDF-SHA256 keystream XOR + HMAC-SHA256 authentication tag.
     Payload format: [0x01 version][16B salt][32B HMAC-SHA256][N bytes ciphertext]
     """
     if not text:
         return ""
-    try:
-        master_key = _get_or_create_master_key()
-        text_bytes = _pad(text.encode("utf-8"))
-        salt = os.urandom(16)
-
-        keystream = _derive_keystream(master_key, salt, len(text_bytes))
-        encrypted_bytes = bytes(a ^ b for a, b in zip(text_bytes, keystream, strict=False))
-        signature = hmac.new(master_key, salt + encrypted_bytes, hashlib.sha256).digest()
-
-        payload = b"\x01" + salt + signature + encrypted_bytes
-        return ENCRYPTION_PREFIX + base64.b64encode(payload).decode("utf-8")
-    except Exception as e:
-        logger.error("Encryption failed: %s", e)
-        return ""
+    master_key = _get_or_create_master_key()
+    text_bytes = _pad(text.encode("utf-8"))
+    salt = os.urandom(16)
+    keystream = _derive_keystream(master_key, salt, len(text_bytes))
+    encrypted_bytes = bytes(a ^ b for a, b in zip(text_bytes, keystream, strict=False))
+    signature = hmac.new(master_key, salt + encrypted_bytes, hashlib.sha256).digest()
+    payload = b"\x01" + salt + signature + encrypted_bytes
+    return ENCRYPTION_PREFIX + base64.b64encode(payload).decode("utf-8")
 
 
 def _try_decrypt_hkdf(payload: bytes, master_key: bytes) -> str | None:
