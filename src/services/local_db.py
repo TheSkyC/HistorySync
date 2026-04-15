@@ -1888,33 +1888,46 @@ class LocalDatabase:
                 log.warning("Invalid regex '%s': %s", keyword, exc)
                 return []
 
-            iter_obj = self.get_records_regex_iter(
-                pattern=prog,
-                batch_size=1000,
-                browser_type=browser_type,
-                date_from=date_from,
-                date_to=date_to,
-                excluded_ids=excl,
-                domain_ids=domain_ids,
-                excludes=excludes,
-                title_only=title_only,
-                url_only=url_only,
-                bookmarked_only=bookmarked_only,
-                has_annotation=has_annotation,
-                bookmark_tag=bookmark_tag,
-                device_ids=device_ids,
-                hidden_only=hidden_only,
+            pat_str = prog.pattern
+            if title_only:
+                regex_cond = "h.title REGEXP ?"
+                regex_params: list = [pat_str]
+            elif url_only:
+                regex_cond = "h.url REGEXP ?"
+                regex_params = [pat_str]
+            else:
+                regex_cond = "(h.title REGEXP ? OR h.url REGEXP ?)"
+                regex_params = [pat_str, pat_str]
+
+            _RCOLS = (
+                "h.id, h.url, h.title, h.visit_time, h.visit_count, "
+                "h.browser_type, h.profile_name, h.metadata, "
+                "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
+                "h.device_id, d.host AS domain"
             )
-            results = []
-            match_count = 0
-            for record in iter_obj:
-                match_count += 1
-                if match_count <= offset:
-                    continue
-                results.append(record)
-                if len(results) >= limit:
-                    break
-            return results
+            with self._conn(write=False) as conn:
+                from_where, base_params, _ = self._build_query_parts(
+                    conn=conn,
+                    keyword="",
+                    browser_type=browser_type,
+                    date_from=date_from,
+                    date_to=date_to,
+                    excluded_ids=excl,
+                    domain_ids=domain_ids,
+                    excludes=excludes,
+                    title_only=False,
+                    url_only=False,
+                    bookmarked_only=bookmarked_only,
+                    has_annotation=has_annotation,
+                    bookmark_tag=bookmark_tag,
+                    _force_like=False,
+                    device_ids=device_ids,
+                    hidden_only=hidden_only,
+                )
+                connector = " AND " if "WHERE" in from_where else " WHERE "
+                sql = f"SELECT {_RCOLS} {from_where}{connector}{regex_cond} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
+                rows = conn.execute(sql, base_params + regex_params + [limit, offset]).fetchall()
+            return [self._row_to_record(row) for row in rows]
 
         _COLS = (
             "h.id, h.url, h.title, h.visit_time, h.visit_count, "
