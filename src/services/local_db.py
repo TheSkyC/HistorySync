@@ -924,7 +924,7 @@ class LocalDatabase:
         if dest.exists():
             dest.unlink()
 
-        with self._lock, self._conn(write=False) as conn:
+        with self._lock, self._conn(write=True) as conn:
             safe_path = _sanitize_vacuum_path(dest_path)
             conn.execute(f"VACUUM INTO '{safe_path}'")
 
