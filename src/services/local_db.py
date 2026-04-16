@@ -919,45 +919,96 @@ class LocalDatabase:
         history_fts virtual table or its shadow tables/triggers.  This makes
         it much smaller for upload to WebDAV.  The caller is responsible for
         deleting *dest* when done.
+
+        Implementation note — why two VACUUM INTO calls are required
+        ────────────────────────────────────────────────────────────
+        SQLite's DROP TABLE (including DROP of a virtual FTS5 table and all its
+        shadow tables) only marks those pages as *free* in the freelist; it does
+        NOT reclaim the physical file space.  The freed pages stay in the file
+        until a VACUUM rewrites the database from scratch.
+
+        For an FTS5 trigram index the shadow tables (data, idx, content, docsize,
+        config) typically account for 60-80 % of the total database size.  If we
+        skip the second VACUUM the exported file is almost as large as the
+        original, and the "FTS stripped: X MB → Y MB" log line shows only a
+        tiny reduction (a few MB of page-header bookkeeping) instead of the
+        expected multi-tens-of-MB saving.
+
+        The two-phase approach:
+          1. VACUUM INTO  — copy the *live* DB (including FTS) to a temp file,
+                            consolidating any existing freelist in the source.
+          2. DROP FTS     — logically remove FTS virtual table, shadow tables,
+                            and triggers in the temp file (adds to freelist).
+          3. VACUUM INTO  — rewrite the temp file into *dest*, physically
+                            reclaiming the now-freed FTS pages.
+
+        The extra VACUUM pass is necessary to actually shrink the file; ZIP
+        compression at the upload layer can compress zero-filled freed pages
+        but delivers only a fraction of the saving compared to genuinely
+        removing those pages.
         """
         dest_path = dest.absolute().as_posix()
         if dest.exists():
             dest.unlink()
 
-        with self._lock, self._conn(write=True) as conn:
-            safe_path = _sanitize_vacuum_path(dest_path)
-            conn.execute(f"VACUUM INTO '{safe_path}'")
+        # ── Phase 1: VACUUM INTO a staging file ──────────────────────────────
+        # Use a sibling temp file so both files land on the same filesystem,
+        # preventing cross-device rename errors and guaranteeing that the disk
+        # has enough space for both copies simultaneously.
+        staging = dest.with_suffix(".staging.db")
+        staging_path = staging.absolute().as_posix()
+        if staging.exists():
+            staging.unlink()
 
-        dst_conn = sqlite3.connect(dest_path, timeout=30)
         try:
-            dst_conn.isolation_level = None  # autocommit for DDL and VACUUM
+            with self._lock, self._conn(write=True) as conn:
+                safe_staging = _sanitize_vacuum_path(staging_path)
+                conn.execute(f"VACUUM INTO '{safe_staging}'")
 
-            # 1. Drop triggers first to avoid any issues with virtual table removal
-            dst_conn.execute("DROP TRIGGER IF EXISTS history_ai")
-            dst_conn.execute("DROP TRIGGER IF EXISTS history_ad")
-            dst_conn.execute("DROP TRIGGER IF EXISTS history_au")
+            # ── Phase 2: DROP FTS objects in the staging copy ────────────────
+            stage_conn = sqlite3.connect(staging_path, timeout=30)
+            try:
+                stage_conn.isolation_level = None  # autocommit for DDL
 
-            # 2. Drop the FTS5 virtual table itself.
-            dst_conn.execute("DROP TABLE IF EXISTS history_fts")
+                # Drop triggers first so the virtual table can be removed cleanly.
+                stage_conn.execute("DROP TRIGGER IF EXISTS history_ai")
+                stage_conn.execute("DROP TRIGGER IF EXISTS history_ad")
+                stage_conn.execute("DROP TRIGGER IF EXISTS history_au")
 
-            # 3. Double-check that triggers are really gone (belt-and-suspenders)
-            cursor = dst_conn.execute("SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'history_%'")
-            for trigger_name in [row[0] for row in cursor.fetchall()]:
-                dst_conn.execute(f"DROP TRIGGER IF EXISTS {_quote_identifier(trigger_name)}")
+                # Drop the FTS5 virtual table (also removes its shadow tables).
+                stage_conn.execute("DROP TABLE IF EXISTS history_fts")
 
-            # 4. Skip second VACUUM — the space freed by dropping FTS (typically
-            #    10-20% of the DB) is reclaimed by ZIP compression in the WebDAV
-            #    upload layer, so the I/O cost of rewriting the entire file again
-            #    is not justified.  This halves the wall-clock time of the export.
+                # Belt-and-suspenders: remove any lingering history_* triggers.
+                cursor = stage_conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'history_%'"
+                )
+                for (trigger_name,) in cursor.fetchall():
+                    stage_conn.execute(f"DROP TRIGGER IF EXISTS {_quote_identifier(trigger_name)}")
 
-            cursor = dst_conn.execute("SELECT name FROM sqlite_master WHERE name LIKE 'history_fts%'")
-            leftovers = [row[0] for row in cursor.fetchall()]
-            if leftovers:
-                log.warning("FTS stripping completed with leftovers: %s", leftovers)
-            else:
-                log.info("FTS stripping successful: All related tables and triggers removed.")
+                # Verify nothing FTS-related remains in sqlite_master.
+                cursor = stage_conn.execute("SELECT name FROM sqlite_master WHERE name LIKE 'history_fts%'")
+                leftovers = [row[0] for row in cursor.fetchall()]
+                if leftovers:
+                    log.warning("FTS stripping completed with leftovers: %s", leftovers)
+                else:
+                    log.info("FTS stripping successful: All related tables and triggers removed.")
+
+                # ── Phase 3: VACUUM INTO dest to reclaim freed FTS pages ──────
+                # After DROP TABLE the pages are only on the freelist; a second
+                # VACUUM INTO physically rewrites the file without them, which is
+                # what actually shrinks the backup.
+                safe_dest = _sanitize_vacuum_path(dest_path)
+                stage_conn.execute(f"VACUUM INTO '{safe_dest}'")
+
+            finally:
+                stage_conn.close()
+
         finally:
-            dst_conn.close()
+            # Always clean up the intermediate staging file.
+            try:
+                staging.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     def rebuild_fts_index(
         self,
