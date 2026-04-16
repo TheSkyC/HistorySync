@@ -69,23 +69,32 @@ class TestDecryptText:
         assert decrypt_text("") == ""
 
     def test_enc_prefix_without_valid_base64_returns_empty(self):
-        """ENC: prefix with invalid base64 returns empty string."""
-        assert decrypt_text("ENC:!!!notbase64!!!") == ""
+        """ENC: prefix with invalid base64 raises DecryptionError."""
+        from src.utils.security_utils import DecryptionError
+
+        with pytest.raises(DecryptionError):
+            decrypt_text("ENC:!!!notbase64!!!")
 
     def test_too_short_payload_returns_empty(self):
-        """Payload shorter than 48 bytes returns empty string."""
+        """Payload shorter than 48 bytes raises DecryptionError."""
+        from src.utils.security_utils import DecryptionError
+
         short_payload = base64.b64encode(b"short").decode()
-        assert decrypt_text(f"ENC:{short_payload}") == ""
+        with pytest.raises(DecryptionError):
+            decrypt_text(f"ENC:{short_payload}")
 
     def test_tampered_hmac_returns_empty(self):
-        """Tampered HMAC signature returns empty string."""
+        """Tampered HMAC signature raises DecryptionError."""
+        from src.utils.security_utils import DecryptionError
+
         # Encrypt something
         encrypted = encrypt_text("hello")
         # Flip a bit in the ciphertext portion (after HMAC)
         payload = base64.b64decode(encrypted[4:])
         tampered = payload[:48] + bytes([payload[48] ^ 1]) + payload[49:]
         tampered_enc = "ENC:" + base64.b64encode(tampered).decode()
-        assert decrypt_text(tampered_enc) == ""
+        with pytest.raises(DecryptionError):
+            decrypt_text(tampered_enc)
 
 
 class TestEncryptDecryptRoundtrip:

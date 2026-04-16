@@ -299,13 +299,16 @@ class AppConfig:
             webdav_data = {k: v for k, v in d["webdav"].items() if k in WebDavConfig.__dataclass_fields__}
             if webdav_data.get("password"):
                 try:
-                    from src.utils.security_utils import decrypt_text
+                    from src.utils.security_utils import DecryptionError, decrypt_text
 
                     webdav_data["password"] = decrypt_text(webdav_data["password"])
-                except Exception as e:
+                except DecryptionError as e:
                     import logging
 
-                    logging.getLogger(__name__).warning("Password decryption failed, using raw value: %s", e)
+                    logging.getLogger(__name__).warning(
+                        "WebDAV password decryption failed, clearing password to avoid using corrupt ciphertext: %s", e
+                    )
+                    webdav_data["password"] = ""
             cfg.webdav = WebDavConfig(**webdav_data)
 
         if "scheduler" in d:

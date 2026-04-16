@@ -19,6 +19,11 @@ logger = get_logger("utils.security")
 _COLOR_WARN = "\033[93m"
 _COLOR_RESET = "\033[0m"
 
+
+class DecryptionError(ValueError):
+    """Raised when ciphertext cannot be decrypted (corrupt, tampered, or wrong key)."""
+
+
 _key_lock = threading.Lock()
 _keyring_init_lock = threading.Lock()
 # Mutable container avoids module-level `global` assignments (PLW0603).
@@ -253,6 +258,8 @@ def decrypt_text(text: str) -> str:
     Supports both v1 (HKDF) and legacy v0 (SHAKE-256) payloads.
     When payload[0] == 0x01 but HMAC fails, falls back to legacy path to handle
     the 1/256 chance that an old random salt starts with 0x01.
+
+    Raises DecryptionError if the ciphertext is malformed or the HMAC check fails.
     """
     if not text or not text.startswith(ENCRYPTION_PREFIX):
         return text
@@ -261,11 +268,11 @@ def decrypt_text(text: str) -> str:
 
         try:
             payload = base64.b64decode(text[len(ENCRYPTION_PREFIX) :])
-        except Exception:
-            return ""
+        except Exception as e:
+            raise DecryptionError("Ciphertext is not valid base64") from e
 
         if len(payload) < 1:
-            return ""
+            raise DecryptionError("Ciphertext payload is empty")
 
         if payload[0] == 0x01:
             result = _try_decrypt_hkdf(payload, master_key)
@@ -273,12 +280,13 @@ def decrypt_text(text: str) -> str:
                 # 1/256 collision: old random salt happened to start with 0x01
                 result = _try_decrypt_legacy(payload, master_key)
             if result is None:
-                logger.warning("Decryption signature mismatch — data may be tampered.")
-            return result or ""
+                raise DecryptionError("HMAC verification failed — ciphertext may be corrupt or tampered")
+            return result
         result = _try_decrypt_legacy(payload, master_key)
         if result is None:
-            logger.warning("Decryption signature mismatch — data may be tampered.")
-        return result or ""
+            raise DecryptionError("HMAC verification failed — ciphertext may be corrupt or tampered")
+        return result
+    except DecryptionError:
+        raise
     except Exception as e:
-        logger.error("Decryption failed: %s", e)
-        return ""
+        raise DecryptionError(f"Unexpected decryption error: {e}") from e
