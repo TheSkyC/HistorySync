@@ -834,6 +834,27 @@ class LocalDatabase:
             return (row[0], row[1])
         return None
 
+    def prune_tombstones(self, keep_days: int = 90) -> int:
+        """Delete tombstone rows older than *keep_days* from all three soft-delete tables.
+
+        Tombstones only need to survive long enough for every device to sync at
+        least once.  Keeping 90 days is more than sufficient for any reasonable
+        sync cadence, and prevents the tables from growing without bound.
+
+        Returns the total number of rows deleted across all three tables.
+        """
+        import time
+
+        threshold = int(time.time()) - keep_days * 86400
+        total = 0
+        with self._conn(write=True) as conn:
+            for table in ("deleted_records", "deleted_bookmarks", "deleted_annotations"):
+                cur = conn.execute(f"DELETE FROM {table} WHERE deleted_at < ?", (threshold,))
+                total += cur.rowcount
+        if total:
+            log.info("prune_tombstones: removed %d expired rows (keep_days=%d)", total, keep_days)
+        return total
+
     def vacuum_and_analyze(
         self,
         progress_cb: Callable[[str], None] | None = None,
@@ -891,6 +912,10 @@ class LocalDatabase:
                 conn.commit()
             finally:
                 conn.close()
+
+            pruned = self.prune_tombstones()
+            if pruned:
+                _cb(_("Pruned {n} expired tombstone rows (>90 days old).").format(n=pruned))
         finally:
             with self._lock:
                 self._vacuuming = False
