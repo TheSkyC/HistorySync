@@ -94,7 +94,7 @@ class LocalDatabase:
         self._lock = threading.RLock()
         self._pconn: sqlite3.Connection | None = None
         self._ro_conn: sqlite3.Connection | None = None
-        self._ro_lock = threading.Lock()
+        self._ro_lock = threading.RLock()
         self._schema_initialized: bool = False
         self._vacuuming: bool = False
         self._fts_thread: threading.Thread | None = None
@@ -175,29 +175,56 @@ class LocalDatabase:
             )
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA temp_store=MEMORY")
+            conn.create_function("_extract_host", 1, _extract_url_host)
             conn.create_function("REGEXP", 2, lambda pat, text: bool(re.search(pat, text or "", re.IGNORECASE)))
             self._ro_conn = conn
         return self._ro_conn
 
     @contextmanager
     def _conn(self, write: bool = True) -> Iterator[sqlite3.Connection]:
-        """Thread-safe connection context manager backed by a persistent connection.
+        """Thread-safe connection context manager.
 
-        write=True  — commit on success, rollback on error (default, safe for all callers).
-        write=False — skip commit/rollback for read-only queries (minor perf win).
+        write=True  — use the main connection under _lock; commit on success,
+                      rollback on error.
+        write=False — use the read-only connection under _ro_lock; never blocks
+                      on concurrent writes in WAL mode (SQLite allows concurrent
+                      readers alongside a single writer).
         """
+        if not write:
+            # Only compete for the write lock when the schema has not yet been
+            # initialised.  Once _schema_initialized is True it is never reset
+            # to False outside of _lock, so this double-checked read is safe
+            # under the GIL and avoids blocking reads on long write operations.
+            if not self._schema_initialized:
+                with self._lock:
+                    self._ensure_conn()
+            with self._ro_lock:
+                conn = self._ensure_ro_conn()
+                try:
+                    yield conn
+                except Exception:
+                    # Reset the RO connection on error so it is recreated next
+                    # time.  Avoid calling _reset_conn() here — it also acquires
+                    # _ro_lock which we already hold (regular Lock, not RLock).
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                    self._ro_conn = None
+                    with self._excl_cache_lock:
+                        self._excl_cache.pop(conn, None)
+                    raise
+            return
         with self._lock:
             conn = self._ensure_conn()
             try:
                 yield conn
-                if write:
-                    conn.commit()
+                conn.commit()
             except Exception:
-                if write:
-                    try:
-                        conn.rollback()
-                    except Exception:
-                        pass
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 self._reset_conn()
                 raise
 
