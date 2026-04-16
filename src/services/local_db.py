@@ -2659,13 +2659,14 @@ class LocalDatabase:
             conditions.append("h.browser_type = ?")
             params.append(browser_type)
 
-        conditions.append("NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = h.url)")
+        conditions.append("_hr.url IS NULL")
 
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-        # Inject domains JOIN so _row_to_record can read d.host AS domain directly.
+        # Inject domains JOIN and hidden_records anti-join so the optimizer can
+        # use the hidden_records PRIMARY KEY index instead of a correlated subquery.
         from_clause_with_join = from_clause.replace(
             "FROM history h",
-            "FROM history h LEFT JOIN domains d ON h.domain_id = d.id",
+            "FROM history h LEFT JOIN domains d ON h.domain_id = d.id LEFT JOIN hidden_records _hr ON _hr.url = h.url",
             1,
         )
         sql = f"SELECT {_COLS} {from_clause_with_join} {where} ORDER BY h.visit_time DESC LIMIT ? OFFSET ?"
@@ -2683,10 +2684,13 @@ class LocalDatabase:
             except sqlite3.OperationalError:
                 # FTS index unavailable — fall back to LIKE
                 if keyword:
-                    from_clause = "FROM history h LEFT JOIN domains d ON h.domain_id = d.id"
+                    from_clause = (
+                        "FROM history h LEFT JOIN domains d ON h.domain_id = d.id"
+                        " LEFT JOIN hidden_records _hr ON _hr.url = h.url"
+                    )
                     conditions = [
                         "(h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')",
-                        "NOT EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = h.url)",
+                        "_hr.url IS NULL",
                     ]
                     params = [f"%{_escape_like(keyword)}%", f"%{_escape_like(keyword)}%"]
                     if browser_type and browser_type not in ("auto", "all"):
