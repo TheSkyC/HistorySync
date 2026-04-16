@@ -87,6 +87,11 @@ Headless export examples (no GUI launched):
             "small=100k  medium=500k  large=1M  xl=5M history records."
         ),
     )
+    debug_group.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable DEBUG-level logging (default: INFO).",
+    )
 
     # ── Paths ─────────────────────────────────────────────────────────────────
     path_group = parser.add_argument_group("Paths & Storage")
@@ -493,7 +498,7 @@ def _gui_main(args: argparse.Namespace) -> None:
 
     # ── 1. Logging ───────────────────────────────────────────────────────────
     log_dir = get_log_dir()
-    setup_logger(log_dir, level=_logging.DEBUG)
+    setup_logger(log_dir, level=_logging.DEBUG if args.debug else _logging.INFO)
     log = get_logger("main")
     log.warning("HistorySync starting up  args=%s", vars(args))
 
