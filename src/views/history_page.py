@@ -68,7 +68,7 @@ from src.utils.search_parser import parse_query
 from src.utils.styled_combobox import StyledComboBox
 from src.utils.styled_menu import StyledMenu
 from src.utils.theme_manager import ThemeManager
-from src.viewmodels.history_viewmodel import ANNOTATION_ROLE, BOOKMARK_ROLE, HistoryViewModel
+from src.viewmodels.history_viewmodel import ANNOTATION_ROLE, BOOKMARK_ROLE, PAGE_SIZE, HistoryViewModel
 from src.views.annotation_dialog import AnnotationDialog
 from src.views.dialogs.hide_domain_dialog import HideDomainDialog
 from src.views.search_autocomplete import SmartSearchLineEdit
@@ -1914,6 +1914,9 @@ class HistoryPage(QWidget):
         # Scroll position to restore after an in-place mutation (delete/hide/unhide).
         # None means "scroll to top as usual"; set before emitting mutation signals.
         self._pending_scroll_restore: int | None = None
+        # Generation counter to invalidate stale filter_by_url scroll handlers
+        # when filter_by_url is called again before the previous one completes.
+        self._filter_url_gen: int = 0
 
         self._separator_rows: dict[int, int] = {}
         # Lazily-populated visit counts for date-separator pills.
@@ -2223,6 +2226,16 @@ class HistoryPage(QWidget):
         # rowAt() returns correct values when _load_visible_sep_counts runs.
         QTimer.singleShot(0, self._load_visible_sep_counts)
 
+        # Restore scroll position after an in-place mutation (delete/hide/unhide).
+        # We defer to base_row == 0 so that separator rows in the first page are
+        # already re-injected before setValue() runs. For top_row < PAGE_SIZE this
+        # is exact; for top_row >= PAGE_SIZE it is a close approximation (only
+        # separators in pages above the viewport that haven't loaded yet are missing).
+        if base_row == 0 and self._pending_scroll_restore is not None:
+            saved = self._pending_scroll_restore
+            self._pending_scroll_restore = None
+            QTimer.singleShot(0, lambda: self._table.verticalScrollBar().setValue(saved))
+
     def _on_model_reset(self) -> None:
         """Clear separator state when the model is rebuilt (new search / filter).
 
@@ -2244,12 +2257,14 @@ class HistoryPage(QWidget):
         self._separator_indices.clear()
         self._sep_count_timer.stop()
         if self._pending_scroll_restore is not None:
-            saved = self._pending_scroll_restore
-            self._pending_scroll_restore = None
+            # Do NOT restore here. _on_records_loaded(base_row=0) will call
+            # setValue() after page 0 is fetched and separator rows are
+            # re-injected, so the pixel value is accurate. Restoring now
+            # (before separators) would shift the view by N * _SEP_H pixels.
+            pass
+        else:
             # Qt's QAbstractItemView also resets the scrollbar in response to
             # modelReset, so we must defer our restore to run after that.
-            QTimer.singleShot(0, lambda: self._table.verticalScrollBar().setValue(saved))
-        else:
             self._table.verticalScrollBar().setValue(0)
         self._apply_column_widths()
 
@@ -2317,27 +2332,48 @@ class HistoryPage(QWidget):
             self._do_search()
             return
 
-        # Step 3: trigger the async reload, then scroll AFTER endResetModel fires.
-        # _do_search() starts a background worker; the model emits total_count_changed
-        # once the worker finishes and endResetModel() has been called. Scrolling
-        # before that signal would be undone by the model reset.
+        # Step 3: trigger the async reload, then scroll AFTER the page containing
+        # the target row has loaded, so separator row heights are already in place
+        # and scrollTo lands accurately. Using total_count_changed (which fires
+        # before _fetch_page(0)) would scroll before separators are injected,
+        # causing the view to land N * _SEP_H pixels above the target.
         model = self._vm.table_model
+        self._filter_url_gen += 1
+        _gen = self._filter_url_gen
+        target_page_start = (row // PAGE_SIZE) * PAGE_SIZE
 
-        def _scroll_after_reset(count: int, _has_more: bool):
-            model.total_count_changed.disconnect(_scroll_after_reset)
-            if count == 0:
+        def _on_page_loaded(base_row: int, records: list) -> None:
+            # Discard if a newer filter_by_url call has superseded this one.
+            if self._filter_url_gen != _gen:
+                try:
+                    model.records_loaded.disconnect(_on_page_loaded)
+                except RuntimeError:
+                    pass
                 return
-            idx = model.index(row, 0)
-            if not idx.isValid():
-                return
-            self._table.selectionModel().clearSelection()
-            self._table.selectionModel().select(
-                idx,
-                QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
-            )
-            self._table.scrollTo(idx, QAbstractItemView.ScrollHint.PositionAtCenter)
+            if base_row == target_page_start:
+                # Target page loaded — all separators above row are now in place.
+                try:
+                    model.records_loaded.disconnect(_on_page_loaded)
+                except RuntimeError:
+                    pass
+                idx = model.index(row, 0)
+                if not idx.isValid():
+                    return
+                self._table.selectionModel().clearSelection()
+                self._table.selectionModel().select(
+                    idx,
+                    QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+                )
+                QTimer.singleShot(0, lambda: self._table.scrollTo(idx, QAbstractItemView.ScrollHint.PositionAtCenter))
+            elif base_row == 0 and target_page_start > 0:
+                # Page 0 loaded but target is in a later page. Trigger an
+                # approximate scroll so Qt loads the target page, then the
+                # handler above fires again with the accurate position.
+                idx = model.index(row, 0)
+                if idx.isValid():
+                    self._table.scrollTo(idx, QAbstractItemView.ScrollHint.PositionAtCenter)
 
-        model.total_count_changed.connect(_scroll_after_reset)
+        model.records_loaded.connect(_on_page_loaded)
         self._do_search()
 
     def filter_by_date(self, date_str: str):
