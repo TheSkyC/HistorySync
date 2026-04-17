@@ -165,7 +165,7 @@ class Scheduler(QObject):
                 self._sync_timer.setInterval(interval_ms)
                 from PySide6.QtCore import QTimer as _QTimer
 
-                _QTimer.singleShot(0, self._on_sync_timer)
+                _QTimer.singleShot(0, self._start_repeating_sync_timer)
                 log.info("Sync timer: overdue, firing now; repeat every %d hours", config.sync_interval_hours)
             else:
                 # Use a one-shot lead-in, then switch to the repeating cadence.
@@ -189,7 +189,7 @@ class Scheduler(QObject):
                 self._backup_timer.setInterval(backup_interval_ms)
                 from PySide6.QtCore import QTimer as _QTimer
 
-                _QTimer.singleShot(0, self._on_backup_timer)
+                _QTimer.singleShot(0, self._start_repeating_backup_timer)
                 log.info("Backup timer: overdue, firing now; repeat every %d hours", config.auto_backup_interval_hours)
             else:
                 self._backup_timer.setInterval(backup_interval_ms)
