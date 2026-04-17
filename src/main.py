@@ -92,6 +92,18 @@ Headless export examples (no GUI launched):
         action="store_true",
         help="Enable DEBUG-level logging (default: INFO).",
     )
+    debug_group.add_argument(
+        "--trace-memory",
+        action="store_true",
+        help="Enable tracemalloc memory profiling. Snapshots are logged periodically and on exit.",
+    )
+    debug_group.add_argument(
+        "--trace-memory-interval",
+        metavar="SECONDS",
+        type=int,
+        default=60,
+        help="Interval in seconds between automatic memory snapshots (default: 60). Requires --trace-memory.",
+    )
 
     # ── Paths ─────────────────────────────────────────────────────────────────
     path_group = parser.add_argument_group("Paths & Storage")
@@ -779,6 +791,15 @@ def _gui_main(args: argparse.Namespace) -> None:
 
     # ── 10. Event loop ───────────────────────────────────────────────────────
     log.info("Application event loop starting")
+
+    if getattr(args, "trace_memory", False):
+        from src.utils.memory_tracer import dump_snapshot, schedule_periodic_dump
+
+        schedule_periodic_dump(args.trace_memory_interval)
+        import atexit
+
+        atexit.register(dump_snapshot)
+
     sys.exit(app.exec())
 
 
@@ -918,6 +939,12 @@ def main():
     elif args.config_dir:
         custom_dir = Path(args.config_dir).expanduser().resolve()
         set_runtime_paths(config_dir=custom_dir, data_dir=custom_dir)
+
+    # ── Step 2b: Start memory tracer as early as possible ───────────────────
+    if getattr(args, "trace_memory", False):
+        from src.utils.memory_tracer import start as _start_tracer
+
+        _start_tracer()
 
     # ── Step 3: Dispatch to headless export, headless sync, or GUI ──────────
     if getattr(args, "export", None):
