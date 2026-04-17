@@ -281,22 +281,22 @@ class LocalDatabase:
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_history_dedup
                     ON history(browser_type, url, visit_time);
 
-                CREATE INDEX IF NOT EXISTS idx_history_visit_time
-                    ON history(visit_time DESC);
                 CREATE INDEX IF NOT EXISTS idx_history_browser
                     ON history(browser_type);
                 CREATE INDEX IF NOT EXISTS idx_history_url
                     ON history(url);
                 CREATE INDEX IF NOT EXISTS idx_history_domain
                     ON history(domain_id);
-                -- Composite indexes for filtered ORDER BY visit_time DESC queries.
-                -- These allow filtered deep-pagination (OFFSET) to stay index-only,
-                -- avoiding a full table scan when browser_type or domain_id filters
-                -- are active.
+                -- Composite indexes for filtered ORDER BY visit_time DESC, id DESC queries.
+                -- Including id as the tiebreaker enables efficient keyset pagination:
+                -- the cursor condition (visit_time < ? OR (visit_time = ? AND id < ?))
+                -- becomes an index range scan instead of a full table scan.
+                CREATE INDEX IF NOT EXISTS idx_history_visit_time_id
+                    ON history(visit_time DESC, id DESC);
                 CREATE INDEX IF NOT EXISTS idx_history_browser_time
-                    ON history(browser_type, visit_time DESC);
+                    ON history(browser_type, visit_time DESC, id DESC);
                 CREATE INDEX IF NOT EXISTS idx_history_domain_time
-                    ON history(domain_id, visit_time DESC);
+                    ON history(domain_id, visit_time DESC, id DESC);
 
                 CREATE TABLE IF NOT EXISTS backup_stats (
                     id                   INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -444,11 +444,39 @@ class LocalDatabase:
                 )
                 log.info("Schema migration: populated bookmark_tags from CSV (%d rows)", len(tag_rows))
 
-            # Composite indexes added after initial release — CREATE IF NOT EXISTS is idempotent.
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_history_browser_time ON history(browser_type, visit_time DESC)"
-            )
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_history_domain_time ON history(domain_id, visit_time DESC)")
+            # Rebuild composite indexes to include id as tiebreaker for keyset pagination.
+            # The cursor condition (visit_time < ? OR (visit_time = ? AND id < ?)) requires
+            # id in the index to avoid a full table scan on every cursor-based page fetch.
+            _keyset_indexes = {
+                "idx_history_visit_time_id": "history(visit_time DESC, id DESC)",
+                "idx_history_browser_time": "history(browser_type, visit_time DESC, id DESC)",
+                "idx_history_domain_time": "history(domain_id, visit_time DESC, id DESC)",
+            }
+            existing = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='history'"
+                ).fetchall()
+            }
+            for idx_name, idx_cols in _keyset_indexes.items():
+                needs_rebuild = False
+                if idx_name not in existing:
+                    needs_rebuild = True
+                else:
+                    # Check if the existing index already includes id (i.e. was built by this migration).
+                    sql_row = conn.execute(
+                        "SELECT sql FROM sqlite_master WHERE type='index' AND name=?", (idx_name,)
+                    ).fetchone()
+                    if sql_row and ", id " not in (sql_row[0] or "") and ",id " not in (sql_row[0] or ""):
+                        conn.execute(f"DROP INDEX IF EXISTS {idx_name}")
+                        needs_rebuild = True
+                if needs_rebuild:
+                    conn.execute(f"CREATE INDEX IF NOT EXISTS {idx_name} ON {idx_cols}")
+                    log.info("Schema migration: rebuilt index %s to include id for keyset pagination", idx_name)
+            # Drop the old single-column visit_time index superseded by idx_history_visit_time_id.
+            if "idx_history_visit_time" in existing:
+                conn.execute("DROP INDEX IF EXISTS idx_history_visit_time")
+                log.info("Schema migration: dropped superseded index idx_history_visit_time")
 
             # hidden_domains table — added in later release; safe to run on existing DBs.
             conn.execute(
@@ -2070,12 +2098,6 @@ class LocalDatabase:
                 rows = conn.execute(sql, base_params + regex_params + [limit, offset]).fetchall()
             return [self._row_to_record(row) for row in rows]
 
-        _COLS = (
-            "h.id, h.url, h.title, h.visit_time, h.visit_count, "
-            "h.browser_type, h.profile_name, h.metadata, "
-            "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
-            "h.device_id, d.host AS domain"
-        )
         with self._conn(write=False) as conn:
             from_where, params, _use_fts = self._build_query_parts(
                 conn=conn,
@@ -2095,17 +2117,32 @@ class LocalDatabase:
                 device_ids=device_ids,
                 hidden_only=hidden_only,
             )
+            # Strip the domains LEFT JOIN injected by _build_query_parts.
+            # The id-scan query only needs h.id; keeping the JOIN prevents SQLite
+            # from using a covering index and makes every page fetch ~5x slower.
+            # Domain host is resolved in the second step via get_records_by_ids.
+            id_from_where = from_where.replace(" LEFT JOIN domains d ON h.domain_id = d.id", "", 1)
             if cursor is not None:
                 vt, rid = cursor
-                connector = " AND " if "WHERE" in from_where else " WHERE "
-                from_where += f"{connector}(h.visit_time < ? OR (h.visit_time = ? AND h.id < ?))"
-                params += [vt, vt, rid, limit]
-                sql = f"SELECT {_COLS} {from_where} ORDER BY h.visit_time DESC, h.id DESC LIMIT ?"
+                connector = " AND " if "WHERE" in id_from_where else " WHERE "
+                # Rewrite the keyset condition as UNION ALL so SQLite uses two
+                # index range scans instead of a full covering-index SCAN.
+                # The OR form forces a full scan even with (visit_time DESC, id DESC).
+                lt_where = id_from_where + f"{connector}h.visit_time < ?"
+                eq_where = id_from_where + f"{connector}h.visit_time = ? AND h.id < ?"
+                id_sql = (
+                    f"SELECT id FROM ("
+                    f"SELECT h.id, h.visit_time {lt_where}"
+                    f" UNION ALL "
+                    f"SELECT h.id, h.visit_time {eq_where}"
+                    f") ORDER BY visit_time DESC, id DESC LIMIT ?"
+                )
+                id_params = [*params, vt, *params, vt, rid, limit]
             else:
-                sql = f"SELECT {_COLS} {from_where} ORDER BY h.visit_time DESC, h.id DESC LIMIT ? OFFSET ?"
-                params += [limit, offset]
+                id_sql = f"SELECT h.id {id_from_where} ORDER BY h.visit_time DESC, h.id DESC LIMIT ? OFFSET ?"
+                id_params = [*params, limit, offset]
             try:
-                rows = conn.execute(sql, params).fetchall()
+                id_rows = conn.execute(id_sql, id_params).fetchall()
             except sqlite3.OperationalError as exc:
                 if "fts5" in str(exc).lower() and not _force_like:
                     return self.get_records(
@@ -2130,7 +2167,8 @@ class LocalDatabase:
                         hidden_only=hidden_only,
                     )
                 raise
-        return [self._row_to_record(r) for r in rows]
+        ids = [r[0] for r in id_rows]
+        return self.get_records_by_ids(ids)
 
     def get_visit_time_at_offset(
         self,
