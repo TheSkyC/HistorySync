@@ -907,10 +907,13 @@ def main():
 
     from src.utils.path_helper import set_runtime_paths
 
-    if args.portable:
-        # Program root = parent directory of main.py (i.e., the project root)
-        portable_dir = Path(_repo_root)
-        set_runtime_paths(config_dir=portable_dir, data_dir=portable_dir)
+    # In a frozen (PyInstaller) build, use the directory containing the .exe.
+    # In development, fall back to the project root.
+    _exe_dir = Path(sys.executable).resolve().parent if hasattr(sys, "_MEIPASS") else Path(_repo_root)
+
+    if args.portable or (_exe_dir / ".portable").exists():
+        _portable_data = _exe_dir / "data"
+        set_runtime_paths(config_dir=_portable_data, data_dir=_portable_data)
 
     elif args.config_dir:
         custom_dir = Path(args.config_dir).expanduser().resolve()

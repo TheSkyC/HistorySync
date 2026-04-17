@@ -18,6 +18,9 @@ htmlcov/
 *.log
 logs/
 
+# Portable mode user data directory
+data/
+
 # Build & distribution
 dist/
 build/

@@ -602,8 +602,9 @@ def _setup_paths(args: argparse.Namespace) -> None:
     portable = getattr(args, "portable", False)
     config_dir = getattr(args, "config_dir", None)
     if portable:
-        portable_dir = Path(sys.executable).resolve().parent if hasattr(sys, "_MEIPASS") else _repo_root
-        set_runtime_paths(config_dir=portable_dir, data_dir=portable_dir)
+        _exe_dir = Path(sys.executable).resolve().parent if hasattr(sys, "_MEIPASS") else _repo_root
+        _portable_data = _exe_dir / "data"
+        set_runtime_paths(config_dir=_portable_data, data_dir=_portable_data)
     elif config_dir:
         custom = Path(config_dir).expanduser().resolve()
         set_runtime_paths(config_dir=custom, data_dir=custom)

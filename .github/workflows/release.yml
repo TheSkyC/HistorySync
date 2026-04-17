@@ -334,10 +334,14 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          # Drop a marker so the app auto-enables portable mode on launch
+          New-Item -Path "dist\${{ env.APP_NAME }}\.portable" -ItemType File -Force | Out-Null
           $out = "${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-x64-portable.zip"
           Push-Location "dist\${{ env.APP_NAME }}"
           Compress-Archive -Path * -DestinationPath "..\..\$out"
           Pop-Location
+          # Remove marker so the installer build uses the default (non-portable) paths
+          Remove-Item "dist\${{ env.APP_NAME }}\.portable" -Force
           Write-Host "Created: $out ($('{0:N2}' -f ((Get-Item $out).length / 1MB)) MB)"
 
       # ── Windows: Inno Setup installer ─────────────────────────────────────
