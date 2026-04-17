@@ -200,10 +200,8 @@ class SettingsPage(QWidget):
 
         # Privacy
         self._sec_privacy.refresh_blacklist_count(len(cfg.privacy.blacklisted_domains))
-        self._sec_privacy.refresh_hidden_count(len(self._vm._main_vm.get_hidden_ids()))
         self._sec_privacy.refresh_hidden_domains_count(len(self._vm._main_vm.get_hidden_domains()))
         self._sec_privacy.configure_blacklist_requested.connect(self._on_configure_blacklist)
-        self._sec_privacy.clear_hidden_requested.connect(self._on_clear_hidden)
         self._sec_privacy.configure_url_filters_requested.connect(self._on_configure_url_filters)
         self._sec_privacy.configure_hidden_domains_requested.connect(self._on_configure_hidden_domains)
 
@@ -491,17 +489,6 @@ class SettingsPage(QWidget):
                 log.warning("Failed to delete blacklisted domain records: %s", exc)
         self._sec_privacy.refresh_blacklist_count(len(cfg.privacy.blacklisted_domains))
 
-    def _on_clear_hidden(self):
-        from src.views.master_password_dialog import require_master_password
-
-        cfg = self._vm.get_config()
-        if not require_master_password(cfg.master_password_hash, self):
-            return
-        self._vm._main_vm._db.clear_hidden_records()
-        self._vm._main_vm.history_vm.set_hidden_ids(set())
-        self._sec_privacy.refresh_hidden_count(0)
-        self._set_status(_("All records unhidden"), "success")
-
     def _on_configure_url_filters(self):
         from src.views.dialogs.url_prefix_filter_dialog import UrlPrefixFilterDialog
 
@@ -514,9 +501,19 @@ class SettingsPage(QWidget):
 
     def _on_configure_hidden_domains(self) -> None:
         """Open the Hidden Domains manager dialog."""
+        from src.views.master_password_dialog import require_master_password
+
         main_vm = self._vm._main_vm
         dlg = HiddenDomainsManagerDialog(main_vm.get_hidden_domains(), parent=self)
         dlg.exec()
+        if dlg.unhide_all_records_requested:
+            cfg = self._vm.get_config()
+            if not require_master_password(cfg.master_password_hash, self):
+                return
+            main_vm._db.clear_hidden_records()
+            main_vm.history_vm.set_hidden_ids(set())
+            self._set_status(_("All records unhidden"), "success")
+            return
         for domain in dlg.domains_to_remove:
             main_vm.unhide_domain(domain)
         for entry in dlg.domains_to_add:

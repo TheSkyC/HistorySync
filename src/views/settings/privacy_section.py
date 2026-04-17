@@ -22,17 +22,16 @@ class PrivacySection(QWidget):
     Signals:
         configure_blacklist_requested()
         configure_url_filters_requested()
-        clear_hidden_requested()
+        configure_hidden_domains_requested()
 
     Exposes:
         refresh_blacklist_count(count: int)
-        refresh_hidden_count(count: int)
+        refresh_hidden_domains_count(count: int)
     """
 
     configure_blacklist_requested = Signal()
     configure_url_filters_requested = Signal()
     configure_hidden_domains_requested = Signal()
-    clear_hidden_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -93,21 +92,6 @@ class PrivacySection(QWidget):
         hd_row.addWidget(hd_manage_btn)
         layout.addLayout(hd_row)
 
-        # ── Hidden records row ────────────────────────────────
-        hidden_header = QHBoxLayout()
-        hidden_lbl = QLabel(_("Hidden Records:"))
-        hidden_lbl.setObjectName("stat_label")
-        self._hidden_count_lbl = QLabel("")
-        self._hidden_count_lbl.setObjectName("muted")
-        clear_btn = QPushButton(_("Unhide All"))
-        clear_btn.setIcon(get_icon("eye"))
-        clear_btn.clicked.connect(self.clear_hidden_requested)
-        hidden_header.addWidget(hidden_lbl)
-        hidden_header.addWidget(self._hidden_count_lbl)
-        hidden_header.addStretch()
-        hidden_header.addWidget(clear_btn)
-        layout.addLayout(hidden_header)
-
     # ── Public API ────────────────────────────────────────────
 
     def refresh_blacklist_count(self, count: int) -> None:
@@ -123,6 +107,3 @@ class PrivacySection(QWidget):
             self._hd_count_lbl.setText(_("{n} domains").format(n=count))
         else:
             self._hd_count_lbl.setText(_("none"))
-
-    def refresh_hidden_count(self, count: int) -> None:
-        self._hidden_count_lbl.setText(_("{n} records hidden").format(n=count))

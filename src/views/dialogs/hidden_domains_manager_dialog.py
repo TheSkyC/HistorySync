@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -60,6 +61,7 @@ class HiddenDomainsManagerDialog(QDialog):
         self._entries: list[dict] = list(hidden_domains)
         self._to_remove: list[str] = []
         self._to_add: list[dict] = []
+        self._unhide_all_records: bool = False
         self._build_ui()
         self._refresh_list()
 
@@ -136,6 +138,15 @@ class HiddenDomainsManagerDialog(QDialog):
         self._remove_all_btn.setToolTip(_("Remove all hidden-domain entries (records become visible again)"))
         self._remove_all_btn.clicked.connect(self._on_remove_all)
         bottom.addWidget(self._remove_all_btn)
+
+        self._unhide_all_records_btn = QPushButton(_("Unhide All Records"))
+        self._unhide_all_records_btn.setIcon(get_icon("eye"))
+        self._unhide_all_records_btn.setToolTip(
+            _("Unhide all individually hidden records (does not affect hidden domains)")
+        )
+        self._unhide_all_records_btn.clicked.connect(self._on_unhide_all_records)
+        bottom.addWidget(self._unhide_all_records_btn)
+
         bottom.addStretch()
 
         btn_box = QDialogButtonBox(QDialogButtonBox.Close)
@@ -247,6 +258,18 @@ class HiddenDomainsManagerDialog(QDialog):
         self._refresh_list()
         log.debug("Marked all domains for unhiding (%d total)", len(self._to_remove))
 
+    def _on_unhide_all_records(self) -> None:
+        reply = QMessageBox.question(
+            self,
+            _("Unhide All Records"),
+            _("This will make all individually hidden records visible again. Continue?"),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply == QMessageBox.Yes:
+            self._unhide_all_records = True
+            self.accept()
+
     # ── Public API ────────────────────────────────────────────
 
     @property
@@ -258,3 +281,8 @@ class HiddenDomainsManagerDialog(QDialog):
     def domains_to_add(self) -> list[dict]:
         """New domains the user added, each a dict with 'domain' and 'subdomain_only'."""
         return list(self._to_add)
+
+    @property
+    def unhide_all_records_requested(self) -> bool:
+        """True if the user confirmed the Unhide All Records action."""
+        return self._unhide_all_records
