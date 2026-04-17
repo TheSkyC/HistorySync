@@ -978,12 +978,13 @@ class LocalDatabase:
             finally:
                 conn.close()
 
-            pruned = self.prune_tombstones()
-            if pruned:
-                _cb(_("Pruned {n} expired tombstone rows (>90 days old).").format(n=pruned))
         finally:
             with self._lock:
                 self._vacuuming = False
+
+        pruned = self.prune_tombstones()
+        if pruned:
+            _cb(_("Pruned {n} expired tombstone rows (>90 days old).").format(n=pruned))
 
         size_after = db_path.stat().st_size if db_path.exists() else 0
         saved = size_before - size_after
