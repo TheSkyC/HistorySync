@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 
 from src.utils.constants import APP_NAME
 from src.utils.i18n import _
-from src.utils.icon_helper import get_app_icon, make_transparent_icon
+from src.utils.icon_helper import get_app_icon
 from src.utils.logger import get_logger
 from src.utils.path_helper import get_log_dir
 from src.utils.theme_manager import ThemeManager
@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
             self.setWindowTitle(f"{APP_NAME}  {_('[Fresh Mode]')}")
         else:
             self.setWindowTitle(APP_NAME)
-        self.setWindowIcon(make_transparent_icon())
+        self.setWindowIcon(get_app_icon())
         self.setMinimumSize(900, 600)
         self.resize(main_vm._config.window_width, main_vm._config.window_height)
         if main_vm._config.window_x >= 0 and main_vm._config.window_y >= 0:
@@ -95,22 +95,6 @@ class MainWindow(QMainWindow):
         sb_layout.setContentsMargins(0, 0, 0, 0)
         sb_layout.setSpacing(0)
         sb_layout.setAlignment(Qt.AlignTop)
-
-        # App logo
-        logo = QLabel()
-        logo.setObjectName("app_logo")
-        logo.setAlignment(Qt.AlignCenter)
-        logo.setFixedHeight(56)
-        app_icon = get_app_icon()
-        if not app_icon.isNull():
-            logo.setPixmap(app_icon.pixmap(28, 28))
-        else:
-            logo.setText("◈")
-            f = logo.font()
-            f.setPointSize(18)
-            logo.setFont(f)
-        logo.setStyleSheet("background: transparent;")
-        sb_layout.addWidget(logo)
 
         # Nav buttons
         self._nav_dashboard = NavButton("home", _("Overview"))
