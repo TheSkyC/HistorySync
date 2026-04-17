@@ -1911,6 +1911,10 @@ class HistoryPage(QWidget):
         self._scroll_bubble_timer.setInterval(60)
         self._scroll_bubble_timer.timeout.connect(self._update_scroll_bubble)
 
+        # Scroll position to restore after an in-place mutation (delete/hide/unhide).
+        # None means "scroll to top as usual"; set before emitting mutation signals.
+        self._pending_scroll_restore: int | None = None
+
         self._separator_rows: dict[int, int] = {}
         # Lazily-populated visit counts for date-separator pills.
         # Keyed by row index — populated by _load_visible_sep_counts() after
@@ -2239,7 +2243,14 @@ class HistoryPage(QWidget):
         self._sep_counts.clear()
         self._separator_indices.clear()
         self._sep_count_timer.stop()
-        self._table.verticalScrollBar().setValue(0)
+        if self._pending_scroll_restore is not None:
+            saved = self._pending_scroll_restore
+            self._pending_scroll_restore = None
+            # Qt's QAbstractItemView also resets the scrollbar in response to
+            # modelReset, so we must defer our restore to run after that.
+            QTimer.singleShot(0, lambda: self._table.verticalScrollBar().setValue(saved))
+        else:
+            self._table.verticalScrollBar().setValue(0)
         self._apply_column_widths()
 
     def _customize_calendar(self, date_edit: QDateEdit):
@@ -3167,14 +3178,17 @@ class HistoryPage(QWidget):
             QMessageBox.No,
         )
         if reply == QMessageBox.Yes:
+            self._pending_scroll_restore = self._table.verticalScrollBar().value()
             self.delete_records_requested.emit(ids)
 
     def _hide_records(self, ids: list[int]):
+        self._pending_scroll_restore = self._table.verticalScrollBar().value()
         self.hide_records_requested.emit(ids)
         self._status_label.setText(_("Hidden {n} record(s). Manage in Settings → Privacy.").format(n=len(ids)))
 
     def _unhide_records(self, ids: list[int]):
         """Unhide records by emitting the signal, then refresh the view."""
+        self._pending_scroll_restore = self._table.verticalScrollBar().value()
         self.unhide_records_requested.emit(ids)
         self._status_label.setText(_("Restored {n} record(s).").format(n=len(ids)))
 
@@ -3186,6 +3200,7 @@ class HistoryPage(QWidget):
         dlg = HideDomainDialog(domain, subdomain_only, count, parent=self)
         if dlg.exec() != HideDomainDialog.Accepted:
             return
+        self._pending_scroll_restore = self._table.verticalScrollBar().value()
         self.hide_domain_requested.emit(domain, subdomain_only, dlg.auto_hide)
 
     def _blacklist_domain(self, domain: str):
@@ -3199,6 +3214,7 @@ class HistoryPage(QWidget):
             QMessageBox.No,
         )
         if reply == QMessageBox.Yes:
+            self._pending_scroll_restore = self._table.verticalScrollBar().value()
             self.blacklist_domain_requested.emit(domain)
 
     def _delete_selected(self):
