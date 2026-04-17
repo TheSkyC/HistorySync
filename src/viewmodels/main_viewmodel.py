@@ -316,9 +316,7 @@ class MainViewModel(QObject):
     def _refresh_hidden_ids(self) -> None:
         """Recompute the combined hidden-ID set (URL-level U domain-level) and
         push it to the history view-model so the table re-filters immediately."""
-        url_ids = self._db.get_hidden_ids()
-        domain_ids = self._db.get_hidden_domain_ids()
-        self.history_vm.set_hidden_ids(url_ids | domain_ids)
+        self.history_vm.set_hidden_ids(self._db.get_all_hidden_ids())
 
     # ── Hidden-domain operations ─────────────────────────────
 
@@ -393,7 +391,7 @@ class MainViewModel(QObject):
 
     def get_hidden_ids(self) -> set[int]:
         """Return combined URL-level + domain-level hidden record IDs."""
-        return self._db.get_hidden_ids() | self._db.get_hidden_domain_ids()
+        return self._db.get_all_hidden_ids()
 
     # ── Settings ────────────────────────────────────────────────
 

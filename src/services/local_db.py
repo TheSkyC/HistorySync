@@ -572,6 +572,27 @@ class LocalDatabase:
 
     # ── Hidden records CRUD ───────────────────────────────────
 
+    def get_all_hidden_ids(self) -> set[int]:
+        """Return the combined set of hidden record IDs (URL-level + domain-level).
+
+        Explicitly ends any open read transaction on the shared read-only
+        connection before querying, so callers always see the latest committed
+        data rather than a stale WAL snapshot from a previous read.
+        """
+        with self._ro_lock:
+            conn = self._ensure_ro_conn()
+            # End any open implicit read transaction so this query sees writes
+            # committed after the last time this connection was used.
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            with self._excl_cache_lock:
+                self._excl_cache.pop(conn, None)
+            url_ids = self.get_hidden_ids(_conn=conn)
+            domain_ids = self.get_hidden_domain_ids(_conn=conn)
+        return url_ids | domain_ids
+
     def hide_records_by_ids(self, ids: list[int]) -> None:
         """Mark the given record ids as hidden (stored by URL for cross-device stability)."""
         if not ids:
@@ -595,16 +616,20 @@ class LocalDatabase:
             rows = conn.execute("SELECT url FROM hidden_records").fetchall()
         return {r[0] for r in rows}
 
-    def get_hidden_ids(self, candidate_ids: set[int] | None = None) -> set[int]:
+    def get_hidden_ids(
+        self, candidate_ids: set[int] | None = None, _conn: sqlite3.Connection | None = None
+    ) -> set[int]:
         """Return DB ids of records whose URL is in hidden_records.
 
         If *candidate_ids* is provided, only those rows are checked (faster
         for the common case where we know which IDs might be affected).
+        If *_conn* is provided, use it directly instead of opening a new connection.
         """
         if candidate_ids is not None and len(candidate_ids) == 0:
             return set()
         _CHUNK = 900
-        with self._conn(write=False) as conn:
+
+        def _query(conn: sqlite3.Connection) -> set[int]:
             if candidate_ids is not None:
                 id_list = list(candidate_ids)
                 result: set[int] = set()
@@ -623,7 +648,12 @@ class LocalDatabase:
                 """SELECT h.id FROM history h
                        JOIN hidden_records hr ON h.url = hr.url"""
             ).fetchall()
-        return {r[0] for r in rows}
+            return {r[0] for r in rows}
+
+        if _conn is not None:
+            return _query(_conn)
+        with self._conn(write=False) as conn:
+            return _query(conn)
 
     def clear_hidden_records(self) -> int:
         """Delete all entries from hidden_records. Returns the number removed."""
@@ -742,14 +772,16 @@ class LocalDatabase:
             row = conn.execute(f"SELECT COUNT(*) FROM history WHERE domain_id IN ({placeholders})", d_ids).fetchone()
             return row[0] if row else 0
 
-    def get_hidden_domain_ids(self) -> set[int]:
+    def get_hidden_domain_ids(self, _conn: sqlite3.Connection | None = None) -> set[int]:
         """Return history record IDs that match any entry in hidden_domains.
 
         Called by the viewmodel to build the combined excluded-IDs set, which
         is then passed to ``HistoryViewModel.set_hidden_ids()`` so the table
         model filters both URL-hidden and domain-hidden records in one pass.
+        If *_conn* is provided, use it directly instead of opening a new connection.
         """
-        with self._conn(write=False) as conn:
+
+        def _query(conn: sqlite3.Connection) -> set[int]:
             domain_rows = conn.execute("SELECT domain, subdomain_only FROM hidden_domains").fetchall()
             if not domain_rows:
                 return set()
@@ -765,6 +797,11 @@ class LocalDatabase:
                     rows = conn.execute(f"SELECT id FROM history WHERE domain_id IN ({placeholders})", chunk).fetchall()
                     result.update(r[0] for r in rows)
             return result
+
+        if _conn is not None:
+            return _query(_conn)
+        with self._conn(write=False) as conn:
+            return _query(conn)
 
     def clear_hidden_domains(self) -> int:
         """Remove all entries from hidden_domains.  Returns count removed."""
