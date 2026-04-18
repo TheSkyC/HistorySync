@@ -2257,7 +2257,10 @@ class LocalDatabase:
                 device_ids=device_ids,
                 hidden_only=hidden_only,
             )
-            sql = f"SELECT COUNT(*) {from_where}"
+            # Strip the domains LEFT JOIN — COUNT(*) never needs d.host,
+            # and the extra JOIN forces a full scan on large tables.
+            count_from_where = from_where.replace(" LEFT JOIN domains d ON h.domain_id = d.id", "", 1)
+            sql = f"SELECT COUNT(*) {count_from_where}"
             try:
                 row = conn.execute(sql, params).fetchone()
             except sqlite3.OperationalError as exc:

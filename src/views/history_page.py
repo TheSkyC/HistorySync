@@ -2178,12 +2178,17 @@ class HistoryPage(QWidget):
         model = self._vm.table_model
         vh = self._table.verticalHeader()
 
+        # Track rows that gain a separator band in this batch so we can
+        # compensate the scrollbar for any that land above the viewport.
+        newly_added_sep_rows: list[int] = []
+
         for local_idx, record in enumerate(records):
             row = base_row + local_idx
             if row == 0:
                 # First record ever → always a separator
                 if row not in self._separator_rows:
                     bisect.insort(self._separator_indices, row)
+                    newly_added_sep_rows.append(row)
                 self._separator_rows[row] = record.visit_time
                 vh.resizeSection(row, _SEP_TOTAL)
                 continue
@@ -2199,6 +2204,7 @@ class HistoryPage(QWidget):
                     # Previous page not in cache — conservatively mark as separator.
                     if row not in self._separator_rows:
                         bisect.insort(self._separator_indices, row)
+                        newly_added_sep_rows.append(row)
                     self._separator_rows[row] = record.visit_time
                     vh.resizeSection(row, _SEP_TOTAL)
                     continue
@@ -2211,6 +2217,7 @@ class HistoryPage(QWidget):
                     bisect.insort(self._separator_indices, row)
                     self._separator_rows[row] = record.visit_time
                     vh.resizeSection(row, _SEP_TOTAL)
+                    newly_added_sep_rows.append(row)
             elif row in self._separator_rows:
                 # Row was previously marked as a separator (e.g. after a
                 # model reset with different data) - un-mark it.
@@ -2235,6 +2242,19 @@ class HistoryPage(QWidget):
             saved = self._pending_scroll_restore
             self._pending_scroll_restore = None
             QTimer.singleShot(0, lambda: self._table.verticalScrollBar().setValue(saved))
+        elif newly_added_sep_rows:
+            _new_rows = list(newly_added_sep_rows)
+
+            def _compensate_scroll(_rows=_new_rows):
+                first_visible = self._table.rowAt(0)
+                if first_visible <= 0:
+                    return
+                above = sum(1 for r in _rows if r < first_visible)
+                if above:
+                    vbar = self._table.verticalScrollBar()
+                    vbar.setValue(vbar.value() + above * _SEP_H)
+
+            QTimer.singleShot(0, _compensate_scroll)
 
     def _on_model_reset(self) -> None:
         """Clear separator state when the model is rebuilt (new search / filter).
@@ -2366,15 +2386,15 @@ class HistoryPage(QWidget):
                 )
                 QTimer.singleShot(0, lambda: self._table.scrollTo(idx, QAbstractItemView.ScrollHint.PositionAtCenter))
             elif base_row == 0 and target_page_start > 0:
-                # Page 0 loaded but target is in a later page. Trigger an
-                # approximate scroll so Qt loads the target page, then the
-                # handler above fires again with the accurate position.
-                idx = model.index(row, 0)
-                if idx.isValid():
-                    self._table.scrollTo(idx, QAbstractItemView.ScrollHint.PositionAtCenter)
+                # Page 0 loaded but target is in a later page.
+                # Pre-fetch the target page directly instead of doing an
+                # approximate scrollTo — avoids the visual intermediate jump
+                # and eliminates one serial round-trip.
+                target_page_idx = target_page_start // PAGE_SIZE
+                QTimer.singleShot(0, lambda: model._fetch_page(target_page_idx))
 
         model.records_loaded.connect(_on_page_loaded)
-        self._do_search()
+        self._do_search(skip_badges=True)
 
     def filter_by_date(self, date_str: str):
         """Switch to history page and show only records for *date_str* (YYYY-MM-DD)."""
@@ -2815,7 +2835,7 @@ class HistoryPage(QWidget):
 
     # ── Event handlers ────────────────────────────────────────
 
-    def _do_search(self):
+    def _do_search(self, skip_badges: bool = False):
         raw_text = self._search.text().strip()
         use_regex = self._search.use_regex
 
@@ -2861,6 +2881,7 @@ class HistoryPage(QWidget):
             has_annotation=query.has_annotation,
             bookmark_tag=query.bookmark_tag,
             device_ids=list(set(device_ids)) if device_ids else None,
+            skip_badges=skip_badges,
         )
 
     def _reset_filters(self):

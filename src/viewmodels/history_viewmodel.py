@@ -112,6 +112,7 @@ class _ReloadWorker(QThread):
         params: dict,
         use_id_index: bool,
         generation: int,
+        skip_badges: bool = False,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
@@ -119,6 +120,7 @@ class _ReloadWorker(QThread):
         self._params = params
         self._use_id_index = use_id_index
         self._generation = generation
+        self._skip_badges = skip_badges
 
     def run(self) -> None:  # executed in worker thread
         try:
@@ -141,9 +143,16 @@ class _ReloadWorker(QThread):
             }
             # Fetch badge data in the worker thread so the main thread never
             # blocks on _lock while a sync write is in progress.
-            bookmarked = self._db.get_bookmarked_urls()
-            annotated = self._db.get_annotated_urls()
-            device_map = self._db.get_device_name_map()
+            # skip_badges=True when the caller knows badge data hasn't changed
+            # (e.g. filter_by_url / delete/hide restores) to avoid 3 extra queries.
+            if self._skip_badges:
+                bookmarked = None
+                annotated = None
+                device_map = None
+            else:
+                bookmarked = self._db.get_bookmarked_urls()
+                annotated = self._db.get_annotated_urls()
+                device_map = self._db.get_device_name_map()
 
             if self._use_id_index:
                 index = self._db.get_filtered_id_times(**kw)
@@ -263,7 +272,7 @@ class HistoryTableModel(QAbstractTableModel):
 
     def set_hidden_ids(self, ids: set[int]) -> None:
         self._hidden_ids = ids
-        self.reload()
+        self.reload(skip_badges=True)
 
     def set_hidden_mode(self, enabled: bool) -> None:
         """Toggle hidden-only mode.  When True the table shows only hidden
@@ -271,7 +280,7 @@ class HistoryTableModel(QAbstractTableModel):
         if self._hidden_mode == enabled:
             return
         self._hidden_mode = enabled
-        self.reload()
+        self.reload(skip_badges=True)
 
     # ── QAbstractTableModel interface ────────────────────────
 
@@ -430,6 +439,7 @@ class HistoryTableModel(QAbstractTableModel):
         has_annotation: bool = False,
         bookmark_tag: str = "",
         device_ids: list[int] | None = None,
+        skip_badges: bool = False,
     ):
         self._keyword = keyword
         self._browser_type = browser_type
@@ -446,15 +456,20 @@ class HistoryTableModel(QAbstractTableModel):
         self._bookmark_tag = bookmark_tag
         self._device_ids = device_ids
 
-        self.reload()
+        self.reload(skip_badges=skip_badges)
 
-    def reload(self):
+    def reload(self, skip_badges: bool = False):
         """Reset cache and kick off an async DB query to get the new row count.
 
         The actual DB work runs in a background QThread (_ReloadWorker) so the
         main thread — and therefore the UI — is never blocked.  A monotonically
         increasing generation counter is used to discard results that arrive
         after a newer reload() has already been issued (e.g. rapid user input).
+
+        skip_badges -- when True the worker skips the 3 badge queries
+                       (get_bookmarked_urls / get_annotated_urls / get_device_name_map).
+                       Use for in-place mutations (delete/hide) where badge data
+                       is unchanged and the extra round-trips add ~100-300 ms.
         """
         self._page_cache.clear()
         self._page_lru.clear()
@@ -503,7 +518,7 @@ class HistoryTableModel(QAbstractTableModel):
         }
         use_id_index = bool(self._keyword)
 
-        worker = _ReloadWorker(self._db, params, use_id_index, generation, parent=self)
+        worker = _ReloadWorker(self._db, params, use_id_index, generation, skip_badges=skip_badges, parent=self)
         worker.done.connect(self._on_reload_done)
         worker.done.connect(worker.deleteLater)
         # Keep a reference so the thread is not garbage-collected mid-run.
@@ -525,10 +540,13 @@ class HistoryTableModel(QAbstractTableModel):
         # Discard stale results from superseded reload() calls.
         if generation != self._reload_generation:
             return
-        # Apply badge data fetched in the worker thread.
-        self._bookmarked_urls = bookmarked_urls
-        self._annotated_urls = annotated_urls
-        self._device_name_map = device_name_map
+        # Apply badge data fetched in the worker thread (None means skip_badges=True).
+        if bookmarked_urls is not None:
+            self._bookmarked_urls = bookmarked_urls
+        if annotated_urls is not None:
+            self._annotated_urls = annotated_urls
+        if device_name_map is not None:
+            self._device_name_map = device_name_map
         self._apply_reload_result(generation, keyword_index, total_count, keyword_materialized)
 
     def _apply_reload_result(
@@ -982,6 +1000,7 @@ class HistoryViewModel(QObject):
         has_annotation: bool = False,
         bookmark_tag: str = "",
         device_ids: list[int] | None = None,
+        skip_badges: bool = False,
     ):
         self._use_regex = use_regex  # Save for status message formatting
         self.table_model.set_filter(
@@ -998,6 +1017,7 @@ class HistoryViewModel(QObject):
             has_annotation=has_annotation,
             bookmark_tag=bookmark_tag,
             device_ids=device_ids,
+            skip_badges=skip_badges,
         )
 
     def load_more(self) -> bool:
