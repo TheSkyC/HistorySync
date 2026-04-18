@@ -903,6 +903,7 @@ def _quit(main_vm=None, log=None):
 
     if main_vm is not None:
         try:
+            main_vm._monitor.stop()
             main_vm._scheduler.stop()
             main_vm._scheduler.shutdown(timeout_ms=SCHEDULER_SHUTDOWN_TIMEOUT_MS)
             main_vm._favicon_manager.shutdown(timeout_ms=FAVICON_MANAGER_SHUTDOWN_TIMEOUT_MS)
