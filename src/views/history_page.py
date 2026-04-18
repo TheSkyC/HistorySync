@@ -2717,6 +2717,19 @@ class HistoryPage(QWidget):
     def _on_columns_changed(self):
         QTimer.singleShot(0, self._apply_column_widths)
         QTimer.singleShot(0, self._setup_badge_delegate)  # Rebind delegate after column order changes
+        QTimer.singleShot(0, self._rebuild_separators_from_cache)
+
+    def _rebuild_separators_from_cache(self):
+        """Replay cached pages through _on_records_loaded to restore date separators.
+
+        Called after a column-only model reset (toggle/reorder), which clears
+        _separator_rows via _on_model_reset but does not re-emit records_loaded.
+        """
+        model = self._vm.table_model
+        for page_index in sorted(model._page_cache.keys()):
+            records = model._page_cache[page_index]
+            if records:
+                self._on_records_loaded(page_index * PAGE_SIZE, records)
 
     def _on_section_resized(self, logical_index, old_size, new_size):
         col_key = self._vm.table_model._col_to_key.get(logical_index)
