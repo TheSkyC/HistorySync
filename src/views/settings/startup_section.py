@@ -12,9 +12,10 @@ class StartupSection(QWidget):
     """System-startup launch card.
 
     Exposes:
-        load(enabled: bool)                   - set checkbox state
+        load(enabled: bool, start_minimized: bool)  - set checkbox states
         get_launch_on_startup() -> bool
-        set_status(text: str, level: str)     - update inline status label
+        get_start_minimized() -> bool
+        set_status(text: str, level: str)            - update inline status label
             level: "info" | "warning" | "error" | "success" | ""
     """
 
@@ -40,14 +41,28 @@ class StartupSection(QWidget):
         note.setWordWrap(True)
         layout.addWidget(note)
 
+        self._minimized_cb = QCheckBox(_("Start minimized to tray when opening the app"))
+        layout.addWidget(self._minimized_cb)
+
+        minimized_note = QLabel(
+            _("When enabled, the main window will not appear on launch — HistorySync runs silently in the system tray.")
+        )
+        minimized_note.setObjectName("muted")
+        minimized_note.setWordWrap(True)
+        layout.addWidget(minimized_note)
+
     # ── Public API ────────────────────────────────────────────
 
-    def load(self, enabled: bool):
+    def load(self, enabled: bool, start_minimized: bool = False):
         self._startup_cb.setChecked(enabled)
+        self._minimized_cb.setChecked(start_minimized)
         self._status_lbl.setText("")
 
     def get_launch_on_startup(self) -> bool:
         return self._startup_cb.isChecked()
+
+    def get_start_minimized(self) -> bool:
+        return self._minimized_cb.isChecked()
 
     def set_status(self, text: str, level: str = "info"):
         """Display inline status next to the checkbox.

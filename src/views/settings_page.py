@@ -110,7 +110,7 @@ class SettingsPage(QWidget):
 
         self._add_card(_("LANGUAGE"), self._sec_language)
         self._add_card(_("AUTO SYNC"), self._sec_scheduler)
-        self._add_card(_("STARTUP"), self._sec_startup)
+        self._add_card(_("STARTUP SETTINGS"), self._sec_startup)
         self._add_card(_("WEBDAV CLOUD BACKUP"), self._sec_webdav)
         self._add_card(_("PRIVACY & BLACKLIST"), self._sec_privacy)
         self._add_card(_("SECURITY"), self._sec_security)
@@ -189,7 +189,7 @@ class SettingsPage(QWidget):
         # Startup
         from src.services.scheduler import StartupManager
 
-        self._sec_startup.load(StartupManager.is_enabled())
+        self._sec_startup.load(StartupManager.is_enabled(), cfg.scheduler.start_minimized)
 
         # WebDAV
         self._sec_webdav.load(cfg)
@@ -274,12 +274,14 @@ class SettingsPage(QWidget):
                 )
             else:
                 # Roll back the checkbox to reflect actual system state
-                self._sec_startup.load(not want_startup)
+                self._sec_startup.load(not want_startup, cfg.scheduler.start_minimized)
                 self._sec_startup.set_status(
                     _("⚠ Failed to configure startup — check permissions"),
                     "error",
                 )
                 self._set_status(_("⚠ Failed to configure startup"), "warning")
+
+        cfg.scheduler.start_minimized = self._sec_startup.get_start_minimized()
 
         # Font settings
         cfg.font = self._sec_font.get_font_config()

@@ -731,11 +731,18 @@ def _gui_main(args: argparse.Namespace) -> None:
     )
 
     # ── 8. Display strategy ──────────────────────────────────────────────────
-    should_minimize = args.minimized or (config.scheduler.launch_on_startup and _is_startup_launch())
+    should_minimize = (
+        args.minimized
+        or config.scheduler.start_minimized
+        or (config.scheduler.launch_on_startup and _is_startup_launch())
+    )
 
     if should_minimize:
         log.info(
-            "Starting minimized to tray (minimized=%s, startup=%s)", args.minimized, config.scheduler.launch_on_startup
+            "Starting minimized to tray (minimized=%s, start_minimized=%s, startup=%s)",
+            args.minimized,
+            config.scheduler.start_minimized,
+            config.scheduler.launch_on_startup,
         )
     else:
         window.show()

@@ -53,6 +53,7 @@ class SchedulerConfig:
     auto_sync_enabled: bool = True
     sync_interval_hours: int = DEFAULT_SYNC_INTERVAL_HOURS
     launch_on_startup: bool = False
+    start_minimized: bool = False
     auto_backup_enabled: bool = False
     auto_backup_interval_hours: int = DEFAULT_AUTO_BACKUP_INTERVAL_HOURS
 
