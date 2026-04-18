@@ -180,6 +180,28 @@ class LocalDatabase:
             self._ro_conn = conn
         return self._ro_conn
 
+    def _fresh_ro_conn(self) -> sqlite3.Connection:
+        """Return the read-only connection after ending any open read transaction.
+
+        Must be called with ``_ro_lock`` already held.
+
+        SQLite WAL mode pins a read-only connection to the snapshot taken at the
+        start of its first transaction.  Calling rollback() ends that transaction
+        so the next query starts a new one against the latest WAL checkpoint,
+        making writes committed by the write connection visible immediately.
+        The _excl_ids temp table (populated by _populate_excl_table) is also
+        cleared because rollback() undoes its DML — callers that need it must
+        re-populate it after calling this method.
+        """
+        conn = self._ensure_ro_conn()
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        with self._excl_cache_lock:
+            self._excl_cache.pop(conn, None)
+        return conn
+
     @contextmanager
     def _conn(self, write: bool = True) -> Iterator[sqlite3.Connection]:
         """Thread-safe connection context manager.
@@ -608,15 +630,7 @@ class LocalDatabase:
         data rather than a stale WAL snapshot from a previous read.
         """
         with self._ro_lock:
-            conn = self._ensure_ro_conn()
-            # End any open implicit read transaction so this query sees writes
-            # committed after the last time this connection was used.
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-            with self._excl_cache_lock:
-                self._excl_cache.pop(conn, None)
+            conn = self._fresh_ro_conn()
             url_ids = self.get_hidden_ids(_conn=conn)
             domain_ids = self.get_hidden_domain_ids(_conn=conn)
         return url_ids | domain_ids
@@ -780,7 +794,8 @@ class LocalDatabase:
 
     def get_hidden_domains(self) -> list[dict]:
         """Return all hidden-domain entries as dicts, newest first."""
-        with self._conn(write=False) as conn:
+        with self._ro_lock:
+            conn = self._fresh_ro_conn()
             rows = conn.execute(
                 "SELECT domain, subdomain_only, hidden_at FROM hidden_domains ORDER BY hidden_at DESC"
             ).fetchall()
@@ -2354,7 +2369,8 @@ class LocalDatabase:
         return row is not None
 
     def get_bookmarked_urls(self) -> set[str]:
-        with self._conn(write=False) as conn:
+        with self._ro_lock:
+            conn = self._fresh_ro_conn()
             rows = conn.execute("SELECT url FROM bookmarks").fetchall()
         return {r[0] for r in rows}
 
@@ -2399,7 +2415,8 @@ class LocalDatabase:
                 "          OR _extract_host(b.url) LIKE '%.' || hd.domain)))"
             )
 
-        with self._conn(write=False) as conn:
+        with self._ro_lock:
+            conn = self._fresh_ro_conn()
             if tag:
                 # Filter by tag via JOIN, then LEFT JOIN again to collect all tags per bookmark.
                 rows = conn.execute(
@@ -2436,7 +2453,8 @@ class LocalDatabase:
         ]
 
     def get_all_bookmark_tags(self) -> list[str]:
-        with self._conn(write=False) as conn:
+        with self._ro_lock:
+            conn = self._fresh_ro_conn()
             rows = conn.execute("SELECT DISTINCT tag FROM bookmark_tags ORDER BY tag").fetchall()
         return [r[0] for r in rows]
 
@@ -2511,12 +2529,14 @@ class LocalDatabase:
         )
 
     def get_annotated_urls(self) -> set[str]:
-        with self._conn(write=False) as conn:
+        with self._ro_lock:
+            conn = self._fresh_ro_conn()
             rows = conn.execute("SELECT url FROM annotations WHERE note != ''").fetchall()
         return {r[0] for r in rows}
 
     def get_all_annotations(self) -> list[AnnotationRecord]:
-        with self._conn(write=False) as conn:
+        with self._ro_lock:
+            conn = self._fresh_ro_conn()
             rows = conn.execute(
                 "SELECT id, url, note, created_at, updated_at, history_id FROM annotations ORDER BY updated_at DESC"
             ).fetchall()

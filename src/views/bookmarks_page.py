@@ -922,6 +922,14 @@ class BookmarksPage(QWidget):
             return
 
         self._db.remove_bookmark(bm.url)
+
+        # Invalidate any _LoadWorker that is still running (e.g. one launched by
+        # showEvent just before the user clicked Delete).  Without this bump the
+        # worker's _on_load_finished callback would overwrite _all_bookmarks with
+        # stale data that still contains the just-deleted bookmark, making it
+        # reappear as soon as the thread finishes.
+        self._load_generation += 1
+
         self.bookmark_changed.emit()
 
         self._all_bookmarks = [b for b in self._all_bookmarks if b.url != bm.url]
