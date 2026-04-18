@@ -470,6 +470,10 @@ def _headless_main(args: argparse.Namespace) -> int:
         main_vm._favicon_manager.shutdown(timeout_ms=FAVICON_MANAGER_SHUTDOWN_TIMEOUT_MS)
     except Exception as exc:
         log.warning("Headless shutdown error: %s", exc)
+    try:
+        main_vm._db.close()
+    except Exception as exc:
+        log.warning("DB close error during headless shutdown: %s", exc)
 
     if errors:
         log.error("Headless: %d operation(s) failed:", len(errors))
@@ -904,6 +908,14 @@ def _quit(main_vm=None, log=None):
             main_vm._favicon_manager.shutdown(timeout_ms=FAVICON_MANAGER_SHUTDOWN_TIMEOUT_MS)
         except Exception as exc:
             log.warning("Error during shutdown: %s", exc)
+        # Close the DB explicitly so SQLite performs a final WAL checkpoint
+        # before the process exits.  On Windows, relying on GC to close the
+        # connection can leave the WAL file un-checkpointed, forcing a recovery
+        # pass on the next startup.
+        try:
+            main_vm._db.close()
+        except Exception as exc:
+            log.warning("DB close error during shutdown: %s", exc)
         # Fresh mode: explicitly release the TemporaryDirectory *after* all
         # SQLite connections are closed.  On Windows, open file handles block
         # directory removal, so we must not rely on the GC/weakref finalizer.
