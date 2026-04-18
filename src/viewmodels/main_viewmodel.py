@@ -146,6 +146,9 @@ class MainViewModel(QObject):
 
     # ── Public sync operations ─────────────────────────────────
 
+    def force_monitor_check(self) -> None:
+        self._monitor.force_check()
+
     def trigger_sync(self) -> None:
         self._scheduler.trigger_now()
 

@@ -345,6 +345,8 @@ class MainWindow(QMainWindow):
         )
 
     def _on_browser_status_changed(self, statuses: dict, display_names: dict):
+        if not self.isVisible():
+            return
         self._page_dashboard.update_browser_statuses(
             statuses,
             display_names,
@@ -412,6 +414,7 @@ class MainWindow(QMainWindow):
         self.showNormal()
         self.activateWindow()
         self.raise_()
+        self._vm.force_monitor_check()
 
     def closeEvent(self, event: QCloseEvent):
         self._save_geometry()
