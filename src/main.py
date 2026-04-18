@@ -379,7 +379,7 @@ def _headless_main(args: argparse.Namespace) -> int:
 
     lang_manager.setup_translation(config.language or None)
 
-    main_vm = MainViewModel(config)
+    main_vm = MainViewModel(config, headless=True)
 
     exit_code = [0]
     pending = [0]
@@ -444,7 +444,7 @@ def _headless_main(args: argparse.Namespace) -> int:
 
     # ── Start ─────────────────────────────────────────────────────────────────
     def _start():
-        main_vm.start()
+        main_vm.start_headless()
 
         if do_sync:
             log.info("Headless: triggering sync")

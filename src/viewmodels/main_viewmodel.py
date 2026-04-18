@@ -42,13 +42,14 @@ class MainViewModel(QObject):
     # Overlay signal
     open_settings_requested = Signal()
 
-    def __init__(self, config: AppConfig, parent=None):
+    def __init__(self, config: AppConfig, parent=None, headless: bool = False):
         super().__init__(parent)
         self._config = config
+        self._headless = headless
         self._overlay = None  # OverlayWindow, created lazily on first hotkey press
 
         db_path = config.get_db_path()
-        self._db = LocalDatabase(db_path)
+        self._db = LocalDatabase(db_path, headless=headless)
         self._local_device_id: int = ensure_local_device(config, self._db)
         self._webdav = WebDavSyncService(config.webdav, db_path)
         self._webdav.set_local_db(self._db)
@@ -103,6 +104,25 @@ class MainViewModel(QObject):
             last_sync_ts=self._config.last_sync_ts,
             last_backup_ts=self._config.last_backup_ts,
         )
+
+    def start_headless(self) -> None:
+        """Minimal startup for headless (--headless) operation.
+
+        Skips every GUI-only subsystem so that the process stays at the ~22 MB
+        baseline regardless of sync duration or scheduler overdue state:
+
+        * No BrowserMonitor   — GUI dashboard card updater, useless without UI
+        * No HistoryViewModel reload — paginated table model, no UI to render it
+        * No auto-sync timer  — headless callers trigger operations explicitly;
+                                arming the repeating timer can fire an extra
+                                QThread if the last sync was overdue
+        * No stats emit       — nobody is listening in headless mode
+        """
+        # Nothing to do here beyond what __init__ already set up; the scheduler
+        # is intentionally *not* armed so callers use trigger_sync() / trigger_backup()
+        # directly.  This method exists as an explicit contract so that main.py
+        # can call start_headless() instead of start() without relying on comments.
+        pass
 
     def ensure_overlay(self):
         """Return the OverlayWindow, creating it on first call (lazy init).
@@ -442,10 +462,18 @@ class MainViewModel(QObject):
         self._monitor.clear_syncing()
         self._config.last_sync_ts = int(_time.time())
         self._config.save()
-        self.history_vm.refresh()
-        self._emit_stats()
         self.sync_finished.emit(total_new)
         log.info("Sync done, %d new records", total_new)
+
+        if self._headless:
+            # In headless mode there is no UI to refresh and no point extracting
+            # favicons (icons are only rendered in the GUI table / overlay).
+            # Skipping these two calls avoids spawning extra QThreads that would
+            # hold memory until the 200 ms quit delay expires.
+            return
+
+        self.history_vm.refresh()
+        self._emit_stats()
         synced_browsers = list(results.keys()) if results else None
         self._favicon_manager.schedule_extraction(target_browsers=synced_browsers)
 

@@ -89,8 +89,9 @@ class DbStats:
 
 
 class LocalDatabase:
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path, headless: bool = False):
         self.db_path = db_path
+        self._headless = headless
         self._lock = threading.RLock()
         self._pconn: sqlite3.Connection | None = None
         self._ro_conn: sqlite3.Connection | None = None
@@ -120,8 +121,15 @@ class LocalDatabase:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.execute("PRAGMA foreign_keys=ON")
-            conn.execute("PRAGMA cache_size=-32768")  # 32 MB page cache
-            conn.execute("PRAGMA mmap_size=268435456")  # 256 MB memory-mapped I/O
+            # Headless mode runs a handful of queries then exits; a 4 MB page
+            # cache is more than sufficient.  GUI mode keeps 32 MB for snappy
+            # paginated queries over large history tables.
+            cache_size = -4096 if self._headless else -32768
+            conn.execute(f"PRAGMA cache_size={cache_size}")
+            # mmap adds no benefit in headless (no repeated large scans) and
+            # wastes virtual address space that inflates the RSS reading.
+            mmap_size = 0 if self._headless else 268435456
+            conn.execute(f"PRAGMA mmap_size={mmap_size}")
             conn.execute("PRAGMA temp_store=MEMORY")
             conn.commit()
             conn.create_function("_extract_host", 1, _extract_url_host)
