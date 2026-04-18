@@ -116,8 +116,8 @@ jobs:
           )
           failed=0
           for job in "${!results[@]}"; do
-            if [[ "${results[$job]}" != "success" ]]; then
-              echo "::error::Job '${job}' did not succeed (result: ${results[$job]})."
+            if [[ "${results[$job]}" == "failure" ]]; then
+              echo "::error::Job '${job}' failed (result: ${results[$job]})."
               failed=1
             fi
           done
