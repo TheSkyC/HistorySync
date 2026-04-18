@@ -61,10 +61,11 @@ class MainViewModel(QObject):
             filtered_url_prefixes=config.privacy.filtered_url_prefixes,
             device_id=self._local_device_id,
         )
-        self._favicon_manager = FaviconManager(config, parent=self)
-        # Provide the history DB reference so FaviconManager can scope
-        # extraction to domains the user has actually visited.
-        self._favicon_manager.set_local_db(self._db)
+        if not headless:
+            self._favicon_manager = FaviconManager(config, parent=self)
+            self._favicon_manager.set_local_db(self._db)
+        else:
+            self._favicon_manager = None
 
         self._scheduler = Scheduler(self._em, self._webdav, parent=self)
         self._scheduler.sync_started.connect(self._on_sync_started)
@@ -77,8 +78,11 @@ class MainViewModel(QObject):
         self._monitor.statuses_changed.connect(self._on_monitor_statuses_changed)
 
         visible_columns = config.ui.visible_columns if hasattr(config, "ui") else None
-        self.history_vm = HistoryViewModel(self._db, self._favicon_manager, visible_columns, parent=self)
-        self.history_vm.ui_config_changed.connect(self._on_history_ui_config_changed)
+        if not headless:
+            self.history_vm = HistoryViewModel(self._db, self._favicon_manager, visible_columns, parent=self)
+            self.history_vm.ui_config_changed.connect(self._on_history_ui_config_changed)
+        else:
+            self.history_vm = None
 
     def start(self) -> None:
         """Start all subsystems.  On first-run, call start_ui() now and

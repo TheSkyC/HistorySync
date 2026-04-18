@@ -467,7 +467,8 @@ def _headless_main(args: argparse.Namespace) -> int:
     try:
         main_vm._scheduler.stop()
         main_vm._scheduler.shutdown(timeout_ms=SCHEDULER_SHUTDOWN_TIMEOUT_MS)
-        main_vm._favicon_manager.shutdown(timeout_ms=FAVICON_MANAGER_SHUTDOWN_TIMEOUT_MS)
+        if main_vm._favicon_manager is not None:
+            main_vm._favicon_manager.shutdown(timeout_ms=FAVICON_MANAGER_SHUTDOWN_TIMEOUT_MS)
     except Exception as exc:
         log.warning("Headless shutdown error: %s", exc)
     try:
@@ -906,7 +907,8 @@ def _quit(main_vm=None, log=None):
             main_vm._monitor.stop()
             main_vm._scheduler.stop()
             main_vm._scheduler.shutdown(timeout_ms=SCHEDULER_SHUTDOWN_TIMEOUT_MS)
-            main_vm._favicon_manager.shutdown(timeout_ms=FAVICON_MANAGER_SHUTDOWN_TIMEOUT_MS)
+            if main_vm._favicon_manager is not None:
+                main_vm._favicon_manager.shutdown(timeout_ms=FAVICON_MANAGER_SHUTDOWN_TIMEOUT_MS)
         except Exception as exc:
             log.warning("Error during shutdown: %s", exc)
         # Close the DB explicitly so SQLite performs a final WAL checkpoint
