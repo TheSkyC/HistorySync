@@ -2623,6 +2623,16 @@ class HistoryPage(QWidget):
         (_SEP_TOTAL instead of _ROW_H).  Re-apply those sizes here so the total
         content height is restored before the next paint, preventing the brief
         upward jump caused by vbar.setValue() operating on a shrunken content area.
+
+        Column-width note: setModel(None) hides the vertical scrollbar (no content),
+        temporarily widening the viewport by the scrollbar width (~6 px).  When
+        setModel(model) restores the model the stretch recalculation runs against this
+        inflated viewport.  If the page is hidden at the time, Qt never issues a
+        follow-up resize event to the header once the scrollbar reappears, so the
+        last column stays ~6 px too wide and a spurious horizontal scrollbar appears
+        the next time the page is shown.  Deferring _apply_column_widths (same
+        pattern as __init__) ensures the call runs after updateGeometries() has
+        settled scrollbar visibility and the viewport width is correct.
         """
         vh = self._table.verticalHeader()
         for row in self._separator_rows:
@@ -2634,6 +2644,30 @@ class HistoryPage(QWidget):
         self._customize_calendar(self._date_to)
         # Re-fetch counts lost when modelReset cleared _sep_counts during theme swap.
         QTimer.singleShot(0, self._load_visible_sep_counts)
+        # Re-apply column widths after the event loop has processed updateGeometries()
+        # so that setStretchLastSection uses the correct (scrollbar-adjusted) viewport width.
+        # This covers the case where the page is *visible* during the theme change.
+        # The hidden-page case is handled by showEvent().
+        QTimer.singleShot(0, self._apply_column_widths)
+
+    def showEvent(self, event) -> None:
+        """Re-apply column widths each time the page becomes visible.
+
+        When a theme change occurs while this page is hidden the vertical
+        scrollbar momentarily disappears (setModel(None) clears all content),
+        widening the viewport by the scrollbar width (~6 px).  setStretchLastSection
+        recalculates the last column against this inflated viewport.  Because the
+        page is hidden, Qt never sends a follow-up resize event to the header once
+        the scrollbar reappears, so the stretch stays ~6 px too wide.  The deferred
+        timer in _on_theme_changed corrects this when the page is visible during the
+        swap, but cannot help for the hidden case.
+
+        Reapplying column widths here — deferred by one event-loop turn so the
+        viewport geometry is fully settled — guarantees a correct stretch regardless
+        of how many theme changes occurred while the page was hidden.
+        """
+        super().showEvent(event)
+        QTimer.singleShot(0, self._apply_column_widths)
 
     def _on_sb_pressed(self) -> None:
         mode = self._config.ui.scroll_bubble_mode
@@ -2734,6 +2768,12 @@ class HistoryPage(QWidget):
     def _on_section_resized(self, logical_index, old_size, new_size):
         col_key = self._vm.table_model._col_to_key.get(logical_index)
         if col_key and col_key != "browser":
+            hh = self._table.horizontalHeader()
+            # Don't save the width when Qt is managing it via setStretchLastSection —
+            # the value reflects the viewport width at resize time, not a user preference,
+            # and saving it would cause _apply_column_widths to restore an inflated width.
+            if hh.stretchLastSection() and hh.visualIndex(logical_index) == hh.count() - 1:
+                return
             self._current_widths[col_key] = new_size
             self._col_resize_timer.start(500)
 
@@ -2762,6 +2802,12 @@ class HistoryPage(QWidget):
         }
 
         with self._batch_header_update() as hh:
+            # Toggle setStretchLastSection to force Qt to recalculate the stretch
+            # against the current viewport width.  Without this, if the flag was
+            # already True, Qt treats the last section as "user-resized" after an
+            # explicit resizeSection() call and skips the recalculation in
+            # updateGeometries(), leaving a stale (inflated) width in place.
+            hh.setStretchLastSection(False)
             for idx, col_key in enumerate(visible_cols):
                 if col_key == "browser":
                     hh.setSectionResizeMode(idx, QHeaderView.Fixed)
