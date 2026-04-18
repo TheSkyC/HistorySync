@@ -6,6 +6,7 @@ from __future__ import annotations
 import bisect
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
+import time as _time
 from urllib.parse import urlparse
 import webbrowser
 
@@ -290,7 +291,9 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         # Keyed on (visit_time_day_bucket, today_date) so the cache auto-
         # invalidates at midnight without an explicit purge.
         self._date_label_cache: dict[tuple, str] = {}
-        self._date_label_cache_today: object = None  # date object of last cache fill
+        # Stored as an integer day-bucket (unix_seconds // 86400) instead of a
+        # date object — avoids constructing a Python date on every paint call.
+        self._date_label_cache_today: int = -1
 
     # ── QStyledItemDelegate interface ─────────────────────────────────────────
 
@@ -452,11 +455,15 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         """
         self._refresh_theme_cache()
 
-        today = date.today()
-        # Invalidate date-label cache at midnight (today changed)
-        if today != self._date_label_cache_today:
+        # Use an integer day-bucket (unix_seconds // 86400) instead of
+        # date.today() to avoid constructing a Python date object on every
+        # paint() call.  The bucket is UTC-based; it flips at UTC midnight,
+        # which is close enough for cache-invalidation purposes — the formatted
+        # label is rebuilt at most once per hour on boundary days.
+        today_bucket: int = int(_time.time()) // 86400
+        if today_bucket != self._date_label_cache_today:
             self._date_label_cache.clear()
-            self._date_label_cache_today = today
+            self._date_label_cache_today = today_bucket
 
         # Use (visit_time // 86400) as cache key — all timestamps on the same
         # calendar day produce the same label, so this gives maximum reuse.
@@ -863,7 +870,24 @@ class _ScrollTimeBubble(QWidget):
     """
 
     def __init__(self, parent: QWidget) -> None:
-        super().__init__(parent)
+        # Use a frameless Tool window instead of a plain child widget.
+        # As a child widget with WA_TranslucentBackground, every move() call
+        # schedules a repaint of the *parent* widget's dirty region (Qt must
+        # restore the table content underneath the bubble). That chain triggers
+        # O(visible_rows × columns) _DateSeparatorDelegate.paint() calls on
+        # every 60 ms timer tick — the dominant scroll-lag cost.
+        # As a Tool window, move() only talks to the OS window system; the
+        # parent table is never invalidated. The bubble is still visually
+        # parented (follows parent window z-order, hides with it, etc.)
+        # because we pass *parent* to the constructor.
+        super().__init__(
+            parent,
+            Qt.Tool | Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus | Qt.NoDropShadowWindowHint,
+        )
+        # Do not steal activation from the main window when shown.
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        # Pass all mouse events through to whatever is behind the bubble
+        # (primarily the scrollbar the user is dragging).
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
@@ -1418,8 +1442,8 @@ class _ScrollTimeBubble(QWidget):
 
     def reposition(self, sb: QScrollBar, page: QWidget) -> None:
         # Cache the last scrollbar value so we only recompute thumb geometry
-        # when the slider actually moved.  subControlRect() + mapTo() account
-        # for a significant share of reposition() cost on busy timer ticks.
+        # when the slider actually moved.  subControlRect() + mapToGlobal()
+        # account for a significant share of reposition() cost on busy timer ticks.
         sb_value = sb.value()
         if sb_value == getattr(self, "_last_sb_value", None) and getattr(self, "_last_pos_set", False):
             return
@@ -1434,18 +1458,31 @@ class _ScrollTimeBubble(QWidget):
             QStyle.SubControl.SC_ScrollBarSlider,
             sb,
         )
-        thumb_center_y = sb.mapTo(page, QPoint(0, thumb_rect.center().y())).y()
-        sb_left_x = sb.mapTo(page, QPoint(0, 0)).x()
-        self._target_x = sb_left_x - self.width() - 8
-        self._target_y = max(0, min(thumb_center_y - self.height() // 2, page.height() - self.height()))
+        # The bubble is now a top-level Tool window, so all coordinates must
+        # be in global screen space — mapToGlobal() instead of mapTo(page).
+        thumb_global_y = sb.mapToGlobal(QPoint(0, thumb_rect.center().y())).y()
+        sb_global_x = sb.mapToGlobal(QPoint(0, 0)).x()
+        page_global = page.mapToGlobal(QPoint(0, 0))
 
-    def tick_position(self) -> None:
+        self._target_x = sb_global_x - self.width() - 8
+        raw_y = thumb_global_y - self.height() // 2
+        # Clamp to the page widget's global rect so the bubble never floats
+        # outside the visible history panel.
+        self._target_y = max(
+            page_global.y(),
+            min(raw_y, page_global.y() + page.height() - self.height()),
+        )
+
+    def tick_position(self) -> bool:
         """Advance the inertial Y position one step toward _target_y.
 
         Called every 60 ms by the HistoryPage timer.  Uses exponential
         smoothing so the bubble glides to its target rather than teleporting.
         X is never animated — it only changes when the scrollbar moves to the
         other side of the viewport, which is rare.
+
+        Returns True when the bubble has fully settled at _target_y (no more
+        movement needed) so the caller can skip subsequent work.
         """
         delta = self._target_y - self._current_y
         # Skip sub-pixel moves to avoid perpetual repaints when settled.
@@ -1453,15 +1490,17 @@ class _ScrollTimeBubble(QWidget):
             if int(self._current_y) != self._target_y:
                 self._current_y = float(self._target_y)
                 self.move(self._target_x, self._target_y)
-            return
+            return True  # fully settled — caller may skip next tick if nothing else changed
         self._current_y += delta * self._SMOOTH_FACTOR
         self.move(self._target_x, int(self._current_y))
+        return False  # still animating toward target
 
     def snap_position(self) -> None:
         """Instantly place the bubble at _target_y with no animation.
 
         Called on the first tick of a new drag so the bubble appears at the
         correct position rather than sliding in from wherever it last was.
+        Coordinates are global (screen-space) because the bubble is a Tool window.
         """
         self._current_y = float(self._target_y)
         self.move(self._target_x, self._target_y)
@@ -1888,6 +1927,8 @@ class HistoryPage(QWidget):
     delete_records_requested = Signal(list)  # list of record IDs
     unhide_records_requested = Signal(list)  # list of record IDs to unhide
     bookmark_changed = Signal()  # emitted after any add/remove bookmark action
+
+    _BUBBLE_SETTLE_TICKS = 3
 
     def __init__(self, vm: HistoryViewModel, config=None, parent=None):
         super().__init__(parent)
@@ -2600,6 +2641,8 @@ class HistoryPage(QWidget):
             return  # Don't show bubble at all
         self._scroll_bubble.on_drag_started()
         self._last_bubble_row: int = -1  # reset row cache on each new drag
+        self._last_bubble_sb_val: int = -1  # force first tick to run all work
+        self._bubble_settle_count: int = 0  # reset settle counter
         self._scroll_bubble._last_pos_set = False  # force reposition on first tick
         self._update_scroll_bubble()
         self._scroll_bubble.snap_position()  # instant placement on first show
@@ -2619,6 +2662,18 @@ class HistoryPage(QWidget):
         if self._vm.table_model.rowCount() == 0:
             return
 
+        sb = self._table.verticalScrollBar()
+        sb_val = sb.value()
+
+        # Fast-path: if the scrollbar hasn't moved *and* the bubble animation
+        # has fully converged for at least _BUBBLE_SETTLE_TICKS consecutive ticks
+        # (~180 ms), skip all work until something actually changes.  This
+        # eliminates rowAt(), get_visit_time_at_row(), and reposition() overhead
+        # during the common case where the user pauses mid-drag to read the date.
+        if sb_val == self._last_bubble_sb_val and self._bubble_settle_count >= self._BUBBLE_SETTLE_TICKS:
+            return
+        self._last_bubble_sb_val = sb_val
+
         # Use the row at the vertical center of the viewport.
         # This is simpler and more accurate than manual height calculation.
         center_y = self._table.viewport().height() // 2
@@ -2635,7 +2690,7 @@ class HistoryPage(QWidget):
         # Skip the expensive set_timestamp + reposition work when the center
         # row hasn't changed since the last timer tick.  reposition() calls
         # QStyle.subControlRect() on every call which is measurably expensive
-        last_row = getattr(self, "_last_bubble_row", -1)
+        last_row = self._last_bubble_row
         ts = self._vm.table_model.get_visit_time_at_row(row)
         if ts is None:
             return
@@ -2644,14 +2699,20 @@ class HistoryPage(QWidget):
         if row != last_row:
             self._last_bubble_row = row
             self._scroll_bubble.reposition(self._table.verticalScrollBar(), self)
+            # raise_() is only needed when the row (and therefore bubble position)
+            # changes.  Calling it on every tick was triggering unnecessary repaints
+            # even when the bubble was stationary.  As a Tool window this is now
+            # cheaper, but avoiding pointless calls is still good practice.
             self._scroll_bubble.raise_()
-        else:
-            # Row unchanged — bubble position is still correct; just re-raise
-            # so it stays on top if something else was painted over it.
-            self._scroll_bubble.raise_()
+
         # Advance inertial Y every tick regardless of whether the row changed,
         # so the bubble glides smoothly even during fast continuous scrolling.
-        self._scroll_bubble.tick_position()
+        # tick_position() returns True when fully settled.
+        settled = self._scroll_bubble.tick_position()
+        if settled:
+            self._bubble_settle_count += 1
+        else:
+            self._bubble_settle_count = 0
 
     def _on_columns_changed(self):
         QTimer.singleShot(0, self._apply_column_widths)

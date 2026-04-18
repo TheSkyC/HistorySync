@@ -178,6 +178,8 @@ class HistoryTableModel(QAbstractTableModel):
     # Payload: (base_row_index, records_in_batch)
     records_loaded = Signal(int, list)
 
+    _VT_CACHE_MAX = 50_000
+
     def __init__(self, db: LocalDatabase, favicon_manager: FaviconManager, visible_columns=None, parent=None):
         super().__init__(parent)
         self._db = db
@@ -213,6 +215,12 @@ class HistoryTableModel(QAbstractTableModel):
         self._total_count = 0
         self._page_cache: dict[int, list[HistoryRecord]] = {}
         self._page_lru: OrderedDict[int, None] = OrderedDict()
+
+        # Lightweight visit-time index for the scroll bubble.
+        # Populated from every _fetch_page() call; survives LRU page eviction.
+        # Stores row → visit_time (int) only — much cheaper than full records.
+        # MAX_VT_CACHE entries × ~50 bytes overhead ≈ 2.5 MB for 50k rows.
+        self._vt_cache: dict[int, int] = {}
 
         # Regex incremental load state
         # Regex incremental / keyword search state
@@ -473,6 +481,7 @@ class HistoryTableModel(QAbstractTableModel):
         """
         self._page_cache.clear()
         self._page_lru.clear()
+        self._vt_cache.clear()
         self._regex_scan_offset = 0
         self._regex_has_more = False
         self._keyword_materialized = False
@@ -750,10 +759,21 @@ class HistoryTableModel(QAbstractTableModel):
             if row < len(self._keyword_index):
                 return self._keyword_index[row][1]
             return None
-        # Check page cache first to avoid a DB round-trip
+        # Fast path 1: vt_cache — populated on every page load and survives LRU
+        # page eviction.  A dict lookup is O(1) and avoids both page-cache
+        # access and DB round-trips for the scroll bubble during fast drags
+        # across regions that have been loaded but since evicted.
+        vt = self._vt_cache.get(row)
+        if vt is not None:
+            return vt
+        # Fast path 2: full page still in LRU cache — return from record
         cached = self.peek_record_at(row)
         if cached is not None:
             return cached.visit_time
+        # Slow path: the row has never been loaded — fall back to a targeted DB
+        # query.  This is uncommon during normal scrolling (pages are fetched
+        # ahead of time by _fetch_page) but can occur when the user jumps
+        # directly to a very distant position before any page fetch fires.
         return self._db.get_visit_time_at_offset(
             offset=row,
             keyword=self._keyword,
@@ -853,6 +873,33 @@ class HistoryTableModel(QAbstractTableModel):
         while len(self._page_lru) > MAX_CACHED_PAGES:
             oldest, _ = self._page_lru.popitem(last=False)
             self._page_cache.pop(oldest, None)
+            # Do NOT remove evicted rows from _vt_cache — that is the whole
+            # point: the vt_cache outlives the page cache so the scroll bubble
+            # can get timestamps without re-fetching evicted pages from DB.
+
+        # Populate lightweight visit-time index for the scroll bubble.
+        # Only visit_time (one int per row) is stored, so the cache can hold
+        # far more rows than the full-record page cache before hitting memory.
+        base = page_index * CACHE_PAGE_SIZE
+        for i, rec in enumerate(records):
+            self._vt_cache[base + i] = rec.visit_time
+
+        # Trim vt_cache when it grows beyond the configured maximum.
+        # Remove rows that belong to pages NOT currently in the LRU —
+        # i.e. pages that were loaded but have since been evicted.
+        # This keeps the cache coherent without a separate eviction pass on
+        # every page load (it only triggers when the cap is exceeded).
+        if len(self._vt_cache) > self._VT_CACHE_MAX:
+            live_pages = set(self._page_lru.keys())
+            stale = [row for row in self._vt_cache if row // CACHE_PAGE_SIZE not in live_pages]
+            # Remove all stale rows in one pass.
+            for row in stale:
+                del self._vt_cache[row]
+            # Hard-trim the remainder by the oldest rows if still over cap.
+            if len(self._vt_cache) > self._VT_CACHE_MAX:
+                overshoot = len(self._vt_cache) - self._VT_CACHE_MAX
+                for row in list(self._vt_cache.keys())[:overshoot]:
+                    del self._vt_cache[row]
 
         if records:
             # Coalesce prefetch calls across rapid page fetches — a single

@@ -335,8 +335,6 @@ class FaviconManager(QObject):
 
     @Slot()
     def _on_thread_finished(self) -> None:
-        if self.sender() is not self._thread:
-            return
         self._thread = None
         self._worker = None
 
