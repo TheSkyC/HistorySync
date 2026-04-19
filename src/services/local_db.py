@@ -482,6 +482,8 @@ class LocalDatabase:
                 "idx_history_browser_time": "history(browser_type, visit_time DESC, id DESC)",
                 "idx_history_domain_time": "history(domain_id, visit_time DESC, id DESC)",
             }
+            _SAFE_IDX = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+            assert all(_SAFE_IDX.match(k) for k in _keyset_indexes), "index names must be internal constants"
             existing = {
                 row[0]
                 for row in conn.execute(
