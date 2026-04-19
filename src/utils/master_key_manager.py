@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import threading
 import time
 
 from src.utils.logger import get_logger
@@ -18,6 +19,7 @@ class MasterPasswordSession:
     """Singleton session object that tracks whether the user has authenticated."""
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._unlocked: bool = False
         self._last_activity: float = 0.0
 
@@ -25,24 +27,28 @@ class MasterPasswordSession:
 
     @property
     def is_unlocked(self) -> bool:
-        if self._unlocked and (time.monotonic() - self._last_activity) > SESSION_TIMEOUT_S:
-            self._unlocked = False
-            log.info("Master password session expired (idle timeout)")
-        return self._unlocked
+        with self._lock:
+            if self._unlocked and (time.monotonic() - self._last_activity) > SESSION_TIMEOUT_S:
+                self._unlocked = False
+                log.info("Master password session expired (idle timeout)")
+            return self._unlocked
 
     def unlock(self) -> None:
-        self._unlocked = True
-        self._last_activity = time.monotonic()
+        with self._lock:
+            self._unlocked = True
+            self._last_activity = time.monotonic()
         log.info("Master password session unlocked")
 
     def lock(self) -> None:
-        self._unlocked = False
+        with self._lock:
+            self._unlocked = False
         log.info("Master password session locked")
 
     def touch(self) -> None:
         """Extend the session on any protected activity."""
-        if self._unlocked:
-            self._last_activity = time.monotonic()
+        with self._lock:
+            if self._unlocked:
+                self._last_activity = time.monotonic()
 
 
 _state: dict[str, MasterPasswordSession | None] = {"session": None}
