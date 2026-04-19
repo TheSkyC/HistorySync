@@ -381,7 +381,7 @@ jobs:
             "",
             "[Tasks]",
             'Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked',
-            'Name: "addtopath"; Description: "Add hsync to the system PATH (recommended for CLI use)"; GroupDescription: "Command-line interface:"; Flags: checkedonce',
+            'Name: "addtopath"; Description: "Add hsync to the system PATH"; GroupDescription: "Command-line interface:"; Flags: checkedonce',
             "",
             "[Files]",
             "Source: ""dist\${appName}\*""; DestDir: ""{app}""; Flags: ignoreversion recursesubdirs createallsubdirs",
@@ -417,6 +417,82 @@ jobs:
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed." }
           $exe = "${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-x64-setup.exe"
+          Write-Host "Created: $exe ($('{0:N2}' -f ((Get-Item $exe).length / 1MB)) MB)"
+
+      # ── Windows: hsync portable ZIP ───────────────────────────────────────
+      - name: Package hsync portable ZIP (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $out = "hsync-${{ env.VERSION_TAG }}-windows-x64.zip"
+          Push-Location "dist\hsync"
+          Compress-Archive -Path * -DestinationPath "..\..\$out"
+          Pop-Location
+          Write-Host "Created: $out ($('{0:N2}' -f ((Get-Item $out).length / 1MB)) MB)"
+
+      # ── Windows: hsync Inno Setup installer ──────────────────────────────
+      - name: Generate hsync Inno Setup script (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ver     = "${{ env.VERSION_NUM }}"
+          $repo    = "${{ github.repository }}"
+          $outName = "hsync-${{ env.VERSION_TAG }}-windows-x64-setup"
+
+          @(
+            "[Setup]",
+            "AppName=hsync",
+            "AppVersion=${ver}",
+            "AppPublisher=${{ env.APP_NAME }} Project",
+            "AppPublisherURL=https://github.com/${repo}",
+            "AppSupportURL=https://github.com/${repo}/issues",
+            "DefaultDirName={autopf}\hsync",
+            "DefaultGroupName=hsync",
+            "AllowNoIcons=yes",
+            "OutputDir=.",
+            "OutputBaseFilename=${outName}",
+            "Compression=lzma2/ultra64",
+            "SolidCompression=yes",
+            "PrivilegesRequired=lowest",
+            "ArchitecturesInstallIn64BitMode=x64compatible",
+            "WizardStyle=modern",
+            "DisableWelcomePage=yes",
+            "LicenseFile=LICENSE",
+            "UninstallDisplayIcon={app}\hsync.exe",
+            "ChangesEnvironment=yes",
+            "",
+            "[Languages]",
+            'Name: "english"; MessagesFile: "compiler:Default.isl"',
+            "",
+            "[Tasks]",
+            'Name: "addtopath"; Description: "Add hsync to the system PATH"; GroupDescription: "Command-line interface:"; Flags: checkedonce',
+            "",
+            "[Files]",
+            'Source: "dist\hsync\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs',
+            "",
+            "[Registry]",
+            'Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Tasks: addtopath; Check: NeedsAddPath(ExpandConstant("{app}"))',
+            "",
+            "[Code]",
+            "function NeedsAddPath(Param: string): boolean;",
+            "var",
+            "  OrigPath: string;",
+            "begin",
+            "  if not RegQueryStringValue(HKCU, 'Environment', 'Path', OrigPath) then begin",
+            "    Result := True;",
+            "    exit;",
+            "  end;",
+            "  Result := Pos(Uppercase(Param), Uppercase(OrigPath)) = 0;",
+            "end;"
+          ) -join "`n" | Set-Content hsync-installer.iss -Encoding UTF8
+
+      - name: Compile hsync Inno Setup installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" hsync-installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed for hsync." }
+          $exe = "hsync-${{ env.VERSION_TAG }}-windows-x64-setup.exe"
           Write-Host "Created: $exe ($('{0:N2}' -f ((Get-Item $exe).length / 1MB)) MB)"
 
       # ── macOS: DMG ────────────────────────────────────────────────────────
@@ -606,6 +682,8 @@ jobs:
           path: |
             ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-x64-setup.exe
             ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-x64-portable.zip
+            hsync-${{ env.VERSION_TAG }}-windows-x64-setup.exe
+            hsync-${{ env.VERSION_TAG }}-windows-x64.zip
 
       - name: Upload artifacts (macOS)
         if: runner.os == 'macOS'
