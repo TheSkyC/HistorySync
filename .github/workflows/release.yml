@@ -471,7 +471,7 @@ jobs:
             'Source: "dist\hsync\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs',
             "",
             "[Registry]",
-            'Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Tasks: addtopath; Check: NeedsAddPath(ExpandConstant("{app}"))',
+            'Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Tasks: addtopath; Check: NeedsAddPath(ExpandConstant(''{app}''))',
             "",
             "[Code]",
             "function NeedsAddPath(Param: string): boolean;",
