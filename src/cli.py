@@ -80,7 +80,6 @@ import argparse
 import json
 import os
 from pathlib import Path
-import shutil
 import sys
 import time
 
@@ -111,16 +110,25 @@ def _try_enable_windows_vt() -> bool:
         return False
 
 
-_VT_OK = _try_enable_windows_vt()
-_NO_COLOR: bool = (
-    not sys.stdout.isatty()
-    or bool(os.environ.get("NO_COLOR"))
-    or os.environ.get("TERM") == "dumb"
-    or (sys.platform == "win32" and not _VT_OK)
-)
+_NO_COLOR: bool | None = None
+
+
+def _init_color() -> None:
+    global _NO_COLOR
+    if _NO_COLOR is not None:
+        return
+    vt_ok = _try_enable_windows_vt()
+    _NO_COLOR = (
+        not sys.stdout.isatty()
+        or bool(os.environ.get("NO_COLOR"))
+        or os.environ.get("TERM") == "dumb"
+        or (sys.platform == "win32" and not vt_ok)
+    )
 
 
 def _c(code: str, text: str) -> str:
+    if _NO_COLOR is None:
+        _init_color()
     return text if _NO_COLOR else f"\033[{code}m{text}\033[0m"
 
 
@@ -169,7 +177,7 @@ def _hint(msg: str) -> None:
 
 
 def _section(title: str) -> None:
-    width = min(shutil.get_terminal_size((80, 24)).columns - 2, 60)
+    width = min(os.get_terminal_size((80, 24)).columns - 2, 60)
     bar = _dim("─" * width)
     print(f"\n{_bold(title)}\n{bar}")
 
@@ -200,7 +208,7 @@ class _ProgressBar:
             return
         self._last_pct = pct
 
-        cols = shutil.get_terminal_size((80, 24)).columns
+        cols = os.get_terminal_size((80, 24)).columns
         bar_width = max(10, min(40, cols - 20))
         filled = int(bar_width * pct / 100)
         bar = _green("█" * filled) + _dim("░" * (bar_width - filled))
@@ -225,6 +233,8 @@ class _ProgressBar:
 
 
 def _setup_shell_completion(parser: argparse.ArgumentParser) -> None:
+    if "_ARGCOMPLETE" not in os.environ:
+        return
     """Configure argcomplete for intelligent shell completion.
 
     Provides context-aware completions for:
@@ -1353,7 +1363,7 @@ def _cmd_search(config, args: argparse.Namespace) -> int:
     if not quiet:
         _section(f"Search Results ({len(records)} found)")
 
-    term_width = shutil.get_terminal_size((80, 24)).columns
+    term_width = os.get_terminal_size((80, 24)).columns
     title_width = max(20, min(50, term_width - 60))
     url_width = max(30, term_width - title_width - 30)
 
@@ -1434,7 +1444,7 @@ def _cmd_search_interactive(db, initial_query: str, limit: int, quiet: bool, log
             print()
             return
 
-        term_width = shutil.get_terminal_size((80, 24)).columns
+        term_width = os.get_terminal_size((80, 24)).columns
         title_width = max(20, min(50, term_width - 60))
         url_width = max(30, term_width - title_width - 30)
 
