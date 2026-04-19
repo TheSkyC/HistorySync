@@ -503,6 +503,15 @@ jobs:
           $exe = "hsync-${{ env.VERSION_TAG }}-windows-x64-setup.exe"
           Write-Host "Created: $exe ($('{0:N2}' -f ((Get-Item $exe).length / 1MB)) MB)"
 
+      # ── macOS: standalone CLI tar.gz ─────────────────────────────────────
+      - name: Build standalone CLI tar.gz (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          CLI_OUT="hsync-${{ env.VERSION_TAG }}-macos-${{ matrix.arch_display }}.tar.gz"
+          tar -czf "$CLI_OUT" -C dist/ hsync
+          echo "Created: $CLI_OUT ($(du -sh "$CLI_OUT" | cut -f1))"
+
       # ── macOS: DMG ────────────────────────────────────────────────────────
       - name: Package DMG (macOS)
         if: runner.os == 'macOS'
@@ -698,7 +707,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pkg-macos-${{ matrix.arch_display }}
-          path: ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-macos-${{ matrix.arch_display }}.dmg
+          path: |
+            ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-macos-${{ matrix.arch_display }}.dmg
+            hsync-${{ env.VERSION_TAG }}-macos-${{ matrix.arch_display }}.tar.gz
 
       - name: Upload artifacts (Linux)
         if: runner.os == 'Linux'
