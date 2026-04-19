@@ -621,6 +621,8 @@ class WebDavSyncService:
         }
         client = _WdavClient(options)
         client.verify = verify_ssl
+        if not verify_ssl:
+            log.warning("SSL certificate verification is disabled - connection is vulnerable to MITM attacks")
         return client
 
     @staticmethod

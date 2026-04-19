@@ -118,6 +118,13 @@ class WebDavSection(QWidget):
         self._max_backups_spin.setMinimumWidth(90)
 
         self._verify_ssl_cb = QCheckBox(_("Verify SSL certificate"))
+        self._ssl_warning_lbl = QLabel(
+            _("\u26a0\ufe0f Warning: Disabling SSL verification exposes your backup to man-in-the-middle attacks.")
+        )
+        self._ssl_warning_lbl.setWordWrap(True)
+        self._ssl_warning_lbl.setStyleSheet("color: #e07b00;")
+        self._ssl_warning_lbl.setVisible(False)
+        self._verify_ssl_cb.toggled.connect(lambda checked: self._ssl_warning_lbl.setVisible(not checked))
 
         form.addRow(_("Server URL:"), self._url)
         form.addRow(_("Username:"), self._user)
@@ -125,6 +132,7 @@ class WebDavSection(QWidget):
         form.addRow(_("Remote Path:"), self._path)
         form.addRow(_("Max backups:"), self._max_backups_spin)
         form.addRow("", self._verify_ssl_cb)
+        form.addRow("", self._ssl_warning_lbl)
         form.addRow("", self._auto_backup_cb)
         layout.addLayout(form)
 
