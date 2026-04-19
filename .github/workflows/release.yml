@@ -142,8 +142,16 @@ jobs:
       # On Linux / macOS PyInstaller bundles a complete runtime on its own.
       # On Windows we replace the bundled vcruntime + Python DLLs with the
       # known-good indygreg standalone build to avoid MSVC dependency issues.
-      - name: Download standalone Python runtime (Windows)
+      - name: Cache standalone Python runtime (Windows)
         if: runner.os == 'Windows'
+        id: cache-python-runtime
+        uses: actions/cache@v4
+        with:
+          path: python_minimal
+          key: python-standalone-${{ env.PYTHON_STANDALONE_VERSION }}-${{ env.PYTHON_STANDALONE_RELEASE_TAG }}-${{ matrix.python_arch }}
+
+      - name: Download standalone Python runtime (Windows)
+        if: runner.os == 'Windows' && steps.cache-python-runtime.outputs.cache-hit != 'true'
         shell: bash
         run: |
           BASE="https://github.com/indygreg/python-build-standalone/releases/download"
