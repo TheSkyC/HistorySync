@@ -774,13 +774,9 @@ def _gui_main(args: argparse.Namespace) -> None:
         )
         # Arm scheduler only — window and GUI subsystems built on first tray click.
         QTimer.singleShot(0, main_vm.start_lazy_gui)
-        # Pre-warm the overlay in the background so the first Ctrl+Shift+H is instant.
-        # 3s delay lets the scheduler and DB settle first; overlay is ~2-3 MB.
-        if config.overlay.enabled:
-            QTimer.singleShot(3000, main_vm.ensure_overlay)
     else:
         _get_or_create_window().show()
-        # Pre-warm overlay for normal startup too.
+        # Pre-warm overlay so the first Ctrl+Shift+H is instant.
         if config.overlay.enabled:
             QTimer.singleShot(3000, main_vm.ensure_overlay)
 
