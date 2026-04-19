@@ -36,6 +36,15 @@ log = get_logger("webdav")
 
 _SAFE_BACKUP_FILENAME = re.compile(r"^history_\d{10}\.zip$")
 
+
+def _backup_timestamp(name: str) -> int:
+    """Extract the Unix timestamp from a backup filename like history_1234567890.zip."""
+    try:
+        return int(name[len("history_") : -len(".zip")])
+    except (ValueError, IndexError):
+        return 0
+
+
 try:
     from webdav3.client import Client as _WdavClient
     from webdav3.exceptions import (
@@ -405,7 +414,10 @@ class WebDavSyncService:
             except Exception:
                 return self._fail(_("Remote directory not found."))
 
-            zip_backups = sorted(i for i in all_items if i.startswith(WEBDAV_BACKUP_NAME_PREFIX) and i.endswith(".zip"))
+            zip_backups = sorted(
+                (i for i in all_items if i.startswith(WEBDAV_BACKUP_NAME_PREFIX) and i.endswith(".zip")),
+                key=_backup_timestamp,
+            )
             if not zip_backups:
                 return self._fail(_("No backups found on server."))
 
@@ -638,7 +650,10 @@ class WebDavSyncService:
         max_b = max(1, self._config.max_backups)
         try:
             all_items = client.list(remote_dir)
-            backups = sorted(i for i in all_items if i.startswith(WEBDAV_BACKUP_NAME_PREFIX) and i.endswith(".zip"))
+            backups = sorted(
+                (i for i in all_items if i.startswith(WEBDAV_BACKUP_NAME_PREFIX) and i.endswith(".zip")),
+                key=_backup_timestamp,
+            )
             to_delete = backups[:-max_b] if len(backups) > max_b else []
             for filename in to_delete:
                 client.clean(f"{remote_dir.rstrip('/')}/{filename}")
