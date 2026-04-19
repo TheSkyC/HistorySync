@@ -622,37 +622,20 @@ def _gui_main(args: argparse.Namespace) -> None:
         generate_mock_data(config.get_db_path(), scale=args.mock_scale or "large")
         log.info("Mock data generation complete")
 
-    main_vm = MainViewModel(config)
+    # Compute before ViewModel so lazy_gui can be passed at construction time.
+    should_minimize = (
+        args.minimized
+        or config.scheduler.start_minimized
+        or (config.scheduler.launch_on_startup and _is_startup_launch())
+    )
+
+    main_vm = MainViewModel(config, lazy_gui=should_minimize)
 
     # Register cleanup handler for fresh mode
     if config._fresh:
         import atexit
 
         atexit.register(config.cleanup_fresh_tmp)
-
-    # ── 6. Main window ───────────────────────────────────────────────────────
-    window = MainWindow(main_vm)
-
-    # Notify user if config was corrupt on load
-    if getattr(config, "_load_error", None) is not None:
-        from PySide6.QtWidgets import QMessageBox
-
-        if config._load_error:
-            msg = _(
-                "The configuration file was corrupt or unreadable and could not be loaded.\n\n"
-                "Your settings (WebDAV credentials, privacy blacklist, etc.) have been "
-                "reset to defaults.\n\n"
-                "The corrupt file has been backed up to:\n{bak_path}"
-            ).format(bak_path=config._load_error)
-        else:
-            msg = _(
-                "The configuration file was corrupt or unreadable and could not be loaded.\n\n"
-                "Your settings (WebDAV credentials, privacy blacklist, etc.) have been "
-                "reset to defaults.\n\n"
-                "The backup of the corrupt file also failed. "
-                "Please check your config directory."
-            )
-        QMessageBox.warning(window, _("Configuration Load Error"), msg)
 
     # Wire up single-instance activation → bring the window to the front
     if not _single_instance_server.start():
@@ -675,7 +658,7 @@ def _gui_main(args: argparse.Namespace) -> None:
             ),
         )
         sys.exit(1)
-    _single_instance_server.request_activation.connect(window.show_and_raise)
+    _single_instance_server.request_activation.connect(lambda: _get_or_create_window().show_and_raise())
 
     # ── Overlay hotkey (Windows) + --quick cross-platform path ──────────────
     def _on_overlay_hotkey():
@@ -706,7 +689,60 @@ def _gui_main(args: argparse.Namespace) -> None:
             else:
                 _hotkey_mgr.unregister()
 
-        window._settings_vm.saved.connect(_on_settings_saved)
+    # ── 6. Window trampoline ─────────────────────────────────────────────────
+    # In lazy_gui mode the MainWindow is not constructed at startup.  The
+    # trampoline is called the first time any code needs the window (tray
+    # click, single-instance activation, first-run wizard, normal show path).
+    _window: MainWindow | None = None
+
+    def _show_config_error_dialog(parent, cfg):
+        from PySide6.QtWidgets import QMessageBox
+
+        if cfg._load_error:
+            msg = _(
+                "The configuration file was corrupt or unreadable and could not be loaded.\n\n"
+                "Your settings (WebDAV credentials, privacy blacklist, etc.) have been "
+                "reset to defaults.\n\n"
+                "The corrupt file has been backed up to:\n{bak_path}"
+            ).format(bak_path=cfg._load_error)
+        else:
+            msg = _(
+                "The configuration file was corrupt or unreadable and could not be loaded.\n\n"
+                "Your settings (WebDAV credentials, privacy blacklist, etc.) have been "
+                "reset to defaults.\n\n"
+                "The backup of the corrupt file also failed. "
+                "Please check your config directory."
+            )
+        QMessageBox.warning(parent, _("Configuration Load Error"), msg)
+
+    def _get_or_create_window() -> MainWindow:
+        nonlocal _window
+        if _window is not None:
+            return _window
+        main_vm.initialize_gui()  # no-op if not lazy_gui
+        _window = MainWindow(main_vm)
+        # close_to_tray notification
+        _window.close_to_tray.connect(
+            lambda: tray.show_notification(
+                APP_NAME,
+                _("HistorySync has been minimized to the system tray and continues running in the background."),
+            )
+        )
+        # B4 fix: guard — _on_settings_saved only defined when _hotkey_mgr is not None
+        if _hotkey_mgr is not None:
+            _window._settings_vm.saved.connect(_on_settings_saved)
+        # B1 fix: lazy_gui path — scheduler already armed by start_lazy_gui(), only run start_ui()
+        if config.first_run_completed:
+            if main_vm._lazy_gui:
+                QTimer.singleShot(200, main_vm.start_ui)
+            else:
+                QTimer.singleShot(200, main_vm.start)
+        else:
+            QTimer.singleShot(200, main_vm.start_ui)
+        # Config-load-error dialog (in lazy_gui mode appears on first open, not at startup)
+        if getattr(config, "_load_error", None) is not None:
+            _show_config_error_dialog(_window, config)
+        return _window
 
     # ── 7. System tray ───────────────────────────────────────────────────────
     tray = TrayIcon()
@@ -717,16 +753,9 @@ def _gui_main(args: argparse.Namespace) -> None:
 
     tray.show()
     tray.set_main_vm(main_vm)
-    tray.open_requested.connect(window.show_and_raise)
+    tray.open_requested.connect(lambda: _get_or_create_window().show_and_raise())
     tray.sync_requested.connect(main_vm.trigger_sync)
     tray.quit_requested.connect(lambda: _quit(main_vm, log))
-
-    window.close_to_tray.connect(
-        lambda: tray.show_notification(
-            APP_NAME,
-            _("HistorySync has been minimized to the system tray and continues running in the background."),
-        )
-    )
 
     main_vm.sync_started.connect(lambda: tray.set_syncing(True))
     main_vm.sync_finished.connect(lambda n: _on_tray_sync_done(tray, n))
@@ -736,12 +765,6 @@ def _gui_main(args: argparse.Namespace) -> None:
     )
 
     # ── 8. Display strategy ──────────────────────────────────────────────────
-    should_minimize = (
-        args.minimized
-        or config.scheduler.start_minimized
-        or (config.scheduler.launch_on_startup and _is_startup_launch())
-    )
-
     if should_minimize:
         log.info(
             "Starting minimized to tray (minimized=%s, start_minimized=%s, startup=%s)",
@@ -749,19 +772,29 @@ def _gui_main(args: argparse.Namespace) -> None:
             config.scheduler.start_minimized,
             config.scheduler.launch_on_startup,
         )
+        # Arm scheduler only — window and GUI subsystems built on first tray click.
+        QTimer.singleShot(0, main_vm.start_lazy_gui)
+        # Pre-warm the overlay in the background so the first Ctrl+Shift+H is instant.
+        # 3s delay lets the scheduler and DB settle first; overlay is ~2-3 MB.
+        if config.overlay.enabled:
+            QTimer.singleShot(3000, main_vm.ensure_overlay)
     else:
-        window.show()
+        _get_or_create_window().show()
+        # Pre-warm overlay for normal startup too.
+        if config.overlay.enabled:
+            QTimer.singleShot(3000, main_vm.ensure_overlay)
 
     # ── 8a. First-run wizard ─────────────────────────────────────────────────
     if not config.first_run_completed:
         from src.views.first_run_wizard import FirstRunWizard
 
         def _show_first_run():
-            wizard = FirstRunWizard(config, window if not should_minimize else None)
+            w = _get_or_create_window()  # builds window + initialize_gui() if lazy
+            wizard = FirstRunWizard(config, w)
             wizard.learned_browsers_added.connect(main_vm.on_learned_browsers_added)
             wizard.exec()
-            if window._page_settings is not None:
-                window._page_settings.reload_security()
+            if w._page_settings is not None:
+                w._page_settings.reload_security()
             main_vm.reload_extractor_config()
 
             if not config.first_run_completed:
@@ -772,6 +805,8 @@ def _gui_main(args: argparse.Namespace) -> None:
             except Exception as exc:
                 log.warning("First-run wizard: safety-net save failed: %s", exc)
 
+            # B2: scheduler not yet armed in lazy path (start_lazy_gui() skipped
+            # first-run), so start_scheduler() here is safe to call exactly once.
             main_vm.start_scheduler()
             log.info("First-run wizard: scheduler started")
 
@@ -904,7 +939,8 @@ def _quit(main_vm=None, log=None):
 
     if main_vm is not None:
         try:
-            main_vm._monitor.stop()
+            if main_vm._monitor is not None:
+                main_vm._monitor.stop()
             main_vm._scheduler.stop()
             main_vm._scheduler.shutdown(timeout_ms=SCHEDULER_SHUTDOWN_TIMEOUT_MS)
             if main_vm._favicon_manager is not None:

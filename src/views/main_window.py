@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
+from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut, QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -61,10 +61,6 @@ class MainWindow(QMainWindow):
         self._setup_global_shortcuts()
 
         self._theme_btn.set_theme(main_vm._config.theme)
-        if main_vm._config.first_run_completed:
-            QTimer.singleShot(200, self._vm.start)
-        else:
-            QTimer.singleShot(200, self._vm.start_ui)
 
     # ── UI construction ───────────────────────────────────────
 
@@ -415,6 +411,18 @@ class MainWindow(QMainWindow):
         self.activateWindow()
         self.raise_()
         self._vm.force_monitor_check()
+
+    def showEvent(self, event: QShowEvent):
+        """Flush deferred post-sync state the first time the window becomes visible.
+
+        Covers both the normal (non-minimised) startup path where main.py
+        calls window.show() directly, and the minimised path where the user
+        later opens the window via the system tray.  Subsequent show events
+        (e.g. un-minimising) are no-ops because notify_window_shown() guards
+        itself with _window_ever_shown.
+        """
+        super().showEvent(event)
+        self._vm.notify_window_shown()
 
     def closeEvent(self, event: QCloseEvent):
         self._save_geometry()

@@ -42,10 +42,12 @@ class MainViewModel(QObject):
     # Overlay signal
     open_settings_requested = Signal()
 
-    def __init__(self, config: AppConfig, parent=None, headless: bool = False):
+    def __init__(self, config: AppConfig, parent=None, headless: bool = False, lazy_gui: bool = False):
         super().__init__(parent)
         self._config = config
         self._headless = headless
+        self._lazy_gui = lazy_gui
+        self._gui_initialized = False
         self._overlay = None  # OverlayWindow, created lazily on first hotkey press
 
         db_path = config.get_db_path()
@@ -61,11 +63,6 @@ class MainViewModel(QObject):
             filtered_url_prefixes=config.privacy.filtered_url_prefixes,
             device_id=self._local_device_id,
         )
-        if not headless:
-            self._favicon_manager = FaviconManager(config, parent=self)
-            self._favicon_manager.set_local_db(self._db)
-        else:
-            self._favicon_manager = None
 
         self._scheduler = Scheduler(self._em, self._webdav, parent=self)
         self._scheduler.sync_started.connect(self._on_sync_started)
@@ -74,15 +71,26 @@ class MainViewModel(QObject):
         self._scheduler.sync_error.connect(self._on_sync_error)
         self._scheduler.backup_finished.connect(self._on_backup_finished)
 
-        self._monitor = BrowserMonitor(self._em, self._db, parent=self)
-        self._monitor.statuses_changed.connect(self._on_monitor_statuses_changed)
-
-        visible_columns = config.ui.visible_columns if hasattr(config, "ui") else None
-        if not headless:
+        if headless or lazy_gui:
+            self._favicon_manager = None
+            self._monitor = None
+            self.history_vm = None
+        else:
+            self._gui_initialized = True
+            self._favicon_manager = FaviconManager(config, parent=self)
+            self._favicon_manager.set_local_db(self._db)
+            self._monitor = BrowserMonitor(self._em, self._db, parent=self)
+            self._monitor.statuses_changed.connect(self._on_monitor_statuses_changed)
+            visible_columns = config.ui.visible_columns if hasattr(config, "ui") else None
             self.history_vm = HistoryViewModel(self._db, self._favicon_manager, visible_columns, parent=self)
             self.history_vm.ui_config_changed.connect(self._on_history_ui_config_changed)
-        else:
-            self.history_vm = None
+
+        # Tracks whether the main window has ever been made visible.  Used to
+        # defer the memory-heavy post-sync UI refresh (history_vm.refresh +
+        # favicon extraction) when the application starts minimised to the
+        # system tray.
+        self._window_ever_shown: bool = False
+        self._pending_favicon_browsers: list[str] | None = None
 
     def start(self) -> None:
         """Start all subsystems.  On first-run, call start_ui() now and
@@ -97,7 +105,8 @@ class MainViewModel(QObject):
         from PySide6.QtCore import QTimer
 
         self._refresh_hidden_ids()
-        QTimer.singleShot(1000, self._monitor.start)
+        if self._monitor is not None:
+            QTimer.singleShot(1000, self._monitor.start)
         self._emit_stats()
 
     def start_scheduler(self) -> None:
@@ -108,6 +117,43 @@ class MainViewModel(QObject):
             last_sync_ts=self._config.last_sync_ts,
             last_backup_ts=self._config.last_backup_ts,
         )
+
+    def start_lazy_gui(self) -> None:
+        """Arm scheduler only.  Skips first-run (wizard starts it after completion)."""
+        if not self._config.first_run_completed:
+            return
+        self._scheduler.start(
+            self._config.scheduler,
+            last_sync_ts=self._config.last_sync_ts,
+            last_backup_ts=self._config.last_backup_ts,
+        )
+
+    def initialize_gui(self) -> None:
+        """Instantiate GUI subsystems deferred during lazy-GUI startup.
+
+        Called by the window trampoline the first time the user opens the
+        main window.  Subsequent calls are no-ops (guarded by _gui_initialized).
+        After construction, any post-sync work that was deferred while the
+        window was hidden is flushed immediately.
+        """
+        if self._gui_initialized:
+            return
+        self._gui_initialized = True
+        log.info("lazy_gui: initializing GUI subsystems on first window open")
+        visible_columns = self._config.ui.visible_columns if hasattr(self._config, "ui") else None
+        self._favicon_manager = FaviconManager(self._config, parent=self)
+        self._favicon_manager.set_local_db(self._db)
+        self.history_vm = HistoryViewModel(self._db, self._favicon_manager, visible_columns, parent=self)
+        self.history_vm.ui_config_changed.connect(self._on_history_ui_config_changed)
+        self._monitor = BrowserMonitor(self._em, self._db, parent=self)
+        self._monitor.statuses_changed.connect(self._on_monitor_statuses_changed)
+        # Flush any post-sync work deferred while window was hidden.
+        # notify_window_shown() will find _pending_favicon_browsers=None — correct, no double-refresh.
+        if self._pending_favicon_browsers is not None:
+            self.history_vm.refresh()
+            self._emit_stats()
+            self._favicon_manager.schedule_extraction(target_browsers=self._pending_favicon_browsers or None)
+            self._pending_favicon_browsers = None
 
     def start_headless(self) -> None:
         """Minimal startup for headless (--headless) operation.
@@ -128,6 +174,37 @@ class MainViewModel(QObject):
         # can call start_headless() instead of start() without relying on comments.
         pass
 
+    def notify_window_shown(self) -> None:
+        """Called the first time the main window becomes visible.
+
+        Flushes any UI-refresh work (history_vm.refresh, stats, favicon
+        extraction) that was intentionally skipped while the application was
+        running minimised in the system tray, keeping the process until the
+        user actually opens the window.
+
+        Safe to call more than once — subsequent calls are no-ops.
+        """
+        if self._window_ever_shown:
+            return
+        self._window_ever_shown = True
+        log.info("Window first shown: flushing deferred UI state")
+
+        if self._pending_favicon_browsers is not None:
+            # A background sync ran while the window was hidden — bring the UI
+            # up to date now that someone is about to look at it.
+            log.info(
+                "Flushing deferred post-sync refresh (pending_browsers=%s)",
+                self._pending_favicon_browsers,
+            )
+            if self.history_vm is not None:
+                self.history_vm.refresh()
+            self._emit_stats()
+            if self._favicon_manager is not None:
+                self._favicon_manager.schedule_extraction(
+                    target_browsers=self._pending_favicon_browsers if self._pending_favicon_browsers else None
+                )
+            self._pending_favicon_browsers = None
+
     def ensure_overlay(self):
         """Return the OverlayWindow, creating it on first call (lazy init).
 
@@ -137,17 +214,21 @@ class MainViewModel(QObject):
         """
         if not self._config.overlay.enabled:
             return None
+        favicon_cache = self._favicon_manager.favicon_cache if self._favicon_manager is not None else None
         if self._overlay is None:
             from src.views.overlay_window import OverlayWindow
 
-            self._overlay = OverlayWindow(self._db, self._config, favicon_cache=self._favicon_manager.favicon_cache)
+            self._overlay = OverlayWindow(self._db, self._config, favicon_cache=favicon_cache)
             self._overlay.open_settings_requested.connect(self.open_settings_requested)
+        elif favicon_cache is not None and self._overlay._favicon_cache is None:
+            self._overlay._favicon_cache = favicon_cache
         return self._overlay
 
     # ── Public sync operations ─────────────────────────────────
 
     def force_monitor_check(self) -> None:
-        self._monitor.force_check()
+        if self._monitor is not None:
+            self._monitor.force_check()
 
     def trigger_sync(self) -> None:
         self._scheduler.trigger_now()
@@ -202,7 +283,8 @@ class MainViewModel(QObject):
         except Exception as exc:
             log.warning("Failed to save browser sync state: %s", exc)
         log.info("Browser '%s' sync set to: %s", browser_type, "enabled" if enabled else "disabled")
-        self._monitor.force_check()
+        if self._monitor is not None:
+            self._monitor.force_check()
 
     def reload_extractor_config(self) -> None:
         """Reapply extractor config (disabled_browsers, etc.) after wizard completion."""
@@ -215,7 +297,8 @@ class MainViewModel(QObject):
 
     def force_redetect_browsers(self) -> None:
         """Force immediate browser re-detection (triggered by dashboard settings dialog)."""
-        self._monitor.force_check()
+        if self._monitor is not None:
+            self._monitor.force_check()
         log.info("Browser re-detection triggered by user")
 
     def on_learned_browsers_added(self, browsers: list) -> None:
@@ -256,7 +339,8 @@ class MainViewModel(QObject):
         self._config.save()
 
         self._em.register_new_learned(new_entries)
-        self._monitor.force_check()
+        if self._monitor is not None:
+            self._monitor.force_check()
         log.info("Learned browsers added at runtime: %s", list(new_entries.keys()))
 
     def on_browser_remove(self, browser_type: str, clear_data: bool) -> None:
@@ -286,7 +370,8 @@ class MainViewModel(QObject):
                 log.warning("Could not delete history for %s: %s", browser_type, exc)
 
         # Refresh dashboard cards
-        self._monitor.force_check()
+        if self._monitor is not None:
+            self._monitor.force_check()
         log.info("Browser removed from config: %s (clear_data=%s)", browser_type, clear_data)
 
     def get_total_count(self) -> int:
@@ -322,7 +407,8 @@ class MainViewModel(QObject):
         if not ids:
             return 0
         deleted = self._db.delete_records_by_ids(ids)
-        self.history_vm.refresh()
+        if self.history_vm is not None:
+            self.history_vm.refresh()
         self._emit_stats()
         self.records_deleted.emit(deleted)
         log.info("Deleted %d records (ids: %s...)", deleted, ids[:5])
@@ -343,7 +429,8 @@ class MainViewModel(QObject):
     def _refresh_hidden_ids(self) -> None:
         """Recompute the combined hidden-ID set (URL-level U domain-level) and
         push it to the history view-model so the table re-filters immediately."""
-        self.history_vm.set_hidden_ids(self._db.get_all_hidden_ids())
+        if self.history_vm is not None:
+            self.history_vm.set_hidden_ids(self._db.get_all_hidden_ids())
 
     # ── Hidden-domain operations ─────────────────────────────
 
@@ -397,7 +484,8 @@ class MainViewModel(QObject):
             self._config.save()
         self._em.set_blacklisted_domains(self._config.privacy.blacklisted_domains)
         deleted = self._db.delete_records_by_domain(domain)
-        self.history_vm.refresh()
+        if self.history_vm is not None:
+            self.history_vm.refresh()
         self._emit_stats()
         self.domain_blacklisted.emit(domain)
         log.info("Blacklisted '%s', deleted %d records", domain, deleted)
@@ -436,8 +524,10 @@ class MainViewModel(QObject):
             blacklisted_domains=config.privacy.blacklisted_domains,
             filtered_url_prefixes=config.privacy.filtered_url_prefixes,
         )
-        self._favicon_manager.update_config(config)
-        self._monitor.force_check()
+        if self._favicon_manager is not None:
+            self._favicon_manager.update_config(config)
+        if self._monitor is not None:
+            self._monitor.force_check()
         # Reload hidden IDs from DB — combine URL-level and domain-level hidden sets.
         self._refresh_hidden_ids()
         log.info("Config saved and applied")
@@ -466,7 +556,8 @@ class MainViewModel(QObject):
         import time as _time
 
         total_new = sum(results.values())
-        self._monitor.clear_syncing()
+        if self._monitor is not None:
+            self._monitor.clear_syncing()
         self._config.last_sync_ts = int(_time.time())
         self._config.save()
         self.sync_finished.emit(total_new)
@@ -479,17 +570,32 @@ class MainViewModel(QObject):
             # hold memory until the 200 ms quit delay expires.
             return
 
-        self.history_vm.refresh()
+        if not self._window_ever_shown:
+            # The main window has never been shown (minimised autostart).
+            # Defer the memory-heavy operations until notify_window_shown() is
+            # called.
+            self._pending_favicon_browsers = list(results.keys()) if results else None
+            log.info(
+                "Minimized mode: deferring history_vm.refresh() and favicon "
+                "extraction until window is first shown (pending_browsers=%s)",
+                self._pending_favicon_browsers,
+            )
+            return
+
+        if self.history_vm is not None:
+            self.history_vm.refresh()
         self._emit_stats()
-        synced_browsers = list(results.keys()) if results else None
-        self._favicon_manager.schedule_extraction(target_browsers=synced_browsers)
+        if self._favicon_manager is not None:
+            synced_browsers = list(results.keys()) if results else None
+            self._favicon_manager.schedule_extraction(target_browsers=synced_browsers)
 
     @Slot(str, str, int)
     def _on_sync_progress(self, browser_type: str, status: str, count: int):
-        if status == "extracting":
-            self._monitor.set_syncing(browser_type, True)
-        elif status in ("done", "error"):
-            self._monitor.set_syncing(browser_type, False)
+        if self._monitor is not None:
+            if status == "extracting":
+                self._monitor.set_syncing(browser_type, True)
+            elif status in ("done", "error"):
+                self._monitor.set_syncing(browser_type, False)
         msg_map = {
             "extracting": _("Reading {browser} history...").format(browser=browser_type),
             "saving": _("Saving {browser} ({count} records)...").format(browser=browser_type, count=count),
@@ -500,7 +606,8 @@ class MainViewModel(QObject):
 
     @Slot(str)
     def _on_sync_error(self, msg: str):
-        self._monitor.clear_syncing()
+        if self._monitor is not None:
+            self._monitor.clear_syncing()
         self.sync_error.emit(msg)
 
     @Slot(bool, str)
