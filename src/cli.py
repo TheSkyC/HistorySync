@@ -1141,7 +1141,7 @@ def _cmd_db_rebuild_fts(config, args: argparse.Namespace) -> int:
 
     t0 = time.monotonic()
     try:
-        db.rebuild_fts_index(progress_callback=_progress)
+        db.rebuild_fts_index(progress_cb=_progress)
     except Exception as exc:
         _err(f"FTS rebuild failed: {exc}")
         log.exception("FTS rebuild failed")
@@ -1184,7 +1184,7 @@ def _cmd_db_normalize(config, args: argparse.Namespace) -> int:
 
     t0 = time.monotonic()
     try:
-        db.normalize_domains(progress_callback=_progress)
+        db.normalize_domains(progress_cb=_progress)
     except Exception as exc:
         _err(f"Normalise failed: {exc}")
         log.exception("Normalise failed")
