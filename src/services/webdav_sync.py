@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import random
+import re
 import shutil
 import tempfile
 import threading
@@ -32,6 +33,8 @@ from src.utils.i18n_core import _
 from src.utils.logger import get_logger
 
 log = get_logger("webdav")
+
+_SAFE_BACKUP_FILENAME = re.compile(r"^history_\d{10}\.zip$")
 
 try:
     from webdav3.client import Client as _WdavClient
@@ -407,6 +410,8 @@ class WebDavSyncService:
                 return self._fail(_("No backups found on server."))
 
             latest_backup = zip_backups[-1]
+            if not _SAFE_BACKUP_FILENAME.match(latest_backup):
+                return self._fail(_("Unsafe backup filename rejected: {filename}").format(filename=latest_backup))
             remote_file = f"{remote_dir.rstrip('/')}/{latest_backup}"
 
             self._set_status(SyncStatus.DOWNLOADING)
