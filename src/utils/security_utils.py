@@ -60,6 +60,9 @@ def _ensure_keyring():
 
 _HKDF_INFO = b"historysync-enc\x00"
 
+_HKDF_INFO_ENC = b"historysync-enc-key\x00"
+_HKDF_INFO_AUTH = b"historysync-auth-key\x00"
+
 _PAD_BLOCK = 64  # pad plaintext to multiples of this size to hide true length
 
 
@@ -95,10 +98,36 @@ def _hkdf_expand(prk: bytes, length: int) -> bytes:
     return output[:length]
 
 
+def _hkdf_expand_with_info(prk: bytes, info: bytes, length: int) -> bytes:
+    """HKDF-Expand with a caller-supplied info label."""
+    if length > 255 * 32:
+        raise ValueError(f"HKDF-Expand: requested length {length} exceeds maximum 8160 bytes")
+    output = b""
+    t = b""
+    counter = 1
+    while len(output) < length:
+        t = hmac.new(prk, t + info + bytes([counter]), hashlib.sha256).digest()
+        output += t
+        counter += 1
+    return output[:length]
+
+
 def _derive_keystream(master_key: bytes, salt: bytes, length: int) -> bytes:
     """Derive a keystream via HKDF-SHA256 (Extract + Expand)."""
     prk = hmac.new(salt, master_key, hashlib.sha256).digest()  # HKDF-Extract
     return _hkdf_expand(prk, length)  # HKDF-Expand
+
+
+def _derive_subkeys(master_key: bytes, salt: bytes) -> tuple[bytes, bytes, bytes]:
+    """Derive independent enc and auth subkeys from master_key via HKDF.
+
+    Returns (prk, enc_keystream_prk, auth_key) where enc_keystream_prk is used
+    to generate the keystream and auth_key is used exclusively for HMAC authentication.
+    """
+    prk = hmac.new(salt, master_key, hashlib.sha256).digest()  # HKDF-Extract
+    enc_key = _hkdf_expand_with_info(prk, _HKDF_INFO_ENC, 32)
+    auth_key = _hkdf_expand_with_info(prk, _HKDF_INFO_AUTH, 32)
+    return prk, enc_key, auth_key
 
 
 def _set_win32_owner_only(path: Path) -> None:
@@ -201,17 +230,19 @@ def encrypt_text(text: str) -> str:
     Raises OSError if the master key cannot be obtained or persisted.
 
     Algorithm: HKDF-SHA256 keystream XOR + HMAC-SHA256 authentication tag.
-    Payload format: [0x01 version][16B salt][32B HMAC-SHA256][N bytes ciphertext]
+    Payload format: [0x02 version][16B salt][32B HMAC-SHA256][N bytes ciphertext]
+    Enc and auth subkeys are derived independently via HKDF with distinct info labels.
     """
     if not text:
         return ""
     master_key = _get_or_create_master_key()
     text_bytes = _pad(text.encode("utf-8"))
     salt = os.urandom(16)
-    keystream = _derive_keystream(master_key, salt, len(text_bytes))
+    prk, _enc_key, auth_key = _derive_subkeys(master_key, salt)
+    keystream = _hkdf_expand_with_info(prk, _HKDF_INFO_ENC, len(text_bytes))
     encrypted_bytes = bytes(a ^ b for a, b in zip(text_bytes, keystream, strict=False))
-    signature = hmac.new(master_key, salt + encrypted_bytes, hashlib.sha256).digest()
-    payload = b"\x01" + salt + signature + encrypted_bytes
+    signature = hmac.new(auth_key, salt + encrypted_bytes, hashlib.sha256).digest()
+    payload = b"\x02" + salt + signature + encrypted_bytes
     return ENCRYPTION_PREFIX + base64.b64encode(payload).decode("utf-8")
 
 
@@ -226,6 +257,25 @@ def _try_decrypt_hkdf(payload: bytes, master_key: bytes) -> str | None:
     if not hmac.compare_digest(signature, expected):
         return None
     keystream = _derive_keystream(master_key, salt, len(encrypted_bytes))
+    plain = bytes(a ^ b for a, b in zip(encrypted_bytes, keystream, strict=False))
+    try:
+        return _unpad(plain).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+
+def _try_decrypt_v2(payload: bytes, master_key: bytes) -> str | None:
+    """Attempt decryption using v2 format (independent enc/auth subkeys)."""
+    if len(payload) < 49:  # 1 + 16 + 32
+        return None
+    salt = payload[1:17]
+    signature = payload[17:49]
+    encrypted_bytes = payload[49:]
+    prk, _enc_key, auth_key = _derive_subkeys(master_key, salt)
+    expected = hmac.new(auth_key, salt + encrypted_bytes, hashlib.sha256).digest()
+    if not hmac.compare_digest(signature, expected):
+        return None
+    keystream = _hkdf_expand_with_info(prk, _HKDF_INFO_ENC, len(encrypted_bytes))
     plain = bytes(a ^ b for a, b in zip(encrypted_bytes, keystream, strict=False))
     try:
         return _unpad(plain).decode("utf-8")
@@ -274,6 +324,11 @@ def decrypt_text(text: str) -> str:
         if len(payload) < 1:
             raise DecryptionError("Ciphertext payload is empty")
 
+        if payload[0] == 0x02:
+            result = _try_decrypt_v2(payload, master_key)
+            if result is None:
+                raise DecryptionError("HMAC verification failed — ciphertext may be corrupt or tampered")
+            return result
         if payload[0] == 0x01:
             result = _try_decrypt_hkdf(payload, master_key)
             if result is None:
