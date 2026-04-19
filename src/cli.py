@@ -1093,7 +1093,7 @@ def _cmd_db_vacuum(config, args: argparse.Namespace) -> int:
 
     t0 = time.monotonic()
     try:
-        db.vacuum_and_analyze(progress_callback=_progress)
+        db.vacuum_and_analyze(progress_cb=_progress)
     except Exception as exc:
         _err(f"Vacuum failed: {exc}")
         log.exception("Vacuum failed")
