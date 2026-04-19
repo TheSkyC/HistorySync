@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import threading
 import time
 
 from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal, Slot
@@ -40,10 +41,10 @@ class SyncWorker(QObject):
         self._browser_types = browser_types  # None = all browsers
         self._favicon_cache_dir = favicon_cache_dir
         self._force_full = force_full
-        self._cancelled = False
+        self._cancelled = threading.Event()
 
     def cancel(self) -> None:
-        self._cancelled = True
+        self._cancelled.set()
 
     @Slot()
     def run(self) -> None:
@@ -53,7 +54,7 @@ class SyncWorker(QObject):
             log.info("Sync worker started")
 
             def cb(bt: str, status: str, count: int) -> None:
-                if not self._cancelled:
+                if not self._cancelled.is_set():
                     self.progress.emit(bt, status, count)
 
             results = self._em.run_extraction(
@@ -61,13 +62,18 @@ class SyncWorker(QObject):
                 progress_callback=cb,
                 force_full=self._force_full,
             )
-            if not self._cancelled and self._wdav and self._wdav.is_configured() and self._wdav.auto_backup_enabled:
+            if (
+                not self._cancelled.is_set()
+                and self._wdav
+                and self._wdav.is_configured()
+                and self._wdav.auto_backup_enabled
+            ):
                 self._wdav.sync(favicon_cache_dir=self._favicon_cache_dir)
         except Exception as exc:
             log.error("Sync worker unhandled exception: %s", exc, exc_info=True)
             exc_msg = str(exc)
         finally:
-            if self._cancelled:
+            if self._cancelled.is_set():
                 log.info("Sync worker: cancelled, skipping result signals")
             elif exc_msg is not None:
                 self.error.emit(exc_msg)
@@ -85,24 +91,24 @@ class BackupWorker(QObject):
         super().__init__()
         self._wdav = webdav_service
         self._favicon_cache_dir = favicon_cache_dir
-        self._cancelled = False
+        self._cancelled = threading.Event()
 
     def cancel(self) -> None:
-        self._cancelled = True
+        self._cancelled.set()
 
     @Slot()
     def run(self) -> None:
-        if self._cancelled:
+        if self._cancelled.is_set():
             return
         try:
             res = self._wdav.sync(
                 progress_callback=self.progress.emit,
                 favicon_cache_dir=self._favicon_cache_dir,
             )
-            if not self._cancelled:
+            if not self._cancelled.is_set():
                 self.finished.emit(res.success, res.message)
         except Exception as exc:
-            if not self._cancelled:
+            if not self._cancelled.is_set():
                 self.finished.emit(False, str(exc))
 
 
