@@ -23,6 +23,32 @@ from src.utils.path_helper import get_templates_dir
 from src.utils.url_utils import extract_display_domain as _extract_domain
 
 log = get_logger("exporter")
+# ── SVG sanitization ─────────────────────────────────────────────────────────
+# Browser SVG icons are embedded verbatim into exported HTML. Strip XSS vectors
+# (script elements, event-handler attributes, javascript:/data: URIs) before
+# embedding so a crafted icon file cannot execute code when the export is opened.
+
+_SVG_SCRIPT_TAG_RE = re.compile(
+    r"<script(?:\s[^>]*)?>[ \S]*?</script\s*>",
+    re.IGNORECASE | re.DOTALL,
+)
+_SVG_EVENT_ATTR_RE = re.compile(
+    r"""\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)""",
+    re.IGNORECASE,
+)
+_SVG_JS_HREF_RE = re.compile(
+    r"""((?:xlink:)?href\s*=\s*["'])\s*(?:javascript|data):[^"']*""",
+    re.IGNORECASE,
+)
+
+
+def _sanitize_svg(svg_text: str) -> str:
+    """Strip XSS vectors from an SVG string before embedding in HTML export."""
+    svg_text = _SVG_SCRIPT_TAG_RE.sub("", svg_text)
+    svg_text = _SVG_EVENT_ATTR_RE.sub("", svg_text)
+    svg_text = _SVG_JS_HREF_RE.sub(r"\1#", svg_text)
+    return svg_text
+
 
 # ── Column definitions ────────────────────────────────────────────────────────
 
@@ -634,7 +660,7 @@ class _HtmlWriter:
             if icon_path and icon_path.suffix.lower() == ".svg":
                 try:
                     with icon_path.open("r", encoding="utf-8") as f:
-                        svg_content = f.read()
+                        svg_content = _sanitize_svg(f.read())
                 except Exception as e:
                     log.debug("Could not read SVG for %s: %s", bt, e)
 
