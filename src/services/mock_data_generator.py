@@ -424,10 +424,14 @@ def generate_mock_data(db_path: Path, scale: str = "large") -> None:
     conn = sqlite3.connect(db_path, timeout=60)
     try:
         _setup_fast_pragmas(conn, tag)
-        _generate_history(conn, n_history, tag)
-        _generate_bookmarks(conn, n_bookmarks, tag)
-        _generate_annotations(conn, n_annotations, tag)
-        _restore_safe_pragmas(conn, tag)
+        try:
+            _generate_history(conn, n_history, tag)
+            _generate_bookmarks(conn, n_bookmarks, tag)
+            _generate_annotations(conn, n_annotations, tag)
+        finally:
+            # Always restore safe PRAGMAs, even if generation fails midway,
+            # so the database is not left with synchronous=OFF / journal_mode=MEMORY.
+            _restore_safe_pragmas(conn, tag)
         _print_db_stats(conn, db_path, tag)
     finally:
         conn.close()
