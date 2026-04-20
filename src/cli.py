@@ -821,7 +821,7 @@ def _cmd_sync(config, args: argparse.Namespace) -> int:
     results = manager.run_extraction(browser_types=targets, progress_callback=_progress)
     elapsed = time.monotonic() - t0
 
-    total_new = sum(results.values())
+    total_new = sum(v for v in results.values() if v is not None)
     log.info("Sync complete: %d new records in %.1fs", total_new, elapsed)
 
     if not quiet:

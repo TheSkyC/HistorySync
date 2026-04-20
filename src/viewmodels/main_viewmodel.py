@@ -555,7 +555,7 @@ class MainViewModel(QObject):
     def _on_sync_finished(self, results: dict):
         import time as _time
 
-        total_new = sum(results.values())
+        total_new = sum(v for v in results.values() if v is not None)
         if self._monitor is not None:
             self._monitor.clear_syncing()
         self._config.last_sync_ts = int(_time.time())

@@ -187,7 +187,7 @@ class ExtractorManager:
         browser_types: list[str] | None = None,
         progress_callback: ProgressCallback | None = None,
         force_full: bool = False,
-    ) -> dict[str, int]:
+    ) -> dict[str, int | None]:
         """Run extraction for the given browsers.
 
         Parameters
@@ -207,7 +207,7 @@ class ExtractorManager:
         if not targets:
             return {}
 
-        results: dict[str, int] = {}
+        results: dict[str, int | None] = {}
         n_workers = min(_MAX_PARALLEL_WORKERS, len(targets))
 
         with ThreadPoolExecutor(max_workers=n_workers, thread_name_prefix="hs-extract") as pool:
@@ -220,7 +220,7 @@ class ExtractorManager:
                     log.error("Extraction task failed for %s: %s", bt, exc, exc_info=True)
                     if progress_callback:
                         progress_callback(bt, "error", 0)
-                    results[bt] = 0
+                    results[bt] = None
 
         return results
 
