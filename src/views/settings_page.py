@@ -9,6 +9,7 @@ import time
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QComboBox,
+    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -34,6 +35,7 @@ from src.views.settings.custom_paths_section import CustomPathsSection
 from src.views.settings.devices_section import DevicesSection
 from src.views.settings.font_section import FontSection
 from src.views.settings.import_section import ImportSection
+from src.views.settings.keybinding_section import KeybindingSection
 from src.views.settings.language_section import LanguageSection
 from src.views.settings.maintenance_section import MaintenanceSection
 from src.views.settings.overlay_section import OverlaySection
@@ -107,6 +109,7 @@ class SettingsPage(QWidget):
         self._sec_font = FontSection()
         self._sec_overlay = OverlaySection()
         self._sec_search_engine = SearchEngineSection()
+        self._sec_keybinding = KeybindingSection()
 
         self._add_card(_("LANGUAGE"), self._sec_language)
         self._add_card(_("AUTO SYNC"), self._sec_scheduler)
@@ -121,6 +124,7 @@ class SettingsPage(QWidget):
         self._add_card(_("FONTS"), self._sec_font)
         self._add_card(_("QUICK ACCESS OVERLAY"), self._sec_overlay)
         self._add_card(_("SEARCH ENGINE"), self._sec_search_engine)
+        self._add_card(_("KEYBOARD SHORTCUTS"), self._sec_keybinding)
 
         self._content_layout.addStretch()
         scroll.setWidget(content)
@@ -235,6 +239,9 @@ class SettingsPage(QWidget):
 
         # Search engine
         self._sec_search_engine.load(cfg)
+
+        # Keybindings - connect the button to open the dialog
+        self._sec_keybinding.configure_requested.connect(self._open_keybinding_dialog)
 
         # Devices
         self._load_devices()
@@ -532,6 +539,16 @@ class SettingsPage(QWidget):
             self._set_status(", ".join(parts), "success")
 
     # ── Custom paths handlers ─────────────────────────────────
+
+    def _open_keybinding_dialog(self) -> None:
+        from src.views.settings.keybinding_section import KeybindingDialog
+
+        cfg = self._vm.get_config()
+        dlg = KeybindingDialog(cfg, parent=self)
+        if dlg.exec() == QDialog.Accepted and dlg._accepted_config is not None:
+            cfg.keybindings = dlg._accepted_config
+            self._vm.save(cfg)
+            self._set_status(_("Keyboard shortcuts saved"), "success")
 
     def _on_add_custom_path(self, browser_type: str, path: str):
         cfg = self._vm.get_config()

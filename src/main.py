@@ -674,14 +674,23 @@ def _gui_main(args: argparse.Namespace) -> None:
     _hotkey_mgr.triggered.connect(_on_overlay_hotkey)
     _hotkey_mgr.registration_failed.connect(lambda reason: log.warning("Global hotkey registration failed: %s", reason))
     if config.overlay.enabled:
-        _hotkey_mgr.register()
+        from src.utils.constants import qt_keyseq_to_pynput
+
+        _pynput_seq = qt_keyseq_to_pynput(config.keybindings.global_overlay)
+        _hotkey_mgr.register(_pynput_seq)
 
     def _on_settings_saved():
         cfg = main_vm._config
         if cfg.overlay.enabled:
-            _hotkey_mgr.register()
+            from src.utils.constants import qt_keyseq_to_pynput
+
+            pynput_seq = qt_keyseq_to_pynput(cfg.keybindings.global_overlay)
+            _hotkey_mgr.register(pynput_seq)
         else:
             _hotkey_mgr.unregister()
+        # Re-apply in-app keybindings on all windows
+        if _window is not None:
+            _window.apply_keybindings()
 
     # ── 6. Window trampoline ─────────────────────────────────────────────────
     # In lazy_gui mode the MainWindow is not constructed at startup.  The

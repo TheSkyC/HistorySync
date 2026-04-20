@@ -2350,16 +2350,35 @@ class HistoryPage(QWidget):
         calendar.setWeekdayTextFormat(Qt.Saturday, text_format_sat)
 
     def _setup_shortcuts(self):
-        """Register Ctrl+F (focus search) and Ctrl+R (sync now)."""
-        search_sc = QShortcut(QKeySequence("Ctrl+F"), self)
-        search_sc.activated.connect(self._focus_search)
+        """Register keyboard shortcuts from config."""
+        self._page_shortcuts: list[QShortcut] = []
+        kb = self._config.keybindings.app if self._config else {}
 
-        refresh_sc = QShortcut(QKeySequence("Ctrl+R"), self)
-        refresh_sc.activated.connect(self._trigger_sync)
+        seq = kb.get("focus_search", "Ctrl+F")
+        if seq:
+            sc = QShortcut(QKeySequence(seq), self)
+            sc.activated.connect(self._focus_search)
+            self._page_shortcuts.append(sc)
 
-        # Delete key to delete selected
-        del_sc = QShortcut(QKeySequence(Qt.Key_Delete), self._table)
-        del_sc.activated.connect(self._delete_selected)
+        seq = kb.get("trigger_sync", "Ctrl+R")
+        if seq:
+            sc = QShortcut(QKeySequence(seq), self)
+            sc.activated.connect(self._trigger_sync)
+            self._page_shortcuts.append(sc)
+
+        seq = kb.get("delete_selected", "Del")
+        if seq:
+            sc = QShortcut(QKeySequence(seq), self._table)
+            sc.activated.connect(self._delete_selected)
+            self._page_shortcuts.append(sc)
+
+    def apply_keybindings(self) -> None:
+        """Re-apply shortcuts after config change."""
+        for sc in self._page_shortcuts:
+            sc.setEnabled(False)
+            sc.deleteLater()
+        self._page_shortcuts.clear()
+        self._setup_shortcuts()
 
     def _focus_search(self):
         self._search.setFocus()

@@ -103,3 +103,46 @@ EXTRACTOR_MAX_PARALLEL_WORKERS = 4
 
 # Seconds allowed to copy a live SQLite database (WAL-safe file copy)
 DB_COPY_TIMEOUT_SEC = 10
+
+# ── Keybindings ───────────────────────────────────────────────────────────────
+
+# Default in-app keyboard shortcuts (QKeySequence format).
+DEFAULT_KEYBINDINGS: dict[str, str] = {
+    # Navigation
+    "goto_dashboard": "Ctrl+1",
+    "goto_history": "Ctrl+2",
+    "goto_bookmarks": "Ctrl+3",
+    "goto_settings": "Ctrl+4",
+    "goto_logs": "Ctrl+5",
+    "goto_stats": "Ctrl+6",
+    # Actions
+    "trigger_sync": "Ctrl+R",
+    "focus_search": "Ctrl+F",
+    "delete_selected": "Del",
+}
+
+# Default global hotkey (pynput format).
+DEFAULT_GLOBAL_HOTKEY: str = "Ctrl+Shift+H"
+
+# Map QKeySequence display format to pynput format for global hotkeys.
+_PYNPUT_MODIFIER_MAP: dict[str, str] = {
+    "Ctrl": "<ctrl>",
+    "Shift": "<shift>",
+    "Alt": "<alt>",
+    "Meta": "<cmd>",
+}
+
+
+def qt_keyseq_to_pynput(seq: str) -> str:
+    """Convert a Qt-style key sequence like 'Ctrl+Shift+H' to pynput format '<ctrl>+<shift>+h'."""
+    if not seq:
+        return ""
+    parts = [p.strip() for p in seq.split("+")]
+    result = []
+    for p in parts:
+        mapped = _PYNPUT_MODIFIER_MAP.get(p)
+        if mapped:
+            result.append(mapped)
+        else:
+            result.append(p.lower())
+    return "+".join(result)

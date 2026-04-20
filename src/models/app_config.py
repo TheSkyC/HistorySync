@@ -13,6 +13,8 @@ from src.utils.constants import (
     CONFIG_FILENAME,
     DB_FILENAME,
     DEFAULT_AUTO_BACKUP_INTERVAL_HOURS,
+    DEFAULT_GLOBAL_HOTKEY,
+    DEFAULT_KEYBINDINGS,
     DEFAULT_SYNC_INTERVAL_HOURS,
     DEFAULT_WINDOW_HEIGHT,
     DEFAULT_WINDOW_WIDTH,
@@ -187,6 +189,17 @@ class FontConfig:
 
 
 @dataclass
+class KeybindingsConfig:
+    """Customizable keyboard shortcuts (in-app and global)."""
+
+    # In-app shortcuts (QKeySequence format, e.g. "Ctrl+R").
+    # Empty string means the shortcut is disabled.
+    app: dict = field(default_factory=lambda: dict(DEFAULT_KEYBINDINGS))
+    # Global hotkey for quick-access overlay (QKeySequence format).
+    global_overlay: str = DEFAULT_GLOBAL_HOTKEY
+
+
+@dataclass
 class AppConfig:
     webdav: WebDavConfig = field(default_factory=WebDavConfig)
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
@@ -196,6 +209,7 @@ class AppConfig:
     font: FontConfig = field(default_factory=FontConfig)
     overlay: OverlayConfig = field(default_factory=OverlayConfig)
     search_engine: SearchEngineConfig = field(default_factory=SearchEngineConfig)
+    keybindings: KeybindingsConfig = field(default_factory=KeybindingsConfig)
     window_x: int = -1
     window_y: int = -1
     window_width: int = DEFAULT_WINDOW_WIDTH
@@ -278,6 +292,7 @@ class AppConfig:
             "font": asdict(self.font),
             "overlay": asdict(self.overlay),
             "search_engine": asdict(self.search_engine),
+            "keybindings": asdict(self.keybindings),
             "window_x": self.window_x,
             "window_y": self.window_y,
             "window_width": self.window_width,
@@ -335,6 +350,16 @@ class AppConfig:
         if "search_engine" in d:
             cfg.search_engine = SearchEngineConfig(
                 **{k: v for k, v in d["search_engine"].items() if k in SearchEngineConfig.__dataclass_fields__}
+            )
+        if "keybindings" in d:
+            kb_data = d["keybindings"]
+            # Merge saved app bindings over defaults so newly added actions get defaults
+            merged_app = dict(DEFAULT_KEYBINDINGS)
+            if "app" in kb_data and isinstance(kb_data["app"], dict):
+                merged_app.update(kb_data["app"])
+            cfg.keybindings = KeybindingsConfig(
+                app=merged_app,
+                global_overlay=kb_data.get("global_overlay", DEFAULT_GLOBAL_HOTKEY),
             )
         for key in (
             "window_x",

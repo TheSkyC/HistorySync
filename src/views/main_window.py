@@ -160,14 +160,34 @@ class MainWindow(QMainWindow):
         old.deleteLater()
 
     def _setup_global_shortcuts(self):
-        QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(self._vm.trigger_sync)
-        QShortcut(QKeySequence("Ctrl+1"), self).activated.connect(lambda: self._switch_page(PAGE_DASHBOARD))
-        QShortcut(QKeySequence("Ctrl+2"), self).activated.connect(lambda: self._switch_page(PAGE_HISTORY))
-        QShortcut(QKeySequence("Ctrl+3"), self).activated.connect(lambda: self._switch_page(PAGE_BOOKMARKS))
-        QShortcut(QKeySequence("Ctrl+4"), self).activated.connect(lambda: self._switch_page(PAGE_SETTINGS))
-        QShortcut(QKeySequence("Ctrl+5"), self).activated.connect(lambda: self._switch_page(PAGE_LOGS))
-        QShortcut(QKeySequence("Ctrl+6"), self).activated.connect(lambda: self._switch_page(PAGE_STATS))
-        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self._focus_history_search)
+        kb = self._vm._config.keybindings.app
+        self._shortcuts: dict[str, QShortcut] = {}
+
+        def _bind(action: str, slot):
+            seq = kb.get(action, "")
+            if seq:
+                sc = QShortcut(QKeySequence(seq), self)
+                sc.activated.connect(slot)
+                self._shortcuts[action] = sc
+
+        _bind("trigger_sync", self._vm.trigger_sync)
+        _bind("goto_dashboard", lambda: self._switch_page(PAGE_DASHBOARD))
+        _bind("goto_history", lambda: self._switch_page(PAGE_HISTORY))
+        _bind("goto_bookmarks", lambda: self._switch_page(PAGE_BOOKMARKS))
+        _bind("goto_settings", lambda: self._switch_page(PAGE_SETTINGS))
+        _bind("goto_logs", lambda: self._switch_page(PAGE_LOGS))
+        _bind("goto_stats", lambda: self._switch_page(PAGE_STATS))
+        _bind("focus_search", self._focus_history_search)
+
+    def apply_keybindings(self) -> None:
+        """Re-apply keyboard shortcuts from config (called after settings save)."""
+        for sc in self._shortcuts.values():
+            sc.setEnabled(False)
+            sc.deleteLater()
+        self._shortcuts.clear()
+        self._setup_global_shortcuts()
+        if self._page_history is not None:
+            self._page_history.apply_keybindings()
 
     def _connect_vm(self):
         vm = self._vm
