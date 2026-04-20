@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import sys
-
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from src.utils.i18n import _
@@ -25,14 +23,8 @@ class OverlaySection(QWidget):
         layout.setSpacing(14)
         layout.setContentsMargins(20, 16, 20, 16)
 
-        self._enabled_cb = QCheckBox(_("Enable quick-access overlay (Ctrl+Shift+H)"))
+        self._enabled_cb = QCheckBox(_("Enable quick-access overlay"))
         layout.addWidget(self._enabled_cb)
-
-        if sys.platform != "win32":
-            note = QLabel(_("On Linux/macOS, bind 'python -m src.main --quick' to a system hotkey."))
-            note.setObjectName("muted")
-            note.setWordWrap(True)
-            layout.addWidget(note)
 
         # Filter browsers row
         filter_row = QHBoxLayout()
@@ -87,7 +79,6 @@ class OverlaySection(QWidget):
             self._filter_combo.addItem(display, bt)
             self._open_combo.addItem(display, bt)
 
-        # Restore saved values
         for i in range(self._filter_combo.count()):
             if self._filter_combo.itemData(i) == oc.filter_browsers:
                 self._filter_combo.setCurrentIndex(i)

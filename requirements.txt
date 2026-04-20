@@ -28,6 +28,8 @@ more-itertools==10.8.0
     #   jaraco-functools
 psutil==7.2.2
     # via -r requirements.in
+pynput==1.8.1
+    # via -r requirements.in
 pyside6==6.11.0
     # via -r requirements.in
 pyside6-addons==6.11.0
@@ -48,7 +50,9 @@ shiboken6==6.11.0
     #   pyside6-addons
     #   pyside6-essentials
 six==1.17.0
-    # via python-dateutil
+    # via
+    #   pynput
+    #   python-dateutil
 urllib3==2.6.3
     # via requests
 webdavclient3==3.14.7

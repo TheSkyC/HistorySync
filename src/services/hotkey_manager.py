@@ -3,67 +3,119 @@
 
 from __future__ import annotations
 
-import ctypes
+import logging
 import sys
+import threading
 
-from PySide6.QtCore import QAbstractNativeEventFilter, QObject, Signal
+from PySide6.QtCore import QObject, Signal
 
-if sys.platform == "win32":
-    _MOD_CONTROL = 0x0002
-    _MOD_SHIFT = 0x0004
-    _VK_H = 0x48
-    _WM_HOTKEY = 0x0312
-    _HOTKEY_ID = 0xBEEF  # arbitrary unique ID
+log = logging.getLogger(__name__)
 
-    class _MSG(ctypes.Structure):
-        _fields_ = [
-            ("hwnd", ctypes.c_void_p),
-            ("message", ctypes.c_uint),
-            ("wParam", ctypes.c_size_t),
-            ("lParam", ctypes.c_ssize_t),
-            ("time", ctypes.c_ulong),
-            ("pt", ctypes.c_long * 2),
-        ]
+try:
+    from pynput import keyboard as _kb
+
+    _PYNPUT_AVAILABLE = True
+except ImportError:
+    _PYNPUT_AVAILABLE = False
 
 
-class HotkeyManager(QObject, QAbstractNativeEventFilter):
-    """Registers Ctrl+Shift+H as a system-wide hotkey (Windows only).
+def _is_wayland() -> bool:
+    """Return True when running under Wayland (Linux only)."""
+    if sys.platform != "linux":
+        return False
+    import os
 
-    On other platforms register()/unregister() are no-ops and triggered
-    is never emitted.  The caller should still install this as a native
-    event filter on Windows so WM_HOTKEY messages are intercepted.
+    return bool(os.environ.get("WAYLAND_DISPLAY") or os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland")
+
+
+class HotkeyManager(QObject):
+    """Cross-platform global hotkey manager backed by pynput.
+
+    Supported platforms:
+      - Windows  : pynput wraps Win32 RegisterHotKey
+      - macOS    : pynput wraps CGEventTap (requires Accessibility permission)
+      - Linux/X11: pynput wraps XGrabKey
+      - Linux/Wayland: not supported by pynput; register() returns False and
+                       logs a hint to use the --quick CLI flag instead.
+
+    The listener runs in a daemon thread managed by pynput.  When the hotkey
+    fires, ``triggered`` is emitted from that thread via a direct connection -
+    Qt will marshal it to the main thread automatically because the signal is
+    defined on a QObject that lives in the main thread.
     """
 
     triggered = Signal()
+    registration_failed = Signal(str)  # emits a human-readable reason
 
     def __init__(self, parent: QObject | None = None) -> None:
-        QObject.__init__(self, parent)
-        QAbstractNativeEventFilter.__init__(self)
-        self._registered = False
+        super().__init__(parent)
+        self._listener: object | None = None  # pynput GlobalHotKeys instance
+        self._hotkey: str = "<ctrl>+<shift>+h"
+        self._lock = threading.Lock()
 
-    def register(self) -> bool:
-        """Register the hotkey. Returns True on success."""
-        if sys.platform != "win32" or self._registered:
-            return False
-        ok = bool(ctypes.windll.user32.RegisterHotKey(None, _HOTKEY_ID, _MOD_CONTROL | _MOD_SHIFT, _VK_H))
-        self._registered = ok
-        return ok
+    # ── Public API ────────────────────────────────────────────────────────────
+
+    @property
+    def is_registered(self) -> bool:
+        with self._lock:
+            return self._listener is not None
+
+    def register(self, hotkey: str = "<ctrl>+<shift>+h") -> bool:
+        """Start listening for *hotkey*.  Returns True on success.
+
+        Safe to call multiple times; re-registers if the hotkey string changed.
+        """
+        with self._lock:
+            if self._listener is not None:
+                if self._hotkey == hotkey:
+                    return True
+                self._stop_listener()
+
+            if not _PYNPUT_AVAILABLE:
+                reason = "pynput is not installed - run: pip install pynput"
+                log.warning("Global hotkey unavailable: %s", reason)
+                self.registration_failed.emit(reason)
+                return False
+
+            if _is_wayland():
+                reason = (
+                    "Wayland does not support global hotkeys via pynput. "
+                    "Bind 'python -m src.main --quick' to a system shortcut instead."
+                )
+                log.warning("Global hotkey unavailable: %s", reason)
+                self.registration_failed.emit(reason)
+                return False
+
+            try:
+                listener = _kb.GlobalHotKeys({hotkey: self._on_hotkey})
+                listener.daemon = True
+                listener.start()
+                self._listener = listener
+                self._hotkey = hotkey
+                log.debug("Global hotkey registered: %s", hotkey)
+                return True
+            except Exception as exc:
+                reason = str(exc)
+                log.warning("Failed to register global hotkey %s: %s", hotkey, reason)
+                self.registration_failed.emit(reason)
+                return False
 
     def unregister(self) -> None:
-        """Unregister the hotkey."""
-        if sys.platform != "win32" or not self._registered:
-            return
-        ctypes.windll.user32.UnregisterHotKey(None, _HOTKEY_ID)
-        self._registered = False
+        """Stop the hotkey listener."""
+        with self._lock:
+            self._stop_listener()
 
-    def nativeEventFilter(self, eventType: bytes, message: object) -> tuple[bool, int]:
-        if sys.platform != "win32":
-            return False, 0
-        if eventType == b"windows_generic_MSG":
-            # PySide6: message may be int or shiboken2.VoidPtr depending on version
-            addr = message if isinstance(message, int) else message.__int__()
-            msg = _MSG.from_address(addr)
-            if msg.message == _WM_HOTKEY and msg.wParam == _HOTKEY_ID:
-                self.triggered.emit()
-                return True, 0
-        return False, 0
+    # ── Internal ──────────────────────────────────────────────────────────────
+
+    def _stop_listener(self) -> None:
+        """Must be called with self._lock held."""
+        if self._listener is not None:
+            try:
+                self._listener.stop()
+            except Exception:
+                pass
+            self._listener = None
+            log.debug("Global hotkey unregistered: %s", self._hotkey)
+
+    def _on_hotkey(self) -> None:
+        self.triggered.emit()

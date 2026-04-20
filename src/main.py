@@ -660,7 +660,7 @@ def _gui_main(args: argparse.Namespace) -> None:
         sys.exit(1)
     _single_instance_server.request_activation.connect(lambda: _get_or_create_window().show_and_raise())
 
-    # ── Overlay hotkey (Windows) + --quick cross-platform path ──────────────
+    # ── Overlay hotkey (cross-platform via pynput) + --quick path ────────────
     def _on_overlay_hotkey():
         overlay = main_vm.ensure_overlay()
         if overlay is not None:
@@ -668,26 +668,20 @@ def _gui_main(args: argparse.Namespace) -> None:
 
     _single_instance_server.request_quick_overlay.connect(_on_overlay_hotkey)
 
-    _hotkey_mgr = None
-    if sys.platform == "win32" and config.overlay.enabled:
-        from src.services.hotkey_manager import HotkeyManager
+    from src.services.hotkey_manager import HotkeyManager
 
-        _hotkey_mgr = HotkeyManager()
-        if _hotkey_mgr.register():
-            _hotkey_mgr.triggered.connect(_on_overlay_hotkey)
-            app.installNativeEventFilter(_hotkey_mgr)
-            log.debug("Global hotkey Ctrl+Shift+H registered")
+    _hotkey_mgr = HotkeyManager()
+    _hotkey_mgr.triggered.connect(_on_overlay_hotkey)
+    _hotkey_mgr.registration_failed.connect(lambda reason: log.warning("Global hotkey registration failed: %s", reason))
+    if config.overlay.enabled:
+        _hotkey_mgr.register()
+
+    def _on_settings_saved():
+        cfg = main_vm._config
+        if cfg.overlay.enabled:
+            _hotkey_mgr.register()
         else:
-            log.warning("Failed to register global hotkey Ctrl+Shift+H")
-
-    if _hotkey_mgr is not None:
-
-        def _on_settings_saved():
-            if main_vm._config.overlay.enabled:
-                if not _hotkey_mgr._registered:
-                    _hotkey_mgr.register()
-            else:
-                _hotkey_mgr.unregister()
+            _hotkey_mgr.unregister()
 
     # ── 6. Window trampoline ─────────────────────────────────────────────────
     # In lazy_gui mode the MainWindow is not constructed at startup.  The
@@ -729,8 +723,7 @@ def _gui_main(args: argparse.Namespace) -> None:
             )
         )
         # B4 fix: guard — _on_settings_saved only defined when _hotkey_mgr is not None
-        if _hotkey_mgr is not None:
-            _window._settings_vm.saved.connect(_on_settings_saved)
+        _window._settings_vm.saved.connect(_on_settings_saved)
         # B1 fix: lazy_gui path — scheduler already armed by start_lazy_gui(), only run start_ui()
         if config.first_run_completed:
             if main_vm._lazy_gui:
