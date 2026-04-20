@@ -500,8 +500,11 @@ class SettingsPage(QWidget):
 
     def _on_configure_url_filters(self):
         from src.views.dialogs.url_prefix_filter_dialog import UrlPrefixFilterDialog
+        from src.views.master_password_dialog import require_master_password
 
         cfg = self._vm.get_config()
+        if not require_master_password(cfg.master_password_hash, self):
+            return
         dlg = UrlPrefixFilterDialog(cfg.privacy.filtered_url_prefixes, parent=self)
         if dlg.exec() == UrlPrefixFilterDialog.Accepted:
             new_prefixes = dlg.get_prefixes()
@@ -512,13 +515,13 @@ class SettingsPage(QWidget):
         """Open the Hidden Domains manager dialog."""
         from src.views.master_password_dialog import require_master_password
 
+        cfg = self._vm.get_config()
+        if not require_master_password(cfg.master_password_hash, self):
+            return
         main_vm = self._vm._main_vm
         dlg = HiddenDomainsManagerDialog(main_vm.get_hidden_domains(), parent=self)
         dlg.exec()
         if dlg.unhide_all_records_requested:
-            cfg = self._vm.get_config()
-            if not require_master_password(cfg.master_password_hash, self):
-                return
             main_vm._db.clear_hidden_records()
             main_vm.history_vm.set_hidden_ids(set())
             self._set_status(_("All records unhidden"), "success")

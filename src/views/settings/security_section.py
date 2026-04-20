@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -32,6 +32,24 @@ class SecuritySection(QWidget):
         super().__init__(parent)
         self._stored_hash: str = ""
         self._init_ui()
+        # Refresh session-status label periodically so idle expiry is reflected
+        # without requiring the user to interact with a button.
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setInterval(30_000)  # 30 s
+        self._refresh_timer.timeout.connect(self._refresh_ui)
+
+    # ── Visibility lifecycle ──────────────────────────────────
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        get_session().add_observer(self._refresh_ui)
+        self._refresh_ui()
+        self._refresh_timer.start()
+
+    def hideEvent(self, event) -> None:
+        super().hideEvent(event)
+        get_session().remove_observer(self._refresh_ui)
+        self._refresh_timer.stop()
 
     def _init_ui(self):
         layout = QVBoxLayout(self)

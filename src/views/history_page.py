@@ -3455,24 +3455,11 @@ class HistoryPage(QWidget):
 
     def _toggle_hidden_mode(self) -> None:
         """Toggle between normal and hidden-records-only viewing mode."""
-        entering = not self._vm.hidden_mode
-        if entering:
-            # Gate: require master password if one is set
-            if self._config and self._config.master_password_hash:
-                from src.views.master_password_dialog import require_master_password
-
-                if not require_master_password(self._config.master_password_hash, self):
-                    return
-            self._vm.set_hidden_mode(True)
-        else:
-            self._vm.set_hidden_mode(False)
-        self._update_hidden_mode_ui()
+        self.set_hidden_mode(not self._vm.hidden_mode)
 
     def leave_hidden_mode(self) -> None:
         """Exit hidden-mode if active.  Called on window close."""
-        if self._vm.hidden_mode:
-            self._vm.set_hidden_mode(False)
-            self._update_hidden_mode_ui()
+        self.set_hidden_mode(False)
 
     @property
     def hidden_mode(self) -> bool:
@@ -3480,9 +3467,14 @@ class HistoryPage(QWidget):
         return self._vm.hidden_mode
 
     def set_hidden_mode(self, enabled: bool) -> None:
-        """Programmatically enter or leave hidden mode (e.g. from bookmarks page)."""
+        """Programmatically enter or leave hidden mode.  Auth-guarded when entering."""
         if self._vm.hidden_mode == enabled:
             return
+        if enabled and self._config and self._config.master_password_hash:
+            from src.views.master_password_dialog import require_master_password
+
+            if not require_master_password(self._config.master_password_hash, self):
+                return
         self._vm.set_hidden_mode(enabled)
         self._update_hidden_mode_ui()
 

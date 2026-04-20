@@ -22,6 +22,24 @@ class MasterPasswordSession:
         self._lock = threading.Lock()
         self._unlocked: bool = False
         self._last_activity: float = 0.0
+        self._observers: list = []
+
+    def add_observer(self, cb) -> None:
+        if cb not in self._observers:
+            self._observers.append(cb)
+
+    def remove_observer(self, cb) -> None:
+        try:
+            self._observers.remove(cb)
+        except ValueError:
+            pass
+
+    def _notify(self) -> None:
+        for cb in list(self._observers):
+            try:
+                cb()
+            except Exception:
+                pass
 
     # ── public interface ──────────────────────────────────────────────────────
 
@@ -38,11 +56,13 @@ class MasterPasswordSession:
             self._unlocked = True
             self._last_activity = time.monotonic()
         log.info("Master password session unlocked")
+        self._notify()
 
     def lock(self) -> None:
         with self._lock:
             self._unlocked = False
         log.info("Master password session locked")
+        self._notify()
 
     def touch(self) -> None:
         """Extend the session on any protected activity."""
