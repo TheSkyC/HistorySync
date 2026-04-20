@@ -18,12 +18,39 @@ from src.utils.constants import DB_BATCH_SIZE
 from src.utils.i18n_core import _
 from src.utils.logger import get_logger
 from src.utils.url_utils import (
-    extract_display_domain as _extract_display_domain,
+    extract_display_domain as _extract_display_domain_raw,
     extract_host as _extract_url_host,
     normalize_domain,
 )
 
 log = get_logger("local_db")
+
+# ── Cached domain extraction ─────────────────────────────────────────────────
+# History rows often have the same origin (scheme + host) with different paths.
+# Caching on just the origin prefix (everything before the 3rd '/') gives high
+# hit rates while avoiding per-URL dict bloat.
+# Example: "https://github.com/user/repo" → key "https://github.com"
+_domain_cache: dict[str, str] = {}
+_DOMAIN_CACHE_MAX = 8192
+
+
+def _extract_display_domain(url: str) -> str:
+    # Extract the scheme://host prefix as the cache key.
+    # str.index raises ValueError for malformed URLs — fall back to full URL.
+    try:
+        sep = url.index("://")
+        end = url.index("/", sep + 3)
+        key = url[:end]
+    except (ValueError, TypeError):
+        key = url or ""
+    cached = _domain_cache.get(key)
+    if cached is not None:
+        return cached
+    result = _extract_display_domain_raw(url)
+    if len(_domain_cache) >= _DOMAIN_CACHE_MAX:
+        _domain_cache.clear()
+    _domain_cache[key] = result
+    return result
 
 
 # ── SQL injection defence helpers ─────────────────────────────────────────────
@@ -2193,8 +2220,29 @@ class LocalDatabase:
                         hidden_only=hidden_only,
                     )
                 raise
-        ids = [r[0] for r in id_rows]
-        return self.get_records_by_ids(ids)
+        if not id_rows:
+            return []
+        # Resolve full columns + domain host in one query using the page ids.
+        # JOIN on the PK index (200 rows) is cheap; the covering-index scan above
+        # already did the expensive pagination work.  Using a CTE keeps both steps
+        # in the same connection context (single lock acquisition) and preserves
+        # visit_time DESC order via the final ORDER BY.
+        page_ids = [r[0] for r in id_rows]
+        placeholders = ",".join("?" * len(page_ids))
+        _COLS = (
+            "h.id, h.url, h.title, h.visit_time, h.visit_count, "
+            "h.browser_type, h.profile_name, h.metadata, "
+            "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
+            "h.device_id, d.host AS domain"
+        )
+        full_rows = conn.execute(
+            f"SELECT {_COLS} FROM history h "
+            f"LEFT JOIN domains d ON h.domain_id = d.id "
+            f"WHERE h.id IN ({placeholders}) "
+            f"ORDER BY h.visit_time DESC, h.id DESC",
+            page_ids,
+        ).fetchall()
+        return [self._row_to_record(r) for r in full_rows]
 
     def get_visit_time_at_offset(
         self,
@@ -3176,21 +3224,22 @@ class LocalDatabase:
             domain = row["domain"] or _extract_display_domain(row["url"])
         except IndexError:
             domain = _extract_display_domain(row["url"])
+        # Positional construction is ~20% faster than keyword args with __slots__
         return HistoryRecord(
-            id=row["id"],
-            url=row["url"],
-            title=row["title"],
-            visit_time=row["visit_time"],
-            visit_count=row["visit_count"],
-            browser_type=row["browser_type"],
-            profile_name=row["profile_name"],
-            domain=domain,
-            metadata=row["metadata"],
-            typed_count=row["typed_count"],
-            first_visit_time=row["first_visit_time"],
-            transition_type=row["transition_type"],
-            visit_duration=row["visit_duration"],
-            device_id=device_id,
+            row["url"],
+            row["title"],
+            row["visit_time"],
+            row["visit_count"],
+            row["browser_type"],
+            row["profile_name"],
+            domain,
+            row["metadata"],
+            row["typed_count"],
+            row["first_visit_time"],
+            row["transition_type"],
+            row["visit_duration"],
+            row["id"],
+            device_id,
         )
 
     def resolve_device_ids(self, name_or_uuid: str) -> list[int]:

@@ -1742,10 +1742,13 @@ class SmartSearchLineEdit(QWidget):
     # ── Keyboard navigation ───────────────────────────────
 
     def eventFilter(self, obj, event) -> bool:
-        # App-level mouse press: hide dropdown and blur editor when clicking outside.
+        # This filter is installed on QApplication (app-level), so it receives
+        # EVERY event in the entire application.  Keep the fast path as short
+        # as possible: only 3 event types are relevant.
         etype = event.type()
-        if etype == QEvent.MouseButtonPress and isinstance(event, QMouseEvent):
-            if self._dropdown.isVisible() or self._editor.hasFocus():
+        if etype == QEvent.MouseButtonPress:
+            # App-level mouse press: hide dropdown and blur editor when clicking outside.
+            if isinstance(event, QMouseEvent) and (self._dropdown.isVisible() or self._editor.hasFocus()):
                 # Use object identity — coordinate math is unreliable because the
                 # dropdown (ToolTip top-level) visually overlaps the editor's rect.
                 in_editor = obj is self._editor or obj is self._editor.viewport()
@@ -1761,12 +1764,11 @@ class SmartSearchLineEdit(QWidget):
                 if not in_editor and not in_dropdown:
                     self._dropdown.hide()
                     self._editor.clearFocus()
-
-        if obj is self._editor:
-            # Recalculate search box height when font changes (after FontManager/QSS modification)
+        elif obj is self._editor:
             if etype == QEvent.Type.FontChange:
+                # Recalculate search box height when font changes
                 self._editor.setFixedHeight(self._editor.fontMetrics().height() + 18)
-            if etype == QEvent.KeyPress:
+            elif etype == QEvent.KeyPress:
                 key = event.key()
 
                 # ── Tab: ghost text first, then operator chips ──────────────
@@ -1816,7 +1818,7 @@ class SmartSearchLineEdit(QWidget):
                     self._dropdown.hide()
                     self.search_submitted.emit(text)
                     return True
-        return super().eventFilter(obj, event)
+        return False  # QWidget.eventFilter() always returns False; skip the vtable call
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

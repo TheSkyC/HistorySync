@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import bisect
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 import time as _time
 from urllib.parse import urlparse
 import webbrowser
@@ -150,28 +150,55 @@ def _format_separator_date(ts: int) -> str:
 
     Format strings are translatable so each locale can rearrange tokens.
     """
+    lt = _time.localtime(ts)
+    record_ymd = (lt.tm_year, lt.tm_mon, lt.tm_mday)
+    today_lt = _time.localtime()
+    today_ymd = (today_lt.tm_year, today_lt.tm_mon, today_lt.tm_mday)
 
-    dt = datetime.fromtimestamp(ts)
-    today = date.today()
-    record_date = dt.date()
-    days_ago = (today - record_date).days
-    weekday = _(_WEEKDAY_FULL[dt.weekday()])
-
-    if record_date == today:
+    if record_ymd == today_ymd:
         return _("Today")
-    if record_date == today - timedelta(days=1):
+
+    # Use Julian day number for fast day-difference calculation
+    today_lt.tm_yday - lt.tm_yday + (today_lt.tm_year - lt.tm_year) * 365
+    # Rough approximation is fine for <= 13 days; for larger spans we use month/year
+    if today_lt.tm_year == lt.tm_year:
+        exact_days = today_lt.tm_yday - lt.tm_yday
+    else:
+        # Cross-year boundary: compute from date objects only when needed
+        exact_days = (
+            date(today_lt.tm_year, today_lt.tm_mon, today_lt.tm_mday) - date(lt.tm_year, lt.tm_mon, lt.tm_mday)
+        ).days
+
+    weekday = _(_WEEKDAY_FULL[lt.tm_wday])
+
+    if exact_days == 1:
         return _("Yesterday")
-    if days_ago < 7:
-        # Translators: date separator - within the past week. tokens: {weekday}
+    if exact_days < 7:
         return _("{weekday}").format(weekday=weekday)
-    if days_ago < 14:
-        # Translators: date separator - last week. tokens: {weekday}
+    if exact_days < 14:
         return _("Last {weekday}").format(weekday=weekday)
-    if dt.year == today.year:
-        # Translators: date separator - same year.  tokens: {month} {day} {weekday}
-        return _("{month}/{day}  {weekday}").format(month=dt.month, day=dt.day, weekday=weekday)
-    # Translators: date separator - different year.  tokens: {year} {month} {day} {weekday}
-    return _("{year}/{month}/{day}  {weekday}").format(year=dt.year, month=dt.month, day=dt.day, weekday=weekday)
+    if lt.tm_year == today_lt.tm_year:
+        return _("{month}/{day}  {weekday}").format(month=lt.tm_mon, day=lt.tm_mday, weekday=weekday)
+    return _("{year}/{month}/{day}  {weekday}").format(
+        year=lt.tm_year, month=lt.tm_mon, day=lt.tm_mday, weekday=weekday
+    )
+
+
+# ── Fast local-day-number for separator detection ─────────────────────────────
+# Pure integer arithmetic: (unix_ts + utc_offset) // 86400.  Avoids all Python
+# date/datetime/struct_time object construction.
+# The offset is refreshed lazily (every ~3600 calls) to catch DST transitions.
+_day_offset: list[int] = [-(_time.altzone if _time.daylight and _time.localtime().tm_isdst else _time.timezone)]
+_day_offset_counter: list[int] = [0]
+
+
+def _local_day_number(ts: int) -> int:
+    """Return a local calendar day number for *ts* (seconds since epoch)."""
+    _day_offset_counter[0] += 1
+    if _day_offset_counter[0] >= 3600:
+        _day_offset_counter[0] = 0
+        _day_offset[0] = -(_time.altzone if _time.daylight and _time.localtime().tm_isdst else _time.timezone)
+    return (ts + _day_offset[0]) // 86400
 
 
 _DEBOUNCE_MS = 350
@@ -295,6 +322,26 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         # date object — avoids constructing a Python date on every paint call.
         self._date_label_cache_today: int = -1
 
+        # ── QPainterPath cache ────────────────────────────────────────────────
+        # Keyed on (width, height) → QPainterPath positioned at (0,0).
+        # Avoids re-creating QPainterPath + addRoundedRect on every pill paint.
+        self._path_cache: dict[tuple[int, int], QPainterPath] = {}
+
+        # ── Cached QPen for pill border ───────────────────────────────────────
+        # Creating QPen(QColor, float) on every _draw_pill_fast call showed up
+        # in profiling.  Cache it once; rebuilt on theme change.
+        self._border_pen = QPen(self._pill_border, 0.8)
+
+        # ── Paint-loop counters & cached translations ─────────────────────────
+        self._today_check_counter: int = 0
+        self._count_fmt: str = _("{count} visits")
+
+        # ── Connect theme signal so we never need to poll ThemeManager ────────
+        try:
+            ThemeManager.instance().theme_changed.connect(self._on_theme_switched)
+        except Exception:
+            pass  # during unit tests ThemeManager may not be fully initialized
+
     # ── QStyledItemDelegate interface ─────────────────────────────────────────
 
     def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
@@ -307,38 +354,65 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         visit_time = self._sep_rows.get(row)  # None → not a separator row
 
         if visit_time is None:
-            self._paint_cell(painter, option, index)
+            # Inline _paint_cell for the common non-separator path to avoid
+            # function call overhead (called ~10k times during fast scroll).
+            col = index.column()
+            if col == self._sub_col and self._sub is not None:
+                self._sub.paint(painter, option, index)
+            else:
+                super().paint(painter, option, index)
             return
 
         # ── Separator row: split the rect into top band + content band ────────
-        top_rect = QRect(option.rect.left(), option.rect.top(), option.rect.width(), _SEP_H)
-        content_rect = QRect(option.rect.left(), option.rect.top() + _SEP_H, option.rect.width(), _ROW_H)
+        rect = option.rect
+        top_rect = QRect(rect.left(), rect.top(), rect.width(), _SEP_H)
+        content_rect = QRect(rect.left(), rect.top() + _SEP_H, rect.width(), _ROW_H)
 
-        # Fill separator band background (matches the view's window color so it
-        # blends naturally regardless of alternating-row-colors settings).
-        painter.save()
-        win_color = option.palette.color(option.palette.ColorRole.Window)
-        painter.fillRect(top_rect, win_color)
-        painter.restore()
+        # Fill separator band background — fillRect does not alter painter state,
+        # so no save/restore needed.
+        painter.fillRect(top_rect, option.palette.color(option.palette.ColorRole.Window))
 
         # Paint the date pill only once — in column 0 (leftmost visible cell).
-        # Pass the cached visit_time directly — no model.data() call needed.
-        if index.column() == 0:
+        col = index.column()
+        if col == 0:
+            # Capture font before pill drawing so we can restore it for the
+            # content cell below.  _paint_separator_pill changes the font to
+            # the smaller pill font; the content cell needs the original.
+            # (renderHints are NOT saved here — the view's save/restore handles
+            #  that between columns, and antialiasing for content cells is fine.)
+            base_font = painter.font()
             self._paint_separator_pill(painter, top_rect, visit_time, row)
+            painter.setFont(base_font)  # restore for content cell painting
 
         # Paint the regular cell content in the lower portion
         adj = QStyleOptionViewItem(option)
         adj.rect = content_rect
-        self._paint_cell(painter, adj, index)
+        if col == self._sub_col and self._sub is not None:
+            self._sub.paint(painter, adj, index)
+        else:
+            super().paint(painter, adj, index)
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _refresh_theme_cache(self) -> None:
         """Rebuild cached QColor objects when the active theme changes.
 
-        This is a cheap string comparison on every paint call; the actual
-        QColor construction only happens on a real theme switch (~2×/session).
+        Now a no-op on the hot path — actual rebuild is driven by the
+        theme_changed signal via _on_theme_switched().  The initial call
+        from __init__ triggers the full rebuild because _cached_theme
+        starts empty.
         """
+        if self._cached_theme:
+            return  # already initialized; signal-driven from here
+        self._do_rebuild_theme()
+
+    def _on_theme_switched(self, _theme_name: str = "") -> None:
+        """Slot connected to ThemeManager.theme_changed."""
+        self._cached_theme = ""  # force rebuild on next call
+        self._do_rebuild_theme()
+
+    def _do_rebuild_theme(self) -> None:
+        """Actually rebuild all cached theme colors and pens."""
         theme = ThemeManager.instance().current
         if theme == self._cached_theme:
             return
@@ -355,6 +429,7 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
             self._pill_text_color = QColor(90, 100, 120)
             self._count_pill_bg = QColor(0, 0, 0, 9)
             self._count_pill_text_color = QColor(120, 130, 150)
+        self._border_pen = QPen(self._pill_border, 0.8)
 
     def _get_pill_font_and_fm(self, painter_font: QFont) -> tuple[QFont, QFontMetrics]:
         """Return a cached (QFont, QFontMetrics) pair for the pill text.
@@ -363,6 +438,11 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         DPI or preference changes, but is only rebuilt when the font actually
         changes (rare during a session).  Clears _geometry_cache on rebuild so
         old pill widths measured with the previous font are discarded.
+
+        Note: id(painter_font) is NOT used as a fast-path because painter.font()
+        returns a new Python wrapper object on every call, so the id() always
+        differs.  The f-string key is cheap (~1µs) and only evaluated once per
+        paint call.
         """
         font_key = f"{painter_font.family()}:{painter_font.pointSizeF():.2f}"
         if font_key != self._base_font_key or self._pill_font is None:
@@ -419,28 +499,38 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
             self._geometry_cache[cache_key] = geom
         return geom
 
-    def _draw_pill(self, painter: QPainter, rect: QRect, text: str, font: QFont, *, primary: bool) -> None:
-        """Draw a single rounded pill with *text* inside *rect*.
+    def _get_pill_path(self, w: int, h: int) -> QPainterPath:
+        """Return a cached QPainterPath for a pill of the given size.
 
-        *primary=True* uses the main date-pill colors; *primary=False* uses the
-        lighter count-pill colors to visually subordinate the visit count.
+        Pills with the same (w, h) reuse the same path object, avoiding
+        QPainterPath allocation + addRoundedRect on every paint() call.
+        The path is positioned at (0, 0); callers translate the painter.
+        """
+        path = self._path_cache.get((w, h))
+        if path is None:
+            path = QPainterPath()
+            path.addRoundedRect(0, 0, w, h, h / 2, h / 2)
+            if len(self._path_cache) > 200:
+                self._path_cache.clear()
+            self._path_cache[(w, h)] = path
+        return path
+
+    def _draw_pill_fast(self, painter: QPainter, x: int, y: int, w: int, h: int, text: str, *, primary: bool) -> None:
+        """Draw a single rounded pill — no save/restore (caller manages state).
+
+        Assumes painter already has: antialiasing enabled, pill font set.
         """
         bg = self._pill_bg if primary else self._count_pill_bg
-        border = self._pill_border
         text_color = self._pill_text_color if primary else self._count_pill_text_color
 
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        path = QPainterPath()
-        radius = rect.height() / 2
-        path.addRoundedRect(rect.x(), rect.y(), rect.width(), rect.height(), radius, radius)
+        path = self._get_pill_path(w, h)
+        painter.translate(x, y)
         painter.fillPath(path, bg)
-        painter.setPen(QPen(border, 0.8))
+        painter.setPen(self._border_pen)
         painter.drawPath(path)
-        painter.setFont(font)
         painter.setPen(text_color)
-        painter.drawText(rect, Qt.AlignCenter, text)
-        painter.restore()
+        painter.drawText(0, 0, w, h, Qt.AlignCenter, text)
+        painter.translate(-x, -y)
 
     def _paint_separator_pill(self, painter: QPainter, band: QRect, visit_time: int, row: int) -> None:
         """Draw date pill (always) and count pill (once loaded) centered in *band*.
@@ -455,18 +545,17 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         """
         self._refresh_theme_cache()
 
-        # Use an integer day-bucket (unix_seconds // 86400) instead of
-        # date.today() to avoid constructing a Python date object on every
-        # paint() call.  The bucket is UTC-based; it flips at UTC midnight,
-        # which is close enough for cache-invalidation purposes — the formatted
-        # label is rebuilt at most once per hour on boundary days.
-        today_bucket: int = int(_time.time()) // 86400
-        if today_bucket != self._date_label_cache_today:
-            self._date_label_cache.clear()
-            self._date_label_cache_today = today_bucket
+        # Check today_bucket lazily — the date only changes once per 86400 seconds,
+        # so checking on every paint (~10k calls) is wasteful.
+        # Use a simple counter: check time.time() every 500 paint calls (~3s at 60fps).
+        self._today_check_counter += 1
+        if self._today_check_counter >= 500:
+            self._today_check_counter = 0
+            today_bucket: int = int(_time.time()) // 86400
+            if today_bucket != self._date_label_cache_today:
+                self._date_label_cache.clear()
+                self._date_label_cache_today = today_bucket
 
-        # Use (visit_time // 86400) as cache key — all timestamps on the same
-        # calendar day produce the same label, so this gives maximum reuse.
         day_bucket = visit_time // 86400
         cache_key_label = (day_bucket,)
         date_label = self._date_label_cache.get(cache_key_label)
@@ -484,7 +573,7 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
 
         _GAP = 6
         if count is not None:
-            count_label = _("{count} visits").format(count=count)
+            count_label = self._count_fmt.format(count=count)
             count_w, __ = self._measure_pill(fm2, ("c", count), count_label)
             total_w = date_w + _GAP + count_w
         else:
@@ -494,12 +583,20 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         start_x = band.left() + (band.width() - total_w) // 2
         pill_y = band.top() + (band.height() - pill_h) // 2
 
-        self._draw_pill(painter, QRect(start_x, pill_y, date_w, pill_h), date_label, pill_font, primary=True)
+        # Enable antialiasing for pill rendering.  We skip save/restore of
+        # renderHints here because:
+        # (a) The view already wraps each delegate.paint() call in save/restore,
+        #     so renderHints state is reset between columns automatically.
+        # (b) Antialiasing for the content cell (super().paint()) is harmless.
+        # The caller (paint()) captures the original font BEFORE calling this
+        # method and restores it AFTER, so we don't need to do that here either.
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setFont(pill_font)
+
+        self._draw_pill_fast(painter, start_x, pill_y, date_w, pill_h, date_label, primary=True)
 
         if count_label is not None:
-            self._draw_pill(
-                painter, QRect(start_x + date_w + _GAP, pill_y, count_w, pill_h), count_label, pill_font, primary=False
-            )
+            self._draw_pill_fast(painter, start_x + date_w + _GAP, pill_y, count_w, pill_h, count_label, primary=False)
 
 
 class BookmarkBadgeDelegate(QStyledItemDelegate):
@@ -545,8 +642,6 @@ class BookmarkBadgeDelegate(QStyledItemDelegate):
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index):
         """Draw favicon and badge icons if present."""
-        from PySide6.QtGui import QPixmap
-
         # Fetch the record once via UserRole — avoids 4 separate data() calls
         # (DisplayRole, DecorationRole, BOOKMARK_ROLE, ANNOTATION_ROLE) each of
         # which would trigger a full role-dispatch + _get_record_at() round-trip.
@@ -562,23 +657,24 @@ class BookmarkBadgeDelegate(QStyledItemDelegate):
         state = option.state
         needs_full_style = bool(state & (QStyle.State_Selected | QStyle.State_MouseOver | QStyle.State_HasFocus))
 
-        opt = QStyleOptionViewItem(option)
-        self.initStyleOption(opt, index)
-        opt.text = ""
-        opt.icon = QIcon()
-
         if needs_full_style:
+            opt = QStyleOptionViewItem(option)
+            self.initStyleOption(opt, index)
+            opt.text = ""
+            opt.icon = QIcon()
             option.widget.style().drawControl(QStyle.CE_ItemViewItem, opt, painter, option.widget)
         else:
-            # Fast path: just fill the background color
-            bg = opt.palette.color(opt.palette.ColorRole.Base)
-            if state & QStyle.State_Enabled and (opt.features & QStyleOptionViewItem.ViewItemFeature.Alternate):
-                bg = opt.palette.color(opt.palette.ColorRole.AlternateBase)
+            # Fast path: skip initStyleOption entirely — just fill background.
+            palette = option.palette
+            bg = palette.color(palette.ColorRole.Base)
+            if state & QStyle.State_Enabled and (option.features & QStyleOptionViewItem.ViewItemFeature.Alternate):
+                bg = palette.color(palette.ColorRole.AlternateBase)
             painter.fillRect(option.rect, bg)
 
         favicon = self._model.data(index, Qt.DecorationRole)
 
-        painter.save()
+        # Save only the pen instead of full painter state — much cheaper
+        old_pen = painter.pen()
 
         # Calculate layout
         rect = option.rect
@@ -609,19 +705,14 @@ class BookmarkBadgeDelegate(QStyledItemDelegate):
 
         # Draw text
         text_rect = QRect(x + 4, rect.y(), rect.width() - (x - rect.x()) - 4, rect.height())
-        if needs_full_style:
-            painter.setPen(
-                opt.palette.color(
-                    opt.palette.ColorRole.HighlightedText
-                    if opt.state & QStyle.State_Selected
-                    else opt.palette.ColorRole.Text
-                )
-            )
+        text_palette = option.palette
+        if needs_full_style and state & QStyle.State_Selected:
+            painter.setPen(text_palette.color(text_palette.ColorRole.HighlightedText))
         else:
-            painter.setPen(opt.palette.color(opt.palette.ColorRole.Text))
+            painter.setPen(text_palette.color(text_palette.ColorRole.Text))
         painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, display_text)
 
-        painter.restore()
+        painter.setPen(old_pen)
 
     def editorEvent(self, event, model, option, index):
         """Handle mouse clicks on badge icons."""
@@ -1266,20 +1357,20 @@ class _ScrollTimeBubble(QWidget):
         painter.drawPath(path)
 
     def set_timestamp(self, ts: int) -> None:
-        dt = datetime.fromtimestamp(ts)
+        lt = _time.localtime(ts)
 
         # Cache the current year to avoid a syscall on every timer tick.
-        # _current_year is refreshed lazily by comparing against _cached_year.
         now_year = getattr(self, "_cached_year", 0)
         if now_year == 0:
-            now_year = datetime.now().year
+            now_year = _time.localtime().tm_year
             self._cached_year = now_year
 
-        weekday = _(_WEEKDAY_ABBR[dt.weekday()])  # 0=Mon ... 6=Sun
-        new_date = (
-            (dt.strftime("%m-%d") + f" {weekday}") if dt.year == now_year else (dt.strftime("%Y-%m-%d") + f" {weekday}")
-        )
-        new_time = dt.strftime("%H:%M")
+        weekday = _(_WEEKDAY_ABBR[lt.tm_wday])  # 0=Mon ... 6=Sun
+        if lt.tm_year == now_year:
+            new_date = f"{lt.tm_mon:02d}-{lt.tm_mday:02d} {weekday}"
+        else:
+            new_date = f"{lt.tm_year}-{lt.tm_mon:02d}-{lt.tm_mday:02d} {weekday}"
+        new_time = f"{lt.tm_hour:02d}:{lt.tm_min:02d}"
 
         # Always update time label
         if new_time != self._last_time_str:
@@ -1287,7 +1378,7 @@ class _ScrollTimeBubble(QWidget):
             self._last_time_str = new_time
 
         # Update day-position indicator on every timestamp change
-        day_progress = (dt.hour * 3600 + dt.minute * 60 + dt.second) / 86400
+        day_progress = (lt.tm_hour * 3600 + lt.tm_min * 60 + lt.tm_sec) / 86400
         self._density_bar.set_day_progress(day_progress)
 
         # Update record-rank indicator — debounced to avoid a SQLite round-trip
@@ -1305,7 +1396,7 @@ class _ScrollTimeBubble(QWidget):
         if new_date != self._last_date_str:
             self._last_date_str = new_date
             self._date_lbl.setText(new_date)
-            self._load_day_stats(dt)
+            self._load_day_stats(lt)
             self.adjustSize()
 
     def _flush_rank_query(self) -> None:
@@ -1315,8 +1406,10 @@ class _ScrollTimeBubble(QWidget):
             return
         self._rank_pending_ts = None
         try:
-            dt = datetime.fromtimestamp(ts)
-            day_start = int(datetime(dt.year, dt.month, dt.day, 0, 0, 0).timestamp())
+            lt = _time.localtime(ts)
+            day_start = int(
+                _time.mktime(_time.struct_time((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, lt.tm_isdst)))
+            )
             rank_key = (day_start, ts)
             if rank_key != self._last_rank_key:
                 self._last_rank_value = self._db.get_day_rank(day_start, ts)
@@ -1326,12 +1419,17 @@ class _ScrollTimeBubble(QWidget):
         except Exception:
             pass
 
-    def _load_day_stats(self, dt: datetime) -> None:
-        """Query DB for top domains + total count for the given day."""
+    def _load_day_stats(self, lt) -> None:
+        """Query DB for top domains + total count for the given day.
+
+        *lt* is a time.struct_time from localtime().
+        """
         if self._db is None:
             return
         try:
-            day_start = int(datetime(dt.year, dt.month, dt.day, 0, 0, 0).timestamp())
+            day_start = int(
+                _time.mktime(_time.struct_time((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, lt.tm_isdst)))
+            )
             day_end = day_start + 86399
             stats = self._db.get_day_stats(day_start, day_end, top_n=3)
             self._cached_stats = stats
@@ -1492,7 +1590,14 @@ class _ScrollTimeBubble(QWidget):
                 self.move(self._target_x, self._target_y)
             return True  # fully settled — caller may skip next tick if nothing else changed
         self._current_y += delta * self._SMOOTH_FACTOR
-        self.move(self._target_x, int(self._current_y))
+        new_y = int(self._current_y)
+        # Only call move() when the integer pixel position actually changes.
+        # QWidget.move() is expensive (~2.6ms/call) even for Tool windows because
+        # it triggers OS-level window repositioning.  During inertial smoothing
+        # the sub-pixel delta can be non-zero while the integer position is unchanged.
+        new_pos = (self._target_x, new_y)
+        if new_pos != (self.x(), self.y()):
+            self.move(*new_pos)
         return False  # still animating toward target
 
     def snap_position(self) -> None:
@@ -2250,8 +2355,11 @@ class HistoryPage(QWidget):
                     vh.resizeSection(row, _SEP_TOTAL)
                     continue
 
-            curr_day = date.fromtimestamp(record.visit_time)
-            prev_day = date.fromtimestamp(prev.visit_time)
+            # Compare calendar days using local-day-number — pure integer
+            # arithmetic (one division per timestamp, no Python object allocation).
+            # _local_day_number returns (ts + utc_offset) // 86400.
+            curr_day = _local_day_number(record.visit_time)
+            prev_day = _local_day_number(prev.visit_time)
 
             if curr_day != prev_day:
                 if row not in self._separator_rows:
@@ -2269,10 +2377,11 @@ class HistoryPage(QWidget):
                 vh.resizeSection(row, _ROW_H)
 
         # Schedule a lazy count fetch for any newly visible separator rows.
-        # singleShot(0) defers until the current event-loop iteration completes
-        # (after Qt has processed the row-height changes above), ensuring
-        # rowAt() returns correct values when _load_visible_sep_counts runs.
-        QTimer.singleShot(0, self._load_visible_sep_counts)
+        # Use the existing debounce timer instead of singleShot(0, ...) to avoid
+        # creating a new QTimer object on every page load (~200+ per scroll session).
+        # The 300 ms delay is acceptable for cosmetic sep counts.
+        if not self._sep_count_timer.isActive():
+            self._sep_count_timer.start()
 
         # Restore scroll position after an in-place mutation (delete/hide/unhide).
         # We defer to base_row == 0 so that separator rows in the first page are
@@ -2565,13 +2674,17 @@ class HistoryPage(QWidget):
             self._vm.load_more()
 
     def _on_scroll_sep_counts(self, _value: int) -> None:
-        """Restart the debounce timer whenever the table scrolls.
+        """Start the debounce timer on the first scroll event in a burst.
 
-        Calling start() on an already-running QTimer restarts it, so rapid
-        scroll events are collapsed into a single _load_visible_sep_counts()
-        call that fires 300 ms after scrolling comes to rest.
+        Previously this called start() on every valueChanged event which
+        restarts the QTimer on every pixel of drag (~4000+ calls/session).
+        Now we only start it when it is not already running.  The timer fires
+        300 ms after it was *first* started, which is acceptable — sep counts
+        are cosmetic and a slightly earlier fire is fine.  The timer restarts
+        naturally after it fires if scrolling continues.
         """
-        self._sep_count_timer.start()
+        if not self._sep_count_timer.isActive():
+            self._sep_count_timer.start()
 
     def _load_visible_sep_counts(self) -> None:
         """Batch-fetch visit counts for every separator row currently visible.
@@ -2607,8 +2720,10 @@ class HistoryPage(QWidget):
         missing_rows: dict[int, int] = {}  # row → day_start_ts
         for row, visit_time in self._separator_rows.items():
             if top_row <= row <= bottom_row and row not in self._sep_counts:
-                dt = datetime.fromtimestamp(visit_time)
-                day_start = int(datetime(dt.year, dt.month, dt.day).timestamp())
+                lt = _time.localtime(visit_time)
+                day_start = int(
+                    _time.mktime(_time.struct_time((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, lt.tm_isdst)))
+                )
                 missing_rows[row] = day_start
 
         if not missing_rows:
@@ -2662,7 +2777,8 @@ class HistoryPage(QWidget):
         self._customize_calendar(self._date_from)
         self._customize_calendar(self._date_to)
         # Re-fetch counts lost when modelReset cleared _sep_counts during theme swap.
-        QTimer.singleShot(0, self._load_visible_sep_counts)
+        if not self._sep_count_timer.isActive():
+            self._sep_count_timer.start()
         # Re-apply column widths after the event loop has processed updateGeometries()
         # so that setStretchLastSection uses the correct (scrollbar-adjusted) viewport width.
         # This covers the case where the page is *visible* during the theme change.

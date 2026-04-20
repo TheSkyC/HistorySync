@@ -4,7 +4,7 @@
 from dataclasses import dataclass, field
 
 
-@dataclass
+@dataclass(slots=True)
 class HistoryRecord:
     # --- Core fields ---
     url: str
@@ -53,7 +53,7 @@ class HistoryRecord:
         return f"{self.browser_type}|{self.url}|{self.visit_time}"
 
 
-@dataclass
+@dataclass(slots=True)
 class BookmarkRecord:
     """A bookmarked history entry with optional tags."""
 
@@ -68,7 +68,7 @@ class BookmarkRecord:
         return ", ".join(self.tags)
 
 
-@dataclass
+@dataclass(slots=True)
 class AnnotationRecord:
     """A user note attached to a history URL."""
 
