@@ -90,8 +90,12 @@ class TestRunExtraction:
         mock_ext.extract.side_effect = RuntimeError("disk error")
         em = ExtractorManager(local_db)
         em._registry = {"chrome": mock_ext}
-        results = em.run_extraction(["chrome"])
-        assert results["chrome"] == 0
+        events: list[tuple] = []
+        results = em.run_extraction(["chrome"], progress_callback=lambda bt, s, c: events.append((bt, s, c)))
+        # Failed extractions return None (not 0) so callers can distinguish
+        # a genuine failure from a successful run with zero new records.
+        assert results["chrome"] is None
+        assert any(s == "error" for _, s, _ in events)
 
     def test_progress_callback_lifecycle(self, local_db):
         records = [make_record(url="https://x.com")]
