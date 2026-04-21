@@ -224,7 +224,10 @@ class BrowserScanner:
                     if not item.is_dir():
                         continue
 
-                    if item.is_symlink():
+                    # Skip symbolic links and Windows junction points to prevent
+                    # following cycles or escaping the intended scan root.
+                    # Path.is_junction() is available on Python 3.12+ (Windows only).
+                    if item.is_symlink() or item.is_junction():
                         continue
 
                     # Skip hidden and specific directories
