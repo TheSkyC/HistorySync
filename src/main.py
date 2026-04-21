@@ -679,6 +679,9 @@ def _gui_main(args: argparse.Namespace) -> None:
         _pynput_seq = qt_keyseq_to_pynput(config.keybindings.global_overlay)
         _hotkey_mgr.register(_pynput_seq)
 
+    # Ensure the pynput listener thread is cleanly stopped when Qt shuts down.
+    app.aboutToQuit.connect(_hotkey_mgr.unregister)
+
     def _on_settings_saved():
         cfg = main_vm._config
         if cfg.overlay.enabled:
