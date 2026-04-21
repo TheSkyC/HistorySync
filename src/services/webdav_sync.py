@@ -227,7 +227,10 @@ class WebDavSyncService:
             # ── Export FTS-free copy of the DB ─────────────
             _cb(_("Preparing database for upload (stripping FTS index)..."))
             fd_clean, tmp_clean_db_path = tempfile.mkstemp(suffix="_clean.db")
-            os.close(fd_clean)
+            try:
+                os.close(fd_clean)
+            except OSError:
+                pass
             clean_db_path = Path(tmp_clean_db_path)
             if self._local_db is not None:
                 self._local_db.export_without_fts(clean_db_path)
@@ -250,7 +253,10 @@ class WebDavSyncService:
             # ── Build zip archive with hash manifest ──────────
             _cb(_("Compressing and packaging backup..."))
             fd, tmp_zip_path = tempfile.mkstemp(suffix=".zip")
-            os.close(fd)
+            try:
+                os.close(fd)
+            except OSError:
+                pass
 
             hash_manifest: dict[str, str] = {}
 
@@ -430,15 +436,21 @@ class WebDavSyncService:
             _cb(_("Downloading {filename}...").format(filename=latest_backup))
 
             fd, tmp_download_path = tempfile.mkstemp(suffix=".zip")
-            os.close(fd)
+            try:
+                os.close(fd)
+            except OSError:
+                pass
             _webdav_retry(lambda: client.download_sync(remote_path=remote_file, local_path=tmp_download_path))
 
             hash_info: dict[str, str] = {}
 
-            # ── zip format with hash manifest ─────────────
+            # ── zip format with hash manifest ──────────────────
             _cb(_("Verifying backup integrity (SHA-256)..."))
             fd2, tmp_db_path = tempfile.mkstemp(suffix=".db")
-            os.close(fd2)
+            try:
+                os.close(fd2)
+            except OSError:
+                pass
             _tmp_db_consumed = False
             try:
                 with zipfile.ZipFile(tmp_download_path, "r") as zf:
@@ -565,7 +577,10 @@ class WebDavSyncService:
             remote_dir = self._normalise_path(self._config.remote_path)
             remote_manifest = f"{remote_dir.rstrip('/')}/{WEBDAV_MANIFEST_FILENAME}"
             fd, tmp_path = tempfile.mkstemp(suffix=".json")
-            os.close(fd)
+            try:
+                os.close(fd)
+            except OSError:
+                pass
             try:
                 _webdav_retry(lambda: client.download_sync(remote_path=remote_manifest, local_path=tmp_path))
                 with Path(tmp_path).open("rb") as f:
