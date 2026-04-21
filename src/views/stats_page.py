@@ -29,6 +29,7 @@ from PySide6.QtGui import (
     QColor,
     QFont,
     QFontMetrics,
+    QKeySequence,
     QLinearGradient,
     QPainter,
     QPainterPath,
@@ -44,6 +45,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QShortcut,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -1601,10 +1603,11 @@ class StatsPage(QWidget):
 
     navigate_to_date = Signal(str)  # emits YYYY-MM-DD
 
-    def __init__(self, db: LocalDatabase, favicon_manager=None, parent=None):
+    def __init__(self, db: LocalDatabase, favicon_manager=None, config=None, parent=None):
         super().__init__(parent)
         self._db = db
         self._favicon_manager = favicon_manager
+        self._config = config  # AppConfig; may be None in test contexts
         self._current_year = datetime.date.today().year
         self._current_month = datetime.date.today().month
         self._granularity = "year"  # "overview", "year", "month"
@@ -1616,11 +1619,46 @@ class StatsPage(QWidget):
         # while its thread is still running, which can let Python's GC collect
         # the wrapper before the C++ finished/deleteLater chain completes.
         self._active_loaders: set = set()
+        self._page_shortcuts: list[QShortcut] = []
 
         self._build_ui()
+        self._setup_shortcuts()
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
         # Kick off initial data load
         self._load_data()
+
+    # ── Keyboard shortcuts ───────────────────────────────────────────────
+
+    def _setup_shortcuts(self) -> None:
+        """Register period-navigation shortcuts.
+
+        Uses Qt.WidgetWithChildrenShortcut so the shortcuts only fire while this
+        page (or a child) has focus, avoiding cross-page conflicts.  Alt+Left /
+        Alt+Right are chosen as defaults because bare arrow keys are consumed by
+        the inner QScrollArea for scrolling.
+        """
+        for sc in self._page_shortcuts:
+            sc.setEnabled(False)
+            sc.deleteLater()
+        self._page_shortcuts.clear()
+
+        kb = self._config.keybindings.app if self._config else {}
+
+        def _bind(key: str, fallback: str, slot) -> None:
+            seq = kb.get(key, fallback)
+            if not seq:
+                return
+            sc = QShortcut(QKeySequence(seq), self)
+            sc.setContext(Qt.WidgetWithChildrenShortcut)
+            sc.activated.connect(slot)
+            self._page_shortcuts.append(sc)
+
+        _bind("stats_prev", "Alt+Left", self._go_prev)
+        _bind("stats_next", "Alt+Right", self._go_next)
+
+    def apply_keybindings(self) -> None:
+        """Re-apply shortcuts after config change."""
+        self._setup_shortcuts()
 
     # ── UI construction ──────────────────────────────────────────────────
 

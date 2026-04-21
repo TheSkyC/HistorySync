@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer, Signal
 from PySide6.QtGui import QCursor, QKeySequence
 from PySide6.QtWidgets import (
@@ -24,20 +26,95 @@ from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.theme_manager import ThemeManager
 
+# ── Shortcut scope map ────────────────────────────────────────────────────────
+# Each action key is assigned to a scope that reflects where its QShortcut lives
+# at runtime.  Two shortcuts are a *true conflict* only when they would compete
+# for the same key event at the same time:
+#   - global shortcuts (MainWindow / WindowShortcut) are active whenever the
+#     app window is focused, so they can shadow any page-scoped shortcut.
+#   - page-scoped shortcuts (WidgetWithChildrenShortcut) only fire when that
+#     specific page widget has focus, so duplicates across *different* pages
+#     never actually conflict.
+_ACTION_SCOPE: dict[str, str] = {
+    "__global_overlay__": "global",
+    "goto_dashboard": "global",
+    "goto_history": "global",
+    "goto_bookmarks": "global",
+    "goto_settings": "global",
+    "goto_logs": "global",
+    "goto_stats": "global",
+    "trigger_sync": "global",
+    "focus_search": "global",
+    "delete_selected": "history",
+    "history_open_selected": "history",
+    "history_copy_url": "history",
+    "history_copy_title_url": "history",
+    "history_toggle_bookmark": "history",
+    "history_add_note": "history",
+    "history_open_export": "history",
+    "history_hide_selected": "history",
+    "bm_open": "bookmarks",
+    "bm_copy_url": "bookmarks",
+    "bm_delete": "bookmarks",
+    "bm_add_note": "bookmarks",
+    "bm_locate": "bookmarks",
+    "stats_prev": "stats",
+    "stats_next": "stats",
+    "settings_save": "settings",
+}
+
+_PAGE_SCOPES = {"history", "bookmarks", "stats", "settings"}
+
+
+def _do_conflict(scope_a: str, scope_b: str) -> bool:
+    """Return True if two shortcuts in the given scopes can conflict at runtime.
+
+    Page-scoped shortcuts on *different* pages never conflict because Qt only
+    delivers the key event to the widget that currently has focus.  Global
+    shortcuts are always active, so they will shadow any page-scoped duplicate.
+    """
+    if scope_a == scope_b:
+        return True
+    # Cross-scope conflict only when at least one side is global.
+    return scope_a == "global" or scope_b == "global"
+
+
 # ── Action display names ──────────────────────────────────────────────────────
 # N_() is intentionally NOT used here because these labels are evaluated at
 # method call time (inside load()), not at module import time.
+# Entries with key "__group__" are visual section headers, not real actions.
 
 _APP_ACTIONS: list[tuple[str, str]] = [
+    ("__group__", "Navigation"),
     ("goto_dashboard", "Go to Dashboard"),
     ("goto_history", "Go to History"),
     ("goto_bookmarks", "Go to Bookmarks"),
     ("goto_settings", "Go to Settings"),
     ("goto_logs", "Go to Log Viewer"),
     ("goto_stats", "Go to Statistics"),
+    ("__group__", "Global Actions"),
     ("trigger_sync", "Trigger Sync"),
     ("focus_search", "Focus Search"),
+    ("__group__", "History"),
     ("delete_selected", "Delete Selected"),
+    ("history_open_selected", "Open in Browser"),
+    ("history_copy_url", "Copy URL"),
+    ("history_copy_title_url", "Copy Title + URL"),
+    ("history_toggle_bookmark", "Toggle Bookmark"),
+    ("history_add_note", "Add / Edit Note"),
+    ("history_open_export", "Export…"),
+    ("history_hide_selected", "Hide Selected"),
+    ("__group__", "Bookmarks"),
+    ("bm_open", "Open in Browser"),
+    ("bm_copy_url", "Copy URL"),
+    ("bm_delete", "Remove Bookmark"),
+    ("bm_add_note", "Add / Edit Note"),
+    ("bm_locate", "Locate in History"),
+    ("__group__", "Statistics"),
+    ("stats_prev", "Previous Period"),
+    ("stats_next", "Next Period"),
+    ("__group__", "Settings"),
+    ("settings_save", "Save Settings"),
 ]
 
 
@@ -231,7 +308,7 @@ class _KeyCaptureEdit(QWidget):
             return
         self._is_recording = active
         if active:
-            self._label.setText(_("Press a key combination..."))
+            self._label.setText(_("Press a key..."))
             self.setFocus()
             self._apply_recording_style()
         else:
@@ -283,7 +360,14 @@ class _KeyCaptureEdit(QWidget):
         self._apply_recording_style()
 
         parts = self._modifier_parts(modifiers)
-        key_text = QKeySequence(key).toString(QKeySequence.NativeText)
+        # On Windows, event.key() returns the shifted character for digit keys
+        # (e.g. Shift+2 -> Qt.Key_At). Use nativeVirtualKey to get the base key.
+        base_key = key
+        if sys.platform == "win32" and (modifiers & Qt.ShiftModifier):
+            native = event.nativeVirtualKey()
+            if native and (0x30 <= native <= 0x39):  # digits 0-9
+                base_key = Qt.Key(native)
+        key_text = QKeySequence(base_key).toString(QKeySequence.NativeText)
         if not key_text:
             return None
         parts.append(key_text)
@@ -306,7 +390,7 @@ class _KeyCaptureEdit(QWidget):
                 # All modifiers released without a non-modifier key
                 self._is_pressing = False
                 self._apply_recording_style()
-                self._label.setText(self.current_seq or _("Press a key combination..."))
+                self._label.setText(self.current_seq or _("Press a key..."))
             return None
 
         if self._is_pressing:
@@ -425,7 +509,20 @@ class KeybindingDialog(QDialog):
         form.addWidget(hint2)
         form.addSpacing(4)
 
-        for action_key, display_name in _APP_ACTIONS:
+        for entry in _APP_ACTIONS:
+            if entry[0] == "__group__":
+                # Render a visual sub-group separator
+                form.addSpacing(6)
+                sub_sep = QFrame()
+                sub_sep.setFrameShape(QFrame.HLine)
+                sub_sep.setObjectName("keybinding_sub_sep")
+                form.addWidget(sub_sep)
+                sub_hdr = QLabel(_(entry[1]).upper())
+                sub_hdr.setObjectName("muted")
+                sub_hdr.setContentsMargins(0, 2, 0, 0)
+                form.addWidget(sub_hdr)
+                continue
+            action_key, display_name = entry
             default_seq = DEFAULT_KEYBINDINGS.get(action_key, "")
             editor = _KeyCaptureEdit(action_key, default_seq)
             editor.activationRequested.connect(self._on_activation_requested)
@@ -515,16 +612,69 @@ class KeybindingDialog(QDialog):
         self._run_conflict_check()
 
     def _run_conflict_check(self) -> None:
-        """Highlight all editors that share the same key sequence in real time."""
+        """Highlight editors with true runtime conflicts."""
+        conflict_keys = {action_key for _seq, action_keys in self._collect_conflicts() for action_key in action_keys}
+        for editor in [self._global_editor, *self._editors]:
+            editor.set_conflict(bool(editor.current_seq.strip()) and editor.action_key in conflict_keys)
+
+    def _collect_conflicts(self) -> list[tuple[str, list[str]]]:
+        """Return all true runtime conflicts grouped by key sequence."""
         all_editors = [self._global_editor, *self._editors]
-        seq_map: dict[str, list] = {}
+        seq_map: dict[str, list[tuple[str, str]]] = {}
         for editor in all_editors:
             seq = editor.current_seq.strip()
-            if seq:
-                seq_map.setdefault(seq, []).append(editor)
-        for editor in all_editors:
-            seq = editor.current_seq.strip()
-            editor.set_conflict(bool(seq and len(seq_map.get(seq, [])) > 1))
+            if not seq:
+                continue
+            scope = _ACTION_SCOPE.get(editor.action_key, "global")
+            seq_map.setdefault(seq, []).append((editor.action_key, scope))
+
+        conflicts: list[tuple[str, list[str]]] = []
+        for seq, entries in seq_map.items():
+            conflicting_keys: list[str] = []
+            for index, (key_a, scope_a) in enumerate(entries):
+                for key_b, scope_b in entries[index + 1 :]:
+                    if not _do_conflict(scope_a, scope_b):
+                        continue
+                    if key_a not in conflicting_keys:
+                        conflicting_keys.append(key_a)
+                    if key_b not in conflicting_keys:
+                        conflicting_keys.append(key_b)
+            if conflicting_keys:
+                conflicts.append((seq, conflicting_keys))
+        return conflicts
+
+    def _show_conflict_dialog(self, conflicts: list[tuple[str, list[str]]]) -> bool:
+        """Show all true conflicts and return whether Force Apply was chosen."""
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setWindowTitle(_("Keybinding Conflict"))
+        msg_box.setText(
+            _("Found {count} shortcut conflicts. Review them below, or choose Force Apply to save anyway.").format(
+                count=len(conflicts)
+            )
+        )
+        msg_box.setInformativeText(self._format_conflict_details(conflicts))
+
+        force_apply_btn = msg_box.addButton(_("Force Apply"), QMessageBox.AcceptRole)
+        force_apply_btn.setObjectName("warning_btn")
+        cancel_btn = msg_box.addButton(_("Cancel"), QMessageBox.RejectRole)
+        msg_box.setDefaultButton(cancel_btn)
+        msg_box.exec()
+        return msg_box.clickedButton() is force_apply_btn
+
+    def _format_conflict_details(self, conflicts: list[tuple[str, list[str]]]) -> str:
+        """Return a readable summary of every conflict group."""
+        lines: list[str] = []
+        for seq, action_keys in conflicts:
+            actions = ", ".join(
+                _("{action} [{scope}]").format(
+                    action=self._display_name_for(action_key),
+                    scope=self._scope_label_for(action_key),
+                )
+                for action_key in action_keys
+            )
+            lines.append(_("- {key}: {actions}").format(key=seq, actions=actions))
+        return "\n".join(lines)
 
     # ── Buttons ───────────────────────────────────────────────────────────────
 
@@ -550,36 +700,49 @@ class KeybindingDialog(QDialog):
 
     def _on_apply(self) -> None:
         self._stop_active_recording()
-        error = self._validate()
-        if error:
-            QMessageBox.warning(self, _("Keybinding Conflict"), error)
+        conflicts = self._collect_conflicts()
+        if conflicts:
+            if self._show_conflict_dialog(conflicts):
+                self._on_force_apply()
             return
         self._accepted_config = self.get_keybindings_config()
         self.accept()
 
-    def _validate(self) -> str | None:
-        all_editors = [self._global_editor, *self._editors]
-        seen: dict[str, str] = {}
-        for editor in all_editors:
-            seq = editor.current_seq.strip()
-            if not seq:
-                continue
-            if seq in seen:
-                conflict_name = self._display_name_for(seen[seq])
-                return _(
-                    "The key '{key}' is already assigned to '{action}'.\nPlease resolve the conflict before saving."
-                ).format(key=seq, action=conflict_name)
-            seen[seq] = editor.action_key
-        return None
+    def _on_force_apply(self) -> None:
+        """Save current keybindings even when true conflicts exist.
+
+        At runtime Qt fires the *first* matching shortcut found; global
+        shortcuts take precedence over page-scoped ones.
+        """
+        self._stop_active_recording()
+        self._accepted_config = self.get_keybindings_config()
+        self.accept()
 
     @staticmethod
     def _display_name_for(action_key: str) -> str:
         if action_key == "__global_overlay__":
             return _("Quick Access Overlay")
         for key, name in _APP_ACTIONS:
+            if key == "__group__":
+                continue
             if key == action_key:
                 return _(name)
         return action_key
+
+    @staticmethod
+    def _scope_label_for(action_key: str) -> str:
+        scope = _ACTION_SCOPE.get(action_key, "global")
+        if scope == "global":
+            return _("Global")
+        if scope == "history":
+            return _("History")
+        if scope == "bookmarks":
+            return _("Bookmarks")
+        if scope == "stats":
+            return _("Statistics")
+        if scope == "settings":
+            return _("Settings")
+        return scope.title()
 
     # ── Escape / close guard ──────────────────────────────────────────────────
 

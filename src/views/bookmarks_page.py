@@ -7,7 +7,7 @@ from datetime import datetime
 import webbrowser
 
 from PySide6.QtCore import Qt, QThread, QTimer, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -124,11 +124,17 @@ class _BookmarkCard(QFrame):
     remove_requested = Signal(object)
     copy_url_requested = Signal(str)
     locate_in_list_requested = Signal(object)
+    # Emitted when the card receives focus via click, so the page can track it
+    card_focused = Signal(object)  # emits self
+    # Emitted by arrow-key press so the page can shift focus to adjacent card
+    navigate_requested = Signal(object, int)  # (card, direction: -1 up / +1 down)
 
     def __init__(self, bm: BookmarkRecord, annotation: AnnotationRecord | None, parent=None):
         super().__init__(parent)
         self.setObjectName("bookmark_card")
         self.setFrameShape(QFrame.StyledPanel)
+        # Allow the card to receive keyboard focus via mouse click
+        self.setFocusPolicy(Qt.ClickFocus)
 
         self._bm = bm
         self._ann = annotation
@@ -301,6 +307,52 @@ class _BookmarkCard(QFrame):
         elif note_text:
             self._insert_note_frame(note_text, self.layout())
 
+    # ── Focus / keyboard handling ─────────────────────────────
+
+    def mousePressEvent(self, event):
+        """Claim keyboard focus when the card is clicked."""
+        super().mousePressEvent(event)
+        self.setFocus()
+        self.card_focused.emit(self)
+
+    def focusInEvent(self, event):
+        """Highlight the card border when it has keyboard focus."""
+        super().focusInEvent(event)
+        self.setStyleSheet("QFrame#bookmark_card { border: 2px solid palette(highlight); }")
+
+    def focusOutEvent(self, event):
+        """Restore default card style when focus is lost."""
+        super().focusOutEvent(event)
+        self.setStyleSheet("")
+
+    def keyPressEvent(self, event):
+        """Handle keyboard shortcuts while the card has focus."""
+        key = event.key()
+        mods = event.modifiers()
+        if key in (Qt.Key_Return, Qt.Key_Enter):
+            self.open_requested.emit(self._bm.url)
+            event.accept()
+        elif key == Qt.Key_Delete:
+            self.remove_requested.emit(self._bm)
+            event.accept()
+        elif key == Qt.Key_C and mods & Qt.ControlModifier:
+            self.copy_url_requested.emit(self._bm.url)
+            event.accept()
+        elif key == Qt.Key_N and mods & Qt.ControlModifier:
+            self.add_note_requested.emit(self._bm)
+            event.accept()
+        elif key == Qt.Key_L and mods & Qt.ControlModifier:
+            self.locate_in_list_requested.emit(self._bm)
+            event.accept()
+        elif key == Qt.Key_Up:
+            self.navigate_requested.emit(self, -1)
+            event.accept()
+        elif key == Qt.Key_Down:
+            self.navigate_requested.emit(self, +1)
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
     def disconnect_all(self):
         """
         Sever all outbound signals before the card is deleted.
@@ -321,6 +373,8 @@ class _BookmarkCard(QFrame):
             self.add_note_requested,
             self.remove_requested,
             self.locate_in_list_requested,
+            self.card_focused,
+            self.navigate_requested,
             self.customContextMenuRequested,
         ]
         for sig in signals:
@@ -373,9 +427,10 @@ class BookmarksPage(QWidget):
     navigate_to_history = Signal(object, bool)
     bookmark_changed = Signal()
 
-    def __init__(self, db: LocalDatabase, parent=None):
+    def __init__(self, db: LocalDatabase, config=None, parent=None):
         super().__init__(parent)
         self._db = db
+        self._config = config  # AppConfig; may be None in test contexts
         self._active_tag: str = ""
         self._show_annotated_only: bool = False
         self._search_text: str = ""
@@ -383,6 +438,7 @@ class BookmarksPage(QWidget):
 
         self._cards: list[_BookmarkCard] = []
         self._card_index: dict[str, _BookmarkCard] = {}  # url -> card (O(1) lookup)
+        self._focused_card: _BookmarkCard | None = None  # card with keyboard focus
 
         self._pending_bms: list[tuple] = []
         self._render_queue: list[tuple] = []
@@ -407,7 +463,10 @@ class BookmarksPage(QWidget):
         self._annotations: dict[str, AnnotationRecord] = {}
         self._all_tags: list[str] = []
 
+        self._page_shortcuts: list[QShortcut] = []
+
         self._build_ui()
+        self._setup_shortcuts()
         self._start_load()
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
 
@@ -518,13 +577,13 @@ class BookmarksPage(QWidget):
         ma_layout.addWidget(self._count_lbl)
 
         # Scroll Area
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
+        self._scroll_area = QScrollArea()
+        self._scroll_area.setWidgetResizable(True)
+        self._scroll_area.setFrameShape(QFrame.NoFrame)
 
         # Disable horizontal scrollbar: Long URLs inside cards would expand horizontally.
         # Setting to AlwaysOff forces content to wrap within the available width.
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         self._cards_container = QWidget()
         self._cards_layout = QVBoxLayout(self._cards_container)
@@ -536,8 +595,8 @@ class BookmarksPage(QWidget):
         # from stretching to fill the window when there are few bookmarks.
         self._cards_layout.addStretch(1)
 
-        scroll.setWidget(self._cards_container)
-        ma_layout.addWidget(scroll, 1)
+        self._scroll_area.setWidget(self._cards_container)
+        ma_layout.addWidget(self._scroll_area, 1)
 
         self._load_more_btn = QPushButton()
         self._load_more_btn.setObjectName("filter_chip")
@@ -716,6 +775,7 @@ class BookmarksPage(QWidget):
         recalculation (and potentially a reentrant paintEvent) for every
         individual removeWidget() call.
         """
+        self._focused_card = None  # stale reference - card is being destroyed
         self._cards_container.setUpdatesEnabled(False)
         try:
             for card in self._cards:
@@ -812,7 +872,28 @@ class BookmarksPage(QWidget):
         card.add_note_requested.connect(self._edit_note)
         card.remove_requested.connect(self._remove_bookmark)
         card.locate_in_list_requested.connect(self._locate_in_history)
+        card.card_focused.connect(self._on_card_focused)
+        card.navigate_requested.connect(self._on_card_navigate)
         return card
+
+    def _on_card_focused(self, card: _BookmarkCard) -> None:
+        """Track which card currently holds keyboard focus."""
+        self._focused_card = card
+
+    def _on_card_navigate(self, card: _BookmarkCard, direction: int) -> None:
+        """Move keyboard focus to the adjacent card (direction: -1 up, +1 down)."""
+        try:
+            idx = self._cards.index(card)
+        except ValueError:
+            return
+        new_idx = max(0, min(len(self._cards) - 1, idx + direction))
+        if new_idx == idx:
+            return
+        target = self._cards[new_idx]
+        target.setFocus()
+        self._focused_card = target
+        # Scroll the target into view
+        self._scroll_area.ensureWidgetVisible(target)
 
     def _find_card(self, url: str) -> _BookmarkCard | None:
         return self._card_index.get(url)
@@ -976,6 +1057,48 @@ class BookmarksPage(QWidget):
     def _apply_refreshed_tags(self, tags: list[str]):
         self._all_tags = tags
         self._rebuild_tag_sidebar_from_cache()
+
+    # --- Keyboard shortcuts ---
+
+    def _setup_shortcuts(self) -> None:
+        """Register page-level keyboard shortcuts from config.
+
+        All shortcuts use Qt.WidgetWithChildrenShortcut so they only fire when
+        this page (or one of its children) has focus, preventing cross-page
+        conflicts when multiple pages are instantiated.
+
+        Note: card-level actions (Return, Del, Ctrl+C, Ctrl+N, Ctrl+L) are
+        handled directly in _BookmarkCard.keyPressEvent when a card is focused.
+        The page-level shortcut for Ctrl+F focuses the search bar regardless of
+        which child has focus.
+        """
+        for sc in self._page_shortcuts:
+            sc.setEnabled(False)
+            sc.deleteLater()
+        self._page_shortcuts.clear()
+
+        kb = self._config.keybindings.app if self._config else {}
+
+        def _bind(key: str, fallback: str, slot) -> None:
+            seq = kb.get(key, fallback)
+            if not seq:
+                return
+            sc = QShortcut(QKeySequence(seq), self)
+            sc.setContext(Qt.WidgetWithChildrenShortcut)
+            sc.activated.connect(slot)
+            self._page_shortcuts.append(sc)
+
+        # Focus search bar from anywhere on the page
+        _bind("focus_search", "Ctrl+F", self._focus_search)
+
+    def apply_keybindings(self) -> None:
+        """Re-apply keyboard shortcuts after config change."""
+        self._setup_shortcuts()
+
+    def _focus_search(self) -> None:
+        """Focus the bookmark search bar and select existing text."""
+        self._search_edit.setFocus()
+        self._search_edit.selectAll()
 
     # --- Public API ---
 

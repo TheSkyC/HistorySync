@@ -2408,6 +2408,21 @@ class HistoryPage(QWidget):
         self._page_shortcuts: list[QShortcut] = []
         kb = self._config.keybindings.app if self._config else {}
 
+        # Helper: bind a sequence to a slot, optionally scoped to a specific widget.
+        def _bind(key: str, fallback: str, slot, widget=None):
+            seq = kb.get(key, fallback)
+            if not seq:
+                return
+            parent = widget if widget is not None else self
+            sc = QShortcut(QKeySequence(seq), parent)
+            if widget is None:
+                # Page-level shortcuts: only fire when this page or its children
+                # have focus, preventing cross-page conflicts.
+                sc.setContext(Qt.WidgetWithChildrenShortcut)
+            sc.activated.connect(slot)
+            self._page_shortcuts.append(sc)
+
+        # -- Existing shortcuts (keep original context for compatibility) --
         seq = kb.get("focus_search", "Ctrl+F")
         if seq:
             sc = QShortcut(QKeySequence(seq), self)
@@ -2420,11 +2435,23 @@ class HistoryPage(QWidget):
             sc.activated.connect(self._trigger_sync)
             self._page_shortcuts.append(sc)
 
+        # Del is scoped to the table so it doesn't intercept from search bar
         seq = kb.get("delete_selected", "Del")
         if seq:
             sc = QShortcut(QKeySequence(seq), self._table)
             sc.activated.connect(self._delete_selected)
             self._page_shortcuts.append(sc)
+
+        # -- New table-scoped shortcuts (only fire when the table has focus) --
+        _bind("history_open_selected", "Return", self._open_selected_in_browser, self._table)
+        _bind("history_copy_url", "Ctrl+C", self._copy_url_of_selected, self._table)
+        _bind("history_copy_title_url", "Ctrl+Shift+C", self._copy_title_url_of_selected, self._table)
+        _bind("history_toggle_bookmark", "Ctrl+B", self._toggle_bookmark_shortcut, self._table)
+        _bind("history_add_note", "Ctrl+N", self._add_note_shortcut, self._table)
+        _bind("history_hide_selected", "", self._hide_selected_shortcut, self._table)
+
+        # Export is page-scoped (useful even when search bar has focus)
+        _bind("history_open_export", "Ctrl+E", self._open_export_dialog)
 
     def apply_keybindings(self) -> None:
         """Re-apply shortcuts after config change."""
@@ -2433,6 +2460,61 @@ class HistoryPage(QWidget):
             sc.deleteLater()
         self._page_shortcuts.clear()
         self._setup_shortcuts()
+
+    # ── Shortcut action helpers ───────────────────────────────
+
+    def _open_selected_in_browser(self):
+        """Open all selected rows in the default browser."""
+        records = self._get_selected_records()
+        for r in records:
+            if r.url:
+                try:
+                    webbrowser.open(r.url)
+                except Exception:
+                    pass
+
+    def _copy_url_of_selected(self):
+        """Copy URL(s) of selected row(s) to clipboard."""
+        records = self._get_selected_records()
+        if not records:
+            return
+        if len(records) == 1:
+            QApplication.clipboard().setText(records[0].url)
+        else:
+            QApplication.clipboard().setText("\n".join(r.url for r in records))
+
+    def _copy_title_url_of_selected(self):
+        """Copy 'title\\nurl' of the primary selected row to clipboard."""
+        records = self._get_selected_records()
+        if not records:
+            return
+        primary = records[0]
+        QApplication.clipboard().setText(f"{primary.title or primary.url}\n{primary.url}")
+
+    def _toggle_bookmark_shortcut(self):
+        """Toggle bookmark state for all currently selected rows."""
+        records = self._get_selected_records()
+        if not records:
+            return
+        multi = len(records) > 1
+        primary = records[0]
+        self._toggle_bookmark(records, primary, multi)
+
+    def _add_note_shortcut(self):
+        """Open the annotation dialog for the primary selected row."""
+        records = self._get_selected_records()
+        if not records:
+            return
+        self._edit_annotation(records[0])
+
+    def _hide_selected_shortcut(self):
+        """Hide all currently selected rows."""
+        records = self._get_selected_records()
+        if not records:
+            return
+        ids = [r.id for r in records if r.id is not None]
+        if ids:
+            self._hide_records(ids)
 
     def _focus_search(self):
         self._search.setFocus()

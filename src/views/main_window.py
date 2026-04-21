@@ -188,6 +188,12 @@ class MainWindow(QMainWindow):
         self._setup_global_shortcuts()
         if self._page_history is not None:
             self._page_history.apply_keybindings()
+        if self._page_bookmarks is not None:
+            self._page_bookmarks.apply_keybindings()
+        if self._page_stats is not None:
+            self._page_stats.apply_keybindings()
+        if self._page_settings is not None:
+            self._page_settings.apply_keybindings()
 
     def _connect_vm(self):
         vm = self._vm
@@ -255,7 +261,7 @@ class MainWindow(QMainWindow):
         elif index == PAGE_BOOKMARKS and self._page_bookmarks is None:
             from src.views.bookmarks_page import BookmarksPage
 
-            self._page_bookmarks = BookmarksPage(self._vm._db)
+            self._page_bookmarks = BookmarksPage(self._vm._db, config=self._vm._config)
             self._replace_placeholder(PAGE_BOOKMARKS, self._page_bookmarks)
             self._page_bookmarks.navigate_to_history.connect(self._navigate_to_history_bookmark)
             self._page_bookmarks.bookmark_changed.connect(self._on_bookmark_changed)
@@ -276,7 +282,11 @@ class MainWindow(QMainWindow):
         elif index == PAGE_STATS and self._page_stats is None:
             from src.views.stats_page import StatsPage
 
-            self._page_stats = StatsPage(self._vm._db, favicon_manager=self._vm._favicon_manager)
+            self._page_stats = StatsPage(
+                self._vm._db,
+                favicon_manager=self._vm._favicon_manager,
+                config=self._vm._config,
+            )
             self._replace_placeholder(PAGE_STATS, self._page_stats)
             self._page_stats.navigate_to_date.connect(self._navigate_to_history_date)
 
@@ -298,8 +308,18 @@ class MainWindow(QMainWindow):
             self._page_bookmarks.leave_hidden_mode()
 
     def _focus_history_search(self):
-        self._switch_page(PAGE_HISTORY)  # creates page if needed
-        self._page_history._focus_search()
+        """Focus the search bar of the currently active page.
+
+        If the bookmarks page is active, focuses the bookmark search bar.
+        Otherwise switches to (or stays on) history and focuses that search.
+        """
+        current = self._stack.currentIndex()
+        if current == PAGE_BOOKMARKS and self._page_bookmarks is not None:
+            self._page_bookmarks._focus_search()
+        else:
+            self._switch_page(PAGE_HISTORY)  # creates page if needed
+            if self._page_history is not None:
+                self._page_history._focus_search()
 
     def _navigate_to_history_date(self, date_str: str):
         """Switch to history page and filter by the given date (from stats heatmap)."""

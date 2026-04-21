@@ -115,10 +115,29 @@ DEFAULT_KEYBINDINGS: dict[str, str] = {
     "goto_settings": "Ctrl+4",
     "goto_logs": "Ctrl+5",
     "goto_stats": "Ctrl+6",
-    # Actions
+    # Global actions
     "trigger_sync": "Ctrl+R",
     "focus_search": "Ctrl+F",
+    # History page
     "delete_selected": "Del",
+    "history_open_selected": "Return",
+    "history_copy_url": "Ctrl+C",
+    "history_copy_title_url": "Ctrl+Shift+C",
+    "history_toggle_bookmark": "Ctrl+B",
+    "history_add_note": "Ctrl+N",
+    "history_open_export": "Ctrl+E",
+    "history_hide_selected": "",
+    # Bookmarks page
+    "bm_open": "Return",
+    "bm_copy_url": "Ctrl+C",
+    "bm_delete": "Del",
+    "bm_add_note": "Ctrl+N",
+    "bm_locate": "Ctrl+L",
+    # Statistics page
+    "stats_prev": "Alt+Left",
+    "stats_next": "Alt+Right",
+    # Settings page
+    "settings_save": "Ctrl+S",
 }
 
 # Default global hotkey (pynput format).

@@ -7,6 +7,7 @@ import sys
 import time
 
 from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -74,6 +75,7 @@ class SettingsPage(QWidget):
         self._load_config()
         self._connect_signals()
         self._apply_wheel_event_filter()
+        self._setup_shortcuts()
 
     # ── UI construction ───────────────────────────────────────
 
@@ -251,6 +253,32 @@ class SettingsPage(QWidget):
 
         self._compute_next_times()
         self._update_countdowns()
+
+    # ── Keyboard shortcuts ────────────────────────────────────
+
+    def _setup_shortcuts(self) -> None:
+        """Register Ctrl+S (or user-configured key) as Save shortcut.
+
+        Qt.WidgetWithChildrenShortcut scopes the shortcut to this page so it
+        does not intercept Ctrl+S in search bars on other pages.
+        """
+        self._settings_shortcuts: list[QShortcut] = getattr(self, "_settings_shortcuts", [])
+        for sc in self._settings_shortcuts:
+            sc.setEnabled(False)
+            sc.deleteLater()
+        self._settings_shortcuts.clear()
+
+        kb = self._vm.get_config().keybindings.app
+        seq = kb.get("settings_save", "Ctrl+S")
+        if seq:
+            sc = QShortcut(QKeySequence(seq), self)
+            sc.setContext(Qt.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._save)
+            self._settings_shortcuts.append(sc)
+
+    def apply_keybindings(self) -> None:
+        """Re-apply shortcuts after config change."""
+        self._setup_shortcuts()
 
     def _save(self):
         # ── Master password protection ────────────────────────
