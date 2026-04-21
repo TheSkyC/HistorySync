@@ -3,14 +3,10 @@
 
 from __future__ import annotations
 
-import importlib.util
-
 import pytest
 
-pytestmark = pytest.mark.skipif(
-    importlib.util.find_spec("PySide6") is None,
-    reason="PySide6 not installed",
-)
+# Skip all tests in this module if PySide6 is not installed
+pytest.importorskip("PySide6")
 
 from PySide6.QtCore import QRect
 
