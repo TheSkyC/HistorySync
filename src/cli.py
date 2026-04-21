@@ -513,7 +513,12 @@ def _build_parser() -> argparse.ArgumentParser:
             "  hsync search 'python async' --open\n"
         ),
     )
-    search_p.add_argument("query", nargs="?", default="", help="Search query with structured tokens")
+    search_p.add_argument(
+        "query",
+        nargs="*",
+        default=[],
+        help="Search query (multiple words joined automatically; quote the whole string or omit quotes)",
+    )
     search_p.add_argument("--limit", type=int, default=20, help="Maximum number of results (default: 20)")
     search_p.add_argument(
         "--format",
@@ -1211,7 +1216,7 @@ def _cmd_search(config, args: argparse.Namespace) -> int:
 
     log = get_logger("cli.search")
     quiet = getattr(args, "quiet", False)
-    query_str = getattr(args, "query", "")
+    query_str = " ".join(getattr(args, "query", []) or [])
     limit = getattr(args, "limit", 20)
     fmt = getattr(args, "format", "table")
     open_first = getattr(args, "open", False)
