@@ -3188,24 +3188,93 @@ class LocalDatabase:
         record_map = {r["id"]: self._row_to_record(r) for r in rows}
         return [record_map[i] for i in ids if i in record_map]
 
-    def get_row_offset_for_url(self, url: str) -> int:
-        """Return the 0-based row index of the *most-recent* visit for *url*
-        in the default (unfiltered, visit_time DESC) sort order.
+    def _get_row_offset_for_target(
+        self,
+        *,
+        target_condition: str,
+        target_params: list,
+        excluded_ids: set[int] | None = None,
+        hidden_only: bool = False,
+    ) -> int:
+        """Return the 0-based row offset for the first row matching *target_condition*.
 
-        Returns -1 if the URL is not found.  Used by the "Locate in History"
-        feature so the history table can scroll to and select that exact row.
+        The target is resolved and ranked against the exact same dataset rules
+        used by the history page: hidden-record exclusion or inclusion, plus
+        the same total ordering (visit_time DESC, id DESC).
         """
+        excl = excluded_ids or set()
         with self._conn(write=False) as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) FROM history WHERE visit_time > (SELECT MAX(visit_time) FROM history WHERE url = ?)",
-                (url,),
+            from_where, params, _ = self._build_query_parts(
+                conn=conn,
+                keyword="",
+                browser_type="",
+                date_from=None,
+                date_to=None,
+                excluded_ids=excl,
+                domain_ids=None,
+                excludes=None,
+                title_only=False,
+                url_only=False,
+                bookmarked_only=False,
+                has_annotation=False,
+                bookmark_tag="",
+                _force_like=False,
+                device_ids=None,
+                hidden_only=hidden_only,
+            )
+            from_where = from_where.replace(" LEFT JOIN domains d ON h.domain_id = d.id", "", 1)
+            connector = " AND " if "WHERE" in from_where else " WHERE "
+
+            target = conn.execute(
+                f"SELECT h.id, h.visit_time {from_where}{connector}{target_condition} "
+                "ORDER BY h.visit_time DESC, h.id DESC LIMIT 1",
+                [*params, *target_params],
             ).fetchone()
-            if row is None:
+            if target is None:
                 return -1
-            count = row[0]
-            # Verify at least one record exists for that URL
-            exists = conn.execute("SELECT 1 FROM history WHERE url = ? LIMIT 1", (url,)).fetchone()
-            return count if exists else -1
+
+            target_id = target["id"]
+            target_visit_time = target["visit_time"]
+            row = conn.execute(
+                f"SELECT COUNT(*) {from_where}{connector}(h.visit_time > ? OR (h.visit_time = ? AND h.id > ?))",
+                [*params, target_visit_time, target_visit_time, target_id],
+            ).fetchone()
+            return int(row[0]) if row is not None else -1
+
+    def get_row_offset_for_history_id(
+        self,
+        history_id: int,
+        excluded_ids: set[int] | None = None,
+        hidden_only: bool = False,
+    ) -> int:
+        """Return the 0-based row index for a specific history row id.
+
+        Returns -1 if the row is not part of the current dataset.
+        """
+        return self._get_row_offset_for_target(
+            target_condition="h.id = ?",
+            target_params=[history_id],
+            excluded_ids=excluded_ids,
+            hidden_only=hidden_only,
+        )
+
+    def get_row_offset_for_url(
+        self,
+        url: str,
+        excluded_ids: set[int] | None = None,
+        hidden_only: bool = False,
+    ) -> int:
+        """Return the 0-based row index of the most-recent matching URL.
+
+        The lookup is performed against the same dataset rules as the history
+        page, not against the raw history table.
+        """
+        return self._get_row_offset_for_target(
+            target_condition="h.url = ?",
+            target_params=[url],
+            excluded_ids=excluded_ids,
+            hidden_only=hidden_only,
+        )
 
     # ── Internal helpers ──────────────────────────────────────
 

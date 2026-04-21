@@ -369,8 +369,7 @@ class BookmarksPage(QWidget):
         2. Count label computed from source-of-truth lists after mutation.
     """
 
-    navigate_to_history = Signal(str)
-    navigate_to_history_hidden = Signal()  # emitted when locate-in-history is triggered from hidden mode
+    navigate_to_history = Signal(object, bool)
     bookmark_changed = Signal()
 
     def __init__(self, db: LocalDatabase, parent=None):
@@ -950,12 +949,7 @@ class BookmarksPage(QWidget):
         self._refresh_tags_only()
 
     def _locate_in_history(self, bm: BookmarkRecord):
-        # When locating from hidden mode, pass a sentinel so the history page
-        # knows to enter hidden mode before filtering — otherwise the record
-        # would be invisible (normal mode hides it) and the locate would fail.
-        self.navigate_to_history.emit(bm.url)
-        if self._hidden_mode:
-            self.navigate_to_history_hidden.emit()
+        self.navigate_to_history.emit(bm, self._hidden_mode)
 
     # --- Tag Refresh ---
 

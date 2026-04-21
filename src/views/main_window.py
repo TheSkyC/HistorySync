@@ -257,8 +257,7 @@ class MainWindow(QMainWindow):
 
             self._page_bookmarks = BookmarksPage(self._vm._db)
             self._replace_placeholder(PAGE_BOOKMARKS, self._page_bookmarks)
-            self._page_bookmarks.navigate_to_history.connect(self._navigate_to_history_url)
-            self._page_bookmarks.navigate_to_history_hidden.connect(self._on_bookmarks_locate_hidden)
+            self._page_bookmarks.navigate_to_history.connect(self._navigate_to_history_bookmark)
             self._page_bookmarks.bookmark_changed.connect(self._on_bookmark_changed)
 
         elif index == PAGE_SETTINGS and self._page_settings is None:
@@ -308,18 +307,14 @@ class MainWindow(QMainWindow):
         self._page_history.filter_by_date(date_str)
 
     def _navigate_to_history_url(self, url: str):
-        """Switch to history page and filter by the given URL (from bookmarks 'Locate in History')."""
+        """Switch to history page and filter by the given URL."""
         self._switch_page(PAGE_HISTORY)  # creates page if needed
         self._page_history.filter_by_url(url)
 
-    def _on_bookmarks_locate_hidden(self):
-        """Called when 'Locate in History' is triggered from the bookmarks hidden-mode view.
-
-        Ensures the history page is in hidden mode before filtering so the
-        record is actually visible (it would be hidden in normal mode).
-        """
-        if self._page_history is not None and not self._page_history.hidden_mode:
-            self._page_history.set_hidden_mode(True)
+    def _navigate_to_history_bookmark(self, bookmark, hidden_mode: bool):
+        """Switch to history page and locate the exact bookmarked history row."""
+        self._switch_page(PAGE_HISTORY)
+        self._page_history.locate_bookmark(bookmark, hidden_mode=hidden_mode)
 
     # ── VM signal handlers ────────────────────────────────────
 

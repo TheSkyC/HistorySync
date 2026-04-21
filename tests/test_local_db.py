@@ -130,6 +130,90 @@ class TestCounts:
         assert result == {"Default": 1}
 
 
+class TestLocateOffset:
+    def test_get_row_offset_for_url_returns_minus_one_when_missing(self, local_db):
+        assert local_db.get_row_offset_for_url("https://missing.example") == -1
+
+    def test_get_row_offset_for_url_matches_sort_with_same_timestamp_ties(self, local_db):
+        # Insert multiple rows sharing the same visit_time so id DESC tie-break
+        # order matters for locate-in-history row offset.
+        local_db.upsert_records(
+            [
+                make_record(url="https://newer.example", visit_time=2000),
+                make_record(url="https://target.example/a", visit_time=1000),
+                make_record(url="https://other.example/1", visit_time=1000),
+                make_record(url="https://target.example/b", visit_time=1000),
+                make_record(url="https://older.example", visit_time=900),
+            ]
+        )
+
+        ordered = local_db.get_records(limit=100)
+        offset = local_db.get_row_offset_for_url("https://target.example/b")
+
+        # Must point to the first (most-recent) row among matching URL visits.
+        expected = next(i for i, rec in enumerate(ordered) if rec.url == "https://target.example/b")
+        assert offset == expected
+
+    def test_get_row_offset_for_url_uses_most_recent_visit_of_url(self, local_db):
+        local_db.upsert_records(
+            [
+                make_record(url="https://target.example", visit_time=3000),
+                make_record(url="https://other.example", visit_time=2500),
+                make_record(url="https://target.example", visit_time=1000),
+            ]
+        )
+
+        ordered = local_db.get_records(limit=100)
+        offset = local_db.get_row_offset_for_url("https://target.example")
+        expected = next(i for i, rec in enumerate(ordered) if rec.url == "https://target.example")
+        assert offset == expected
+
+    def test_get_row_offset_for_history_id_targets_exact_visit(self, local_db):
+        local_db.upsert_records(
+            [
+                make_record(url="https://same.example", visit_time=3000),
+                make_record(url="https://same.example", visit_time=2000),
+                make_record(url="https://other.example", visit_time=1000),
+            ]
+        )
+
+        ordered = local_db.get_records(limit=100)
+        target = next(rec for rec in ordered if rec.url == "https://same.example" and rec.visit_time == 2000)
+        offset = local_db.get_row_offset_for_history_id(target.id)
+        expected = next(i for i, rec in enumerate(ordered) if rec.id == target.id)
+        assert offset == expected
+
+    def test_row_offset_helpers_match_visible_and_hidden_datasets(self, local_db):
+        local_db.upsert_records(
+            [
+                make_record(url="https://visible-new.example", visit_time=3000),
+                make_record(url="https://hidden.example", visit_time=2000),
+                make_record(url="https://visible-old.example", visit_time=1000),
+            ]
+        )
+
+        all_rows = local_db.get_records(limit=100)
+        hidden_row = next(rec for rec in all_rows if rec.url == "https://hidden.example")
+        next(rec for rec in all_rows if rec.url == "https://visible-old.example")
+
+        local_db.hide_records_by_ids([hidden_row.id])
+        hidden_ids = local_db.get_all_hidden_ids()
+
+        visible_offset = local_db.get_row_offset_for_url(
+            "https://visible-old.example",
+            excluded_ids=hidden_ids,
+            hidden_only=False,
+        )
+        assert visible_offset == 1
+
+        hidden_offset = local_db.get_row_offset_for_history_id(
+            hidden_row.id,
+            excluded_ids=hidden_ids,
+            hidden_only=True,
+        )
+        assert hidden_offset == 0
+
+
 # ══════════════════════════════════════════════════════════════
 # get_records (pagination, ordering, filters)
 # ══════════════════════════════════════════════════════════════

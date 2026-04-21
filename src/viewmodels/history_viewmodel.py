@@ -288,13 +288,17 @@ class HistoryTableModel(QAbstractTableModel):
         self._hidden_ids = ids
         self.reload(skip_badges=True)
 
-    def set_hidden_mode(self, enabled: bool) -> None:
-        """Toggle hidden-only mode.  When True the table shows only hidden
-        records; when False it reverts to the normal exclusion behaviour."""
+    def set_hidden_mode(self, enabled: bool, reload: bool = True) -> None:
+        """Toggle hidden-only mode.
+
+        When ``reload`` is False the state changes immediately and the caller
+        is expected to trigger a follow-up reload.
+        """
         if self._hidden_mode == enabled:
             return
         self._hidden_mode = enabled
-        self.reload(skip_badges=True)
+        if reload:
+            self.reload(skip_badges=True)
 
     # ── QAbstractTableModel interface ────────────────────────
 
@@ -1086,9 +1090,9 @@ class HistoryViewModel(QObject):
     def hidden_mode(self) -> bool:
         return self.table_model._hidden_mode
 
-    def set_hidden_mode(self, enabled: bool) -> None:
+    def set_hidden_mode(self, enabled: bool, reload: bool = True) -> None:
         """Toggle hidden-only viewing mode on the table model."""
-        self.table_model.set_hidden_mode(enabled)
+        self.table_model.set_hidden_mode(enabled, reload=reload)
 
     def resolve_domain_ids(self, domains: list[str]) -> list[int]:
         return self._db.resolve_domain_ids(domains)

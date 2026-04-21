@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import bisect
 from contextlib import contextmanager
 from datetime import date, datetime
 import time as _time
@@ -62,6 +61,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.models.history_record import BookmarkRecord
 from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_browser_icon, get_icon
 from src.utils.logger import get_logger
@@ -257,20 +257,31 @@ class _IconHeaderView(QHeaderView):
 
 
 # ── Date-separator constants ──────────────────────────────────────────────────
-_SEP_H = 30  # height of the date-separator band in pixels
-_ROW_H = 38  # normal cell-content height in pixels
-_SEP_TOTAL = _SEP_H + _ROW_H  # total row height when a separator is shown
+_SEP_H = 16  # visual band reserved for the date-separator overlay
+_SEP_CONTENT_TOP_INSET = 10  # pushes row content below the separator pill
+_ROW_H = 38  # fixed row height in pixels
+
+
+def _separator_band_rect(rect: QRect) -> QRect:
+    """Return the top band used to paint a separator pill."""
+    return QRect(rect.left(), rect.top() + 1, rect.width(), min(_SEP_H, rect.height()))
+
+
+def _separator_content_rect(rect: QRect) -> QRect:
+    """Return the content rect for rows that render a separator pill."""
+    inset = min(_SEP_CONTENT_TOP_INSET, max(rect.height() - 18, 0))
+    if inset <= 0:
+        return QRect(rect)
+    return QRect(rect.left(), rect.top() + inset, rect.width(), max(rect.height() - inset, 0))
 
 
 class _DateSeparatorDelegate(QStyledItemDelegate):
     """Table-wide delegate that injects a Telegram-style date-separator strip
     at the top of every first-of-day row.
 
-    For rows that start a new calendar day the cell's total height is
-    ``_SEP_TOTAL`` (_SEP_H + _ROW_H).  The top _SEP_H pixels render the
-    separator pill (date label, centered pill background); the bottom _ROW_H
-    pixels render the regular cell content, delegated to *sub_delegate* for
-    the title column or to the default Qt painting for every other column.
+    Separator pills are a presentation-only overlay. Rows keep a fixed
+    height and the delegate paints the date pill in the top area of column 0
+    for first-of-day rows.
 
     ``separator_rows`` is a ``dict[int, int]`` mapping row_index → visit_time.
     The visit_time is stored at row-height assignment time so that paint() never
@@ -345,8 +356,6 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
     # ── QStyledItemDelegate interface ─────────────────────────────────────────
 
     def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
-        if index.row() in self._sep_rows:
-            return QSize(option.rect.width(), _SEP_TOTAL)
         return QSize(option.rect.width(), _ROW_H)
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
@@ -363,34 +372,23 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
                 super().paint(painter, option, index)
             return
 
-        # ── Separator row: split the rect into top band + content band ────────
-        rect = option.rect
-        top_rect = QRect(rect.left(), rect.top(), rect.width(), _SEP_H)
-        content_rect = QRect(rect.left(), rect.top() + _SEP_H, rect.width(), _ROW_H)
+        # Paint the full-row background first so the separator band keeps the
+        # correct selection/hover styling even though the content is shifted.
+        self._paint_cell_background(painter, option, index)
 
-        # Fill separator band background — fillRect does not alter painter state,
-        # so no save/restore needed.
-        painter.fillRect(top_rect, option.palette.color(option.palette.ColorRole.Window))
+        # Paint the actual cell content in the lower inset rect.
+        col = index.column()
+        content_option = self._adjust_option_for_sep(option, index)
+        if col == self._sub_col and self._sub is not None:
+            self._sub.paint(painter, content_option, index)
+        else:
+            super().paint(painter, content_option, index)
 
         # Paint the date pill only once — in column 0 (leftmost visible cell).
-        col = index.column()
         if col == 0:
-            # Capture font before pill drawing so we can restore it for the
-            # content cell below.  _paint_separator_pill changes the font to
-            # the smaller pill font; the content cell needs the original.
-            # (renderHints are NOT saved here — the view's save/restore handles
-            #  that between columns, and antialiasing for content cells is fine.)
             base_font = painter.font()
-            self._paint_separator_pill(painter, top_rect, visit_time, row)
-            painter.setFont(base_font)  # restore for content cell painting
-
-        # Paint the regular cell content in the lower portion
-        adj = QStyleOptionViewItem(option)
-        adj.rect = content_rect
-        if col == self._sub_col and self._sub is not None:
-            self._sub.paint(painter, adj, index)
-        else:
-            super().paint(painter, adj, index)
+            self._paint_separator_pill(painter, _separator_band_rect(option.rect), visit_time, row)
+            painter.setFont(base_font)
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
@@ -462,18 +460,22 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         else:
             super().paint(painter, option, index)
 
+    def _paint_cell_background(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
+        """Paint only the base cell background for separator rows."""
+        bg_option = QStyleOptionViewItem(option)
+        self.initStyleOption(bg_option, index)
+        bg_option.text = ""
+        bg_option.icon = QIcon()
+        widget = option.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        style.drawControl(QStyle.CE_ItemViewItem, bg_option, painter, widget)
+
     def _adjust_option_for_sep(self, option, index):
-        """Return a copy of option with rect shifted down past the separator band for sep rows."""
-        row = index.row()
-        if row not in self._sep_rows:
+        """Return a copy of *option* with content shifted below the separator."""
+        if index.row() not in self._sep_rows:
             return option
         adj = QStyleOptionViewItem(option)
-        adj.rect = QRect(
-            option.rect.left(),
-            option.rect.top() + _SEP_H,
-            option.rect.width(),
-            _ROW_H,
-        )
+        adj.rect = _separator_content_rect(option.rect)
         return adj
 
     def editorEvent(self, event, model, option, index):
@@ -490,7 +492,7 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         """Return (pill_w, pill_h) for *text*, using *cache_key* for geometry caching."""
         geom = self._geometry_cache.get(cache_key)
         if geom is None:
-            pad_x, pad_y = 14, 3
+            pad_x, pad_y = 14, 2
             pill_w = fm.horizontalAdvance(text) + pad_x * 2
             pill_h = fm.height() + pad_y * 2
             geom = (pill_w, pill_h)
@@ -1722,14 +1724,9 @@ class _DraggableHistoryTable(QTableView):
         vr = self.visualRect(index)
         if vr.isNull():
             return False
-
-        # Adjust for separator band if this is a separator row
         page = self.parent()
         if page and hasattr(page, "_separator_rows") and index.row() in page._separator_rows:
-            # Import _SEP_H from the module level
-            from src.views.history_page import _SEP_H
-
-            vr = QRect(vr.left(), vr.top() + _SEP_H, vr.width(), vr.height() - _SEP_H)
+            vr = _separator_content_rect(vr)
 
         # Favicon is at x=rect.x()+4, y=centered, w=16, h=16
         # Add some padding for easier clicking (24x24 hit area)
@@ -2063,15 +2060,15 @@ class HistoryPage(QWidget):
         # Generation counter to invalidate stale filter_by_url scroll handlers
         # when filter_by_url is called again before the previous one completes.
         self._filter_url_gen: int = 0
+        # Active locate generation. While set, table repaints are temporarily
+        # frozen so a model reset does not visibly jump to the top.
+        self._active_locate_gen: int | None = None
 
         self._separator_rows: dict[int, int] = {}
         # Lazily-populated visit counts for date-separator pills.
         # Keyed by row index — populated by _load_visible_sep_counts() after
         # the user scrolls to (and pauses on) a region of the table.
         self._sep_counts: dict[int, int] = {}
-
-        # Sorted list of separator row indices for fast lookup
-        self._separator_indices: list[int] = []
 
         # Debounce timer: fires 300 ms after the last scroll event to trigger
         # a batch DB query for visible separator rows that lack counts.
@@ -2224,8 +2221,7 @@ class HistoryPage(QWidget):
 
         vh = self._table.verticalHeader()
         vh.setDefaultSectionSize(_ROW_H)
-        # Fixed: users cannot drag row heights, but resizeSection() still works
-        # programmatically — used by _on_records_loaded to enlarge separator rows.
+        # Fixed: users cannot drag row heights.
         vh.setSectionResizeMode(QHeaderView.Fixed)
         self._table.doubleClicked.connect(self._on_double_click)
 
@@ -2298,14 +2294,12 @@ class HistoryPage(QWidget):
         # Install as the table-wide delegate (covers every column/row)
         self._table.setItemDelegate(sep_delegate)
 
-    # ── Date-separator row-height management ──────────────────────────────────
+    # ── Date-separator marker management ──────────────────────────────────────
 
     def _on_records_loaded(self, base_row: int, records: list) -> None:
         """Called whenever a page of records is fetched into the model cache.
 
-        Scans the batch, decides which rows start a new calendar day compared
-        to the row immediately before them, and resizes those rows to
-        _SEP_TOTAL so the separator strip has space to render.
+        Scans the batch and marks rows that start a new calendar day.
 
         Performance notes
         -----------------
@@ -2322,21 +2316,12 @@ class HistoryPage(QWidget):
             return
 
         model = self._vm.table_model
-        vh = self._table.verticalHeader()
-
-        # Track rows that gain a separator band in this batch so we can
-        # compensate the scrollbar for any that land above the viewport.
-        newly_added_sep_rows: list[int] = []
 
         for local_idx, record in enumerate(records):
             row = base_row + local_idx
             if row == 0:
                 # First record ever → always a separator
-                if row not in self._separator_rows:
-                    bisect.insort(self._separator_indices, row)
-                    newly_added_sep_rows.append(row)
                 self._separator_rows[row] = record.visit_time
-                vh.resizeSection(row, _SEP_TOTAL)
                 continue
 
             # Get previous record: batch-local when possible, cache-peek otherwise.
@@ -2348,11 +2333,7 @@ class HistoryPage(QWidget):
                 prev = model.peek_record_at(row - 1)
                 if prev is None:
                     # Previous page not in cache — conservatively mark as separator.
-                    if row not in self._separator_rows:
-                        bisect.insort(self._separator_indices, row)
-                        newly_added_sep_rows.append(row)
                     self._separator_rows[row] = record.visit_time
-                    vh.resizeSection(row, _SEP_TOTAL)
                     continue
 
             # Compare calendar days using local-day-number — pure integer
@@ -2362,19 +2343,11 @@ class HistoryPage(QWidget):
             prev_day = _local_day_number(prev.visit_time)
 
             if curr_day != prev_day:
-                if row not in self._separator_rows:
-                    bisect.insort(self._separator_indices, row)
-                    self._separator_rows[row] = record.visit_time
-                    vh.resizeSection(row, _SEP_TOTAL)
-                    newly_added_sep_rows.append(row)
+                self._separator_rows[row] = record.visit_time
             elif row in self._separator_rows:
                 # Row was previously marked as a separator (e.g. after a
                 # model reset with different data) - un-mark it.
                 del self._separator_rows[row]
-                idx = bisect.bisect_left(self._separator_indices, row)
-                if idx < len(self._separator_indices) and self._separator_indices[idx] == row:
-                    self._separator_indices.pop(idx)
-                vh.resizeSection(row, _ROW_H)
 
         # Schedule a lazy count fetch for any newly visible separator rows.
         # Use the existing debounce timer instead of singleShot(0, ...) to avoid
@@ -2384,34 +2357,13 @@ class HistoryPage(QWidget):
             self._sep_count_timer.start()
 
         # Restore scroll position after an in-place mutation (delete/hide/unhide).
-        # We defer to base_row == 0 so that separator rows in the first page are
-        # already re-injected before setValue() runs. For top_row < PAGE_SIZE this
-        # is exact; for top_row >= PAGE_SIZE it is a close approximation (only
-        # separators in pages above the viewport that haven't loaded yet are missing).
         if base_row == 0 and self._pending_scroll_restore is not None:
             saved = self._pending_scroll_restore
             self._pending_scroll_restore = None
             QTimer.singleShot(0, lambda: self._table.verticalScrollBar().setValue(saved))
-        elif newly_added_sep_rows:
-            _new_rows = list(newly_added_sep_rows)
-
-            def _compensate_scroll(_rows=_new_rows):
-                first_visible = self._table.rowAt(0)
-                if first_visible <= 0:
-                    return
-                above = sum(1 for r in _rows if r < first_visible)
-                if above:
-                    vbar = self._table.verticalScrollBar()
-                    vbar.setValue(vbar.value() + above * _SEP_H)
-
-            QTimer.singleShot(0, _compensate_scroll)
 
     def _on_model_reset(self) -> None:
         """Clear separator state when the model is rebuilt (new search / filter).
-
-        Qt does NOT automatically reset per-section sizes on beginResetModel /
-        endResetModel, so we must restore every enlarged row back to _ROW_H
-        before dropping the separator_rows dict.
 
         Qt's QHeaderView.initializeSections() IS called on endResetModel and
         resets every horizontal section to defaultSectionSize, discarding the
@@ -2419,18 +2371,11 @@ class HistoryPage(QWidget):
         always reflects the user's saved (or default) column widths after any
         model reset, including the initial load triggered by initialize().
         """
-        vh = self._table.verticalHeader()
-        for row in self._separator_rows:
-            vh.resizeSection(row, _ROW_H)
         self._separator_rows.clear()
         self._sep_counts.clear()
-        self._separator_indices.clear()
         self._sep_count_timer.stop()
         if self._pending_scroll_restore is not None:
-            # Do NOT restore here. _on_records_loaded(base_row=0) will call
-            # setValue() after page 0 is fetched and separator rows are
-            # re-injected, so the pixel value is accurate. Restoring now
-            # (before separators) would shift the view by N * _SEP_H pixels.
+            # Defer restore until page 0 data arrives.
             pass
         else:
             # Qt's QAbstractItemView also resets the scrollbar in response to
@@ -2493,13 +2438,8 @@ class HistoryPage(QWidget):
         self._search.setFocus()
         self._search.selectAll()
 
-    def filter_by_url(self, url: str):
-        """When navigating from 'Locate in History' in the bookmarks page, clear filters and scroll to the row containing the URL."""
-        # Step 1: find the row offset BEFORE triggering the reload, while the DB
-        # state is still consistent with the about-to-be-applied unfiltered view.
-        row = self._vm._db.get_row_offset_for_url(url)
-
-        # Step 2: clear all filters so the full list is shown
+    def _clear_navigation_filters(self) -> None:
+        """Reset navigation controls to the unfiltered history dataset."""
         self._search.blockSignals(True)
         self._search.clear()
         self._search.blockSignals(False)
@@ -2513,6 +2453,74 @@ class HistoryPage(QWidget):
         self._date_to.setDate(QDate.currentDate())
         self._date_to.blockSignals(False)
 
+    def _begin_locate_navigation(self, generation: int) -> None:
+        """Freeze table repaints until the target row can be shown directly."""
+        self._active_locate_gen = generation
+        self._table.setUpdatesEnabled(False)
+
+    def _finish_locate_navigation(self, generation: int) -> None:
+        """Re-enable table repaints for the active locate generation."""
+        if self._active_locate_gen != generation:
+            return
+        self._active_locate_gen = None
+        if not self._table.updatesEnabled():
+            self._table.setUpdatesEnabled(True)
+            self._table.viewport().update()
+
+    def _schedule_locate_row(self, row: int) -> None:
+        """Reload the target dataset and reveal *row* once its page is ready."""
+        model = self._vm.table_model
+        self._filter_url_gen += 1
+        _gen = self._filter_url_gen
+        target_page_start = (row // PAGE_SIZE) * PAGE_SIZE
+
+        self._pending_scroll_restore = self._table.verticalScrollBar().value()
+        self._begin_locate_navigation(_gen)
+
+        def _show_target_row() -> None:
+            idx = model.index(row, 0)
+            if not idx.isValid():
+                self._finish_locate_navigation(_gen)
+                return
+            self._table.selectionModel().clearSelection()
+            self._table.selectionModel().select(
+                idx,
+                QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+            )
+            self._table.scrollTo(idx, QAbstractItemView.ScrollHint.PositionAtCenter)
+            self._finish_locate_navigation(_gen)
+
+        def _on_page_loaded(base_row: int, records: list) -> None:
+            if self._filter_url_gen != _gen:
+                try:
+                    model.records_loaded.disconnect(_on_page_loaded)
+                except RuntimeError:
+                    pass
+                return
+            if base_row == target_page_start:
+                try:
+                    model.records_loaded.disconnect(_on_page_loaded)
+                except RuntimeError:
+                    pass
+                QTimer.singleShot(0, _show_target_row)
+            elif base_row == 0 and target_page_start > 0:
+                target_page_idx = target_page_start // PAGE_SIZE
+                QTimer.singleShot(0, lambda: model._fetch_page(target_page_idx))
+
+        model.records_loaded.connect(_on_page_loaded)
+        self._do_search(skip_badges=True)
+
+    def filter_by_url(self, url: str):
+        """When navigating from 'Locate in History' in the bookmarks page, clear filters and scroll to the row containing the URL."""
+        row = self._vm._db.get_row_offset_for_url(
+            url,
+            excluded_ids=self._vm.table_model._hidden_ids,
+            hidden_only=self._vm.hidden_mode,
+        )
+
+        # Step 2: clear all filters so the full list is shown
+        self._clear_navigation_filters()
+
         if row < 0:
             # URL not found - fall back to a url: search so the user sees something
             self._search.blockSignals(False)
@@ -2522,48 +2530,45 @@ class HistoryPage(QWidget):
             return
 
         # Step 3: trigger the async reload, then scroll AFTER the page containing
-        # the target row has loaded, so separator row heights are already in place
-        # and scrollTo lands accurately. Using total_count_changed (which fires
-        # before _fetch_page(0)) would scroll before separators are injected,
-        # causing the view to land N * _SEP_H pixels above the target.
-        model = self._vm.table_model
-        self._filter_url_gen += 1
-        _gen = self._filter_url_gen
-        target_page_start = (row // PAGE_SIZE) * PAGE_SIZE
+        # the target row has loaded so index->viewport mapping is stable.
+        self._schedule_locate_row(row)
 
-        def _on_page_loaded(base_row: int, records: list) -> None:
-            # Discard if a newer filter_by_url call has superseded this one.
-            if self._filter_url_gen != _gen:
-                try:
-                    model.records_loaded.disconnect(_on_page_loaded)
-                except RuntimeError:
-                    pass
+    def locate_bookmark(self, bookmark: BookmarkRecord, hidden_mode: bool = False) -> None:
+        """Locate a bookmark in history, preferring its bound history_id.
+
+        When history_id is missing or stale, falls back to the most recent
+        visible row for the bookmark URL in the target dataset.
+        """
+        if hidden_mode != self._vm.hidden_mode:
+            self.set_hidden_mode(hidden_mode, reload=False)
+            if self._vm.hidden_mode != hidden_mode:
                 return
-            if base_row == target_page_start:
-                # Target page loaded — all separators above row are now in place.
-                try:
-                    model.records_loaded.disconnect(_on_page_loaded)
-                except RuntimeError:
-                    pass
-                idx = model.index(row, 0)
-                if not idx.isValid():
-                    return
-                self._table.selectionModel().clearSelection()
-                self._table.selectionModel().select(
-                    idx,
-                    QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
-                )
-                QTimer.singleShot(0, lambda: self._table.scrollTo(idx, QAbstractItemView.ScrollHint.PositionAtCenter))
-            elif base_row == 0 and target_page_start > 0:
-                # Page 0 loaded but target is in a later page.
-                # Pre-fetch the target page directly instead of doing an
-                # approximate scrollTo — avoids the visual intermediate jump
-                # and eliminates one serial round-trip.
-                target_page_idx = target_page_start // PAGE_SIZE
-                QTimer.singleShot(0, lambda: model._fetch_page(target_page_idx))
 
-        model.records_loaded.connect(_on_page_loaded)
-        self._do_search(skip_badges=True)
+        row = -1
+        hidden_ids = self._vm.table_model._hidden_ids
+        if bookmark.history_id is not None:
+            row = self._vm._db.get_row_offset_for_history_id(
+                bookmark.history_id,
+                excluded_ids=hidden_ids,
+                hidden_only=hidden_mode,
+            )
+        if row < 0:
+            row = self._vm._db.get_row_offset_for_url(
+                bookmark.url,
+                excluded_ids=hidden_ids,
+                hidden_only=hidden_mode,
+            )
+
+        # Step 2: clear all filters so the target dataset is shown as-is.
+        self._clear_navigation_filters()
+
+        if row < 0:
+            self._search.setText(f"url:{bookmark.url}")
+            self._focus_search()
+            self._do_search()
+            return
+
+        self._schedule_locate_row(row)
 
     def filter_by_date(self, date_str: str):
         """Switch to history page and show only records for *date_str* (YYYY-MM-DD)."""
@@ -2751,12 +2756,7 @@ class HistoryPage(QWidget):
         """Repaint the visible viewport on theme change.
 
         ThemeManager.apply() temporarily calls setModel(None) then setModel(model)
-        to force Qt to re-apply the new stylesheet.  Qt's QHeaderView.initializeSections()
-        resets every section to defaultSectionSize during that swap, discarding the
-        per-row resizeSection() calls that gave separator rows their extra height
-        (_SEP_TOTAL instead of _ROW_H).  Re-apply those sizes here so the total
-        content height is restored before the next paint, preventing the brief
-        upward jump caused by vbar.setValue() operating on a shrunken content area.
+        to force Qt to re-apply the new stylesheet.
 
         Column-width note: setModel(None) hides the vertical scrollbar (no content),
         temporarily widening the viewport by the scrollbar width (~6 px).  When
@@ -2768,9 +2768,6 @@ class HistoryPage(QWidget):
         pattern as __init__) ensures the call runs after updateGeometries() has
         settled scrollbar visibility and the viewport width is correct.
         """
-        vh = self._table.verticalHeader()
-        for row in self._separator_rows:
-            vh.resizeSection(row, _SEP_TOTAL)
         self._table.viewport().update()
         self._scroll_bubble.apply_theme(theme)
         # Re-apply calendar customization after theme change
@@ -3582,7 +3579,7 @@ class HistoryPage(QWidget):
         """Return whether the page is currently showing hidden records."""
         return self._vm.hidden_mode
 
-    def set_hidden_mode(self, enabled: bool) -> None:
+    def set_hidden_mode(self, enabled: bool, reload: bool = True) -> None:
         """Programmatically enter or leave hidden mode.  Auth-guarded when entering."""
         if self._vm.hidden_mode == enabled:
             return
@@ -3591,7 +3588,7 @@ class HistoryPage(QWidget):
 
             if not require_master_password(self._config.master_password_hash, self):
                 return
-        self._vm.set_hidden_mode(enabled)
+        self._vm.set_hidden_mode(enabled, reload=reload)
         self._update_hidden_mode_ui()
 
     def _update_hidden_mode_ui(self) -> None:
