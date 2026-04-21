@@ -189,7 +189,7 @@ class FaviconManager(QObject):
         db_path = config.get_favicon_db_path()
         self._cache = FaviconCache(db_path)
         self._lru = _LRUPixmapCache()
-        self._svg_renderer_cache: dict[bytes, object] = {}  # bounded, see _svg_to_pixmap
+        self._svg_renderer_cache: OrderedDict[bytes, object] = OrderedDict()  # bounded, see _svg_to_pixmap
         self._svg_renderer_cache_max = 200
         # Cache for letter-placeholder pixmaps: keyed by (letter, size, palette_index).
         # Letter pixmaps are purely deterministic (no external state), so they can be
@@ -321,6 +321,7 @@ class FaviconManager(QObject):
         Should be called before QApplication.quit().
         """
         if self._thread is None or not self._thread.isRunning():
+            self._clear_pixmap_caches()
             self._cache.close()
             return
         if self._worker is not None:
@@ -331,7 +332,15 @@ class FaviconManager(QObject):
             log.warning("FaviconManager: worker thread did not finish in time, forcing quit")
             self._thread.quit()
             self._thread.wait(2000)
+        self._clear_pixmap_caches()
         self._cache.close()
+
+    def _clear_pixmap_caches(self) -> None:
+        """Release in-memory QPixmap caches to free GPU/process resources on shutdown."""
+        self._lru._cache.clear()
+        self._raw_pixmap_cache.clear()
+        self._letter_pixmap_cache.clear()
+        self._svg_renderer_cache.clear()
 
     @Slot()
     def _on_thread_finished(self) -> None:
@@ -499,7 +508,7 @@ class FaviconManager(QObject):
                 if not renderer.isValid():
                     return QPixmap()
                 if len(self._svg_renderer_cache) >= self._svg_renderer_cache_max:
-                    self._svg_renderer_cache.pop(next(iter(self._svg_renderer_cache)))
+                    self._svg_renderer_cache.popitem(last=False)
                 self._svg_renderer_cache[svg_key] = renderer
 
             pixmap = QPixmap(size, size)
