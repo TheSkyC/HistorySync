@@ -179,6 +179,7 @@ class _BookmarkCard(QFrame):
         title_text = self._bm.title or self._bm.url
         title_lbl = QLabel(f"<b>{title_text}</b>")
         title_lbl.setWordWrap(True)
+        title_lbl.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         title_lbl.setCursor(Qt.PointingHandCursor)
 
         # Capture bm by value so clicks still work after _bm is mutated
