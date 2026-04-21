@@ -96,6 +96,17 @@ class TestDecryptText:
         with pytest.raises(DecryptionError):
             decrypt_text(tampered_enc)
 
+    def test_unknown_version_raises_explicit_error(self):
+        """Unknown version marker raises explicit unknown-version error."""
+        from src.utils.security_utils import DecryptionError
+
+        # 0x03 is not a supported version marker. Keep payload length >= 49 so
+        # it is not treated as a short/empty payload error.
+        payload = b"\x03" + (b"x" * 60)
+        enc = "ENC:" + base64.b64encode(payload).decode("ascii")
+        with pytest.raises(DecryptionError, match="Unknown ciphertext version"):
+            decrypt_text(enc)
+
 
 class TestEncryptDecryptRoundtrip:
     """Test encrypt/decrypt roundtrip."""

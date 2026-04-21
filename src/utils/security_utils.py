@@ -305,9 +305,13 @@ def decrypt_text(text: str) -> str:
     Decrypts ciphertext in "ENC:<base64>" format, returning the original plaintext.
     If the input is not in encrypted format (missing "ENC:" prefix), it is returned as-is (for migration compatibility).
 
-    Supports both v1 (HKDF) and legacy v0 (SHAKE-256) payloads.
+    Supports both v2 (versioned), v1 (HKDF), and legacy v0 (SHAKE-256) payloads.
     When payload[0] == 0x01 but HMAC fails, falls back to legacy path to handle
     the 1/256 chance that an old random salt starts with 0x01.
+
+    For payloads whose first byte is not a known version marker, legacy
+    decryption is attempted for backward compatibility. If legacy verification
+    also fails, an explicit unknown-version error is raised.
 
     Raises DecryptionError if the ciphertext is malformed or the HMAC check fails.
     """
@@ -338,9 +342,9 @@ def decrypt_text(text: str) -> str:
                 raise DecryptionError("HMAC verification failed — ciphertext may be corrupt or tampered")
             return result
         result = _try_decrypt_legacy(payload, master_key)
-        if result is None:
-            raise DecryptionError("HMAC verification failed — ciphertext may be corrupt or tampered")
-        return result
+        if result is not None:
+            return result
+        raise DecryptionError(f"Unknown ciphertext version: 0x{payload[0]:02x}")
     except DecryptionError:
         raise
     except Exception as e:
