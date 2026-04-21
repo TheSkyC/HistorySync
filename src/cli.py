@@ -1368,8 +1368,8 @@ def _cmd_search(config, args: argparse.Namespace) -> int:
     url_width = max(30, term_width - title_width - 30)
 
     for i, r in enumerate(records, 1):
-        title = r.title[:title_width] if len(r.title) > title_width else r.title
-        url = r.url[:url_width] if len(r.url) > url_width else r.url
+        title = r.title[: title_width - 3] + "..." if len(r.title) > title_width else r.title
+        url = r.url[: url_width - 3] + "..." if len(r.url) > url_width else r.url
         ts = datetime.fromtimestamp(r.visit_time).strftime("%Y-%m-%d %H:%M")
 
         print(f"\n  {_bold(_cyan(f'[{i}]'))}  {_bold(title)}")
