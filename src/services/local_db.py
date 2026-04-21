@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -30,7 +31,7 @@ log = get_logger("local_db")
 # Caching on just the origin prefix (everything before the 3rd '/') gives high
 # hit rates while avoiding per-URL dict bloat.
 # Example: "https://github.com/user/repo" → key "https://github.com"
-_domain_cache: dict[str, str] = {}
+_domain_cache: OrderedDict[str, str] = OrderedDict()
 _DOMAIN_CACHE_MAX = 8192
 
 
@@ -48,7 +49,7 @@ def _extract_display_domain(url: str) -> str:
         return cached
     result = _extract_display_domain_raw(url)
     if len(_domain_cache) >= _DOMAIN_CACHE_MAX:
-        _domain_cache.clear()
+        _domain_cache.popitem(last=False)  # FIFO: evict oldest entry, not the entire cache
     _domain_cache[key] = result
     return result
 
