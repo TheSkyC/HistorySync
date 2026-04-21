@@ -46,7 +46,11 @@ class MasterPasswordSession:
     @property
     def is_unlocked(self) -> bool:
         with self._lock:
-            if self._unlocked and (time.monotonic() - self._last_activity) > SESSION_TIMEOUT_S:
+            # Use time.time() (wall-clock) so that system sleep/hibernate is
+            # counted toward the idle timeout. time.monotonic() freezes during
+            # sleep, which would allow the session to persist indefinitely while
+            # the device is locked/sleeping.
+            if self._unlocked and (time.time() - self._last_activity) > SESSION_TIMEOUT_S:
                 self._unlocked = False
                 log.info("Master password session expired (idle timeout)")
             return self._unlocked
@@ -54,7 +58,7 @@ class MasterPasswordSession:
     def unlock(self) -> None:
         with self._lock:
             self._unlocked = True
-            self._last_activity = time.monotonic()
+            self._last_activity = time.time()
         log.info("Master password session unlocked")
         self._notify()
 
@@ -68,7 +72,7 @@ class MasterPasswordSession:
         """Extend the session on any protected activity."""
         with self._lock:
             if self._unlocked:
-                self._last_activity = time.monotonic()
+                self._last_activity = time.time()
 
 
 _state: dict[str, MasterPasswordSession | None] = {"session": None}
