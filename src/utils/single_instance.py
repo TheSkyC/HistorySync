@@ -6,9 +6,6 @@ from pathlib import Path
 import secrets
 import tempfile
 
-from PySide6.QtCore import QObject, Signal
-from PySide6.QtNetwork import QHostAddress, QTcpServer, QTcpSocket
-
 logger = logging.getLogger(__name__)
 
 SINGLE_INSTANCE_PORT = 20455
@@ -35,73 +32,82 @@ def _read_nonce() -> bytes:
     return b""
 
 
-class SingleInstanceServer(QObject):
-    request_activation = Signal()
-    request_quick_overlay = Signal()
+# Qt-dependent classes and functions are defined only when PySide6 is available.
+# In headless CLI and test environments the constants and _read_nonce() above
+# are sufficient; guarding the import avoids a hard PySide6 dependency there.
+try:
+    from PySide6.QtCore import QObject, Signal
+    from PySide6.QtNetwork import QHostAddress, QTcpServer, QTcpSocket
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.server = QTcpServer(self)
-        self.server.newConnection.connect(self._handle_new_connection)
-        self._nonce: bytes = secrets.token_bytes(_NONCE_BYTES)
-        try:
-            _TOKEN_FILE.write_bytes(self._nonce)
-        except OSError as exc:
-            logger.warning("SingleInstanceServer: could not write token file: %s", exc)
+    class SingleInstanceServer(QObject):
+        request_activation = Signal()
+        request_quick_overlay = Signal()
 
-    def start(self) -> bool:
-        if not self.server.listen(QHostAddress.LocalHost, SINGLE_INSTANCE_PORT):
-            logger.debug(
-                "SingleInstanceServer: port %d already in use — another instance is likely running",
-                SINGLE_INSTANCE_PORT,
-            )
-            return False
-        logger.debug("SingleInstanceServer: listening on port %d", SINGLE_INSTANCE_PORT)
-        return True
+        def __init__(self, parent=None):
+            super().__init__(parent)
+            self.server = QTcpServer(self)
+            self.server.newConnection.connect(self._handle_new_connection)
+            self._nonce: bytes = secrets.token_bytes(_NONCE_BYTES)
+            try:
+                _TOKEN_FILE.write_bytes(self._nonce)
+            except OSError as exc:
+                logger.warning("SingleInstanceServer: could not write token file: %s", exc)
 
-    def stop(self) -> None:
-        """Close the server and remove the token file."""
-        self.server.close()
-        try:
-            _TOKEN_FILE.unlink(missing_ok=True)
-        except OSError:
-            pass
+        def start(self) -> bool:
+            if not self.server.listen(QHostAddress.LocalHost, SINGLE_INSTANCE_PORT):
+                logger.debug(
+                    "SingleInstanceServer: port %d already in use — another instance is likely running",
+                    SINGLE_INSTANCE_PORT,
+                )
+                return False
+            logger.debug("SingleInstanceServer: listening on port %d", SINGLE_INSTANCE_PORT)
+            return True
 
-    def _handle_new_connection(self):
-        socket = self.server.nextPendingConnection()
-        socket.readyRead.connect(lambda: self._read_data(socket))
+        def stop(self) -> None:
+            """Close the server and remove the token file."""
+            self.server.close()
+            try:
+                _TOKEN_FILE.unlink(missing_ok=True)
+            except OSError:
+                pass
 
-    def _read_data(self, socket: QTcpSocket):
-        data = socket.readAll().data()
-        # Validate nonce prefix before processing the message.
-        if not data.startswith(self._nonce):
-            logger.warning("SingleInstanceServer: rejected message with invalid or missing nonce")
+        def _handle_new_connection(self):
+            socket = self.server.nextPendingConnection()
+            socket.readyRead.connect(lambda: self._read_data(socket))
+
+        def _read_data(self, socket: QTcpSocket):
+            data = socket.readAll().data()
+            # Validate nonce prefix before processing the message.
+            if not data.startswith(self._nonce):
+                logger.warning("SingleInstanceServer: rejected message with invalid or missing nonce")
+                socket.disconnectFromHost()
+                return
+            payload = data[_NONCE_BYTES:]
+            if payload == ACTIVATE_MSG:
+                logger.debug("SingleInstanceServer: activation request received")
+                self.request_activation.emit()
+            elif payload == ACTIVATE_QUICK_MSG:
+                logger.debug("SingleInstanceServer: quick overlay request received")
+                self.request_quick_overlay.emit()
             socket.disconnectFromHost()
-            return
-        payload = data[_NONCE_BYTES:]
-        if payload == ACTIVATE_MSG:
-            logger.debug("SingleInstanceServer: activation request received")
-            self.request_activation.emit()
-        elif payload == ACTIVATE_QUICK_MSG:
-            logger.debug("SingleInstanceServer: quick overlay request received")
-            self.request_quick_overlay.emit()
-        socket.disconnectFromHost()
 
+    def raise_existing_instance() -> bool:
+        socket = QTcpSocket()
+        socket.connectToHost(QHostAddress.LocalHost, SINGLE_INSTANCE_PORT)
 
-def raise_existing_instance() -> bool:
-    socket = QTcpSocket()
-    socket.connectToHost(QHostAddress.LocalHost, SINGLE_INSTANCE_PORT)
+        if socket.waitForConnected(50):
+            nonce = _read_nonce()
+            socket.write(nonce + ACTIVATE_MSG)
+            socket.waitForBytesWritten(50)
+            socket.disconnectFromHost()
+            logger.debug("raise_existing_instance: activation message sent")
+            return True
 
-    if socket.waitForConnected(50):
-        nonce = _read_nonce()
-        socket.write(nonce + ACTIVATE_MSG)
-        socket.waitForBytesWritten(50)
-        socket.disconnectFromHost()
-        logger.debug("raise_existing_instance: activation message sent")
-        return True
+        logger.debug("raise_existing_instance: no existing instance found")
+        return False
 
-    logger.debug("raise_existing_instance: no existing instance found")
-    return False
+except ImportError:
+    pass
 
 
 def send_quick_overlay() -> bool:
