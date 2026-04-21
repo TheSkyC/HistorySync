@@ -2429,7 +2429,7 @@ class LocalDatabase:
     def get_bookmarked_urls(self) -> set[str]:
         with self._ro_lock:
             conn = self._fresh_ro_conn()
-            rows = conn.execute("SELECT url FROM bookmarks").fetchall()
+            rows = conn.execute("SELECT DISTINCT url FROM bookmarks").fetchall()
         return {r[0] for r in rows}
 
     def get_all_bookmarks(self, tag: str = "", hidden_mode: bool = False) -> list[BookmarkRecord]:

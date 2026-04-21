@@ -330,6 +330,13 @@ class TestBookmarkCRUD:
         assert "https://a.com" in urls
         assert "https://b.com" in urls
 
+    def test_get_bookmarked_urls_no_duplicates_multi_tagged(self, local_db):
+        """get_bookmarked_urls returns each URL exactly once even when multi-tagged."""
+        local_db.add_bookmark("https://a.com", "A", tags=["work", "ref", "python"])
+        urls = local_db.get_bookmarked_urls()
+        url_list = [u for u in urls if u == "https://a.com"]
+        assert len(url_list) == 1
+
     def test_get_all_bookmarks_no_filter(self, local_db):
         """get_all_bookmarks returns all bookmarks."""
         local_db.add_bookmark("https://a.com", "A", tags=[])
