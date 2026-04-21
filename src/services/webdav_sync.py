@@ -578,10 +578,9 @@ class WebDavSyncService:
             remote_manifest = f"{remote_dir.rstrip('/')}/{WEBDAV_MANIFEST_FILENAME}"
             fd, tmp_path = tempfile.mkstemp(suffix=".json")
             try:
+                # Close fd inside this try so the finally:unlink runs even if
+                # os.close raises (otherwise tmp_path would leak on Windows).
                 os.close(fd)
-            except OSError:
-                pass
-            try:
                 _webdav_retry(lambda: client.download_sync(remote_path=remote_manifest, local_path=tmp_path))
                 with Path(tmp_path).open("rb") as f:
                     return json.loads(f.read().decode("utf-8"))
