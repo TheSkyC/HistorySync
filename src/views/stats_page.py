@@ -36,6 +36,7 @@ from PySide6.QtGui import (
     QPen,
     QPixmap,
     QRadialGradient,
+    QShortcut,
 )
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -45,7 +46,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
-    QShortcut,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
