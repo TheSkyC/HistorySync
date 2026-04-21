@@ -48,7 +48,7 @@ class SyncWorker(QObject):
 
     @Slot()
     def run(self) -> None:
-        results: dict[str, int] = {}
+        results: dict[str, int | None] = {}
         exc_msg: str | None = None
         try:
             log.info("Sync worker started")

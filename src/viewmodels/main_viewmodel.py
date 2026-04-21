@@ -556,8 +556,21 @@ class MainViewModel(QObject):
         import time as _time
 
         total_new = sum(v for v in results.values() if v is not None)
+        failed = [bt for bt, v in results.items() if v is None]
+
         if self._monitor is not None:
             self._monitor.clear_syncing()
+
+        # If every browser failed, surface an error instead of silently emitting
+        # sync_finished(0) — which would update last_sync_ts despite no data.
+        if failed and total_new == 0 and results:
+            log.error("All browser extractions failed: %s", ", ".join(sorted(failed)))
+            self.sync_error.emit(_("Sync failed: all browser extractions encountered errors"))
+            return
+
+        if failed:
+            log.warning("Partial sync: %d browser(s) failed: %s", len(failed), ", ".join(sorted(failed)))
+
         self._config.last_sync_ts = int(_time.time())
         self._config.save()
         self.sync_finished.emit(total_new)
