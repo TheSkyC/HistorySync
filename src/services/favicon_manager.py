@@ -200,8 +200,8 @@ class FaviconManager(QObject):
         # than once per favicon domain even when the same favicon is requested at
         # multiple sizes (e.g. 16 px in the table and 14 px in the scroll bubble).
         # Keyed by domain string; bounded to _RAW_PIXMAP_CACHE_MAX entries via FIFO
-        # eviction (insertions are rare so OrderedDict overhead is unnecessary).
-        self._raw_pixmap_cache: dict[str, QPixmap] = {}
+        # eviction using OrderedDict.popitem(last=False).
+        self._raw_pixmap_cache: OrderedDict[str, QPixmap] = OrderedDict()
         self._RAW_PIXMAP_CACHE_MAX = 1200  # matches roughly 2 × LRU max (600)
 
         # Holds the FaviconExtractorManager registry instead of a bare list
@@ -523,9 +523,9 @@ class FaviconManager(QObject):
             if not raw.loadFromData(data):
                 return QPixmap()
             if cache_key:
-                # FIFO eviction: if over limit, remove an arbitrary entry cheaply
+                # FIFO eviction: remove oldest entry when over limit.
                 if len(self._raw_pixmap_cache) >= self._RAW_PIXMAP_CACHE_MAX:
-                    self._raw_pixmap_cache.pop(next(iter(self._raw_pixmap_cache)))
+                    self._raw_pixmap_cache.popitem(last=False)
                 self._raw_pixmap_cache[cache_key] = raw
 
         if raw.width() == size and raw.height() == size:
