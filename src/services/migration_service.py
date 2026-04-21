@@ -268,14 +268,13 @@ class MigrationService:
         # 2. Record count must not have decreased
         after_count = 0
         if self._result.db_file and self._result.db_file.exists():
-            from src.services.local_db import LocalDatabase
-
-            db = LocalDatabase(self._result.db_file)
+            # Use a direct connection rather than a full LocalDatabase() to avoid
+            # triggering schema init overhead (migrations already ran in _step_db_migrate).
+            _conn = sqlite3.connect(str(self._result.db_file), timeout=10)
             try:
-                stats = db.get_db_stats()
-                after_count = stats.record_count
+                after_count = _conn.execute("SELECT COUNT(*) FROM history").fetchone()[0]
             finally:
-                db.close()
+                _conn.close()
 
             before = self._result.db_record_count
             if after_count < before:
