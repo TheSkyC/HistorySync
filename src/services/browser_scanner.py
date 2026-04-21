@@ -202,11 +202,17 @@ class BrowserScanner:
                 continue
             self._scanned_paths.add(resolved)
 
-            # Check if the directory contains a browser database
-            self._check_for_browser_db(current_path)
+            # Check if the directory contains a browser database.
+            # If it does, all profiles are enumerated inside _process_*_browser;
+            # there is no need to recurse further into this directory.
+            browser_found = self._check_for_browser_db(current_path)
 
             # Apply depth limit
             if depth >= self._max_scan_depth:
+                continue
+
+            # Skip subdirs when a browser data root was already handled above.
+            if browser_found:
                 continue
 
             # Continue scanning subdirectories
@@ -243,17 +249,27 @@ class BrowserScanner:
 
         return scanned_count
 
-    def _check_for_browser_db(self, path: Path) -> None:
-        """Check if the directory contains a browser database."""
+    def _check_for_browser_db(self, path: Path) -> bool:
+        """Check if the directory contains a browser database.
+
+        Returns True when a browser was identified so the caller can skip
+        recursing into subdirectories (the profile enumeration inside
+        _process_*_browser already handles all children).
+        """
+        found = False
         # Check for Chromium History file
         history_file = path / "History"
         if history_file.exists() and self._is_valid_sqlite(history_file):
             self._process_chromium_browser(history_file)
+            found = True
 
         # Check for Firefox places.sqlite file
         places_file = path / "places.sqlite"
         if places_file.exists() and self._is_valid_sqlite(places_file):
             self._process_firefox_browser(places_file)
+            found = True
+
+        return found
 
     def _is_valid_sqlite(self, file_path: Path) -> bool:
         """Verify if the file is a valid SQLite database."""
