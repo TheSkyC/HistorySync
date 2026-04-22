@@ -12,6 +12,7 @@ import webbrowser
 from PySide6.QtCore import (
     QDate,
     QEasingCurve,
+    QEvent,
     QItemSelectionModel,
     QMimeData,
     QPoint,
@@ -2021,6 +2022,16 @@ class _DraggableHistoryTable(QTableView):
         return pixmap
 
 
+# Columns whose content is naturally long text; these share remaining viewport
+# width equally when the window is resized, replacing the old "stretch last
+# column" behaviour with a more balanced layout.
+_LONG_TEXT_COLS: frozenset[str] = frozenset({"title", "url", "domain", "metadata"})
+
+# Hard floor for any single long-text column so text remains readable even on
+# very narrow windows.
+_MIN_LONG_TEXT_W = 80
+
+
 class HistoryPage(QWidget):
     # Signals to parent for blacklist / hide changes
     blacklist_domain_requested = Signal(str)
@@ -2050,6 +2061,19 @@ class HistoryPage(QWidget):
         self._col_resize_timer = QTimer(self)
         self._col_resize_timer.setSingleShot(True)
         self._col_resize_timer.timeout.connect(self._sync_ui_config)
+
+        # Deferred long-text column redistribution.  Using a single-shot timer
+        # lets multiple rapid resize events collapse into one redistribution and,
+        # more importantly, ensures the timer fires AFTER updateGeometries() has
+        # run so the viewport already reflects the correct vertical-scrollbar
+        # visibility (and thus the correct available width).
+        self._redist_timer = QTimer(self)
+        self._redist_timer.setSingleShot(True)
+        self._redist_timer.timeout.connect(self._redistribute_long_text_cols)
+        # Guard flag: True while _redistribute_long_text_cols is executing.
+        # Prevents the viewport Resize event emitted by updateGeometries() inside
+        # redistribution from scheduling a new redistribution pass (infinite loop).
+        self._in_redistribution = False
         self._scroll_bubble_timer = QTimer(self)
         self._scroll_bubble_timer.setInterval(60)
         self._scroll_bubble_timer.timeout.connect(self._update_scroll_bubble)
@@ -2218,6 +2242,13 @@ class HistoryPage(QWidget):
         # nothing to stretch against and the explicit section widths exceed the
         # viewport once the page becomes visible — causing a spurious horizontal scrollbar.
         QTimer.singleShot(0, self._apply_column_widths)
+
+        # Watch viewport resize events to redistribute long-text columns whenever
+        # available width changes (window resize OR vertical-scrollbar
+        # appearing/disappearing).  We use a deferred single-shot timer so
+        # rapid resize events collapse into one redistribution and so it always
+        # runs after Qt has finished updating viewport geometry.
+        self._table.viewport().installEventFilter(self)
 
         vh = self._table.verticalHeader()
         vh.setDefaultSectionSize(_ROW_H)
@@ -2982,14 +3013,116 @@ class HistoryPage(QWidget):
     def _on_section_resized(self, logical_index, old_size, new_size):
         col_key = self._vm.table_model._col_to_key.get(logical_index)
         if col_key and col_key != "browser":
-            hh = self._table.horizontalHeader()
-            # Don't save the width when Qt is managing it via setStretchLastSection —
-            # the value reflects the viewport width at resize time, not a user preference,
-            # and saving it would cause _apply_column_widths to restore an inflated width.
-            if hh.stretchLastSection() and hh.visualIndex(logical_index) == hh.count() - 1:
-                return
             self._current_widths[col_key] = new_size
             self._col_resize_timer.start(500)
+
+    def _redistribute_long_text_cols(self, hh=None, visible_cols=None, _notify_geometry=True):
+        """Distribute available viewport width among visible long-text columns.
+
+        Each long-text column has a preferred width drawn from _current_widths
+        (user's last manual resize) or the built-in defaults.  Available space
+        is the viewport width minus the sum of all non-long-text column widths.
+
+        - If available >= sum(preferred): distribute the extra space
+          proportionally so each column grows in proportion to its preference.
+        - If available < sum(preferred): scale down proportionally, respecting
+          _MIN_LONG_TEXT_W as a hard floor per column.  If the floors push the
+          total beyond available, the table's own horizontal scrollbar handles
+          the overflow - we never force columns below their floor.
+
+        _notify_geometry: when False, skip the updateGeometries() call at the
+          end.  Pass False when calling from inside _batch_header_update, which
+          already calls updateGeometries() in its __exit__.
+        """
+        if self._in_redistribution:
+            return
+
+        if hh is None:
+            hh = self._table.horizontalHeader()
+        if visible_cols is None:
+            visible_cols = self._vm.table_model.get_visible_columns()
+
+        viewport_w = self._table.viewport().width()
+        if viewport_w <= 0:
+            return
+
+        _defaults = {"title": 340, "url": 420, "domain": 140, "metadata": 240}
+
+        long_indices: list[int] = []
+        long_preferred: list[int] = []
+        fixed_total = 0
+        for idx, col_key in enumerate(visible_cols):
+            if col_key in _LONG_TEXT_COLS:
+                long_indices.append(idx)
+                pref = self._current_widths.get(col_key, _defaults.get(col_key, 120))
+                long_preferred.append(max(pref, _MIN_LONG_TEXT_W))
+            else:
+                fixed_total += hh.sectionSize(idx)
+
+        if not long_indices:
+            return
+
+        available = viewport_w - fixed_total
+        if available <= 0:
+            return
+
+        total_pref = sum(long_preferred)
+        if available >= total_pref:
+            # Extra space: grow each column proportionally to its preferred width.
+            extra = available - total_pref
+            new_widths = [p + int(extra * p / total_pref) for p in long_preferred]
+            # Assign any leftover pixel from integer rounding to the first column.
+            remainder = available - sum(new_widths)
+            if remainder > 0:
+                new_widths[0] += remainder
+        else:
+            # Insufficient space: scale down proportionally, floor at _MIN_LONG_TEXT_W.
+            # If floors push the total past available, the scrollbar handles overflow.
+            new_widths = [max(int(p * available / total_pref), _MIN_LONG_TEXT_W) for p in long_preferred]
+
+        # Early exit: widths unchanged - no resize or geometry update needed.
+        # This is the normal outcome of the "correction pass" when the viewport
+        # width did not change after updateGeometries(), and it breaks the
+        # otherwise-infinite schedule loop (redistribute → updateGeometries →
+        # viewport Resize → schedule → redistribute → ...).
+        if all(hh.sectionSize(idx) == w for idx, w in zip(long_indices, new_widths, strict=False)):
+            return
+
+        self._in_redistribution = True
+        try:
+            was_blocked = hh.signalsBlocked()
+            if not was_blocked:
+                hh.blockSignals(True)
+            try:
+                for idx, w in zip(long_indices, new_widths, strict=False):
+                    hh.resizeSection(idx, w)
+            finally:
+                if not was_blocked:
+                    hh.blockSignals(False)
+            if _notify_geometry:
+                self._table.updateGeometries()
+        finally:
+            self._in_redistribution = False
+
+    def eventFilter(self, obj, event):
+        """Schedule a deferred redistribution whenever the viewport is resized.
+
+        Listening on the viewport means we react to both window resizes AND
+        vertical-scrollbar visibility changes (which shrink the viewport by
+        ~17px).  Two guards keep the feedback loop clean:
+
+        - _in_redistribution: set True while _redistribute_long_text_cols runs.
+          updateGeometries() inside it emits another Resize event; without this
+          guard that would schedule another redistribution indefinitely.
+        - _col_resize_timer.isActive(): True for 500ms after the user drags a
+          column resizer.  Column resizes can also change scrollbar visibility,
+          so they also emit a viewport Resize event.  Suppressing redistribution
+          during this window preserves the user's manual column width intent.
+        """
+        if obj is self._table.viewport() and event.type() == QEvent.Resize:
+            if not self._in_redistribution and not self._col_resize_timer.isActive():
+                self._redist_timer.start(0)
+        return super().eventFilter(obj, event)
 
     @contextmanager
     def _batch_header_update(self):
@@ -3013,14 +3146,15 @@ class HistoryPage(QWidget):
             "url": 420,
             "domain": 140,
             "metadata": 240,
+            "visit_time": 165,
+            "first_visit_time": 165,
         }
+        _min_widths = {"visit_time": 140, "first_visit_time": 140}
+        for col_key, min_w in _min_widths.items():
+            if self._current_widths.get(col_key, min_w) < min_w:
+                self._current_widths.pop(col_key, None)
 
         with self._batch_header_update() as hh:
-            # Toggle setStretchLastSection to force Qt to recalculate the stretch
-            # against the current viewport width.  Without this, if the flag was
-            # already True, Qt treats the last section as "user-resized" after an
-            # explicit resizeSection() call and skips the recalculation in
-            # updateGeometries(), leaving a stale (inflated) width in place.
             hh.setStretchLastSection(False)
             for idx, col_key in enumerate(visible_cols):
                 if col_key == "browser":
@@ -3030,7 +3164,17 @@ class HistoryPage(QWidget):
                     hh.setSectionResizeMode(idx, QHeaderView.Interactive)
                     w = self._current_widths.get(col_key, default_widths.get(col_key, 120))
                     hh.resizeSection(idx, w)
-            hh.setStretchLastSection(True)
+            # Redistribute synchronously inside the batch update so that
+            # _batch_header_update's updateGeometries() call sees the final
+            # column layout.  This eliminates the one-frame flicker that
+            # previously occurred between setting raw widths and the deferred
+            # _redist_timer firing.
+            self._redistribute_long_text_cols(hh, visible_cols, _notify_geometry=False)
+        # A deferred correction pass: if updateGeometries() above changed
+        # scrollbar visibility (narrowing the viewport by ~17px), the
+        # viewport Resize event from eventFilter will schedule _redist_timer.
+        # The early-exit in _redistribute_long_text_cols ensures it is a no-op
+        # when the viewport width is already stable.
 
     def _auto_fit_column(self, logical_index: int):
         if logical_index < 0:
@@ -3050,10 +3194,16 @@ class HistoryPage(QWidget):
             idx = self._vm.table_model.index(row, logical_index)
             text = self._vm.table_model.data(idx, Qt.DisplayRole)
             if text:
-                w = fm.horizontalAdvance(str(text)) + 24  # Reserve left and right margins
+                w = fm.horizontalAdvance(str(text)) + 40  # 20px per side for cell padding + safety
                 max_w = max(max_w, w)
 
         max_w = min(max_w, 600)
+
+        # Enforce per-column minimum widths so auto-fit never produces a value
+        # that _apply_column_widths would immediately discard on the next call.
+        _col_min = {"visit_time": 140, "first_visit_time": 140}
+        if col_key in _col_min:
+            max_w = max(max_w, _col_min[col_key])
 
         hh = self._table.horizontalHeader()
         hh.resizeSection(logical_index, max_w)
