@@ -3243,10 +3243,12 @@ class HistoryPage(QWidget):
         all_cols = self._vm.table_model.get_all_columns()
         visible_cols = self._vm.table_model.get_visible_columns()
 
-        # ── 1. Column visibility toggles ──
+        # ── 1. Column visibility toggles (inside a submenu) ──
+        col_submenu = StyledMenu(_("Columns"), menu)
+        col_submenu.setIcon(get_icon("list"))
         for col_key, col_def in all_cols.items():
             label = _(col_def.get("label_key", col_key.title()))
-            action = menu.addAction(label)
+            action = col_submenu.addAction(label)
             action.setCheckable(True)
             action.setChecked(col_key in visible_cols)
             action.setData(col_key)
@@ -3255,6 +3257,7 @@ class HistoryPage(QWidget):
             if len(visible_cols) == 1 and col_key in visible_cols:
                 action.setEnabled(False)
 
+        menu.addMenu(col_submenu)
         menu.addSeparator()
 
         # ── 2. Auto-fit column widths ──
