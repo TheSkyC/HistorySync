@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import atexit
 from collections import OrderedDict
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -129,7 +130,26 @@ class LocalDatabase:
         self._fts_thread: threading.Thread | None = None
         self._excl_cache: dict[sqlite3.Connection, frozenset[int]] = {}
         self._excl_cache_lock = threading.Lock()
+        self._atexit_registered = False
         db_path.parent.mkdir(parents=True, exist_ok=True)
+        # Fallback cleanup for callers that forget to call close().
+        atexit.register(self._close_at_exit)
+        self._atexit_registered = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
+
+    def _close_at_exit(self) -> None:
+        """Best-effort shutdown hook for process exit."""
+        try:
+            self.close()
+        except Exception:
+            # Interpreter shutdown order is not deterministic; avoid noisy teardown.
+            pass
 
     # ── Internal helpers ──────────────────────────────────────
 
@@ -293,6 +313,12 @@ class LocalDatabase:
 
     def close(self) -> None:
         """Explicitly close the persistent connection (call at app shutdown)."""
+        if self._atexit_registered:
+            try:
+                atexit.unregister(self._close_at_exit)
+            except Exception:
+                pass
+            self._atexit_registered = False
         # Join the FTS background thread first — it holds _lock while running,
         # so we must not hold _lock ourselves while waiting or we'd deadlock.
         if self._fts_thread is not None and self._fts_thread.is_alive():
@@ -301,8 +327,8 @@ class LocalDatabase:
             self._reset_conn()
 
     def __del__(self) -> None:
-        # Do not call close() here — joining _fts_thread during interpreter
-        # shutdown can block indefinitely. Just release the DB connections.
+        # Last-resort fallback only. Normal lifecycle should use close() or
+        # context-manager semantics for deterministic cleanup.
         if self._pconn is not None:
             try:
                 self._pconn.close()

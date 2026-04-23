@@ -365,6 +365,22 @@ class TestThreadSafety:
         assert errors == [], f"Thread errors: {errors}"
 
 
+class TestLifecycle:
+    def test_context_manager_closes_connections(self, tmp_path):
+        db_path = tmp_path / "lifecycle_ctx.db"
+        with LocalDatabase(db_path) as db:
+            assert db.get_total_count() == 0
+            assert db._pconn is not None
+        assert db._pconn is None
+        assert db._ro_conn is None
+
+    def test_close_is_idempotent(self, local_db):
+        local_db.get_total_count()
+        local_db.close()
+        # Calling close() repeatedly should be safe and should not raise.
+        local_db.close()
+
+
 # ══════════════════════════════════════════════════════════════
 # Bookmark CRUD
 # ══════════════════════════════════════════════════════════════
