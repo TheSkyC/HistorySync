@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from src.utils.i18n import _
 from src.utils.logger import get_logger
 from src.utils.master_key_manager import get_session
+from src.views.settings._label_utils import constrain_label_width
 
 log = get_logger("view.settings.security")
 
@@ -60,21 +61,22 @@ class SecuritySection(QWidget):
         status_row = QHBoxLayout()
         self._status_icon = QLabel()
         self._status_icon.setFixedSize(24, 24)
-        self._status_label = QLabel(_("No master password set"))
+        self._status_label = constrain_label_width(QLabel(_("No master password set")))
         self._status_label.setStyleSheet("")
         status_row.addWidget(self._status_icon)
-        status_row.addWidget(self._status_label)
+        status_row.addWidget(self._status_label, 1)
         status_row.addStretch()
         layout.addLayout(status_row)
 
         # ── Description ────────────────────────────────────────
-        self._desc_label = QLabel(
-            _(
-                "A master password protects sensitive settings from unauthorized changes.\n"
-                "You will be prompted before modifying WebDAV credentials, sync config, or privacy rules."
+        self._desc_label = constrain_label_width(
+            QLabel(
+                _(
+                    "A master password protects sensitive settings from unauthorized changes.\n"
+                    "You will be prompted before modifying WebDAV credentials, sync config, or privacy rules."
+                )
             )
         )
-        self._desc_label.setWordWrap(True)
         self._desc_label.setStyleSheet("color: #888;")
         layout.addWidget(self._desc_label)
 
@@ -108,7 +110,7 @@ class SecuritySection(QWidget):
         layout.addLayout(btn_row)
 
         # ── Session Status Hint ────────────────────────────────
-        self._session_label = QLabel("")
+        self._session_label = constrain_label_width(QLabel(""))
         self._session_label.setStyleSheet("color: #888;")
         layout.addWidget(self._session_label)
 

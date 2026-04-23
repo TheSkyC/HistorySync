@@ -25,6 +25,7 @@ from src.utils.constants import DEFAULT_GLOBAL_HOTKEY, DEFAULT_KEYBINDINGS
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.theme_manager import ThemeManager
+from src.views.settings._label_utils import constrain_label_width
 
 # ── Shortcut scope map ────────────────────────────────────────────────────────
 # Each action key is assigned to a scope that reflects where its QShortcut lives
@@ -788,9 +789,10 @@ class KeybindingSection(QWidget):
         text_col.setSpacing(2)
         title = QLabel(_("Keyboard Shortcuts"))
         title.setObjectName("stat_label")
-        self._summary_lbl = QLabel(_("Customize in-app shortcuts and the global overlay hotkey."))
+        self._summary_lbl = constrain_label_width(
+            QLabel(_("Customize in-app shortcuts and the global overlay hotkey."))
+        )
         self._summary_lbl.setObjectName("muted")
-        self._summary_lbl.setWordWrap(True)
         text_col.addWidget(title)
         text_col.addWidget(self._summary_lbl)
         layout.addLayout(text_col, 1)

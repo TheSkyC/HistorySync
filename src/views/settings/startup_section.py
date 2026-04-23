@@ -6,6 +6,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from src.utils.i18n import _
+from src.views.settings._label_utils import constrain_label_width
 
 
 class StartupSection(QWidget):
@@ -27,28 +28,31 @@ class StartupSection(QWidget):
 
         row = QHBoxLayout()
         self._startup_cb = QCheckBox(_("Launch at system startup (minimized to tray)"))
-        self._status_lbl = QLabel("")
+        self._status_lbl = constrain_label_width(QLabel(""))
         self._status_lbl.setObjectName("muted")
+        self._status_lbl.setVisible(False)
         row.addWidget(self._startup_cb)
         row.addStretch()
-        row.addWidget(self._status_lbl)
         layout.addLayout(row)
+        layout.addWidget(self._status_lbl)
 
-        note = QLabel(
-            _("When enabled, HistorySync will start in the background and begin collecting on system startup.")
+        note = constrain_label_width(
+            QLabel(_("When enabled, HistorySync will start in the background and begin collecting on system startup."))
         )
         note.setObjectName("muted")
-        note.setWordWrap(True)
         layout.addWidget(note)
 
         self._minimized_cb = QCheckBox(_("Start minimized to tray when opening the app"))
         layout.addWidget(self._minimized_cb)
 
-        minimized_note = QLabel(
-            _("When enabled, the main window will not appear on launch — HistorySync runs silently in the system tray.")
+        minimized_note = constrain_label_width(
+            QLabel(
+                _(
+                    "When enabled, the main window will not appear on launch — HistorySync runs silently in the system tray."
+                )
+            )
         )
         minimized_note.setObjectName("muted")
-        minimized_note.setWordWrap(True)
         layout.addWidget(minimized_note)
 
     # ── Public API ────────────────────────────────────────────
@@ -57,6 +61,7 @@ class StartupSection(QWidget):
         self._startup_cb.setChecked(enabled)
         self._minimized_cb.setChecked(start_minimized)
         self._status_lbl.setText("")
+        self._status_lbl.setVisible(False)
 
     def get_launch_on_startup(self) -> bool:
         return self._startup_cb.isChecked()
@@ -79,6 +84,7 @@ class StartupSection(QWidget):
             "": "",
         }
         self._status_lbl.setText(text)
+        self._status_lbl.setVisible(bool(text))
         color = color_map.get(level, "")
         if color:
             self._status_lbl.setStyleSheet(f"color: {color};")

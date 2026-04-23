@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 from src.models.app_config import FontConfig
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon, get_themed_icon
+from src.views.settings._label_utils import constrain_label_width
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Internal helpers
@@ -436,7 +437,7 @@ class FontSection(QWidget):
         title_lbl.setObjectName("stat_label")
         info.addWidget(title_lbl)
 
-        self._status_lbl = QLabel(_("Using built-in defaults"))
+        self._status_lbl = constrain_label_width(QLabel(_("Using built-in defaults")))
         self._status_lbl.setObjectName("muted")
         info.addWidget(self._status_lbl)
 

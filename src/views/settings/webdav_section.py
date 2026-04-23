@@ -24,6 +24,7 @@ from src.utils.constants import WEBDAV_DEFAULT_REMOTE_PATH
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.views.password_edit import PasswordEdit
+from src.views.settings._label_utils import constrain_label_width
 
 
 class WebDavSection(QWidget):
@@ -80,10 +81,10 @@ class WebDavSection(QWidget):
         self._next_backup_icon_lbl = QLabel()
         self._next_backup_icon_lbl.setPixmap(get_icon("refresh-ccw", 14).pixmap(14, 14))
         self._next_backup_icon_lbl.setFixedSize(14, 14)
-        self._next_backup_lbl = QLabel("")
+        self._next_backup_lbl = constrain_label_width(QLabel(""))
         self._next_backup_lbl.setObjectName("muted")
         next_backup_row.addWidget(self._next_backup_icon_lbl)
-        next_backup_row.addWidget(self._next_backup_lbl)
+        next_backup_row.addWidget(self._next_backup_lbl, 1)
         next_backup_row.addStretch()
         self._next_backup_icon_lbl.hide()
         self._next_backup_lbl.hide()
@@ -118,10 +119,11 @@ class WebDavSection(QWidget):
         self._max_backups_spin.setMinimumWidth(90)
 
         self._verify_ssl_cb = QCheckBox(_("Verify SSL certificate"))
-        self._ssl_warning_lbl = QLabel(
-            _("\u26a0\ufe0f Warning: Disabling SSL verification exposes your backup to man-in-the-middle attacks.")
+        self._ssl_warning_lbl = constrain_label_width(
+            QLabel(
+                _("\u26a0\ufe0f Warning: Disabling SSL verification exposes your backup to man-in-the-middle attacks.")
+            )
         )
-        self._ssl_warning_lbl.setWordWrap(True)
         self._ssl_warning_lbl.setStyleSheet("color: #e07b00;")
         self._ssl_warning_lbl.setVisible(False)
         self._verify_ssl_cb.toggled.connect(lambda checked: self._ssl_warning_lbl.setVisible(not checked))
@@ -164,21 +166,20 @@ class WebDavSection(QWidget):
         self._restore_btn.setIcon(get_icon("download"))
         self._restore_btn.clicked.connect(lambda: self.action_requested.emit("restore"))
 
-        self._status_lbl = QLabel("")
+        self._status_lbl = constrain_label_width(QLabel(""))
         self._status_lbl.setObjectName("muted")
+        self._status_lbl.setVisible(False)
 
         btn_row.addWidget(self._test_btn)
         btn_row.addWidget(self._backup_btn)
         btn_row.addWidget(self._restore_btn)
-        btn_row.addSpacing(12)
-        btn_row.addWidget(self._status_lbl)
         btn_row.addStretch()
         layout.addLayout(btn_row)
+        layout.addWidget(self._status_lbl)
 
         # Hash info
-        self._hash_info_lbl = QLabel("")
+        self._hash_info_lbl = constrain_label_width(QLabel(""))
         self._hash_info_lbl.setObjectName("muted")
-        self._hash_info_lbl.setWordWrap(True)
         self._hash_info_lbl.setVisible(False)
         layout.addWidget(self._hash_info_lbl)
 
@@ -255,6 +256,7 @@ class WebDavSection(QWidget):
         self._status_lbl.style().unpolish(self._status_lbl)
         self._status_lbl.style().polish(self._status_lbl)
         self._status_lbl.setText(text)
+        self._status_lbl.setVisible(bool(text))
 
     def set_action_buttons_enabled(self, enabled: bool):
         """Lock/unlock the three action buttons during an in-flight operation."""
@@ -263,7 +265,7 @@ class WebDavSection(QWidget):
         self._restore_btn.setEnabled(enabled)
 
     def on_action_progress(self, msg: str):
-        self._status_lbl.setText(msg)
+        self.set_status(msg, "muted")
 
     def on_action_finished(
         self,

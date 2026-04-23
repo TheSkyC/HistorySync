@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
+from src.views.settings._label_utils import constrain_label_width
 
 
 def _fmt_bytes(n: int) -> str:
@@ -161,9 +162,8 @@ class MaintenanceSection(QWidget):
         layout.addWidget(self._progress)
 
         # ── Log output ────────────────────────────────────────
-        self._log_lbl = QLabel("")
+        self._log_lbl = constrain_label_width(QLabel(""))
         self._log_lbl.setObjectName("muted")
-        self._log_lbl.setWordWrap(True)
         layout.addWidget(self._log_lbl)
 
         self._all_btns = [

@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QSpinBox, QVBoxLay
 
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
+from src.views.settings._label_utils import constrain_label_width
 
 
 class SchedulerSection(QWidget):
@@ -44,10 +45,10 @@ class SchedulerSection(QWidget):
         self._next_sync_icon_lbl = QLabel()
         self._next_sync_icon_lbl.setPixmap(get_icon("refresh-ccw", 14).pixmap(14, 14))
         self._next_sync_icon_lbl.setFixedSize(14, 14)
-        self._next_sync_lbl = QLabel("")
+        self._next_sync_lbl = constrain_label_width(QLabel(""))
         self._next_sync_lbl.setObjectName("muted")
         next_sync_row.addWidget(self._next_sync_icon_lbl)
-        next_sync_row.addWidget(self._next_sync_lbl)
+        next_sync_row.addWidget(self._next_sync_lbl, 1)
         next_sync_row.addStretch()
         self._next_sync_icon_lbl.hide()
         self._next_sync_lbl.hide()
