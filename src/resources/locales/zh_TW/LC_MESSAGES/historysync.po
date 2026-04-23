@@ -5,9 +5,9 @@
 # Automatically generated, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: HistorySync 1.2.0\n"
+"Project-Id-Version: HistorySync 1.2.1\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-04-23 12:25+0000\n"
+"POT-Creation-Date: 2026-04-23 15:41+0000\n"
 "PO-Revision-Date: 2026-04-23 12:16+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: zh_TW\n"
@@ -168,7 +168,7 @@ msgstr ""
 msgid "AUTO SYNC"
 msgstr "自動同步"
 
-#: src/views/history_page.py:3546
+#: src/views/history_page.py:3553
 msgid "Actions"
 msgstr "操作"
 
@@ -184,7 +184,7 @@ msgstr "每小時活躍度"
 msgid "Add"
 msgstr "新增"
 
-#: src/views/history_page.py:3508
+#: src/views/history_page.py:3515
 msgid "Add Bookmark"
 msgstr "新增書籤"
 
@@ -196,7 +196,7 @@ msgstr "新增檔案…"
 msgid "Add Note"
 msgstr "新增註解"
 
-#: src/views/history_page.py:3520
+#: src/views/history_page.py:3527
 msgid "Add Note…"
 msgstr "新增註解…"
 
@@ -231,17 +231,17 @@ msgstr "繼承此裝置身分：您的 UUID 將更改為與此裝置一致。"
 msgid "Advanced Settings"
 msgstr "進階設定"
 
-#: src/views/bookmarks_page.py:542 src/views/overlay_window.py:386
+#: src/views/bookmarks_page.py:553 src/views/overlay_window.py:386
 #: src/views/settings/overlay_section.py:75
 msgid "All"
 msgstr "全部"
 
-#: src/views/bookmarks_page.py:682
+#: src/views/bookmarks_page.py:693
 msgid "All Bookmarks"
 msgstr "所有書籤"
 
 #: src/services/exporter.py:602 src/views/history_page.py:2155
-#: src/views/history_page.py:3379
+#: src/views/history_page.py:3386
 msgid "All Browsers"
 msgstr "全部瀏覽器"
 
@@ -345,11 +345,11 @@ msgstr "自動"
 msgid "Auto (Active / All)"
 msgstr "自動（目前 / 全部）"
 
-#: src/views/history_page.py:3255
+#: src/views/history_page.py:3262
 msgid "Auto-fit All Columns"
 msgstr "自動調整所有欄寬"
 
-#: src/views/history_page.py:3251
+#: src/views/history_page.py:3258
 msgid "Auto-fit This Column"
 msgstr "自動調整此欄"
 
@@ -447,11 +447,11 @@ msgstr "去年之前"
 msgid "Before today"
 msgstr "今天之前"
 
-#: src/views/history_page.py:3740
+#: src/views/history_page.py:3747
 msgid "Blacklist Domain"
 msgstr "封鎖此網域"
 
-#: src/views/history_page.py:3632
+#: src/views/history_page.py:3639
 #, python-brace-format
 msgid "Blacklist Domain: {domain}"
 msgstr "封鎖此網域：{domain}"
@@ -472,7 +472,7 @@ msgstr "已列入黑名單的網域："
 msgid "Bookmark"
 msgstr "書籤"
 
-#: src/views/history_page.py:3511
+#: src/views/history_page.py:3518
 #, python-brace-format
 msgid "Bookmark All Selected ({n})"
 msgstr "為所有選取項目新增書籤（{n}）"
@@ -485,7 +485,7 @@ msgstr "已加入書籤（點擊編輯）"
 msgid "Bookmarked only"
 msgstr "僅書籤記錄"
 
-#: src/views/bookmarks_page.py:247
+#: src/views/bookmarks_page.py:248
 #, python-brace-format
 msgid "Bookmarked: {dt}"
 msgstr "已加入書籤：{dt}"
@@ -665,11 +665,11 @@ msgstr "清除快捷鍵"
 msgid "Close"
 msgstr "關閉"
 
-#: src/views/export_dialog.py:224 src/views/history_page.py:3234
+#: src/views/export_dialog.py:224 src/views/history_page.py:3241
 msgid "Columns"
 msgstr "欄位"
 
-#: src/views/history_page.py:3441
+#: src/views/history_page.py:3448
 msgid "Compact bubble"
 msgstr "緊湊氣泡"
 
@@ -741,11 +741,11 @@ msgstr "正在連線..."
 msgid "Connection successful"
 msgstr "連線成功"
 
-#: src/views/history_page.py:3527
+#: src/views/history_page.py:3534
 msgid "Copy"
 msgstr "複製"
 
-#: src/views/history_page.py:3536
+#: src/views/history_page.py:3543
 #, python-brace-format
 msgid "Copy All URLs ({n})"
 msgstr "複製所有 URL ({n})"
@@ -754,15 +754,15 @@ msgstr "複製所有 URL ({n})"
 msgid "Copy Browser Name"
 msgstr "複製瀏覽器名稱"
 
-#: src/views/history_page.py:3532
+#: src/views/history_page.py:3539
 msgid "Copy Title"
 msgstr "複製標題"
 
-#: src/views/history_page.py:3533
+#: src/views/history_page.py:3540
 msgid "Copy Title + URL"
 msgstr "複製標題 + URL"
 
-#: src/views/bookmarks_page.py:155 src/views/history_page.py:3531
+#: src/views/bookmarks_page.py:155 src/views/history_page.py:3538
 msgid "Copy URL"
 msgstr "複製 URL"
 
@@ -912,16 +912,16 @@ msgstr "刪除日誌檔案"
 msgid "Delete Logs"
 msgstr "刪除日誌"
 
-#: src/views/history_page.py:3706
+#: src/views/history_page.py:3713
 msgid "Delete Records"
 msgstr "刪除記錄"
 
-#: src/views/history_page.py:3552
+#: src/views/history_page.py:3559
 #, python-brace-format
 msgid "Delete Selected ({n} records)"
 msgstr "刪除所選（{n} 筆記錄）"
 
-#: src/views/history_page.py:3556
+#: src/views/history_page.py:3563
 msgid "Delete This Record"
 msgstr "刪除此記錄"
 
@@ -937,7 +937,7 @@ msgstr ""
 "\n"
 "歸屬於此裝置的歷史記錄將保留，但不再與任何裝置關聯。此操作無法復原。"
 
-#: src/views/history_page.py:3707
+#: src/views/history_page.py:3714
 #, python-brace-format
 msgid "Delete {n} record(s)? This cannot be undone."
 msgstr "刪除 {n} 筆記錄？此操作無法復原。"
@@ -952,7 +952,7 @@ msgstr "已刪除 {n} 個日誌檔案"
 msgid "Deleted {n} record(s)"
 msgstr "已刪除 {n} 筆記錄"
 
-#: src/views/history_page.py:3634
+#: src/views/history_page.py:3641
 msgid "Deletes all records from this domain and adds it to blacklist"
 msgstr "刪除此網域的所有記錄並將其加入黑名單"
 
@@ -1044,7 +1044,7 @@ msgid ""
 "{pct:.1f}%)"
 msgstr "完成。  {before:.1f} MB → {after:.1f} MB  （節省 {saved:.0f} KB，{pct:.1f}%）"
 
-#: src/views/history_page.py:2121 src/views/history_page.py:3829
+#: src/views/history_page.py:2121 src/views/history_page.py:3836
 msgid "Double-click any row to open the link in browser"
 msgstr "雙擊任意列即可在瀏覽器中開啟連結"
 
@@ -1071,11 +1071,11 @@ msgstr "Edge WebAssistDatabase"
 msgid "Edit Note"
 msgstr "編輯註解"
 
-#: src/views/history_page.py:3518
+#: src/views/history_page.py:3525
 msgid "Edit Note…"
 msgstr "編輯註解…"
 
-#: src/views/bookmarks_page.py:157 src/views/bookmarks_page.py:939
+#: src/views/bookmarks_page.py:157 src/views/bookmarks_page.py:950
 msgid "Edit Tags"
 msgstr "編輯標籤"
 
@@ -1399,7 +1399,7 @@ msgstr "從："
 msgid "Full Resync"
 msgstr "完全重新同步"
 
-#: src/views/history_page.py:3436
+#: src/views/history_page.py:3443
 msgid "Full bubble"
 msgstr "完整氣泡"
 
@@ -1432,7 +1432,7 @@ msgstr "良好"
 msgid "HTML Files (*.html);;All Files (*)"
 msgstr "HTML 檔案 (*.html);;所有檔案 (*)"
 
-#: src/views/bookmarks_page.py:549
+#: src/views/bookmarks_page.py:560
 msgid "Has Note"
 msgstr "有註解"
 
@@ -1457,11 +1457,11 @@ msgstr "隱藏網域"
 msgid "Hidden Domains:"
 msgstr "隱藏網域："
 
-#: src/views/history_page.py:3820
+#: src/views/history_page.py:3827
 msgid "Hidden Records"
 msgstr "隱藏記錄"
 
-#: src/views/bookmarks_page.py:569
+#: src/views/bookmarks_page.py:580
 msgid "Hidden mode — showing only bookmarks pointing to hidden records"
 msgstr "隱藏模式 — 僅顯示指向隱藏記錄的書籤"
 
@@ -1470,7 +1470,7 @@ msgstr "隱藏模式 — 僅顯示指向隱藏記錄的書籤"
 msgid "Hidden {n} record(s) from '{domain}'."
 msgstr "已隱藏來自「{domain}」的 {n} 筆記錄。"
 
-#: src/views/history_page.py:3718
+#: src/views/history_page.py:3725
 #, python-brace-format
 msgid "Hidden {n} record(s). Manage in Settings → Privacy."
 msgstr "已隱藏 {n} 筆記錄。請在「設定 → 隱私」中管理。"
@@ -1488,8 +1488,8 @@ msgstr "隱藏"
 msgid "Hide Domain"
 msgstr "隱藏網域"
 
-#: src/views/history_page.py:3600 src/views/history_page.py:3609
-#: src/views/history_page.py:3620
+#: src/views/history_page.py:3607 src/views/history_page.py:3616
+#: src/views/history_page.py:3627
 #, python-brace-format
 msgid "Hide Domain: {domain}"
 msgstr "隱藏網域：{domain}"
@@ -1498,7 +1498,7 @@ msgstr "隱藏網域：{domain}"
 msgid "Hide Password"
 msgstr "隱藏密碼"
 
-#: src/views/history_page.py:3582
+#: src/views/history_page.py:3589
 #, python-brace-format
 msgid "Hide Selected ({n} records)"
 msgstr "隱藏所選（{n} 筆記錄）"
@@ -1507,35 +1507,35 @@ msgstr "隱藏所選（{n} 筆記錄）"
 msgid "Hide Subdomain"
 msgstr "隱藏子網域"
 
-#: src/views/history_page.py:3595
+#: src/views/history_page.py:3602
 #, python-brace-format
 msgid "Hide Subdomain: {domain}"
 msgstr "隱藏子網域：{domain}"
 
-#: src/views/history_page.py:3585
+#: src/views/history_page.py:3592
 msgid "Hide This Record"
 msgstr "隱藏此記錄"
 
-#: src/views/history_page.py:3451
+#: src/views/history_page.py:3458
 msgid "Hide bubble"
 msgstr "隱藏泡泡"
 
-#: src/views/history_page.py:3597
+#: src/views/history_page.py:3604
 #, python-brace-format
 msgid "Hide only records from {domain}"
 msgstr "僅隱藏來自 {domain} 的記錄"
 
-#: src/views/history_page.py:3603 src/views/history_page.py:3612
-#: src/views/history_page.py:3623
+#: src/views/history_page.py:3610 src/views/history_page.py:3619
+#: src/views/history_page.py:3630
 #, python-brace-format
 msgid "Hide records from {domain} and all its subdomains"
 msgstr "隱藏來自 {domain} 及其所有子網域的記錄"
 
-#: src/views/history_page.py:3576
+#: src/views/history_page.py:3583
 msgid "Hide…"
 msgstr "隱藏…"
 
-#: src/views/history_page.py:2105 src/views/history_page.py:3828
+#: src/views/history_page.py:2105 src/views/history_page.py:3835
 #: src/views/main_window.py:97 src/views/settings/keybinding_section.py:739
 msgid "History"
 msgstr "歷史記錄"
@@ -1823,16 +1823,16 @@ msgstr "列出遠端備份"
 msgid "Listing remote backups..."
 msgstr "正在列出遠端備份..."
 
-#: src/views/bookmarks_page.py:859
+#: src/views/bookmarks_page.py:870
 #, python-brace-format
 msgid "Load {n} more…"
 msgstr "載入更多 {n} 筆…"
 
-#: src/views/bookmarks_page.py:643
+#: src/views/bookmarks_page.py:654
 msgid "Loading…"
 msgstr "載入中…"
 
-#: src/views/bookmarks_page.py:160
+#: src/views/bookmarks_page.py:160 src/views/bookmarks_page.py:210
 msgid "Locate in History"
 msgstr "在歷史記錄中定位"
 
@@ -2023,7 +2023,7 @@ msgstr ""
 "現在關閉可能會導致您的資料處於不一致狀態。\n"
 "您確定要退出嗎？"
 
-#: src/views/history_page.py:3446
+#: src/views/history_page.py:3453
 msgid "Minimal bubble"
 msgstr "極簡氣泡"
 
@@ -2280,7 +2280,7 @@ msgstr "僅在應用程式視窗取得焦點時生效。"
 msgid "Only records from the exact subdomain <b>{domain}</b> will be hidden."
 msgstr "僅會隱藏來自指定子網域 <b>{domain}</b> 的記錄。"
 
-#: src/views/history_page.py:3496
+#: src/views/history_page.py:3503
 #, python-brace-format
 msgid "Open All Selected in Browser ({n})"
 msgstr "在瀏覽器中開啟所有選取項目 ({n})"
@@ -2297,7 +2297,7 @@ msgstr "開啟資料夾"
 msgid "Open Main Window"
 msgstr "開啟主視窗"
 
-#: src/views/bookmarks_page.py:154 src/views/history_page.py:3492
+#: src/views/bookmarks_page.py:154 src/views/history_page.py:3499
 msgid "Open in Browser"
 msgstr "在瀏覽器中開啟"
 
@@ -2567,8 +2567,8 @@ msgstr "從設定中移除 <b>{}</b>？"
 msgid "Remove All"
 msgstr "全部移除"
 
-#: src/views/bookmarks_page.py:162 src/views/bookmarks_page.py:997
-#: src/views/history_page.py:3506
+#: src/views/bookmarks_page.py:162 src/views/bookmarks_page.py:1008
+#: src/views/history_page.py:3513
 msgid "Remove Bookmark"
 msgstr "移除書籤"
 
@@ -2588,11 +2588,11 @@ msgstr "移除密碼"
 msgid "Remove all hidden-domain entries (records become visible again)"
 msgstr "移除所有隱藏網域條目（記錄將再次可見）"
 
-#: src/views/bookmarks_page.py:210
+#: src/views/bookmarks_page.py:211
 msgid "Remove bookmark"
 msgstr "移除書籤"
 
-#: src/views/bookmarks_page.py:998
+#: src/views/bookmarks_page.py:1009
 #, python-brace-format
 msgid ""
 "Remove bookmark for:\n"
@@ -2655,7 +2655,7 @@ msgstr "需要重新啟動應用程式以使語言變更生效。"
 msgid "Restore Database"
 msgstr "還原資料庫"
 
-#: src/views/history_page.py:3260
+#: src/views/history_page.py:3267
 msgid "Restore Default View"
 msgstr "恢復預設檢視"
 
@@ -2677,7 +2677,7 @@ msgstr "恢復內建的預設 URL 前綴清單"
 msgid "Restored from {filename}"
 msgstr "已從 {filename} 還原"
 
-#: src/views/history_page.py:3724 src/views/main_window.py:407
+#: src/views/history_page.py:3731 src/views/main_window.py:407
 #, python-brace-format
 msgid "Restored {n} record(s)."
 msgstr "已還原 {n} 筆記錄。"
@@ -2694,7 +2694,7 @@ msgstr "正在還原網站圖示快取..."
 msgid "Resume"
 msgstr "繼續"
 
-#: src/views/history_page.py:3823
+#: src/views/history_page.py:3830
 msgid "Return to normal view"
 msgstr "回到正常檢視"
 
@@ -2826,7 +2826,7 @@ msgstr "搜尋說明"
 msgid "Search Syntax Help"
 msgstr "搜尋語法說明"
 
-#: src/views/bookmarks_page.py:537
+#: src/views/bookmarks_page.py:548
 msgid "Search bookmarks… (tag:work, after:2024-01-01, has:note)"
 msgstr "搜尋書籤…（tag:work, after:2024-01-01, has:note）"
 
@@ -2855,7 +2855,7 @@ msgstr "搜尋標題、URL 或網域..."
 msgid "Search {query}"
 msgstr "搜尋 {query}"
 
-#: src/views/history_page.py:3644
+#: src/views/history_page.py:3651
 #, python-brace-format
 msgid "Search: {domain}"
 msgstr "搜尋：{domain}"
@@ -2931,7 +2931,7 @@ msgstr "顯示密碼"
 msgid "Showing"
 msgstr "顯示中"
 
-#: src/views/history_page.py:3821
+#: src/views/history_page.py:3828
 msgid "Showing only hidden records."
 msgstr "僅顯示隱藏記錄。"
 
@@ -3078,7 +3078,7 @@ msgstr "同步失敗：{error}"
 msgid "Sync interval:"
 msgstr "同步間隔："
 
-#: src/views/history_page.py:2710
+#: src/views/history_page.py:2702
 msgid "Sync triggered..."
 msgstr "已觸發同步..."
 
@@ -3100,11 +3100,11 @@ msgstr "同步中..."
 msgid "Tag: {tag}"
 msgstr "標籤：{tag}"
 
-#: src/views/bookmarks_page.py:517
+#: src/views/bookmarks_page.py:528
 msgid "Tags"
 msgstr "標籤"
 
-#: src/views/bookmarks_page.py:940
+#: src/views/bookmarks_page.py:951
 msgid "Tags (comma-separated):"
 msgstr "標籤（以逗號分隔）："
 
@@ -3246,7 +3246,7 @@ msgstr ""
 "\n"
 "是否繼續？"
 
-#: src/views/history_page.py:3741
+#: src/views/history_page.py:3748
 #, python-brace-format
 msgid ""
 "This will:\n"
@@ -3375,12 +3375,12 @@ msgstr "已取消隱藏 {n} 個網域"
 msgid "Unhide All Records"
 msgstr "取消隱藏所有記錄"
 
-#: src/views/history_page.py:3570
+#: src/views/history_page.py:3577
 #, python-brace-format
 msgid "Unhide Selected ({n} records)"
 msgstr "取消隱藏選定項目（{n} 筆記錄）"
 
-#: src/views/history_page.py:3573
+#: src/views/history_page.py:3580
 msgid "Unhide This Record"
 msgstr "取消隱藏此記錄"
 
@@ -3520,7 +3520,7 @@ msgstr "極弱"
 msgid "View History"
 msgstr "查看歷史"
 
-#: src/views/history_page.py:2111 src/views/history_page.py:3831
+#: src/views/history_page.py:2111 src/views/history_page.py:3838
 msgid "View hidden records"
 msgstr "查看隱藏記錄"
 
@@ -3845,7 +3845,7 @@ msgstr "{m}分 {s}秒"
 msgid "{n} backup(s) found"
 msgstr "找到 {n} 個備份"
 
-#: src/views/bookmarks_page.py:802 src/views/bookmarks_page.py:1028
+#: src/views/bookmarks_page.py:813 src/views/bookmarks_page.py:1039
 #, python-brace-format
 msgid "{n} bookmarks"
 msgstr "{n} 個書籤"
@@ -3876,7 +3876,7 @@ msgstr "再拖曳 {n} 次即可關閉"
 msgid "{n} records"
 msgstr "{n} 筆記錄"
 
-#: src/views/history_page.py:3306
+#: src/views/history_page.py:3313
 #, python-brace-format
 msgid "{n} rows selected"
 msgstr "已選擇 {n} 列"
@@ -3909,7 +3909,7 @@ msgstr "{start}:00 - {end}:00"
 msgid "{s}s"
 msgstr "{s}秒"
 
-#: src/views/history_page.py:3373
+#: src/views/history_page.py:3380
 #, python-brace-format
 msgid "{total} records"
 msgstr "{total} 筆記錄"
@@ -3919,7 +3919,7 @@ msgstr "{total} 筆記錄"
 msgid "{total} records in total"
 msgstr "共 {total} 筆記錄"
 
-#: src/views/history_page.py:3371
+#: src/views/history_page.py:3378
 #, python-brace-format
 msgid "{total}+ records"
 msgstr "{total}+ 筆記錄"

@@ -5,9 +5,9 @@
 # Automatically generated, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: HistorySync 1.2.0\n"
+"Project-Id-Version: HistorySync 1.2.1\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-04-23 12:25+0000\n"
+"POT-Creation-Date: 2026-04-23 15:41+0000\n"
 "PO-Revision-Date: 2026-04-23 12:21+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: fr_FR\n"
@@ -184,7 +184,7 @@ msgstr ""
 msgid "AUTO SYNC"
 msgstr "SYNCHRONISATION AUTO"
 
-#: src/views/history_page.py:3546
+#: src/views/history_page.py:3553
 msgid "Actions"
 msgstr "Actions"
 
@@ -200,7 +200,7 @@ msgstr "Activité par heure"
 msgid "Add"
 msgstr "Ajouter"
 
-#: src/views/history_page.py:3508
+#: src/views/history_page.py:3515
 msgid "Add Bookmark"
 msgstr "Ajouter un marque-page"
 
@@ -212,7 +212,7 @@ msgstr "Ajouter des fichiers…"
 msgid "Add Note"
 msgstr "Ajouter une note"
 
-#: src/views/history_page.py:3520
+#: src/views/history_page.py:3527
 msgid "Add Note…"
 msgstr "Ajouter une note…"
 
@@ -249,17 +249,17 @@ msgstr ""
 msgid "Advanced Settings"
 msgstr "Paramètres avancés"
 
-#: src/views/bookmarks_page.py:542 src/views/overlay_window.py:386
+#: src/views/bookmarks_page.py:553 src/views/overlay_window.py:386
 #: src/views/settings/overlay_section.py:75
 msgid "All"
 msgstr "Tout"
 
-#: src/views/bookmarks_page.py:682
+#: src/views/bookmarks_page.py:693
 msgid "All Bookmarks"
 msgstr "Tous les marque-pages"
 
 #: src/services/exporter.py:602 src/views/history_page.py:2155
-#: src/views/history_page.py:3379
+#: src/views/history_page.py:3386
 msgid "All Browsers"
 msgstr "Tous les navigateurs"
 
@@ -370,11 +370,11 @@ msgstr "Auto"
 msgid "Auto (Active / All)"
 msgstr "Auto (Actif / Tout)"
 
-#: src/views/history_page.py:3255
+#: src/views/history_page.py:3262
 msgid "Auto-fit All Columns"
 msgstr "Ajustement automatique de toutes les colonnes"
 
-#: src/views/history_page.py:3251
+#: src/views/history_page.py:3258
 msgid "Auto-fit This Column"
 msgstr "Ajustement automatique de cette colonne"
 
@@ -478,11 +478,11 @@ msgstr "Avant l’année dernière"
 msgid "Before today"
 msgstr "Avant aujourd’hui"
 
-#: src/views/history_page.py:3740
+#: src/views/history_page.py:3747
 msgid "Blacklist Domain"
 msgstr "Ajouter le domaine à la liste noire"
 
-#: src/views/history_page.py:3632
+#: src/views/history_page.py:3639
 #, python-brace-format
 msgid "Blacklist Domain: {domain}"
 msgstr "Ajouter à la liste noire : {domain}"
@@ -503,7 +503,7 @@ msgstr "Domaines en liste noire :"
 msgid "Bookmark"
 msgstr "Marque-page"
 
-#: src/views/history_page.py:3511
+#: src/views/history_page.py:3518
 #, python-brace-format
 msgid "Bookmark All Selected ({n})"
 msgstr "Ajouter un marque-page à tous les éléments sélectionnés ({n})"
@@ -516,7 +516,7 @@ msgstr "Marqué (cliquez pour modifier)"
 msgid "Bookmarked only"
 msgstr "Uniquement les marque-pages"
 
-#: src/views/bookmarks_page.py:247
+#: src/views/bookmarks_page.py:248
 #, python-brace-format
 msgid "Bookmarked: {dt}"
 msgstr "Marqué : {dt}"
@@ -701,11 +701,11 @@ msgstr "Effacer le raccourci"
 msgid "Close"
 msgstr "Fermer"
 
-#: src/views/export_dialog.py:224 src/views/history_page.py:3234
+#: src/views/export_dialog.py:224 src/views/history_page.py:3241
 msgid "Columns"
 msgstr "Colonnes"
 
-#: src/views/history_page.py:3441
+#: src/views/history_page.py:3448
 msgid "Compact bubble"
 msgstr "Bulle compacte"
 
@@ -779,11 +779,11 @@ msgstr "Connexion en cours..."
 msgid "Connection successful"
 msgstr "Connexion réussie"
 
-#: src/views/history_page.py:3527
+#: src/views/history_page.py:3534
 msgid "Copy"
 msgstr "Copier"
 
-#: src/views/history_page.py:3536
+#: src/views/history_page.py:3543
 #, python-brace-format
 msgid "Copy All URLs ({n})"
 msgstr "Copier toutes les URL ({n})"
@@ -792,15 +792,15 @@ msgstr "Copier toutes les URL ({n})"
 msgid "Copy Browser Name"
 msgstr "Copier le nom du navigateur"
 
-#: src/views/history_page.py:3532
+#: src/views/history_page.py:3539
 msgid "Copy Title"
 msgstr "Copier le titre"
 
-#: src/views/history_page.py:3533
+#: src/views/history_page.py:3540
 msgid "Copy Title + URL"
 msgstr "Copier le titre + URL"
 
-#: src/views/bookmarks_page.py:155 src/views/history_page.py:3531
+#: src/views/bookmarks_page.py:155 src/views/history_page.py:3538
 msgid "Copy URL"
 msgstr "Copier l’URL"
 
@@ -953,16 +953,16 @@ msgstr "Supprimer les fichiers journaux"
 msgid "Delete Logs"
 msgstr "Supprimer les journaux"
 
-#: src/views/history_page.py:3706
+#: src/views/history_page.py:3713
 msgid "Delete Records"
 msgstr "Supprimer les enregistrements"
 
-#: src/views/history_page.py:3552
+#: src/views/history_page.py:3559
 #, python-brace-format
 msgid "Delete Selected ({n} records)"
 msgstr "Supprimer la sélection ({n} enregistrements)"
 
-#: src/views/history_page.py:3556
+#: src/views/history_page.py:3563
 msgid "Delete This Record"
 msgstr "Supprimer cet enregistrement"
 
@@ -980,7 +980,7 @@ msgstr ""
 "conservés mais ne seront plus associés à aucun appareil. Cette action est"
 " irréversible."
 
-#: src/views/history_page.py:3707
+#: src/views/history_page.py:3714
 #, python-brace-format
 msgid "Delete {n} record(s)? This cannot be undone."
 msgstr "Supprimer {n} enregistrement(s) ? Cette action est irréversible."
@@ -995,7 +995,7 @@ msgstr "{n} fichier(s) journal supprimé(s)"
 msgid "Deleted {n} record(s)"
 msgstr "{n} enregistrement(s) supprimé(s)"
 
-#: src/views/history_page.py:3634
+#: src/views/history_page.py:3641
 msgid "Deletes all records from this domain and adds it to blacklist"
 msgstr ""
 "Supprime tous les enregistrements de ce domaine et l’ajoute à la liste "
@@ -1098,7 +1098,7 @@ msgstr ""
 "Terminé.  {before:.1f} Mo → {after:.1f} Mo  (économisé {saved:.0f} Ko, "
 "{pct:.1f}%)"
 
-#: src/views/history_page.py:2121 src/views/history_page.py:3829
+#: src/views/history_page.py:2121 src/views/history_page.py:3836
 msgid "Double-click any row to open the link in browser"
 msgstr "Double-cliquez sur une ligne pour ouvrir le lien dans le navigateur"
 
@@ -1125,11 +1125,11 @@ msgstr "Edge WebAssistDatabase"
 msgid "Edit Note"
 msgstr "Modifier la note"
 
-#: src/views/history_page.py:3518
+#: src/views/history_page.py:3525
 msgid "Edit Note…"
 msgstr "Modifier la note…"
 
-#: src/views/bookmarks_page.py:157 src/views/bookmarks_page.py:939
+#: src/views/bookmarks_page.py:157 src/views/bookmarks_page.py:950
 msgid "Edit Tags"
 msgstr "Modifier les étiquettes"
 
@@ -1462,7 +1462,7 @@ msgstr "Du :"
 msgid "Full Resync"
 msgstr "Resynchronisation complète"
 
-#: src/views/history_page.py:3436
+#: src/views/history_page.py:3443
 msgid "Full bubble"
 msgstr "Bulle complète"
 
@@ -1497,7 +1497,7 @@ msgstr "Bon"
 msgid "HTML Files (*.html);;All Files (*)"
 msgstr "Fichiers HTML (*.html);;Tous les fichiers (*)"
 
-#: src/views/bookmarks_page.py:549
+#: src/views/bookmarks_page.py:560
 msgid "Has Note"
 msgstr "Avec note"
 
@@ -1522,11 +1522,11 @@ msgstr "Domaines masqués"
 msgid "Hidden Domains:"
 msgstr "Domaines masqués :"
 
-#: src/views/history_page.py:3820
+#: src/views/history_page.py:3827
 msgid "Hidden Records"
 msgstr "Enregistrements masqués"
 
-#: src/views/bookmarks_page.py:569
+#: src/views/bookmarks_page.py:580
 msgid "Hidden mode — showing only bookmarks pointing to hidden records"
 msgstr ""
 "Mode masqué — affichage uniquement des signets pointant vers des "
@@ -1537,7 +1537,7 @@ msgstr ""
 msgid "Hidden {n} record(s) from '{domain}'."
 msgstr "Masquage de {n} enregistrement(s) de '{domain}'."
 
-#: src/views/history_page.py:3718
+#: src/views/history_page.py:3725
 #, python-brace-format
 msgid "Hidden {n} record(s). Manage in Settings → Privacy."
 msgstr ""
@@ -1559,8 +1559,8 @@ msgstr "Masquer"
 msgid "Hide Domain"
 msgstr "Masquer le domaine"
 
-#: src/views/history_page.py:3600 src/views/history_page.py:3609
-#: src/views/history_page.py:3620
+#: src/views/history_page.py:3607 src/views/history_page.py:3616
+#: src/views/history_page.py:3627
 #, python-brace-format
 msgid "Hide Domain: {domain}"
 msgstr "Masquer le domaine : {domain}"
@@ -1569,7 +1569,7 @@ msgstr "Masquer le domaine : {domain}"
 msgid "Hide Password"
 msgstr "Masquer le mot de passe"
 
-#: src/views/history_page.py:3582
+#: src/views/history_page.py:3589
 #, python-brace-format
 msgid "Hide Selected ({n} records)"
 msgstr "Masquer la sélection ({n} enregistrements)"
@@ -1578,35 +1578,35 @@ msgstr "Masquer la sélection ({n} enregistrements)"
 msgid "Hide Subdomain"
 msgstr "Masquer le sous-domaine"
 
-#: src/views/history_page.py:3595
+#: src/views/history_page.py:3602
 #, python-brace-format
 msgid "Hide Subdomain: {domain}"
 msgstr "Masquer le sous-domaine : {domain}"
 
-#: src/views/history_page.py:3585
+#: src/views/history_page.py:3592
 msgid "Hide This Record"
 msgstr "Masquer cet enregistrement"
 
-#: src/views/history_page.py:3451
+#: src/views/history_page.py:3458
 msgid "Hide bubble"
 msgstr "Masquer la bulle"
 
-#: src/views/history_page.py:3597
+#: src/views/history_page.py:3604
 #, python-brace-format
 msgid "Hide only records from {domain}"
 msgstr "Masquer uniquement les enregistrements de {domain}"
 
-#: src/views/history_page.py:3603 src/views/history_page.py:3612
-#: src/views/history_page.py:3623
+#: src/views/history_page.py:3610 src/views/history_page.py:3619
+#: src/views/history_page.py:3630
 #, python-brace-format
 msgid "Hide records from {domain} and all its subdomains"
 msgstr "Masquer les enregistrements de {domain} et de tous ses sous-domaines"
 
-#: src/views/history_page.py:3576
+#: src/views/history_page.py:3583
 msgid "Hide…"
 msgstr "Masquer…"
 
-#: src/views/history_page.py:2105 src/views/history_page.py:3828
+#: src/views/history_page.py:2105 src/views/history_page.py:3835
 #: src/views/main_window.py:97 src/views/settings/keybinding_section.py:739
 msgid "History"
 msgstr "Historique"
@@ -1907,16 +1907,16 @@ msgstr "Lister les sauvegardes distantes"
 msgid "Listing remote backups..."
 msgstr "Liste des sauvegardes distantes..."
 
-#: src/views/bookmarks_page.py:859
+#: src/views/bookmarks_page.py:870
 #, python-brace-format
 msgid "Load {n} more…"
 msgstr "Charger {n} de plus…"
 
-#: src/views/bookmarks_page.py:643
+#: src/views/bookmarks_page.py:654
 msgid "Loading…"
 msgstr "Chargement…"
 
-#: src/views/bookmarks_page.py:160
+#: src/views/bookmarks_page.py:160 src/views/bookmarks_page.py:210
 msgid "Locate in History"
 msgstr "Localiser dans l’historique"
 
@@ -2121,7 +2121,7 @@ msgstr ""
 "\n"
 "Êtes-vous sûr de vouloir quitter ?"
 
-#: src/views/history_page.py:3446
+#: src/views/history_page.py:3453
 msgid "Minimal bubble"
 msgstr "Bulle minimale"
 
@@ -2382,7 +2382,7 @@ msgstr ""
 "Seuls les enregistrements du sous-domaine exact <b>{domain}</b> seront "
 "masqués."
 
-#: src/views/history_page.py:3496
+#: src/views/history_page.py:3503
 #, python-brace-format
 msgid "Open All Selected in Browser ({n})"
 msgstr "Ouvrir toute la sélection dans le navigateur ({n})"
@@ -2399,7 +2399,7 @@ msgstr "Ouvrir le dossier"
 msgid "Open Main Window"
 msgstr "Ouvrir la fenêtre principale"
 
-#: src/views/bookmarks_page.py:154 src/views/history_page.py:3492
+#: src/views/bookmarks_page.py:154 src/views/history_page.py:3499
 msgid "Open in Browser"
 msgstr "Ouvrir dans le navigateur"
 
@@ -2689,8 +2689,8 @@ msgstr "Supprimer <b>{}</b> de la configuration ?"
 msgid "Remove All"
 msgstr "Tout supprimer"
 
-#: src/views/bookmarks_page.py:162 src/views/bookmarks_page.py:997
-#: src/views/history_page.py:3506
+#: src/views/bookmarks_page.py:162 src/views/bookmarks_page.py:1008
+#: src/views/history_page.py:3513
 msgid "Remove Bookmark"
 msgstr "Supprimer le marque-page"
 
@@ -2712,11 +2712,11 @@ msgstr ""
 "Supprimer toutes les entrées de domaine masqué (les enregistrements "
 "redeviennent visibles)"
 
-#: src/views/bookmarks_page.py:210
+#: src/views/bookmarks_page.py:211
 msgid "Remove bookmark"
 msgstr "Supprimer le marque-page"
 
-#: src/views/bookmarks_page.py:998
+#: src/views/bookmarks_page.py:1009
 #, python-brace-format
 msgid ""
 "Remove bookmark for:\n"
@@ -2781,7 +2781,7 @@ msgstr "Redémarrage nécessaire pour appliquer les changements de langue."
 msgid "Restore Database"
 msgstr "Restaurer la base de données"
 
-#: src/views/history_page.py:3260
+#: src/views/history_page.py:3267
 msgid "Restore Default View"
 msgstr "Restaurer la vue par défaut"
 
@@ -2803,7 +2803,7 @@ msgstr "Restaurer la liste de préfixes d’URL par défaut intégrée"
 msgid "Restored from {filename}"
 msgstr "Restauré depuis {filename}"
 
-#: src/views/history_page.py:3724 src/views/main_window.py:407
+#: src/views/history_page.py:3731 src/views/main_window.py:407
 #, python-brace-format
 msgid "Restored {n} record(s)."
 msgstr "Restauration de {n} enregistrement(s)."
@@ -2820,7 +2820,7 @@ msgstr "Restauration du cache des favicons..."
 msgid "Resume"
 msgstr "Reprendre"
 
-#: src/views/history_page.py:3823
+#: src/views/history_page.py:3830
 msgid "Return to normal view"
 msgstr "Retour à l'affichage normal"
 
@@ -2952,7 +2952,7 @@ msgstr "Aide à la recherche"
 msgid "Search Syntax Help"
 msgstr "Aide sur la syntaxe de recherche"
 
-#: src/views/bookmarks_page.py:537
+#: src/views/bookmarks_page.py:548
 msgid "Search bookmarks… (tag:work, after:2024-01-01, has:note)"
 msgstr "Rechercher dans les marque-pages… (tag:work, after:2024-01-01, has:note)"
 
@@ -2981,7 +2981,7 @@ msgstr "Rechercher un titre, une URL ou un domaine..."
 msgid "Search {query}"
 msgstr "Recherche {query}"
 
-#: src/views/history_page.py:3644
+#: src/views/history_page.py:3651
 #, python-brace-format
 msgid "Search: {domain}"
 msgstr "Recherche : {domain}"
@@ -3061,7 +3061,7 @@ msgstr "Afficher le mot de passe"
 msgid "Showing"
 msgstr "Affichage"
 
-#: src/views/history_page.py:3821
+#: src/views/history_page.py:3828
 msgid "Showing only hidden records."
 msgstr "Affichage uniquement des enregistrements masqués."
 
@@ -3212,7 +3212,7 @@ msgstr "Échec de la synchronisation : {error}"
 msgid "Sync interval:"
 msgstr "Intervalle de synchronisation :"
 
-#: src/views/history_page.py:2710
+#: src/views/history_page.py:2702
 msgid "Sync triggered..."
 msgstr "Synchronisation déclenchée..."
 
@@ -3234,11 +3234,11 @@ msgstr "Synchronisation en cours..."
 msgid "Tag: {tag}"
 msgstr "Étiquette : {tag}"
 
-#: src/views/bookmarks_page.py:517
+#: src/views/bookmarks_page.py:528
 msgid "Tags"
 msgstr "Étiquettes"
 
-#: src/views/bookmarks_page.py:940
+#: src/views/bookmarks_page.py:951
 msgid "Tags (comma-separated):"
 msgstr "Étiquettes (séparées par des virgules) :"
 
@@ -3402,7 +3402,7 @@ msgstr ""
 "\n"
 "Continuer ?"
 
-#: src/views/history_page.py:3741
+#: src/views/history_page.py:3748
 #, python-brace-format
 msgid ""
 "This will:\n"
@@ -3534,12 +3534,12 @@ msgstr "Affichage de {n} domaine(s)"
 msgid "Unhide All Records"
 msgstr "Afficher tous les enregistrements"
 
-#: src/views/history_page.py:3570
+#: src/views/history_page.py:3577
 #, python-brace-format
 msgid "Unhide Selected ({n} records)"
 msgstr "Afficher la sélection ({n} enregistrement(s))"
 
-#: src/views/history_page.py:3573
+#: src/views/history_page.py:3580
 msgid "Unhide This Record"
 msgstr "Afficher cet enregistrement"
 
@@ -3683,7 +3683,7 @@ msgstr "Très faible"
 msgid "View History"
 msgstr "Voir l’historique"
 
-#: src/views/history_page.py:2111 src/views/history_page.py:3831
+#: src/views/history_page.py:2111 src/views/history_page.py:3838
 msgid "View hidden records"
 msgstr "Voir les enregistrements masqués"
 
@@ -4023,7 +4023,7 @@ msgstr "{m}min {s}s"
 msgid "{n} backup(s) found"
 msgstr "{n} sauvegarde(s) trouvée(s)"
 
-#: src/views/bookmarks_page.py:802 src/views/bookmarks_page.py:1028
+#: src/views/bookmarks_page.py:813 src/views/bookmarks_page.py:1039
 #, python-brace-format
 msgid "{n} bookmarks"
 msgstr "{n} marque-pages"
@@ -4054,7 +4054,7 @@ msgstr "{n} glissement(s) supplémentaire(s) pour fermer"
 msgid "{n} records"
 msgstr "{n} enregistrements"
 
-#: src/views/history_page.py:3306
+#: src/views/history_page.py:3313
 #, python-brace-format
 msgid "{n} rows selected"
 msgstr "{n} lignes sélectionnées"
@@ -4084,7 +4084,7 @@ msgstr "{start}:00 - {end}:00"
 msgid "{s}s"
 msgstr "{s}s"
 
-#: src/views/history_page.py:3373
+#: src/views/history_page.py:3380
 #, python-brace-format
 msgid "{total} records"
 msgstr "{total} enregistrements"
@@ -4094,7 +4094,7 @@ msgstr "{total} enregistrements"
 msgid "{total} records in total"
 msgstr "{total} enregistrements au total"
 
-#: src/views/history_page.py:3371
+#: src/views/history_page.py:3378
 #, python-brace-format
 msgid "{total}+ records"
 msgstr "{total}+ enregistrements"
