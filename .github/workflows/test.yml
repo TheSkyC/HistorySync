@@ -76,6 +76,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
+      - name: Install EGL libraries (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y libegl1
+
       - name: Install runtime and test dependencies
         run: |
           python -m pip install --upgrade pip
