@@ -10,7 +10,7 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtCore import QRect
 
-from src.views.history_page import _SEP_CONTENT_TOP_INSET, _SEP_H, _separator_band_rect, _separator_content_rect
+from src.views.history_page_layout import _SEP_CONTENT_TOP_INSET, _SEP_H, _separator_band_rect, _separator_content_rect
 
 
 def test_separator_band_rect_stays_in_top_band() -> None:

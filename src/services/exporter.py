@@ -644,8 +644,8 @@ class _HtmlWriter:
         self._fh.write("window.REPORT_DATA = [\n")
 
     def _get_browser_metadata(self) -> dict[str, dict]:
-        from src.utils.icon_helper import _find_browser_icon_path
-        from src.viewmodels.history_viewmodel import _browser_display_name
+        from src.services.browser_defs import BROWSER_DEF_MAP
+        from src.utils.browser_icon_paths import find_browser_icon_path
 
         db = self._db
         if not db:
@@ -655,7 +655,7 @@ class _HtmlWriter:
         browser_types = db.get_browser_types()
         meta = {}
         for bt in browser_types:
-            icon_path = _find_browser_icon_path(bt)
+            icon_path = find_browser_icon_path(bt)
             svg_content = ""
             if icon_path and icon_path.suffix.lower() == ".svg":
                 try:
@@ -664,7 +664,8 @@ class _HtmlWriter:
                 except Exception as e:
                     log.debug("Could not read SVG for %s: %s", bt, e)
 
-            meta[bt] = {"name": _browser_display_name(bt), "svg": svg_content}
+            browser_def = BROWSER_DEF_MAP.get(bt)
+            meta[bt] = {"name": browser_def.display_name if browser_def else bt.title(), "svg": svg_content}
         return meta
 
     def write(self, record: HistoryRecord, device_name_map: dict[int, str] | None = None) -> None:

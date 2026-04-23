@@ -11,6 +11,7 @@ from PySide6.QtCore import QByteArray
 from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
+from src.utils.browser_icon_paths import find_browser_icon_path
 from src.utils.path_helper import get_icons_dir
 
 _ICONS_DIR = get_icons_dir()
@@ -115,30 +116,8 @@ def _svg_to_pixmap_colorful(svg_path: str | Path, size: int) -> QPixmap:
     return px
 
 
-_BROWSER_ICON_ALIASES: dict[str, str] = {
-    "chrome_for_testing": "chrome-test",
-    "chrome-for-testing": "chrome-test",
-}
-
-
 def _find_browser_icon_path(browser_type: str) -> Path | None:
-    """
-    Finds the browser icon file by priority:
-    1. browsers/{type}.svg
-    2. browsers/{type}.png
-    3. browsers/web.svg
-    Returns the first found path, otherwise None.
-    """
-    browsers_dir = _ICONS_DIR / "browsers"
-    browser_type_hyphen = browser_type.replace("_", "-")
-    alias = _BROWSER_ICON_ALIASES.get(browser_type) or _BROWSER_ICON_ALIASES.get(browser_type_hyphen)
-    candidates = dict.fromkeys(filter(None, [alias, browser_type, browser_type_hyphen, "web"]))
-    for name in candidates:
-        for ext in (".svg", ".png"):
-            path = browsers_dir / f"{name}{ext}"
-            if path.is_file():
-                return path
-    return None
+    return find_browser_icon_path(browser_type)
 
 
 def _load_browser_pixmap_raw(path: Path, size: int) -> QPixmap:

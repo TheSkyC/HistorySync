@@ -76,13 +76,15 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
-      - name: Install test dependencies
+      - name: Install runtime and test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-test.txt
+          pip install -r requirements.txt -r requirements-test.txt
         shell: bash
 
       - name: Run tests with coverage
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: |
           pytest \
             --cov=src \
