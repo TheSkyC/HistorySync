@@ -2440,18 +2440,10 @@ class HistoryPage(QWidget):
             sc.activated.connect(slot)
             self._page_shortcuts.append(sc)
 
-        # -- Existing shortcuts (keep original context for compatibility) --
-        seq = kb.get("focus_search", "Ctrl+F")
-        if seq:
-            sc = QShortcut(QKeySequence(seq), self)
-            sc.activated.connect(self._focus_search)
-            self._page_shortcuts.append(sc)
-
-        seq = kb.get("trigger_sync", "Ctrl+R")
-        if seq:
-            sc = QShortcut(QKeySequence(seq), self)
-            sc.activated.connect(self._trigger_sync)
-            self._page_shortcuts.append(sc)
+        # Ctrl+F / Ctrl+R are handled by MainWindow global shortcuts.
+        # Do not register duplicates here, otherwise Qt may mark them
+        # ambiguous (global + page-level same sequence) and suppress
+        # activated signals in focused child widgets like the table.
 
         # Del is scoped to the table so it doesn't intercept from search bar
         seq = kb.get("delete_selected", "Del")

@@ -1069,8 +1069,8 @@ class BookmarksPage(QWidget):
 
         Note: card-level actions (Return, Del, Ctrl+C, Ctrl+N, Ctrl+L) are
         handled directly in _BookmarkCard.keyPressEvent when a card is focused.
-        The page-level shortcut for Ctrl+F focuses the search bar regardless of
-        which child has focus.
+        Ctrl+F is handled by MainWindow global focus_search to avoid duplicate
+        registrations that can become ambiguous in Qt shortcut dispatch.
         """
         for sc in self._page_shortcuts:
             sc.setEnabled(False)
@@ -1088,8 +1088,7 @@ class BookmarksPage(QWidget):
             sc.activated.connect(slot)
             self._page_shortcuts.append(sc)
 
-        # Focus search bar from anywhere on the page
-        _bind("focus_search", "Ctrl+F", self._focus_search)
+        # No page-level Ctrl+F binding: handled globally by MainWindow.
 
     def apply_keybindings(self) -> None:
         """Re-apply keyboard shortcuts after config change."""
