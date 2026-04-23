@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: HistorySync 1.2.0\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-04-22 16:59+0000\n"
-"PO-Revision-Date: 2026-04-22 15:10+0000\n"
+"POT-Creation-Date: 2026-04-23 12:25+0000\n"
+"PO-Revision-Date: 2026-04-23 12:19+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: ko_KR\n"
 "Language-Team: none\n"
@@ -43,13 +43,13 @@ msgstr ""
 msgid "  ·  Drag & drop files, or click  Add Files"
 msgstr "  ·  파일을 끌어다 놓거나 파일 추가를 클릭하세요"
 
-#: src/views/settings/webdav_section.py:117
+#: src/views/settings/webdav_section.py:118
 msgid " files"
 msgstr " 개"
 
 #: src/views/first_run_wizard.py:201 src/views/first_run_wizard.py:214
-#: src/views/settings/scheduler_section.py:36
-#: src/views/settings/webdav_section.py:70
+#: src/views/settings/scheduler_section.py:37
+#: src/views/settings/webdav_section.py:71
 msgid " hours"
 msgstr " 시간"
 
@@ -65,7 +65,7 @@ msgid ""
 "Settings → Privacy."
 msgstr "'{domain}' 숨김 처리됨 ({n}개의 레코드 처리됨). 설정 → 개인정보 보호에서 숨겨진 도메인을 관리하세요."
 
-#: src/views/settings/webdav_section.py:296
+#: src/views/settings/webdav_section.py:298
 msgid "(no backups found)"
 msgstr "(백업을 찾을 수 없음)"
 
@@ -73,12 +73,12 @@ msgstr "(백업을 찾을 수 없음)"
 msgid "(this device)"
 msgstr "(이 기기)"
 
-#: src/views/settings/keybinding_section.py:676
+#: src/views/settings/keybinding_section.py:677
 #, python-brace-format
 msgid "- {key}: {actions}"
 msgstr "- {key}: {actions}"
 
-#: src/views/history_page.py:2139
+#: src/views/history_page.py:2125
 msgid "0 total"
 msgstr "총 0개"
 
@@ -86,7 +86,7 @@ msgstr "총 0개"
 msgid "<b>1</b> existing record will be hidden immediately."
 msgstr "<b>1</b>개의 기존 레코드가 즉시 숨겨집니다."
 
-#: src/views/search_autocomplete.py:1725
+#: src/views/search_autocomplete.py:1674
 msgid ""
 "<b>Advanced Search Syntax:</b><br><br>• <code>domain:example.com</code> -"
 " Filter by domain<br>• <code>after:2023-01-01</code> - Visit after "
@@ -128,7 +128,7 @@ msgstr ""
 msgid "A WebDAV task is already running."
 msgstr "WebDAV 작업이 이미 실행 중입니다."
 
-#: src/views/settings/security_section.py:73
+#: src/views/settings/security_section.py:75
 msgid ""
 "A master password protects sensitive settings from unauthorized changes.\n"
 "You will be prompted before modifying WebDAV credentials, sync config, or"
@@ -169,7 +169,7 @@ msgstr ""
 msgid "AUTO SYNC"
 msgstr "자동 동기화"
 
-#: src/views/history_page.py:3559
+#: src/views/history_page.py:3546
 msgid "Actions"
 msgstr "작업"
 
@@ -181,11 +181,11 @@ msgstr "시간별 활동량"
 #: src/views/dialogs/hidden_domains_manager_dialog.py:107
 #: src/views/dialogs/url_prefix_filter_dialog.py:88
 #: src/views/settings/custom_paths_section.py:67
-#: src/views/settings/font_section.py:95
+#: src/views/settings/font_section.py:96
 msgid "Add"
 msgstr "추가"
 
-#: src/views/history_page.py:3521
+#: src/views/history_page.py:3508
 msgid "Add Bookmark"
 msgstr "북마크 추가"
 
@@ -197,7 +197,7 @@ msgstr "파일 추가…"
 msgid "Add Note"
 msgstr "메모 추가"
 
-#: src/views/history_page.py:3533
+#: src/views/history_page.py:3520
 msgid "Add Note…"
 msgstr "메모 추가…"
 
@@ -210,7 +210,7 @@ msgstr "선택 항목 추가"
 msgid "Added {n} hidden domain(s)"
 msgstr "{n}개의 숨겨진 도메인 추가됨"
 
-#: src/services/webdav_sync.py:286
+#: src/services/webdav_sync.py:316
 msgid "Adding favicon cache to backup..."
 msgstr "파비콘 캐시를 백업에 추가하는 중..."
 
@@ -241,8 +241,8 @@ msgstr "전체"
 msgid "All Bookmarks"
 msgstr "모든 북마크"
 
-#: src/services/exporter.py:602 src/views/history_page.py:2168
-#: src/views/history_page.py:3392
+#: src/services/exporter.py:602 src/views/history_page.py:2155
+#: src/views/history_page.py:3379
 msgid "All Browsers"
 msgstr "모든 브라우저"
 
@@ -285,7 +285,7 @@ msgstr ""
 msgid "Also delete all synced history records for this browser"
 msgstr "이 브라우저의 모든 동기화된 기록도 함께 삭제"
 
-#: src/views/settings/keybinding_section.py:555
+#: src/views/settings/keybinding_section.py:556
 msgid "Apply"
 msgstr "적용"
 
@@ -297,7 +297,7 @@ msgstr "새 기본 필드를 적용하는 중…"
 msgid "April"
 msgstr "4월"
 
-#: src/views/settings/security_section.py:197
+#: src/views/settings/security_section.py:199
 msgid ""
 "Are you sure you want to remove the master password?\n"
 "\n"
@@ -346,11 +346,11 @@ msgstr "자동"
 msgid "Auto (Active / All)"
 msgstr "자동 (활성/전체)"
 
-#: src/views/history_page.py:3268
+#: src/views/history_page.py:3255
 msgid "Auto-fit All Columns"
 msgstr "모든 열 자동 맞춤"
 
-#: src/views/history_page.py:3264
+#: src/views/history_page.py:3251
 msgid "Auto-fit This Column"
 msgstr "이 열 자동 맞춤"
 
@@ -358,7 +358,7 @@ msgstr "이 열 자동 맞춤"
 msgid "Auto-scroll"
 msgstr "자동 스크롤"
 
-#: src/views/settings/webdav_section.py:63
+#: src/views/settings/webdav_section.py:64
 msgid "Automatically backup to WebDAV after local scan"
 msgstr "로컬 스캔 후 자동으로 WebDAV에 백업"
 
@@ -366,7 +366,7 @@ msgstr "로컬 스캔 후 자동으로 WebDAV에 백업"
 msgid "Automatically hide new records from this domain in future syncs"
 msgstr "향후 동기화에서 이 도메인의 새 기록 자동 숨기기"
 
-#: src/views/search_autocomplete.py:765
+#: src/views/search_autocomplete.py:709
 msgid "Available"
 msgstr "사용 가능"
 
@@ -374,11 +374,11 @@ msgstr "사용 가능"
 msgid "Back"
 msgstr "뒤로"
 
-#: src/services/local_db.py:1197
+#: src/services/local_db.py:1235
 msgid "Back-filling domain_id on history rows…"
 msgstr "기록 행에 domain_id 채우는 중…"
 
-#: src/services/local_db.py:1218
+#: src/services/local_db.py:1256
 #, python-brace-format
 msgid "Back-filling domain_id on history rows… ({n} so far)"
 msgstr "기록 행에 domain_id 채우는 중… (현재 {n}개)"
@@ -388,16 +388,16 @@ msgstr "기록 행에 domain_id 채우는 중… (현재 {n}개)"
 msgid "Backed up {name}"
 msgstr "{name} 백업 완료"
 
-#: src/views/settings/webdav_section.py:95
+#: src/views/settings/webdav_section.py:96
 msgid "Backs up the favicon database alongside history. Increases backup size."
 msgstr "기록과 함께 파비콘 데이터베이스를 백업합니다. 백업 크기가 증가합니다."
 
-#: src/services/webdav_sync.py:351
+#: src/services/webdav_sync.py:400
 #, python-brace-format
 msgid "Backup ZIP uploaded but sync_manifest.json failed: {error}"
 msgstr "백업 ZIP은 업로드되었으나 sync_manifest.json 업로드 실패: {error}"
 
-#: src/services/webdav_sync.py:468
+#: src/services/webdav_sync.py:540
 msgid "Backup archive missing history.db"
 msgstr "백업 아카이브에 history.db가 없습니다"
 
@@ -415,44 +415,44 @@ msgstr "백업 간격:"
 msgid "Backup saved to:  {path}"
 msgstr "백업 저장 위치:  {path}"
 
-#: src/views/settings/webdav_section.py:159
+#: src/views/settings/webdav_section.py:161
 msgid "Backup to WebDAV"
 msgstr "WebDAV에 백업"
 
-#: src/services/webdav_sync.py:537
+#: src/services/webdav_sync.py:609
 #, python-brace-format
 msgid "Bad zip archive: {error}"
 msgstr "잘못된 zip 아카이브: {error}"
 
-#: src/views/history_page.py:1100
+#: src/views/history_page.py:1086
 msgid "Bar guide"
 msgstr "막대 그래프 안내"
 
-#: src/views/search_autocomplete.py:482
+#: src/views/search_autocomplete.py:426
 msgid "Before 30 days ago"
 msgstr "30일 전 이전"
 
-#: src/views/search_autocomplete.py:481
+#: src/views/search_autocomplete.py:425
 msgid "Before 7 days ago"
 msgstr "7일 전 이전"
 
-#: src/views/search_autocomplete.py:483
+#: src/views/search_autocomplete.py:427
 msgid "Before 90 days ago"
 msgstr "90일 전 이전"
 
-#: src/views/search_autocomplete.py:484
+#: src/views/search_autocomplete.py:428
 msgid "Before last year"
 msgstr "작년 이전"
 
-#: src/views/search_autocomplete.py:480
+#: src/views/search_autocomplete.py:424
 msgid "Before today"
 msgstr "오늘 이전"
 
-#: src/views/history_page.py:3753
+#: src/views/history_page.py:3740
 msgid "Blacklist Domain"
 msgstr "도메인 블랙리스트 추가"
 
-#: src/views/history_page.py:3645
+#: src/views/history_page.py:3632
 #, python-brace-format
 msgid "Blacklist Domain: {domain}"
 msgstr "도메인 블랙리스트 추가: {domain}"
@@ -469,16 +469,16 @@ msgstr "블랙리스트 도메인"
 msgid "Blacklisted Domains:"
 msgstr "블랙리스트 도메인:"
 
-#: src/views/search_autocomplete.py:771
+#: src/views/search_autocomplete.py:715
 msgid "Bookmark"
 msgstr "북마크"
 
-#: src/views/history_page.py:3524
+#: src/views/history_page.py:3511
 #, python-brace-format
 msgid "Bookmark All Selected ({n})"
 msgstr "선택한 모든 항목 북마크 ({n})"
 
-#: src/views/history_page.py:780
+#: src/views/history_page.py:766
 msgid "Bookmarked (click to edit)"
 msgstr "북마크됨 (클릭하여 편집)"
 
@@ -491,7 +491,7 @@ msgstr "북마크된 레코드만"
 msgid "Bookmarked: {dt}"
 msgstr "북마크 추가됨: {dt}"
 
-#: src/views/main_window.py:98 src/views/settings/keybinding_section.py:740
+#: src/views/main_window.py:98 src/views/settings/keybinding_section.py:741
 msgid "Bookmarks"
 msgstr "북마크"
 
@@ -502,7 +502,7 @@ msgstr "찾아보기..."
 #: src/services/exporter.py:79 src/services/exporter.py:604
 #: src/viewmodels/history_viewmodel.py:61
 #: src/viewmodels/history_viewmodel.py:331 src/views/import_dialog.py:275
-#: src/views/search_autocomplete.py:779
+#: src/views/search_autocomplete.py:723
 msgid "Browser"
 msgstr "브라우저"
 
@@ -592,8 +592,8 @@ msgstr "계산 중…"
 
 #: src/views/dialogs/browser_scan_dialog.py:135 src/views/export_dialog.py:285
 #: src/views/export_dialog.py:481 src/views/import_dialog.py:328
-#: src/views/settings/keybinding_section.py:551
-#: src/views/settings/keybinding_section.py:660
+#: src/views/settings/keybinding_section.py:552
+#: src/views/settings/keybinding_section.py:661
 msgid "Cancel"
 msgstr "취소"
 
@@ -607,11 +607,11 @@ msgid "Change Master Password"
 msgstr "마스터 비밀번호 변경"
 
 #: src/views/master_password_dialog.py:294
-#: src/views/settings/security_section.py:89
+#: src/views/settings/security_section.py:91
 msgid "Change Password"
 msgstr "비밀번호 변경"
 
-#: src/services/local_db.py:1004
+#: src/services/local_db.py:1042
 msgid "Checkpointing WAL into main file…"
 msgstr "WAL을 메인 파일에 체크포인트 중…"
 
@@ -638,7 +638,7 @@ msgstr ""
 msgid "Chromium History"
 msgstr "Chromium History"
 
-#: src/services/webdav_sync.py:325
+#: src/services/webdav_sync.py:374
 msgid "Cleaning up old backups..."
 msgstr "오래된 백업 정리 중..."
 
@@ -646,7 +646,7 @@ msgstr "오래된 백업 정리 중..."
 msgid "Cleaning up..."
 msgstr "정리 중..."
 
-#: src/views/search_autocomplete.py:1375
+#: src/views/search_autocomplete.py:1319
 msgid "Clear"
 msgstr "지우기"
 
@@ -654,7 +654,7 @@ msgstr "지우기"
 msgid "Clear View"
 msgstr "보기 지우기"
 
-#: src/views/settings/keybinding_section.py:165
+#: src/views/settings/keybinding_section.py:166
 msgid "Clear shortcut"
 msgstr "단축키 해제"
 
@@ -666,15 +666,15 @@ msgstr "단축키 해제"
 msgid "Close"
 msgstr "닫기"
 
-#: src/views/export_dialog.py:224 src/views/history_page.py:3247
+#: src/views/export_dialog.py:224 src/views/history_page.py:3234
 msgid "Columns"
 msgstr "열"
 
-#: src/views/history_page.py:3454
+#: src/views/history_page.py:3441
 msgid "Compact bubble"
 msgstr "컴팩트 버블"
 
-#: src/services/webdav_sync.py:254
+#: src/services/webdav_sync.py:284
 msgid "Compressing and packaging backup..."
 msgstr "백업 압축 및 패키징 중..."
 
@@ -694,7 +694,7 @@ msgstr "설정 병합 성공"
 msgid "Configure Blacklist…"
 msgstr "블랙리스트 구성…"
 
-#: src/views/settings/font_section.py:445
+#: src/views/settings/font_section.py:446
 msgid "Configure Fonts…"
 msgstr "글꼴 구성…"
 
@@ -706,14 +706,14 @@ msgstr "URL 필터 구성…"
 msgid "Configure sync behavior and browser data sources"
 msgstr "동기화 동작 및 브라우저 데이터 소스 구성"
 
-#: src/views/settings/keybinding_section.py:798
+#: src/views/settings/keybinding_section.py:800
 #: src/views/settings/privacy_section.py:48
 #: src/views/settings/privacy_section.py:66
 #: src/views/settings/privacy_section.py:81
 msgid "Configure…"
 msgstr "구성…"
 
-#: src/views/settings/keybinding_section.py:690
+#: src/views/settings/keybinding_section.py:691
 msgid "Confirm"
 msgstr "확인"
 
@@ -730,7 +730,7 @@ msgstr "비밀번호 확인…"
 msgid "Confirm:"
 msgstr "확인:"
 
-#: src/services/webdav_sync.py:215 src/services/webdav_sync.py:410
+#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:459
 msgid "Connecting to WebDAV server..."
 msgstr "WebDAV 서버에 연결 중..."
 
@@ -738,15 +738,15 @@ msgstr "WebDAV 서버에 연결 중..."
 msgid "Connecting..."
 msgstr "연결 중..."
 
-#: src/services/webdav_sync.py:186
+#: src/services/webdav_sync.py:216
 msgid "Connection successful"
 msgstr "연결 성공"
 
-#: src/views/history_page.py:3540
+#: src/views/history_page.py:3527
 msgid "Copy"
 msgstr "복사"
 
-#: src/views/history_page.py:3549
+#: src/views/history_page.py:3536
 #, python-brace-format
 msgid "Copy All URLs ({n})"
 msgstr "모든 URL 복사 ({n})"
@@ -755,15 +755,15 @@ msgstr "모든 URL 복사 ({n})"
 msgid "Copy Browser Name"
 msgstr "브라우저 이름 복사"
 
-#: src/views/history_page.py:3545
+#: src/views/history_page.py:3532
 msgid "Copy Title"
 msgstr "제목 복사"
 
-#: src/views/history_page.py:3546
+#: src/views/history_page.py:3533
 msgid "Copy Title + URL"
 msgstr "제목 + URL 복사"
 
-#: src/views/bookmarks_page.py:155 src/views/history_page.py:3544
+#: src/views/bookmarks_page.py:155 src/views/history_page.py:3531
 msgid "Copy URL"
 msgstr "URL 복사"
 
@@ -814,11 +814,11 @@ msgstr "현재 비밀번호:"
 msgid "Current password…"
 msgstr "현재 비밀번호…"
 
-#: src/views/settings/font_section.py:435
+#: src/views/settings/font_section.py:436
 msgid "Custom Fonts"
 msgstr "사용자 지정 글꼴"
 
-#: src/views/settings/keybinding_section.py:791
+#: src/views/settings/keybinding_section.py:793
 msgid "Customize in-app shortcuts and the global overlay hotkey."
 msgstr "앱 내 단축키와 전역 오버레이 단축키를 사용자 지정합니다."
 
@@ -838,7 +838,7 @@ msgstr "일일 활동 히트맵"
 msgid "Daily average"
 msgstr "일일 평균"
 
-#: src/views/history_page.py:1330
+#: src/views/history_page.py:1316
 msgid "Daily visit volume"
 msgstr "일일 방문량"
 
@@ -851,7 +851,7 @@ msgstr "데이터 위치:  {path}"
 msgid "Database Files (History *.sqlite *.db);;All Files (*)"
 msgstr "데이터베이스 파일 (History *.sqlite *.db);;모든 파일 (*)"
 
-#: src/services/webdav_sync.py:207
+#: src/services/webdav_sync.py:237
 #, python-brace-format
 msgid "Database file not found: {path}"
 msgstr "데이터베이스 파일을 찾을 수 없음: {path}"
@@ -860,11 +860,11 @@ msgstr "데이터베이스 파일을 찾을 수 없음: {path}"
 msgid "Database schema upgraded successfully"
 msgstr "데이터베이스 스키마가 성공적으로 업그레이드되었습니다"
 
-#: src/views/settings/maintenance_section.py:63
+#: src/views/settings/maintenance_section.py:64
 msgid "Database size"
 msgstr "데이터베이스 크기"
 
-#: src/views/search_autocomplete.py:768
+#: src/views/search_autocomplete.py:712
 msgid "Date"
 msgstr "날짜"
 
@@ -872,7 +872,7 @@ msgstr "날짜"
 msgid "Date Range"
 msgstr "날짜 범위"
 
-#: src/services/exporter.py:603 src/views/history_page.py:2172
+#: src/services/exporter.py:603 src/views/history_page.py:2159
 msgid "Date:"
 msgstr "날짜:"
 
@@ -913,16 +913,16 @@ msgstr "로그 파일 삭제"
 msgid "Delete Logs"
 msgstr "로그 삭제"
 
-#: src/views/history_page.py:3719
+#: src/views/history_page.py:3706
 msgid "Delete Records"
 msgstr "레코드 삭제"
 
-#: src/views/history_page.py:3565
+#: src/views/history_page.py:3552
 #, python-brace-format
 msgid "Delete Selected ({n} records)"
 msgstr "선택 항목 삭제 ({n}개 레코드)"
 
-#: src/views/history_page.py:3569
+#: src/views/history_page.py:3556
 msgid "Delete This Record"
 msgstr "이 레코드 삭제"
 
@@ -938,7 +938,7 @@ msgstr ""
 "\n"
 "이 기기에 속한 기록은 유지되지만 더 이상 어떤 기기와도 연결되지 않습니다. 이 작업은 취소할 수 없습니다."
 
-#: src/views/history_page.py:3720
+#: src/views/history_page.py:3707
 #, python-brace-format
 msgid "Delete {n} record(s)? This cannot be undone."
 msgstr "{n}개 레코드를 삭제하시겠습니까? 이 작업은 실행 취소할 수 없습니다."
@@ -953,7 +953,7 @@ msgstr "{n}개 로그 파일 삭제됨"
 msgid "Deleted {n} record(s)"
 msgstr "{n}개 레코드 삭제됨"
 
-#: src/views/history_page.py:3647
+#: src/views/history_page.py:3634
 msgid "Deletes all records from this domain and adds it to blacklist"
 msgstr "이 도메인의 모든 레코드를 삭제하고 블랙리스트에 추가합니다"
 
@@ -991,7 +991,7 @@ msgid "Disable Sync for This Browser"
 msgstr "이 브라우저 동기화 비활성화"
 
 #: src/services/exporter.py:81 src/viewmodels/history_viewmodel.py:64
-#: src/views/search_autocomplete.py:765
+#: src/views/search_autocomplete.py:709
 msgid "Domain"
 msgstr "도메인"
 
@@ -999,12 +999,12 @@ msgstr "도메인"
 msgid "Domain normalisation complete"
 msgstr "도메인 정규화 완료"
 
-#: src/services/local_db.py:1220
+#: src/services/local_db.py:1258
 #, python-brace-format
 msgid "Domain normalisation complete — {n} rows updated."
 msgstr "도메인 정규화 완료 — {n}개 행 업데이트됨."
 
-#: src/views/search_autocomplete.py:565
+#: src/views/search_autocomplete.py:509
 msgid "Domains"
 msgstr "도메인"
 
@@ -1037,25 +1037,35 @@ msgstr "완료"
 msgid "Done — {ins} new records added, {skip} duplicates skipped."
 msgstr "완료 — {ins}개 새 레코드 추가됨, {skip}개 중복 건너뜀."
 
-#: src/services/local_db.py:1055
+#: src/services/local_db.py:1093
 msgid "Done."
 msgstr "완료."
 
-#: src/services/local_db.py:1047
+#: src/services/local_db.py:1085
 #, python-brace-format
 msgid ""
 "Done.  {before:.1f} MB → {after:.1f} MB  (saved {saved:.0f} KB, "
 "{pct:.1f}%)"
 msgstr "완료.  {before:.1f} MB → {after:.1f} MB  ({saved:.0f} KB 절약, {pct:.1f}%)"
 
-#: src/views/history_page.py:2135 src/views/history_page.py:3842
+#: src/views/history_page.py:2121 src/views/history_page.py:3829
 msgid "Double-click any row to open the link in browser"
 msgstr "행을 더블클릭하면 브라우저에서 링크가 열립니다"
 
-#: src/services/webdav_sync.py:436
+#: src/services/webdav_sync.py:515
+#, python-brace-format
+msgid "Download failed: {error}"
+msgstr "다운로드 실패: {error}"
+
+#: src/services/webdav_sync.py:485
 #, python-brace-format
 msgid "Downloading {filename}..."
 msgstr "{filename} 다운로드 중..."
+
+#: src/services/webdav_sync.py:496
+#, python-brace-format
+msgid "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
+msgstr "다운로드 중: {percent:.0f}% ({downloaded} / {total} KB)"
 
 #: src/views/import_dialog.py:52
 msgid "Edge WebAssistDatabase"
@@ -1065,7 +1075,7 @@ msgstr "Edge WebAssistDatabase"
 msgid "Edit Note"
 msgstr "메모 편집"
 
-#: src/views/history_page.py:3531
+#: src/views/history_page.py:3518
 msgid "Edit Note…"
 msgstr "메모 편집…"
 
@@ -1089,7 +1099,7 @@ msgstr "파비콘 포함"
 msgid "Enable Sync for This Browser"
 msgstr "이 브라우저 동기화 활성화"
 
-#: src/views/settings/webdav_section.py:58
+#: src/views/settings/webdav_section.py:59
 msgid "Enable WebDAV Backup"
 msgstr "WebDAV 백업 활성화"
 
@@ -1097,7 +1107,7 @@ msgstr "WebDAV 백업 활성화"
 msgid "Enable automatic background sync"
 msgstr "자동 백그라운드 동기화 활성화"
 
-#: src/views/settings/font_section.py:305
+#: src/views/settings/font_section.py:306
 msgid "Enable custom fonts"
 msgstr "사용자 지정 글꼴 활성화"
 
@@ -1117,7 +1127,7 @@ msgstr ""
 msgid "Enable quick-access overlay"
 msgstr "빠른 액세스 오버레이 활성화"
 
-#: src/views/settings/scheduler_section.py:28
+#: src/views/settings/scheduler_section.py:29
 msgid "Enable scheduled auto-sync"
 msgstr "예약 자동 동기화 활성화"
 
@@ -1168,7 +1178,7 @@ msgstr "내보내기 형식"
 msgid "Export History"
 msgstr "기록 내보내기"
 
-#: src/views/settings/maintenance_section.py:110
+#: src/views/settings/maintenance_section.py:111
 msgid "Export History…"
 msgstr "기록 내보내기…"
 
@@ -1180,7 +1190,7 @@ msgstr "로그 내보내기"
 msgid "Export PNG"
 msgstr "PNG로 내보내기"
 
-#: src/views/history_page.py:2282
+#: src/views/history_page.py:2269
 msgid "Export current filtered results to CSV / JSON / HTML"
 msgstr "현재 필터링된 결과를 CSV / JSON / HTML로 내보내기"
 
@@ -1200,7 +1210,7 @@ msgstr "통계 이미지를 내보내기"
 msgid "Export successful"
 msgstr "내보내기 성공"
 
-#: src/views/settings/maintenance_section.py:114
+#: src/views/settings/maintenance_section.py:115
 msgid ""
 "Export the entire history database to CSV, JSON, or HTML.\n"
 "You can filter by date range and choose which columns to include."
@@ -1225,11 +1235,11 @@ msgstr "내보내는 중…"
 msgid "Exporting… {c} / {t}"
 msgstr "내보내는 중… {c} / {t}"
 
-#: src/views/history_page.py:2280
+#: src/views/history_page.py:2267
 msgid "Export…"
 msgstr "내보내기…"
 
-#: src/views/settings/maintenance_section.py:94
+#: src/views/settings/maintenance_section.py:95
 msgid ""
 "Extract and index domain names from all URLs.\n"
 "Speeds up domain-based queries and enables domain analytics."
@@ -1249,7 +1259,7 @@ msgstr "추출 중…"
 msgid "FONTS"
 msgstr "글꼴"
 
-#: src/services/local_db.py:1171
+#: src/services/local_db.py:1209
 msgid "FTS index rebuild complete."
 msgstr "FTS 인덱스 재구축 완료."
 
@@ -1278,7 +1288,7 @@ msgstr "2월"
 msgid "File"
 msgstr "파일"
 
-#: src/views/search_autocomplete.py:765
+#: src/views/search_autocomplete.py:709
 msgid "Filter"
 msgstr "필터"
 
@@ -1311,7 +1321,7 @@ msgstr "최초 방문 시간"
 msgid "First visited: {t}"
 msgstr "최초 방문: {t}"
 
-#: src/views/settings/font_section.py:290
+#: src/views/settings/font_section.py:291
 msgid "Font Settings"
 msgstr "글꼴 설정"
 
@@ -1319,15 +1329,15 @@ msgstr "글꼴 설정"
 msgid "Font settings updated — save to persist"
 msgstr "글꼴 설정 업데이트됨 — 저장 후 적용"
 
-#: src/views/settings/font_section.py:100
+#: src/views/settings/font_section.py:101
 msgid "Font:"
 msgstr "글꼴:"
 
-#: src/views/settings/font_section.py:111
+#: src/views/settings/font_section.py:112
 msgid "Fonts are tried in order. The first one that supports a character is used."
 msgstr "글꼴은 순서대로 시도됩니다. 문자를 지원하는 첫 번째 글꼴이 사용됩니다."
 
-#: src/views/settings/keybinding_section.py:658
+#: src/views/settings/keybinding_section.py:659
 msgid "Force Apply"
 msgstr "강제 적용"
 
@@ -1365,7 +1375,7 @@ msgstr "발견됨"
 msgid "Found browsers:"
 msgstr "발견된 브라우저:"
 
-#: src/views/settings/keybinding_section.py:652
+#: src/views/settings/keybinding_section.py:653
 #, python-brace-format
 msgid ""
 "Found {count} shortcut conflicts. Review them below, or choose Force "
@@ -1377,11 +1387,11 @@ msgstr "{count}개의 단축키 충돌이 발견되었습니다. 아래에서 �
 msgid "Found {} browser(s)..."
 msgstr "{}개 브라우저 발견..."
 
-#: src/views/history_page.py:123 src/views/stats_page.py:638
+#: src/views/history_page.py:128 src/views/stats_page.py:638
 msgid "Fri"
 msgstr "금"
 
-#: src/views/history_page.py:134
+#: src/views/history_page.py:139
 msgid "Friday"
 msgstr "금요일"
 
@@ -1389,11 +1399,11 @@ msgstr "금요일"
 msgid "From:"
 msgstr "시작:"
 
-#: src/views/settings/maintenance_section.py:120 src/views/settings_page.py:677
+#: src/views/settings/maintenance_section.py:121 src/views/settings_page.py:677
 msgid "Full Resync"
 msgstr "전체 재동기화"
 
-#: src/views/history_page.py:3449
+#: src/views/history_page.py:3436
 msgid "Full bubble"
 msgstr "전체 버블"
 
@@ -1401,7 +1411,7 @@ msgstr "전체 버블"
 msgid "Full resync in progress — re-reading all browser history…"
 msgstr "전체 재동기화 진행 중 — 모든 브라우저 기록 다시 읽는 중…"
 
-#: src/views/settings/keybinding_section.py:485
+#: src/views/settings/keybinding_section.py:486
 msgid "GLOBAL HOTKEY"
 msgstr "전역 단축키"
 
@@ -1414,7 +1424,7 @@ msgstr "{ts}에 생성됨"
 msgid "Get Started"
 msgstr "시작하기"
 
-#: src/views/settings/keybinding_section.py:736
+#: src/views/settings/keybinding_section.py:737
 msgid "Global"
 msgstr "전역"
 
@@ -1434,11 +1444,11 @@ msgstr "메모 있음"
 msgid "Has annotation"
 msgstr "메모 있음"
 
-#: src/views/history_page.py:798
+#: src/views/history_page.py:784
 msgid "Has note (click to edit)"
 msgstr "메모 있음 (클릭하여 편집)"
 
-#: src/services/webdav_sync.py:488
+#: src/services/webdav_sync.py:560
 #, python-brace-format
 msgid "Hash verification FAILED! Expected {exp}, got {act}"
 msgstr "해시 검증 실패! 예상: {exp}, 실제: {act}"
@@ -1451,7 +1461,7 @@ msgstr "숨겨진 도메인"
 msgid "Hidden Domains:"
 msgstr "숨겨진 도메인:"
 
-#: src/views/history_page.py:3833
+#: src/views/history_page.py:3820
 msgid "Hidden Records"
 msgstr "숨김 레코드"
 
@@ -1464,7 +1474,7 @@ msgstr "숨김 모드 — 숨겨진 레코드와 연결된 북마크만 표시"
 msgid "Hidden {n} record(s) from '{domain}'."
 msgstr "'{domain}'에서 {n}개 레코드 숨김."
 
-#: src/views/history_page.py:3731
+#: src/views/history_page.py:3718
 #, python-brace-format
 msgid "Hidden {n} record(s). Manage in Settings → Privacy."
 msgstr "{n}개 레코드 숨김. 설정 → 개인정보에서 관리하세요."
@@ -1482,8 +1492,8 @@ msgstr "숨기기"
 msgid "Hide Domain"
 msgstr "도메인 숨기기"
 
-#: src/views/history_page.py:3613 src/views/history_page.py:3622
-#: src/views/history_page.py:3633
+#: src/views/history_page.py:3600 src/views/history_page.py:3609
+#: src/views/history_page.py:3620
 #, python-brace-format
 msgid "Hide Domain: {domain}"
 msgstr "도메인 숨기기: {domain}"
@@ -1492,7 +1502,7 @@ msgstr "도메인 숨기기: {domain}"
 msgid "Hide Password"
 msgstr "비밀번호 숨기기"
 
-#: src/views/history_page.py:3595
+#: src/views/history_page.py:3582
 #, python-brace-format
 msgid "Hide Selected ({n} records)"
 msgstr "선택 항목 숨기기 ({n}개 레코드)"
@@ -1501,36 +1511,36 @@ msgstr "선택 항목 숨기기 ({n}개 레코드)"
 msgid "Hide Subdomain"
 msgstr "하위 도메인 숨기기"
 
-#: src/views/history_page.py:3608
+#: src/views/history_page.py:3595
 #, python-brace-format
 msgid "Hide Subdomain: {domain}"
 msgstr "하위 도메인 숨기기: {domain}"
 
-#: src/views/history_page.py:3598
+#: src/views/history_page.py:3585
 msgid "Hide This Record"
 msgstr "이 레코드 숨기기"
 
-#: src/views/history_page.py:3464
+#: src/views/history_page.py:3451
 msgid "Hide bubble"
 msgstr "버블 숨기기"
 
-#: src/views/history_page.py:3610
+#: src/views/history_page.py:3597
 #, python-brace-format
 msgid "Hide only records from {domain}"
 msgstr "{domain}의 레코드만 숨기기"
 
-#: src/views/history_page.py:3616 src/views/history_page.py:3625
-#: src/views/history_page.py:3636
+#: src/views/history_page.py:3603 src/views/history_page.py:3612
+#: src/views/history_page.py:3623
 #, python-brace-format
 msgid "Hide records from {domain} and all its subdomains"
 msgstr "{domain} 및 모든 하위 도메인에서 레코드 숨기기"
 
-#: src/views/history_page.py:3589
+#: src/views/history_page.py:3576
 msgid "Hide…"
 msgstr "숨기기…"
 
-#: src/views/history_page.py:2119 src/views/history_page.py:3841
-#: src/views/main_window.py:97 src/views/settings/keybinding_section.py:738
+#: src/views/history_page.py:2105 src/views/history_page.py:3828
+#: src/views/main_window.py:97 src/views/settings/keybinding_section.py:739
 msgid "History"
 msgstr "기록"
 
@@ -1608,7 +1618,7 @@ msgstr "ID"
 msgid "IMPORT HISTORY DATABASE"
 msgstr "기록 데이터베이스 가져오기"
 
-#: src/views/settings/keybinding_section.py:505
+#: src/views/settings/keybinding_section.py:506
 msgid "IN-APP SHORTCUTS"
 msgstr "앱 내 단축키"
 
@@ -1668,7 +1678,7 @@ msgstr ""
 msgid "Import complete: {n} new records added."
 msgstr "가져오기 완료: {n}개 새 레코드 추가됨."
 
-#: src/views/settings/maintenance_section.py:148
+#: src/views/settings/maintenance_section.py:149
 msgid ""
 "Import data from a previous HistorySync installation.\n"
 "Useful if you skipped migration on first launch."
@@ -1676,7 +1686,7 @@ msgstr ""
 "이전 HistorySync 설치에서 데이터를 가져옵니다.\n"
 "처음 실행 시 마이그레이션을 건너뛴 경우 유용합니다."
 
-#: src/views/settings/webdav_section.py:93
+#: src/views/settings/webdav_section.py:94
 msgid "Include favicon cache in backup"
 msgstr "백업에 파비콘 캐시 포함"
 
@@ -1688,7 +1698,7 @@ msgstr "비밀번호가 올바르지 않습니다. 다시 시도하세요."
 msgid "Initializing scan..."
 msgstr "스캔 초기화 중..."
 
-#: src/services/local_db.py:1188
+#: src/services/local_db.py:1226
 msgid "Inserting new domain entries…"
 msgstr "새 도메인 항목 삽입 중…"
 
@@ -1696,7 +1706,7 @@ msgstr "새 도메인 항목 삽입 중…"
 msgid "Instant History Search"
 msgstr "즉시 기록 검색"
 
-#: src/views/settings/font_section.py:328
+#: src/views/settings/font_section.py:329
 msgid "Interface Font"
 msgstr "인터페이스 글꼴"
 
@@ -1728,12 +1738,12 @@ msgstr "6월"
 msgid "KEYBOARD SHORTCUTS"
 msgstr "키보드 단축키"
 
-#: src/views/settings/keybinding_section.py:650
+#: src/views/settings/keybinding_section.py:651
 msgid "Keybinding Conflict"
 msgstr "단축키 충돌"
 
-#: src/views/settings/keybinding_section.py:457
-#: src/views/settings/keybinding_section.py:789
+#: src/views/settings/keybinding_section.py:458
+#: src/views/settings/keybinding_section.py:790
 msgid "Keyboard Shortcuts"
 msgstr "키보드 단축키"
 
@@ -1750,15 +1760,15 @@ msgstr "키워드: {kw}"
 msgid "LANGUAGE"
 msgstr "언어"
 
-#: src/views/search_autocomplete.py:474
+#: src/views/search_autocomplete.py:418
 msgid "Last 30 days"
 msgstr "최근 30일"
 
-#: src/views/search_autocomplete.py:473
+#: src/views/search_autocomplete.py:417
 msgid "Last 7 days"
 msgstr "최근 7일"
 
-#: src/views/search_autocomplete.py:475
+#: src/views/search_autocomplete.py:419
 msgid "Last 90 days"
 msgstr "최근 90일"
 
@@ -1776,11 +1786,11 @@ msgstr "마지막 클라우드 동기화: {t}"
 msgid "Last sync: {count} new"
 msgstr "마지막 동기화: {count}개 새로 추가"
 
-#: src/views/search_autocomplete.py:476
+#: src/views/search_autocomplete.py:420
 msgid "Last year"
 msgstr "작년"
 
-#: src/views/history_page.py:180
+#: src/views/history_page.py:185
 #, python-brace-format
 msgid "Last {weekday}"
 msgstr "지난 {weekday}"
@@ -1793,7 +1803,7 @@ msgstr "실행 오류"
 msgid "Launch HistorySync"
 msgstr "실행 기록 동기화"
 
-#: src/views/settings/startup_section.py:29
+#: src/views/settings/startup_section.py:30
 msgid "Launch at system startup (minimized to tray)"
 msgstr "시스템 시작 시 실행 (트레이로 최소화)"
 
@@ -1809,11 +1819,11 @@ msgstr "적음"
 msgid "Level:"
 msgstr "레벨:"
 
-#: src/views/settings/webdav_section.py:141
+#: src/views/settings/webdav_section.py:143
 msgid "List Remote Backups"
 msgstr "원격 백업 목록 보기"
 
-#: src/services/webdav_sync.py:417
+#: src/services/webdav_sync.py:466
 msgid "Listing remote backups..."
 msgstr "원격 백업 목록 가져오는 중..."
 
@@ -1830,11 +1840,11 @@ msgstr "불러오는 중…"
 msgid "Locate in History"
 msgstr "기록에서 찾기"
 
-#: src/views/settings/security_section.py:98
+#: src/views/settings/security_section.py:100
 msgid "Lock Session"
 msgstr "세션 잠금"
 
-#: src/views/settings/security_section.py:99
+#: src/views/settings/security_section.py:101
 msgid "Lock the current session — next protected action will require the password"
 msgstr "현재 세션을 잠급니다 — 다음 보호된 작업 시 비밀번호가 필요합니다"
 
@@ -1865,7 +1875,7 @@ msgstr "로그 파일을 찾을 수 없습니다: {}"
 msgid "Log file: {}"
 msgstr "로그 파일: {}"
 
-#: src/views/search_autocomplete.py:913
+#: src/views/search_autocomplete.py:857
 msgid "Logic:"
 msgstr "논리:"
 
@@ -1904,7 +1914,7 @@ msgstr "마스터 비밀번호 (선택)"
 msgid "Master Password Required"
 msgstr "마스터 비밀번호 필요"
 
-#: src/views/settings/security_section.py:133
+#: src/views/settings/security_section.py:135
 msgid "Master password is set"
 msgstr "마스터 비밀번호 설정됨"
 
@@ -1916,7 +1926,7 @@ msgstr "마스터 비밀번호 제거됨"
 msgid "Master password updated"
 msgstr "마스터 비밀번호 업데이트됨"
 
-#: src/views/settings/webdav_section.py:133
+#: src/views/settings/webdav_section.py:135
 msgid "Max backups:"
 msgstr "최대 백업 수:"
 
@@ -1924,7 +1934,7 @@ msgstr "최대 백업 수:"
 msgid "May"
 msgstr "5월"
 
-#: src/services/local_db.py:1378
+#: src/services/local_db.py:1403
 #, python-brace-format
 msgid "Merge complete: {inserted} new records added (of {total} in backup)."
 msgstr "병합 완료: {inserted}개 새 레코드 추가됨 (백업 중 {total}개)."
@@ -1941,11 +1951,11 @@ msgstr "구성을 병합하세요"
 msgid "Merging configuration…"
 msgstr "구성 병합 중…"
 
-#: src/services/local_db.py:1402
+#: src/services/local_db.py:1427
 msgid "Merging user data (bookmarks, annotations, hidden records)..."
 msgstr "사용자 데이터 (북마크, 메모, 숨긴 레코드) 병합 중..."
 
-#: src/services/local_db.py:1316
+#: src/services/local_db.py:1341
 #, python-brace-format
 msgid "Merging {n} records from backup..."
 msgstr "백업에서 {n}개 레코드 병합 중..."
@@ -1954,7 +1964,7 @@ msgstr "백업에서 {n}개 레코드 병합 중..."
 msgid "Metadata"
 msgstr "메타데이터"
 
-#: src/views/settings/maintenance_section.py:145
+#: src/views/settings/maintenance_section.py:146
 msgid "Migrate Legacy Data…"
 msgstr "기존 데이터 마이그레이션…"
 
@@ -2017,19 +2027,19 @@ msgstr ""
 "지금 닫으면 데이터가 일관되지 않은 상태로 남을 수 있습니다.\n"
 "종료하시겠습니까?"
 
-#: src/views/history_page.py:3459
+#: src/views/history_page.py:3446
 msgid "Minimal bubble"
 msgstr "최소 버블"
 
-#: src/views/history_page.py:119 src/views/stats_page.py:638
+#: src/views/history_page.py:124 src/views/stats_page.py:638
 msgid "Mon"
 msgstr "월"
 
-#: src/views/history_page.py:130
+#: src/views/history_page.py:135
 msgid "Monday"
 msgstr "월요일"
 
-#: src/views/settings/font_section.py:337
+#: src/views/settings/font_section.py:338
 msgid "Monospace Font  (log viewer)"
 msgstr "고정폭 글꼴 (로그 뷰어)"
 
@@ -2041,11 +2051,11 @@ msgstr "월"
 msgid "More"
 msgstr "많음"
 
-#: src/views/settings/font_section.py:131
+#: src/views/settings/font_section.py:132
 msgid "Move Down — lower priority"
 msgstr "아래로 이동 — 우선순위 낮춤"
 
-#: src/views/settings/font_section.py:125
+#: src/views/settings/font_section.py:126
 msgid "Move Up — higher priority"
 msgstr "위로 이동 — 우선순위 높임"
 
@@ -2119,7 +2129,7 @@ msgstr "기존 데이터 없음"
 msgid "No Selection"
 msgstr "선택 없음"
 
-#: src/services/webdav_sync.py:428
+#: src/services/webdav_sync.py:477
 msgid "No backups found on server."
 msgstr "서버에 백업이 없습니다."
 
@@ -2190,8 +2200,8 @@ msgstr ""
 msgid "No log file found."
 msgstr "로그 파일을 찾을 수 없습니다."
 
-#: src/views/settings/security_section.py:63
-#: src/views/settings/security_section.py:149
+#: src/views/settings/security_section.py:64
+#: src/views/settings/security_section.py:151
 msgid "No master password set"
 msgstr "마스터 비밀번호가 설정되지 않음"
 
@@ -2211,7 +2221,7 @@ msgstr ""
 msgid "None"
 msgstr "없음"
 
-#: src/views/settings/maintenance_section.py:90
+#: src/views/settings/maintenance_section.py:91
 msgid "Normalize Domains"
 msgstr "도메인 정규화"
 
@@ -2239,12 +2249,12 @@ msgstr "활성화되지 않음"
 msgid "Not found"
 msgstr "찾을 수 없음"
 
-#: src/views/settings/keybinding_section.py:149
-#: src/views/settings/keybinding_section.py:316
-#: src/views/settings/keybinding_section.py:420
-#: src/views/settings/keybinding_section.py:428
-#: src/views/settings/keybinding_section.py:434
-#: src/views/settings/keybinding_section.py:440
+#: src/views/settings/keybinding_section.py:150
+#: src/views/settings/keybinding_section.py:317
+#: src/views/settings/keybinding_section.py:421
+#: src/views/settings/keybinding_section.py:429
+#: src/views/settings/keybinding_section.py:435
+#: src/views/settings/keybinding_section.py:441
 msgid "Not set"
 msgstr "미설정"
 
@@ -2252,7 +2262,7 @@ msgstr "미설정"
 msgid "Not synced"
 msgstr "동기화되지 않음"
 
-#: src/views/history_page.py:796
+#: src/views/history_page.py:782
 #, python-brace-format
 msgid "Note: {note}"
 msgstr "메모: {note}"
@@ -2265,7 +2275,7 @@ msgstr "11월"
 msgid "October"
 msgstr "10월"
 
-#: src/views/settings/keybinding_section.py:506
+#: src/views/settings/keybinding_section.py:507
 msgid "Only active when the application window is focused."
 msgstr "앱 창에 포커스가 있을 때만 작동합니다."
 
@@ -2274,7 +2284,7 @@ msgstr "앱 창에 포커스가 있을 때만 작동합니다."
 msgid "Only records from the exact subdomain <b>{domain}</b> will be hidden."
 msgstr "정확히 <b>{domain}</b> 하위 도메인에서의 기록만 숨겨집니다."
 
-#: src/views/history_page.py:3509
+#: src/views/history_page.py:3496
 #, python-brace-format
 msgid "Open All Selected in Browser ({n})"
 msgstr "선택한 모든 항목을 브라우저에서 열기 ({n})"
@@ -2291,7 +2301,7 @@ msgstr "폴더 열기"
 msgid "Open Main Window"
 msgstr "메인 창 열기"
 
-#: src/views/bookmarks_page.py:154 src/views/history_page.py:3505
+#: src/views/bookmarks_page.py:154 src/views/history_page.py:3492
 msgid "Open in Browser"
 msgstr "브라우저에서 열기"
 
@@ -2307,7 +2317,7 @@ msgstr "열기 방식"
 msgid "Open with:"
 msgstr "열기 방식:"
 
-#: src/services/local_db.py:1284
+#: src/services/local_db.py:1309
 msgid "Opening backup database for merge..."
 msgstr "병합을 위해 백업 데이터베이스 여는 중..."
 
@@ -2327,7 +2337,7 @@ msgstr "출력 파일"
 msgid "Overlay settings"
 msgstr "오버레이 설정"
 
-#: src/views/settings/font_section.py:312
+#: src/views/settings/font_section.py:313
 msgid ""
 "Override the built-in UI typeface and the monospace font used in the log "
 "viewer.  Add multiple families as fallbacks — if a character isn't in the"
@@ -2362,7 +2372,7 @@ msgid "Password must be at least 4 characters."
 msgstr "비밀번호는 최소 4자 이상이어야 합니다."
 
 #: src/views/master_password_dialog.py:92
-#: src/views/settings/webdav_section.py:131
+#: src/views/settings/webdav_section.py:133
 msgid "Password:"
 msgstr "비밀번호:"
 
@@ -2400,7 +2410,7 @@ msgstr "내보낼 열을 최소 하나 선택하세요."
 msgid "Preferences"
 msgstr "환경설정"
 
-#: src/services/webdav_sync.py:228
+#: src/services/webdav_sync.py:258
 msgid "Preparing database for upload (stripping FTS index)..."
 msgstr "업로드를 위해 데이터베이스 준비 중 (FTS 인덱스 제거)..."
 
@@ -2412,8 +2422,8 @@ msgstr ""
 "Ctrl+Shift+H를 누르면 어디서든 브라우저 기록을 즉시 검색하고\n"
 "URL을 열 수 있습니다 — 메인 창으로 전환하지 않고도 가능합니다."
 
-#: src/views/settings/keybinding_section.py:311
-#: src/views/settings/keybinding_section.py:393
+#: src/views/settings/keybinding_section.py:312
+#: src/views/settings/keybinding_section.py:394
 msgid "Press a key..."
 msgstr "키를 누르세요..."
 
@@ -2426,7 +2436,7 @@ msgstr "이전"
 msgid "Profile"
 msgstr "프로필"
 
-#: src/services/local_db.py:1040
+#: src/services/local_db.py:1078
 #, python-brace-format
 msgid "Pruned {n} expired tombstone rows (>90 days old)."
 msgstr "{n}개의 만료된 삭제 마커(90일 이상 경과)를 정리했습니다."
@@ -2439,8 +2449,8 @@ msgstr "빠른 액세스 오버레이"
 msgid "Quick Access"
 msgstr "빠른 액세스"
 
-#: src/views/settings/keybinding_section.py:496
-#: src/views/settings/keybinding_section.py:724
+#: src/views/settings/keybinding_section.py:497
+#: src/views/settings/keybinding_section.py:725
 msgid "Quick Access Overlay"
 msgstr "빠른 액세스 오버레이"
 
@@ -2452,7 +2462,7 @@ msgstr "HistorySync 종료"
 msgid "Re-detect Browsers Now"
 msgstr "지금 브라우저 다시 감지"
 
-#: src/views/settings/maintenance_section.py:124
+#: src/views/settings/maintenance_section.py:125
 msgid ""
 "Re-extract the complete browser history from scratch and upsert all "
 "records.\n"
@@ -2470,7 +2480,7 @@ msgstr ""
 msgid "Reading {browser} history..."
 msgstr "{browser} 기록 읽는 중..."
 
-#: src/views/history_page.py:2275 src/views/import_dialog.py:490
+#: src/views/history_page.py:2262 src/views/import_dialog.py:490
 #: src/views/import_dialog.py:512 src/views/main_window.py:80
 #: src/views/tray_icon.py:86
 msgid "Ready"
@@ -2480,11 +2490,11 @@ msgstr "준비"
 msgid "Real-time application log — auto-refreshes every 2 seconds"
 msgstr "실시간 애플리케이션 로그 — 2초마다 자동 새로 고침"
 
-#: src/views/settings/maintenance_section.py:100
+#: src/views/settings/maintenance_section.py:101
 msgid "Rebuild FTS Index"
 msgstr "FTS 인덱스 재구축"
 
-#: src/views/settings/maintenance_section.py:104
+#: src/views/settings/maintenance_section.py:105
 msgid ""
 "Rebuild the full-text search index from scratch.\n"
 "Run this if search results seem incomplete or incorrect."
@@ -2492,19 +2502,19 @@ msgstr ""
 "전체 텍스트 검색 인덱스를 처음부터 다시 구축합니다.\n"
 "검색 결과가 불완전하거나 잘못된 것 같으면 실행하세요."
 
-#: src/services/local_db.py:1168
+#: src/services/local_db.py:1206
 msgid "Rebuilding full-text search index…"
 msgstr "전체 텍스트 검색 인덱스 재구축 중…"
 
-#: src/views/search_autocomplete.py:562 src/views/search_autocomplete.py:779
+#: src/views/search_autocomplete.py:506 src/views/search_autocomplete.py:723
 msgid "Recent"
 msgstr "최근"
 
-#: src/views/search_autocomplete.py:631
+#: src/views/search_autocomplete.py:575
 msgid "Recent search"
 msgstr "최근 검색"
 
-#: src/views/settings/maintenance_section.py:84
+#: src/views/settings/maintenance_section.py:85
 msgid ""
 "Reclaim wasted space, defragment pages, and update query planner "
 "statistics.\n"
@@ -2513,11 +2523,11 @@ msgstr ""
 "낭비된 공간을 회수하고, 페이지를 조각 모음하고, 쿼리 플래너 통계를 업데이트합니다.\n"
 "현재 DB 크기의 약 2배의 여유 디스크 공간이 필요합니다."
 
-#: src/views/history_page.py:1332
+#: src/views/history_page.py:1318
 msgid "Record rank within the day"
 msgstr "하루 내 레코드 순위"
 
-#: src/views/settings/maintenance_section.py:65
+#: src/views/settings/maintenance_section.py:66
 msgid "Records"
 msgstr "레코드"
 
@@ -2526,11 +2536,11 @@ msgstr "레코드"
 msgid "Records from <b>{domain}</b> and all its subdomains will be hidden."
 msgstr "<b>{domain}</b> 및 모든 하위 도메인의 레코드가 숨겨집니다."
 
-#: src/views/search_autocomplete.py:1368
+#: src/views/search_autocomplete.py:1312
 msgid "Regex Mode"
 msgstr "정규식 모드"
 
-#: src/views/search_autocomplete.py:1706
+#: src/views/search_autocomplete.py:1655
 msgid "Regex: e.g. github\\.com.*release"
 msgstr "정규식: 예: github\\.com.*release"
 
@@ -2538,11 +2548,11 @@ msgstr "정규식: 예: github\\.com.*release"
 msgid "Reload"
 msgstr "새로 고침"
 
-#: src/views/settings/webdav_section.py:132
+#: src/views/settings/webdav_section.py:134
 msgid "Remote Path:"
 msgstr "원격 경로:"
 
-#: src/services/webdav_sync.py:421
+#: src/services/webdav_sync.py:470
 msgid "Remote directory not found."
 msgstr "원격 디렉토리를 찾을 수 없습니다."
 
@@ -2550,7 +2560,7 @@ msgstr "원격 디렉토리를 찾을 수 없습니다."
 #: src/views/dialogs/blacklist_domain_dialog.py:160
 #: src/views/dialogs/hidden_domains_manager_dialog.py:204
 #: src/views/dialogs/url_prefix_filter_dialog.py:178
-#: src/views/settings/font_section.py:137
+#: src/views/settings/font_section.py:138
 msgid "Remove"
 msgstr "제거"
 
@@ -2564,7 +2574,7 @@ msgid "Remove All"
 msgstr "모두 제거"
 
 #: src/views/bookmarks_page.py:162 src/views/bookmarks_page.py:997
-#: src/views/history_page.py:3519
+#: src/views/history_page.py:3506
 msgid "Remove Bookmark"
 msgstr "북마크 제거"
 
@@ -2572,11 +2582,11 @@ msgstr "북마크 제거"
 msgid "Remove Browser"
 msgstr "브라우저 제거"
 
-#: src/views/settings/security_section.py:196
+#: src/views/settings/security_section.py:198
 msgid "Remove Master Password"
 msgstr "마스터 비밀번호 제거"
 
-#: src/views/settings/security_section.py:93
+#: src/views/settings/security_section.py:95
 msgid "Remove Password"
 msgstr "비밀번호 제거"
 
@@ -2621,25 +2631,25 @@ msgstr "기기 이름 변경"
 msgid "Rename…"
 msgstr "이름 변경…"
 
-#: src/views/history_page.py:2192
+#: src/views/history_page.py:2179
 msgid "Reset"
 msgstr "초기화"
 
-#: src/views/settings/font_section.py:354
+#: src/views/settings/font_section.py:355
 msgid "Reset Defaults"
 msgstr "기본값으로 재설정"
 
-#: src/views/settings/keybinding_section.py:691
+#: src/views/settings/keybinding_section.py:692
 msgid "Reset all keybindings to their default settings?"
 msgstr "모든 단축키를 기본 설정으로 재설정하시겠습니까?"
 
 #: src/views/dialogs/url_prefix_filter_dialog.py:117
 #: src/views/dialogs/url_prefix_filter_dialog.py:235
-#: src/views/settings/keybinding_section.py:544
+#: src/views/settings/keybinding_section.py:545
 msgid "Reset to Defaults"
 msgstr "기본값으로 재설정"
 
-#: src/views/settings/keybinding_section.py:157
+#: src/views/settings/keybinding_section.py:158
 msgid "Reset to default shortcut"
 msgstr "단축키 기본값 재설정"
 
@@ -2651,16 +2661,16 @@ msgstr "언어 변경을 적용하려면 다시 시작해야 합니다."
 msgid "Restore Database"
 msgstr "데이터베이스 복원"
 
-#: src/views/history_page.py:3273
+#: src/views/history_page.py:3260
 msgid "Restore Default View"
 msgstr "기본 보기 복원"
 
-#: src/services/webdav_sync.py:560
+#: src/services/webdav_sync.py:632
 #, python-brace-format
 msgid "Restore failed: {error}"
 msgstr "복원 실패: {error}"
 
-#: src/views/settings/webdav_section.py:163
+#: src/views/settings/webdav_section.py:165
 msgid "Restore from WebDAV"
 msgstr "WebDAV에서 복원"
 
@@ -2668,21 +2678,21 @@ msgstr "WebDAV에서 복원"
 msgid "Restore the built-in default URL prefix list"
 msgstr "기본 URL 접두사 목록 복원"
 
-#: src/services/webdav_sync.py:552
+#: src/services/webdav_sync.py:624
 #, python-brace-format
 msgid "Restored from {filename}"
 msgstr "{filename}에서 복원됨"
 
-#: src/views/history_page.py:3737 src/views/main_window.py:407
+#: src/views/history_page.py:3724 src/views/main_window.py:407
 #, python-brace-format
 msgid "Restored {n} record(s)."
 msgstr "{n}개 레코드가 복원되었습니다."
 
-#: src/services/local_db.py:1026
+#: src/services/local_db.py:1064
 msgid "Restoring WAL mode and updating statistics…"
 msgstr "WAL 모드 복원 및 통계 업데이트 중…"
 
-#: src/services/webdav_sync.py:499
+#: src/services/webdav_sync.py:571
 msgid "Restoring favicon cache..."
 msgstr "파비콘 캐시 복원 중..."
 
@@ -2690,11 +2700,11 @@ msgstr "파비콘 캐시 복원 중..."
 msgid "Resume"
 msgstr "재개"
 
-#: src/views/history_page.py:3836
+#: src/views/history_page.py:3823
 msgid "Return to normal view"
 msgstr "일반 보기로 돌아가기"
 
-#: src/views/history_page.py:1333
+#: src/views/history_page.py:1319
 msgid "Right-click scrollbar to change settings"
 msgstr "스크롤바를 우클릭하여 설정 변경"
 
@@ -2706,7 +2716,7 @@ msgstr "행"
 msgid "Run initial sync now"
 msgstr "지금 초기 동기화 실행"
 
-#: src/services/local_db.py:1019
+#: src/services/local_db.py:1057
 msgid "Running VACUUM — rewriting database file…"
 msgstr "VACUUM 실행 중 — 데이터베이스 파일 재작성 중…"
 
@@ -2722,7 +2732,7 @@ msgstr "검색 엔진"
 msgid "SECURITY"
 msgstr "보안"
 
-#: src/views/settings/webdav_section.py:279
+#: src/views/settings/webdav_section.py:281
 msgid "SHA-256 Hashes:"
 msgstr "SHA-256 해시:"
 
@@ -2738,11 +2748,11 @@ msgstr "시작 설정"
 msgid "Safari History.db"
 msgstr "Safari History.db"
 
-#: src/views/history_page.py:124
+#: src/views/history_page.py:129
 msgid "Sat"
 msgstr "토"
 
-#: src/views/history_page.py:135
+#: src/views/history_page.py:140
 msgid "Saturday"
 msgstr "토요일"
 
@@ -2779,7 +2789,7 @@ msgstr "스캔 실패: {}"
 msgid "Scanning for browsers..."
 msgstr "브라우저 스캔 중..."
 
-#: src/services/local_db.py:1184
+#: src/services/local_db.py:1222
 msgid "Scanning for un-normalised URLs…"
 msgstr "정규화되지 않은 URL 검색 중…"
 
@@ -2788,7 +2798,7 @@ msgstr "정규화되지 않은 URL 검색 중…"
 msgid "Scanning... ({} directories)"
 msgstr "스캔 중... ({}개 디렉토리)"
 
-#: src/views/settings/webdav_section.py:67
+#: src/views/settings/webdav_section.py:68
 msgid "Scheduled automatic backup every"
 msgstr "예약된 자동 백업 주기"
 
@@ -2809,16 +2819,16 @@ msgstr "검색"
 msgid "Search \"{query}\""
 msgstr "\"{query}\" 검색"
 
-#: src/views/search_autocomplete.py:630
+#: src/views/search_autocomplete.py:574
 #, python-brace-format
 msgid "Search \"{query}\" on {engine}"
 msgstr "\"{query}\"을(를) {engine}에서 검색"
 
-#: src/views/search_autocomplete.py:1740
+#: src/views/search_autocomplete.py:1689
 msgid "Search Help"
 msgstr "검색 도움말"
 
-#: src/views/search_autocomplete.py:1383
+#: src/views/search_autocomplete.py:1327
 msgid "Search Syntax Help"
 msgstr "검색 문법 도움말"
 
@@ -2830,7 +2840,7 @@ msgstr "북마크 검색… (tag:work, after:2024-01-01, has:note)"
 msgid "Search engine:"
 msgstr "검색 엔진:"
 
-#: src/views/search_autocomplete.py:625
+#: src/views/search_autocomplete.py:569
 msgid "Search filter"
 msgstr "검색 필터"
 
@@ -2838,7 +2848,7 @@ msgstr "검색 필터"
 msgid "Search history…"
 msgstr "기록 검색…"
 
-#: src/views/search_autocomplete.py:1359 src/views/search_autocomplete.py:1709
+#: src/views/search_autocomplete.py:1303 src/views/search_autocomplete.py:1658
 msgid "Search title or URL..."
 msgstr "제목 또는 URL 검색..."
 
@@ -2846,12 +2856,12 @@ msgstr "제목 또는 URL 검색..."
 msgid "Search title, URL, or domain..."
 msgstr "제목, URL 또는 도메인 검색..."
 
-#: src/views/search_autocomplete.py:599
+#: src/views/search_autocomplete.py:543
 #, python-brace-format
 msgid "Search {query}"
 msgstr "{query} 검색"
 
-#: src/views/history_page.py:3657
+#: src/views/history_page.py:3644
 #, python-brace-format
 msgid "Search: {domain}"
 msgstr "검색: {domain}"
@@ -2881,7 +2891,7 @@ msgstr "선택 해제"
 msgid "September"
 msgstr "9월"
 
-#: src/views/settings/webdav_section.py:129
+#: src/views/settings/webdav_section.py:131
 msgid "Server URL:"
 msgstr "서버 URL:"
 
@@ -2889,16 +2899,16 @@ msgstr "서버 URL:"
 msgid "Session locked"
 msgstr "세션 잠김"
 
-#: src/views/settings/security_section.py:143
+#: src/views/settings/security_section.py:145
 msgid "Session locked — password will be requested on next protected action"
 msgstr "세션 잠김 — 다음 보호된 작업에서 비밀번호를 요청합니다"
 
-#: src/views/settings/security_section.py:140
+#: src/views/settings/security_section.py:142
 msgid "Session unlocked — no password required until you lock or restart"
 msgstr "세션 잠금 해제됨 — 잠그거나 다시 시작할 때까지 비밀번호 불필요"
 
 #: src/views/master_password_dialog.py:132
-#: src/views/settings/security_section.py:85
+#: src/views/settings/security_section.py:87
 msgid "Set Master Password"
 msgstr "마스터 비밀번호 설정"
 
@@ -2911,7 +2921,7 @@ msgid "Set a Master Password"
 msgstr "마스터 비밀번호 설정"
 
 #: src/views/main_window.py:99 src/views/overlay_window.py:333
-#: src/views/settings/keybinding_section.py:744
+#: src/views/settings/keybinding_section.py:745
 msgid "Settings"
 msgstr "설정"
 
@@ -2927,7 +2937,7 @@ msgstr "비밀번호 표시"
 msgid "Showing"
 msgstr "표시 중"
 
-#: src/views/history_page.py:3834
+#: src/views/history_page.py:3821
 msgid "Showing only hidden records."
 msgstr "숨겨진 기록만 표시 중입니다."
 
@@ -2935,7 +2945,7 @@ msgstr "숨겨진 기록만 표시 중입니다."
 msgid "Site Icon Cache"
 msgstr "사이트 아이콘 캐시"
 
-#: src/views/settings/font_section.py:159
+#: src/views/settings/font_section.py:160
 msgid "Size:"
 msgstr "크기:"
 
@@ -2963,7 +2973,7 @@ msgstr "가져오기 시작"
 msgid "Start Migration"
 msgstr "마이그레이션 시작"
 
-#: src/views/settings/startup_section.py:44
+#: src/views/settings/startup_section.py:45
 msgid "Start minimized to tray when opening the app"
 msgstr "앱 실행 시 트레이로 최소화하여 시작"
 
@@ -2979,7 +2989,7 @@ msgstr "시작 중..."
 msgid "Starting…"
 msgstr "시작 중..."
 
-#: src/views/main_window.py:101 src/views/settings/keybinding_section.py:742
+#: src/views/main_window.py:101 src/views/settings/keybinding_section.py:743
 #: src/views/stats_page.py:1676
 msgid "Statistics"
 msgstr "통계"
@@ -3010,11 +3020,11 @@ msgstr "하위 도메인만"
 msgid "Successfully exported {n} records."
 msgstr "{n}개 레코드 내보내기 성공."
 
-#: src/views/history_page.py:125
+#: src/views/history_page.py:130
 msgid "Sun"
 msgstr "일"
 
-#: src/views/history_page.py:136
+#: src/views/history_page.py:141
 msgid "Sunday"
 msgstr "일요일"
 
@@ -3070,11 +3080,11 @@ msgstr "동기화 실패: 모든 브라우저 데이터 읽기 오류"
 msgid "Sync failed: {error}"
 msgstr "동기화 실패: {error}"
 
-#: src/views/first_run_wizard.py:196 src/views/settings/scheduler_section.py:32
+#: src/views/first_run_wizard.py:196 src/views/settings/scheduler_section.py:33
 msgid "Sync interval:"
 msgstr "동기화 간격:"
 
-#: src/views/history_page.py:2723
+#: src/views/history_page.py:2710
 msgid "Sync triggered..."
 msgstr "동기화 시작됨..."
 
@@ -3104,7 +3114,7 @@ msgstr "태그"
 msgid "Tags (comma-separated):"
 msgstr "태그 (쉼표로 구분):"
 
-#: src/views/settings/webdav_section.py:155
+#: src/views/settings/webdav_section.py:157
 msgid "Test Connection"
 msgstr "연결 테스트"
 
@@ -3246,7 +3256,7 @@ msgstr ""
 "\n"
 "계속하시겠습니까?"
 
-#: src/views/history_page.py:3754
+#: src/views/history_page.py:3741
 #, python-brace-format
 msgid ""
 "This will:\n"
@@ -3261,11 +3271,11 @@ msgstr ""
 "\n"
 "계속하시겠습니까?"
 
-#: src/views/history_page.py:122
+#: src/views/history_page.py:127
 msgid "Thu"
 msgstr "목"
 
-#: src/views/history_page.py:133
+#: src/views/history_page.py:138
 msgid "Thursday"
 msgstr "목요일"
 
@@ -3274,7 +3284,7 @@ msgstr "목요일"
 msgid "Time on page: {s:.1f} seconds"
 msgstr "페이지 체류 시간: {s:.1f}초"
 
-#: src/views/history_page.py:1331
+#: src/views/history_page.py:1317
 msgid "Time position within the day"
 msgstr "하루 내 시간 위치"
 
@@ -3290,7 +3300,7 @@ msgstr "제목 & URL"
 msgid "To:"
 msgstr "종료:"
 
-#: src/views/history_page.py:160 src/views/search_autocomplete.py:472
+#: src/views/history_page.py:165 src/views/search_autocomplete.py:416
 msgid "Today"
 msgstr "오늘"
 
@@ -3318,11 +3328,11 @@ msgstr "총 방문 횟수"
 msgid "Transition Type"
 msgstr "전환 유형"
 
-#: src/views/history_page.py:120
+#: src/views/history_page.py:125
 msgid "Tue"
 msgstr "화"
 
-#: src/views/history_page.py:131
+#: src/views/history_page.py:136
 msgid "Tuesday"
 msgstr "화요일"
 
@@ -3330,7 +3340,7 @@ msgstr "화요일"
 msgid "Typed Count"
 msgstr "직접 입력 횟수"
 
-#: src/views/settings/font_section.py:46
+#: src/views/settings/font_section.py:47
 #, python-brace-format
 msgid "UI: {ui} {ups}px  ·  Mono: {mono} {mps}px"
 msgstr "UI: {ui} {ups}px  ·  Mono: {mono} {mps}px"
@@ -3376,12 +3386,12 @@ msgstr "{n}개 도메인 숨김 해제됨"
 msgid "Unhide All Records"
 msgstr "모든 기록 숨김 해제"
 
-#: src/views/history_page.py:3583
+#: src/views/history_page.py:3570
 #, python-brace-format
 msgid "Unhide Selected ({n} records)"
 msgstr "선택 항목 숨기기 해제 ({n}개 레코드)"
 
-#: src/views/history_page.py:3586
+#: src/views/history_page.py:3573
 msgid "Unhide This Record"
 msgstr "이 기록 숨기기 해제"
 
@@ -3393,7 +3403,7 @@ msgstr "개별적으로 숨겨진 모든 기록 숨김 해제 (숨겨진 도메�
 msgid "Unhide this domain — its records will become visible again"
 msgstr "이 도메인 숨기기 해제 — 해당 레코드가 다시 표시됩니다"
 
-#: src/views/settings/maintenance_section.py:66
+#: src/views/settings/maintenance_section.py:67
 msgid "Unique domains"
 msgstr "고유 도메인"
 
@@ -3409,7 +3419,7 @@ msgstr "알 수 없음 (건너뛰기)"
 msgid "Unlock"
 msgstr "잠금 해제"
 
-#: src/services/webdav_sync.py:432
+#: src/services/webdav_sync.py:481
 #, python-brace-format
 msgid "Unsafe backup filename rejected: {filename}"
 msgstr "안전하지 않은 백업 파일 이름이 거부되었습니다: {filename}"
@@ -3430,17 +3440,17 @@ msgstr "데이터베이스 스키마 업그레이드"
 msgid "Upgrading database schema…"
 msgstr "데이터베이스 스키마 업그레이드 중…"
 
-#: src/services/webdav_sync.py:377
+#: src/services/webdav_sync.py:371 src/services/webdav_sync.py:426
 #, python-brace-format
 msgid "Upload failed: {error}"
 msgstr "업로드 실패: {error}"
 
-#: src/services/webdav_sync.py:367
+#: src/services/webdav_sync.py:416
 #, python-brace-format
 msgid "Upload successful: {filename} ({size} KB) — SHA-256 verified"
 msgstr "업로드 성공: {filename} ({size} KB) — SHA-256 검증됨"
 
-#: src/services/webdav_sync.py:321
+#: src/services/webdav_sync.py:351
 #, python-brace-format
 msgid "Uploading backup ({size} KB)..."
 msgstr "백업 업로드 중 ({size} KB)..."
@@ -3448,6 +3458,11 @@ msgstr "백업 업로드 중 ({size} KB)..."
 #: src/viewmodels/main_viewmodel.py:390
 msgid "Uploading..."
 msgstr "업로드 중..."
+
+#: src/services/webdav_sync.py:356
+#, python-brace-format
+msgid "Uploading: {percent:.0f}% ({uploaded} / {total} KB)"
+msgstr "업로드 중: {percent:.0f}% ({uploaded} / {total} KB)"
 
 #: src/views/settings/search_engine_section.py:66
 #, python-brace-format
@@ -3462,20 +3477,20 @@ msgstr ""
 msgid "Used to identify this machine in multi-device history views."
 msgstr "다중 기기 기록 보기에서 이 기기를 식별하는 데 사용됩니다."
 
-#: src/services/local_db.py:1586
+#: src/services/local_db.py:1611
 msgid "User data merge complete."
 msgstr "사용자 데이터 병합 완료."
 
-#: src/views/settings/webdav_section.py:108
-#: src/views/settings/webdav_section.py:130
+#: src/views/settings/webdav_section.py:109
+#: src/views/settings/webdav_section.py:132
 msgid "Username:"
 msgstr "사용자 이름:"
 
-#: src/views/settings/font_section.py:43 src/views/settings/font_section.py:439
+#: src/views/settings/font_section.py:44 src/views/settings/font_section.py:440
 msgid "Using built-in defaults"
 msgstr "내장 기본값 사용 중"
 
-#: src/views/settings/maintenance_section.py:79
+#: src/views/settings/maintenance_section.py:80
 msgid "Vacuum && Optimize"
 msgstr "Vacuum && 최적화"
 
@@ -3488,7 +3503,7 @@ msgstr "Vacuum 완료"
 msgid "Verification passed — {n} records intact"
 msgstr "확인 완료 — {n}개 레코드 유지됨"
 
-#: src/views/settings/webdav_section.py:120
+#: src/views/settings/webdav_section.py:121
 msgid "Verify SSL certificate"
 msgstr "SSL 인증서 확인"
 
@@ -3500,7 +3515,7 @@ msgstr "결과 확인"
 msgid "Verify the migration result"
 msgstr "마이그레이션 결과 확인"
 
-#: src/services/webdav_sync.py:448
+#: src/services/webdav_sync.py:520
 msgid "Verifying backup integrity (SHA-256)..."
 msgstr "백업 무결성 확인 중 (SHA-256)..."
 
@@ -3516,7 +3531,7 @@ msgstr "매우 약함"
 msgid "View History"
 msgstr "기록 보기"
 
-#: src/views/history_page.py:2125 src/views/history_page.py:3844
+#: src/views/history_page.py:2111 src/views/history_page.py:3831
 msgid "View hidden records"
 msgstr "숨겨진 기록 보기"
 
@@ -3563,7 +3578,7 @@ msgstr "특정 도메인을 기록하지 않도록 차단하시겠습니까?"
 msgid "Want to exclude internal browser URLs?"
 msgstr "브라우저 내부 URL을 제외하시겠습니까?"
 
-#: src/views/settings/maintenance_section.py:64
+#: src/views/settings/maintenance_section.py:65
 msgid "Wasted space"
 msgstr "낭비된 공간"
 
@@ -3587,19 +3602,19 @@ msgstr "WebDAV 상태"
 msgid "WebDAV Sync Configuration"
 msgstr "WebDAV 동기화 구성"
 
-#: src/services/webdav_sync.py:177
+#: src/services/webdav_sync.py:207
 msgid "WebDAV not configured"
 msgstr "WebDAV가 구성되지 않음"
 
-#: src/services/webdav_sync.py:205 src/services/webdav_sync.py:402
+#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:451
 msgid "WebDAV not configured or disabled"
 msgstr "WebDAV가 구성되지 않았거나 비활성화됨"
 
-#: src/views/history_page.py:121 src/views/stats_page.py:638
+#: src/views/history_page.py:126 src/views/stats_page.py:638
 msgid "Wed"
 msgstr "수"
 
-#: src/views/history_page.py:132
+#: src/views/history_page.py:137
 msgid "Wednesday"
 msgstr "수요일"
 
@@ -3611,7 +3626,7 @@ msgstr "환영합니다"
 msgid "Welcome to HistorySync"
 msgstr "HistorySync에 오신 것을 환영합니다"
 
-#: src/views/settings/startup_section.py:38
+#: src/views/settings/startup_section.py:40
 msgid ""
 "When enabled, HistorySync will start in the background and begin "
 "collecting on system startup."
@@ -3627,13 +3642,13 @@ msgstr ""
 "활성화하면 도메인이 숨겨진 도메인 목록에 저장되며 동기화된 기기에서 가져온 기록은 자동으로 필터링됩니다.\n"
 "설정 → 개인정보 보호에서 숨겨진 도메인을 관리할 수 있습니다."
 
-#: src/views/settings/startup_section.py:48
+#: src/views/settings/startup_section.py:51
 msgid ""
 "When enabled, the main window will not appear on launch — HistorySync "
 "runs silently in the system tray."
 msgstr "활성화하면 시작 시 메인 창이 나타나지 않습니다 — HistorySync가 시스템 트레이에서 백그라운드로 실행됩니다."
 
-#: src/views/settings/keybinding_section.py:486
+#: src/views/settings/keybinding_section.py:487
 msgid "Works system-wide even when the app window is not focused."
 msgstr "앱 창이 포커스되지 않은 상태에서도 시스템 전체에서 작동합니다."
 
@@ -3653,7 +3668,7 @@ msgstr "년"
 msgid "Year at a glance"
 msgstr "연간 요약"
 
-#: src/views/history_page.py:176
+#: src/views/history_page.py:181
 msgid "Yesterday"
 msgstr "어제"
 
@@ -3694,15 +3709,15 @@ msgstr "[새로운 모드]"
 msgid "backup"
 msgstr "백업"
 
-#: src/views/overlay_window.py:303 src/views/search_autocomplete.py:834
+#: src/views/overlay_window.py:303 src/views/search_autocomplete.py:778
 msgid "close"
 msgstr "닫기"
 
-#: src/views/search_autocomplete.py:833
+#: src/views/search_autocomplete.py:777
 msgid "complete"
 msgstr "완료"
 
-#: src/views/search_autocomplete.py:832
+#: src/views/search_autocomplete.py:776
 msgid "confirm"
 msgstr "확인"
 
@@ -3735,7 +3750,7 @@ msgstr "예: My Laptop"
 msgid "entries"
 msgstr "항목"
 
-#: src/views/overlay_window.py:300 src/views/search_autocomplete.py:831
+#: src/views/overlay_window.py:300 src/views/search_autocomplete.py:775
 msgid "navigate"
 msgstr "이동"
 
@@ -3776,15 +3791,15 @@ msgstr "알 수 없음"
 msgid "visits"
 msgstr "방문"
 
-#: src/services/webdav_sync.py:202 src/services/webdav_sync.py:399
+#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:448
 msgid "webdavclient3 is not installed."
 msgstr "webdavclient3가 설치되지 않았습니다."
 
-#: src/services/webdav_sync.py:175
+#: src/services/webdav_sync.py:205
 msgid "webdavclient3 is not installed. Run: pip install webdavclient3"
 msgstr "webdavclient3가 설치되지 않았습니다. 실행: pip install webdavclient3"
 
-#: src/views/settings/keybinding_section.py:670
+#: src/views/settings/keybinding_section.py:671
 #, python-brace-format
 msgid "{action} [{scope}]"
 msgstr "{action} [{scope}]"
@@ -3809,7 +3824,7 @@ msgstr "{count}개 새 방문 기록 추가됨"
 msgid "{count} records will be exported"
 msgstr "{count}개 레코드 내보내기 예정"
 
-#: src/views/history_page.py:349 src/views/search_autocomplete.py:623
+#: src/views/history_page.py:335 src/views/search_autocomplete.py:567
 #: src/views/stats_page.py:1143 src/views/stats_page.py:1278
 #: src/views/stats_page.py:1433
 #, python-brace-format
@@ -3826,7 +3841,7 @@ msgstr "{d}일 {h}시간"
 msgid "{h}h {m}m"
 msgstr "{h}시간 {m}분"
 
-#: src/views/history_page.py:182
+#: src/views/history_page.py:187
 #, python-brace-format
 msgid "{month}/{day}  {weekday}"
 msgstr "{month}월 {day}일  {weekday}"
@@ -3862,7 +3877,7 @@ msgstr "{n}개 아이콘"
 msgid "{n} lines displayed"
 msgstr "{n}줄 표시됨"
 
-#: src/views/history_page.py:1222
+#: src/views/history_page.py:1208
 #, python-brace-format
 msgid "{n} more drag(s) to close"
 msgstr "추가로 {n}번 드래그하면 닫힘"
@@ -3872,7 +3887,7 @@ msgstr "추가로 {n}번 드래그하면 닫힘"
 msgid "{n} records"
 msgstr "{n}개 레코드"
 
-#: src/views/history_page.py:3319
+#: src/views/history_page.py:3306
 #, python-brace-format
 msgid "{n} rows selected"
 msgstr "{n}개 행 선택됨"
@@ -3905,7 +3920,7 @@ msgstr "{start}:00 - {end}:00"
 msgid "{s}s"
 msgstr "{s}초"
 
-#: src/views/history_page.py:3386
+#: src/views/history_page.py:3373
 #, python-brace-format
 msgid "{total} records"
 msgstr "{total}개 레코드"
@@ -3915,17 +3930,17 @@ msgstr "{total}개 레코드"
 msgid "{total} records in total"
 msgstr "총 {total}개 레코드"
 
-#: src/views/history_page.py:3384
+#: src/views/history_page.py:3371
 #, python-brace-format
 msgid "{total}+ records"
 msgstr "{total}+개 레코드"
 
-#: src/views/history_page.py:178
+#: src/views/history_page.py:183
 #, python-brace-format
 msgid "{weekday}"
 msgstr "{weekday}"
 
-#: src/views/history_page.py:183
+#: src/views/history_page.py:188
 #, python-brace-format
 msgid "{year}/{month}/{day}  {weekday}"
 msgstr "{year}년 {month}월 {day}일  {weekday}"
@@ -3954,13 +3969,13 @@ msgstr "⚠ 선택한 범위가 원래 필터 범위를 초과합니다."
 msgid "⚠ Unknown"
 msgstr "⚠ 알 수 없음"
 
-#: src/services/local_db.py:1010
+#: src/services/local_db.py:1048
 msgid ""
 "⚠ WAL checkpoint partially blocked by active readers; VACUUM will handle "
 "remaining pages…"
 msgstr "⚠ WAL 체크포인트가 활성 독자에 의해 부분적으로 차단됨; VACUUM이 남은 페이지를 처리합니다…"
 
-#: src/views/settings/webdav_section.py:122
+#: src/views/settings/webdav_section.py:124
 msgid ""
 "⚠️ Warning: Disabling SSL verification exposes your backup to man-in-the-"
 "middle attacks."
@@ -3988,7 +4003,7 @@ msgstr "✓ 전체 재동기화 완료 — {n}개 새 레코드 upsert됨"
 msgid "✓ Full resync complete — {n} new records upserted."
 msgstr "✓ 전체 재동기화 완료 — {n}개 새 레코드 upsert됨."
 
-#: src/services/webdav_sync.py:495
+#: src/services/webdav_sync.py:567
 #, python-brace-format
 msgid "✓ Hash verified: {hash}..."
 msgstr "✓ 해시 검증됨: {hash}..."
