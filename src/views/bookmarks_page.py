@@ -207,6 +207,7 @@ class _BookmarkCard(QFrame):
             ("corner-up-right", _("Open in browser"), lambda _, bm=_bm_snap: self.open_requested.emit(bm.url)),
             ("tag", _("Edit tags"), lambda _, bm=_bm_snap: self.edit_tags_requested.emit(bm)),
             ("edit-2", _("Edit note"), lambda _, bm=_bm_snap: self.add_note_requested.emit(bm)),
+            ("crosshair", _("Locate in History"), lambda _, bm=_bm_snap: self.locate_in_list_requested.emit(bm)),
             ("trash", _("Remove bookmark"), lambda _, bm=_bm_snap: self.remove_requested.emit(bm)),
         ]
 
