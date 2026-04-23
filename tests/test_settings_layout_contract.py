@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-pytest.importorskip("PySide6")
+pytest.importorskip("PySide6.QtWidgets")
 
 from PySide6.QtWidgets import QApplication, QSizePolicy
 
