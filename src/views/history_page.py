@@ -2154,7 +2154,8 @@ class HistoryPage(QWidget):
 
         row1 = QHBoxLayout()
         row1.setSpacing(0)
-        self._search = SmartSearchLineEdit()
+        persist_recent = not bool(self._config and getattr(self._config, "_fresh", False))
+        self._search = SmartSearchLineEdit(persist_recent=persist_recent)
         self._search.setObjectName("search_box")
         self._search.textChanged.connect(lambda _: self._debounce.start(_DEBOUNCE_MS))
         self._search.regex_toggled.connect(self._do_search)
