@@ -2903,38 +2903,55 @@ class LocalDatabase:
             rows = conn.execute("SELECT host FROM domains").fetchall()
         return {r[0] for r in rows}
 
-    def get_day_counts_batch(self, day_starts: list[int]) -> dict[int, int]:
+    def get_day_counts_batch(
+        self,
+        day_starts: list[int],
+        hidden_only: bool = False,
+        keyword: str = "",
+        browser_type: str = "",
+        excluded_ids: set[int] | None = None,
+        domain_ids: list[int] | None = None,
+        excludes: list[str] | None = None,
+        title_only: bool = False,
+        url_only: bool = False,
+        bookmarked_only: bool = False,
+        has_annotation: bool = False,
+        bookmark_tag: str = "",
+        device_ids: list[int] | None = None,
+    ) -> dict[int, int]:
         """Return {day_start_ts: record_count} for every timestamp in *day_starts*.
 
-        Executes a **single** SQL statement regardless of batch size by
-        constructing a VALUES-based CTE at call time.  Each ``day_start``
-        value is a local-midnight Unix timestamp; records are counted in the
-        half-open interval [day_start, day_start + 86400).
+        When filter params are provided, counts only records that match the
+        active filters (keyword, browser, domain, etc.) so separator pills
+        reflect the filtered result set rather than totals.
 
-        Performance characteristics
-        ---------------------------
-        * One round-trip to SQLite for the entire batch (vs N round-trips).
-        * The history.visit_time column is covered by the primary index used
-          for time-range scans, so each per-day COUNT is an index range scan.
-        * Typical batch size is 3-10 visible separator rows, making this
-          negligibly cheap even on large databases.
+        When *hidden_only* is True, only hidden records are counted (mirroring
+        the hidden-only view in the history page).
+
+        Internally issues one ``get_filtered_count`` call per day; batch size
+        is typically 3-10 visible separator rows so total cost is negligible.
         """
         if not day_starts:
             return {}
-        union_clause = " UNION ALL ".join("SELECT ? AS ds" for _ in day_starts)
-        hr = self._hr_filter("h")
-        hd = self._hd_filter("h")
-        sql = f"""
-            WITH ranges(ds) AS ({union_clause})
-            SELECT r.ds, COUNT(h.id)
-            FROM   ranges r
-            LEFT JOIN history h ON h.visit_time >= r.ds AND h.visit_time < r.ds + 86400
-                AND {hr} AND {hd}
-            GROUP  BY r.ds
-        """
-        with self._conn(write=False) as conn:
-            rows = conn.execute(sql, day_starts).fetchall()
-        return {int(r[0]): int(r[1]) for r in rows}
+        result: dict[int, int] = {}
+        for day_start in day_starts:
+            result[day_start] = self.get_filtered_count(
+                keyword=keyword,
+                browser_type=browser_type,
+                date_from=day_start,
+                date_to=day_start + 86399,
+                excluded_ids=excluded_ids,
+                domain_ids=domain_ids,
+                excludes=excludes,
+                title_only=title_only,
+                url_only=url_only,
+                bookmarked_only=bookmarked_only,
+                has_annotation=has_annotation,
+                bookmark_tag=bookmark_tag,
+                device_ids=device_ids,
+                hidden_only=hidden_only,
+            )
+        return result
 
     def get_day_rank(self, day_start_ts: int, ts: int) -> int:
         """Return the 1-based rank of ts among all records in the same day (ordered by visit_time)."""

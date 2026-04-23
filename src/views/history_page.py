@@ -561,7 +561,7 @@ class _DateSeparatorDelegate(QStyledItemDelegate):
         date_w, pill_h = self._measure_pill(fm2, ("d", date_label), date_label)
 
         _GAP = 6
-        if count is not None:
+        if count is not None and count >= 2:
             count_label = self._count_fmt.format(count=count)
             count_w, __ = self._measure_pill(fm2, ("c", count), count_label)
             total_w = date_w + _GAP + count_w
@@ -2836,8 +2836,23 @@ class HistoryPage(QWidget):
 
         # De-duplicate: many rows on the same calendar day share one count
         unique_day_starts = list(set(missing_rows.values()))
+        model = self._vm.table_model
         try:
-            counts_by_day = self._vm._db.get_day_counts_batch(unique_day_starts)
+            counts_by_day = self._vm._db.get_day_counts_batch(
+                unique_day_starts,
+                hidden_only=self._vm.hidden_mode,
+                keyword=model._keyword,
+                browser_type=model._browser_type,
+                excluded_ids=model._hidden_ids if model._hidden_ids else None,
+                domain_ids=model._domain_ids,
+                excludes=model._excludes,
+                title_only=model._title_only,
+                url_only=model._url_only,
+                bookmarked_only=model._bookmarked_only,
+                has_annotation=model._has_annotation,
+                bookmark_tag=model._bookmark_tag,
+                device_ids=model._device_ids,
+            )
         except Exception:
             return
 
