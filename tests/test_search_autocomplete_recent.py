@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.views.search_autocomplete import RecentSearchStore
+from src.services.recent_search_store import RecentSearchStore
 
 
 def test_recent_store_fresh_mode_does_not_load_or_persist(tmp_path: Path):
