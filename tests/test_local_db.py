@@ -966,6 +966,24 @@ class TestMergeFromDb:
         assert count == 1
         assert local_db.get_total_count() == 1
 
+    def test_replace_database_with_open_connections(self, local_db, tmp_path):
+        """replace_database succeeds when both write/RO connections are already in use."""
+        local_db.upsert_records([make_record(url="https://old.example")])
+        assert local_db.get_total_count() == 1
+
+        # Prime RO connection explicitly.
+        assert local_db.get_bookmarked_urls() == set()
+
+        src_db_path = tmp_path / "replacement.db"
+        src_db = LocalDatabase(src_db_path)
+        src_db.upsert_records([make_record(url="https://new.example")])
+        src_db.close()
+
+        local_db.replace_database(src_db_path)
+        rows = local_db.get_records(limit=10)
+        assert len(rows) == 1
+        assert rows[0].url == "https://new.example"
+
 
 class TestMergeUserDataFromDb:
     def test_merge_bookmarks(self, local_db, tmp_path):

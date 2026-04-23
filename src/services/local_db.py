@@ -192,8 +192,14 @@ class LocalDatabase:
                 raise
         return self._pconn
 
-    def _reset_conn(self) -> None:
-        """Close and discard the persistent connection so it is recreated next time."""
+    @contextmanager
+    def _conn_state_locks(self) -> Iterator[None]:
+        """Acquire connection-state locks in a single global order (_lock -> _ro_lock)."""
+        with self._lock, self._ro_lock:
+            yield
+
+    def _reset_conn_locked(self) -> None:
+        """Close/discard connections; caller must hold both state locks."""
         if self._pconn is not None:
             try:
                 self._pconn.close()
@@ -206,13 +212,17 @@ class LocalDatabase:
         # break after a connection reset.
         with self._excl_cache_lock:
             self._excl_cache.clear()
-        with self._ro_lock:
-            if self._ro_conn is not None:
-                try:
-                    self._ro_conn.close()
-                except sqlite3.Error:
-                    pass
-                self._ro_conn = None
+        if self._ro_conn is not None:
+            try:
+                self._ro_conn.close()
+            except sqlite3.Error:
+                pass
+            self._ro_conn = None
+
+    def _reset_conn(self) -> None:
+        """Close and discard the persistent connection so it is recreated next time."""
+        with self._conn_state_locks():
+            self._reset_conn_locked()
 
     def _ensure_ro_conn(self) -> sqlite3.Connection:
         """Return a cached read-only connection for search_quick.
@@ -323,8 +333,7 @@ class LocalDatabase:
         # so we must not hold _lock ourselves while waiting or we'd deadlock.
         if self._fts_thread is not None and self._fts_thread.is_alive():
             self._fts_thread.join(timeout=30)
-        with self._lock:
-            self._reset_conn()
+        self._reset_conn()
 
     def __del__(self) -> None:
         # Last-resort fallback only. Normal lifecycle should use close() or
@@ -1257,25 +1266,12 @@ class LocalDatabase:
         """Safely replace the underlying SQLite file (used for WebDAV restore)."""
         if self._fts_thread is not None and self._fts_thread.is_alive():
             self._fts_thread.join(timeout=10)
-        with self._lock, self._ro_lock:
+        with self._conn_state_locks():
             log.info("Replacing current database with %s", new_db_path)
             # Close all connections before touching the file so that
             # search_quick cannot read a partially-written DB on Windows
             # (which disallows overwriting open files) or any platform.
-            # Inline the _pconn reset here; inline the _ro_conn reset too
-            # since we already hold _ro_lock and _reset_conn would deadlock.
-            if self._pconn is not None:
-                try:
-                    self._pconn.close()
-                except sqlite3.Error:
-                    pass
-                self._pconn = None
-            if self._ro_conn is not None:
-                try:
-                    self._ro_conn.close()
-                except sqlite3.Error:
-                    pass
-                self._ro_conn = None
+            self._reset_conn_locked()
             self._schema_initialized = False
             for suffix in ("-wal", "-shm"):
                 p = self.db_path.with_name(self.db_path.name + suffix)
