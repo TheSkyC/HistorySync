@@ -239,7 +239,7 @@ class LocalDatabase:
         return conn
 
     @contextmanager
-    def _conn(self, write: bool = True) -> Iterator[sqlite3.Connection]:
+    def _conn(self, write: bool = True, strong_read: bool = False) -> Iterator[sqlite3.Connection]:
         """Thread-safe connection context manager.
 
         write=True  — use the main connection under _lock; commit on success,
@@ -247,7 +247,12 @@ class LocalDatabase:
         write=False — use the read-only connection under _ro_lock; never blocks
                       on concurrent writes in WAL mode (SQLite allows concurrent
                       readers alongside a single writer).
+        strong_read=True (read-only mode only) — end any existing read
+                      transaction on the shared RO connection before yielding,
+                      so callers see the latest committed WAL state immediately.
         """
+        if write and strong_read:
+            raise ValueError("strong_read is only valid when write=False")
         if not write:
             # Only compete for the write lock when the schema has not yet been
             # initialised.  Once _schema_initialized is True it is never reset
@@ -257,7 +262,7 @@ class LocalDatabase:
                 with self._lock:
                     self._ensure_conn()
             with self._ro_lock:
-                conn = self._ensure_ro_conn()
+                conn = self._fresh_ro_conn() if strong_read else self._ensure_ro_conn()
                 try:
                     yield conn
                 except Exception:
@@ -667,8 +672,7 @@ class LocalDatabase:
         connection before querying, so callers always see the latest committed
         data rather than a stale WAL snapshot from a previous read.
         """
-        with self._ro_lock:
-            conn = self._fresh_ro_conn()
+        with self._conn(write=False, strong_read=True) as conn:
             url_ids = self.get_hidden_ids(_conn=conn)
             domain_ids = self.get_hidden_domain_ids(_conn=conn)
         return url_ids | domain_ids
@@ -692,7 +696,7 @@ class LocalDatabase:
 
     def get_hidden_urls(self) -> set[str]:
         """Return the set of all hidden URLs."""
-        with self._conn(write=False) as conn:
+        with self._conn(write=False, strong_read=True) as conn:
             rows = conn.execute("SELECT url FROM hidden_records").fetchall()
         return {r[0] for r in rows}
 
@@ -732,7 +736,7 @@ class LocalDatabase:
 
         if _conn is not None:
             return _query(_conn)
-        with self._conn(write=False) as conn:
+        with self._conn(write=False, strong_read=True) as conn:
             return _query(conn)
 
     def clear_hidden_records(self) -> int:
@@ -832,8 +836,7 @@ class LocalDatabase:
 
     def get_hidden_domains(self) -> list[dict]:
         """Return all hidden-domain entries as dicts, newest first."""
-        with self._ro_lock:
-            conn = self._fresh_ro_conn()
+        with self._conn(write=False, strong_read=True) as conn:
             rows = conn.execute(
                 "SELECT domain, subdomain_only, hidden_at FROM hidden_domains ORDER BY hidden_at DESC"
             ).fetchall()
@@ -881,7 +884,7 @@ class LocalDatabase:
 
         if _conn is not None:
             return _query(_conn)
-        with self._conn(write=False) as conn:
+        with self._conn(write=False, strong_read=True) as conn:
             return _query(conn)
 
     def clear_hidden_domains(self) -> int:
@@ -1818,12 +1821,12 @@ class LocalDatabase:
     # ═══════════════════════════════════════════════════════════
 
     def get_total_count(self) -> int:
-        with self._conn(write=False) as conn:
+        with self._conn(write=False, strong_read=True) as conn:
             row = conn.execute("SELECT COUNT(*) FROM history").fetchone()
             return row[0] if row else 0
 
     def get_max_visit_times(self, browser_type: str) -> dict[str, int]:
-        with self._conn(write=False) as conn:
+        with self._conn(write=False, strong_read=True) as conn:
             rows = conn.execute(
                 """
                 SELECT profile_name, MAX(visit_time) AS max_t
@@ -2406,7 +2409,7 @@ class LocalDatabase:
             return cur.rowcount > 0
 
     def get_bookmark(self, url: str) -> BookmarkRecord | None:
-        with self._conn(write=False) as conn:
+        with self._conn(write=False, strong_read=True) as conn:
             row = conn.execute(
                 "SELECT id, url, title, bookmarked_at, history_id FROM bookmarks WHERE url=?", (url,)
             ).fetchone()
@@ -2423,13 +2426,12 @@ class LocalDatabase:
         )
 
     def is_bookmarked(self, url: str) -> bool:
-        with self._conn(write=False) as conn:
+        with self._conn(write=False, strong_read=True) as conn:
             row = conn.execute("SELECT 1 FROM bookmarks WHERE url=?", (url,)).fetchone()
         return row is not None
 
     def get_bookmarked_urls(self) -> set[str]:
-        with self._ro_lock:
-            conn = self._fresh_ro_conn()
+        with self._conn(write=False, strong_read=True) as conn:
             rows = conn.execute("SELECT DISTINCT url FROM bookmarks").fetchall()
         return {r[0] for r in rows}
 
@@ -2474,8 +2476,7 @@ class LocalDatabase:
                 "          OR _extract_host(b.url) LIKE '%.' || hd.domain)))"
             )
 
-        with self._ro_lock:
-            conn = self._fresh_ro_conn()
+        with self._conn(write=False, strong_read=True) as conn:
             if tag:
                 # Filter by tag via JOIN, then LEFT JOIN again to collect all tags per bookmark.
                 rows = conn.execute(
@@ -2512,8 +2513,7 @@ class LocalDatabase:
         ]
 
     def get_all_bookmark_tags(self) -> list[str]:
-        with self._ro_lock:
-            conn = self._fresh_ro_conn()
+        with self._conn(write=False, strong_read=True) as conn:
             rows = conn.execute("SELECT DISTINCT tag FROM bookmark_tags ORDER BY tag").fetchall()
         return [r[0] for r in rows]
 
@@ -2572,7 +2572,7 @@ class LocalDatabase:
             return cur.rowcount > 0
 
     def get_annotation(self, url: str) -> AnnotationRecord | None:
-        with self._conn(write=False) as conn:
+        with self._conn(write=False, strong_read=True) as conn:
             row = conn.execute(
                 "SELECT id, url, note, created_at, updated_at, history_id FROM annotations WHERE url=?", (url,)
             ).fetchone()
@@ -2588,14 +2588,12 @@ class LocalDatabase:
         )
 
     def get_annotated_urls(self) -> set[str]:
-        with self._ro_lock:
-            conn = self._fresh_ro_conn()
+        with self._conn(write=False, strong_read=True) as conn:
             rows = conn.execute("SELECT url FROM annotations WHERE note != ''").fetchall()
         return {r[0] for r in rows}
 
     def get_all_annotations(self) -> list[AnnotationRecord]:
-        with self._ro_lock:
-            conn = self._fresh_ro_conn()
+        with self._conn(write=False, strong_read=True) as conn:
             rows = conn.execute(
                 "SELECT id, url, note, created_at, updated_at, history_id FROM annotations ORDER BY updated_at DESC"
             ).fetchall()
@@ -2971,7 +2969,7 @@ class LocalDatabase:
         }
 
     def get_all_backup_stats(self) -> list[BackupStats]:
-        with self._conn(write=False) as conn:
+        with self._conn(write=False, strong_read=True) as conn:
             rows = conn.execute("""
                 SELECT id, browser_type, profile_name,
                        first_backup_time, last_backup_time, total_records_synced
@@ -2990,7 +2988,7 @@ class LocalDatabase:
         ]
 
     def get_last_sync_time(self) -> int | None:
-        with self._conn(write=False) as conn:
+        with self._conn(write=False, strong_read=True) as conn:
             row = conn.execute("SELECT MAX(last_backup_time) FROM backup_stats").fetchone()
             return row[0] if row and row[0] else None
 

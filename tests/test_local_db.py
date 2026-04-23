@@ -576,6 +576,81 @@ class TestHiddenRecords:
         assert len(local_db.get_hidden_ids()) == 0
 
 
+class TestWalSnapshotFreshness:
+    def test_get_hidden_ids_refreshes_after_write(self, local_db, make_rec):
+        local_db.upsert_records([make_rec(url="https://fresh-hidden.com")])
+        record_id = local_db.get_records(keyword="", limit=1)[0].id
+
+        # Prime the shared RO connection on an old snapshot.
+        assert local_db.get_hidden_ids() == set()
+
+        local_db.hide_records_by_ids([record_id])
+        assert record_id in local_db.get_hidden_ids()
+
+    def test_get_hidden_domain_ids_refreshes_after_write(self, local_db, make_rec):
+        local_db.upsert_records([make_rec(url="https://docs.example.com/path")])
+        record_id = local_db.get_records(keyword="", limit=1)[0].id
+
+        # Prime the shared RO connection on an old snapshot.
+        assert local_db.get_hidden_domain_ids() == set()
+
+        local_db.hide_domain("example.com", subdomain_only=False)
+        assert record_id in local_db.get_hidden_domain_ids()
+
+    def test_is_bookmarked_refreshes_after_write(self, local_db):
+        url = "https://fresh-bookmark.com"
+
+        # Prime the shared RO connection on an old snapshot.
+        assert local_db.is_bookmarked(url) is False
+
+        local_db.add_bookmark(url, "Fresh", tags=[])
+        assert local_db.is_bookmarked(url) is True
+
+        local_db.remove_bookmark(url)
+        assert local_db.is_bookmarked(url) is False
+
+    def test_get_annotation_refreshes_after_write(self, local_db):
+        url = "https://fresh-annotation.com"
+
+        # Prime the shared RO connection on an old snapshot.
+        assert local_db.get_annotation(url) is None
+
+        local_db.upsert_annotation(url, "new note")
+        ann = local_db.get_annotation(url)
+        assert ann is not None
+        assert ann.note == "new note"
+
+        local_db.delete_annotation(url)
+        assert local_db.get_annotation(url) is None
+
+    def test_get_total_count_refreshes_after_write(self, local_db, make_rec):
+        # Prime the shared RO connection on an old snapshot.
+        assert local_db.get_total_count() == 0
+
+        local_db.upsert_records([make_rec(url="https://fresh-count.com")])
+        assert local_db.get_total_count() == 1
+
+    def test_get_max_visit_times_refreshes_after_write(self, local_db, make_rec):
+        # Prime the shared RO connection on an old snapshot.
+        assert local_db.get_max_visit_times("chrome") == {}
+
+        local_db.upsert_records([make_rec(url="https://fresh-max-time.com", visit_time=1234567890)])
+        assert local_db.get_max_visit_times("chrome") == {"Default": 1234567890}
+
+    def test_last_sync_stats_refresh_after_write(self, local_db):
+        # Prime the shared RO connection on an old snapshot.
+        assert local_db.get_last_sync_time() is None
+        assert local_db.get_all_backup_stats() == []
+
+        local_db.update_backup_stats("chrome", "Default", 1)
+
+        last_sync = local_db.get_last_sync_time()
+        stats = local_db.get_all_backup_stats()
+        assert last_sync is not None
+        assert len(stats) == 1
+        assert stats[0].browser_type == "chrome"
+
+
 # ══════════════════════════════════════════════════════════════
 # Device CRUD
 # ══════════════════════════════════════════════════════════════
