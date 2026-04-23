@@ -167,7 +167,7 @@ class LocalDatabase:
             self._schema_initialized = True  # set before calling to prevent re-entry
             try:
                 self._init_schema_on_conn(self._pconn)
-            except Exception:
+            except sqlite3.Error:
                 self._schema_initialized = False  # allow retry on next call
                 raise
         return self._pconn
@@ -177,7 +177,7 @@ class LocalDatabase:
         if self._pconn is not None:
             try:
                 self._pconn.close()
-            except Exception:
+            except sqlite3.Error:
                 pass
             self._pconn = None
         # Clear the excluded-ids cache so that a new connection (which may
@@ -190,7 +190,7 @@ class LocalDatabase:
             if self._ro_conn is not None:
                 try:
                     self._ro_conn.close()
-                except Exception:
+                except sqlite3.Error:
                     pass
                 self._ro_conn = None
 
@@ -232,7 +232,7 @@ class LocalDatabase:
         conn = self._ensure_ro_conn()
         try:
             conn.rollback()
-        except Exception:
+        except sqlite3.Error:
             pass
         with self._excl_cache_lock:
             self._excl_cache.pop(conn, None)
@@ -271,7 +271,7 @@ class LocalDatabase:
                     # _ro_lock which we already hold (regular Lock, not RLock).
                     try:
                         conn.close()
-                    except Exception:
+                    except sqlite3.Error:
                         pass
                     self._ro_conn = None
                     with self._excl_cache_lock:
@@ -286,7 +286,7 @@ class LocalDatabase:
             except Exception:
                 try:
                     conn.rollback()
-                except Exception:
+                except sqlite3.Error:
                     pass
                 self._reset_conn()
                 raise
@@ -306,13 +306,13 @@ class LocalDatabase:
         if self._pconn is not None:
             try:
                 self._pconn.close()
-            except Exception:
+            except sqlite3.Error:
                 pass
         with self._ro_lock:
             if self._ro_conn is not None:
                 try:
                     self._ro_conn.close()
-                except Exception:
+                except sqlite3.Error:
                     pass
 
     def _init_schema_on_conn(self, conn: sqlite3.Connection) -> None:
@@ -934,7 +934,7 @@ class LocalDatabase:
             # optional dbstat virtual table.
             try:
                 fts_bytes = conn.execute("SELECT COALESCE(SUM(LENGTH(block)), 0) FROM history_fts_data").fetchone()[0]
-            except Exception:
+            except sqlite3.Error:
                 fts_bytes = 0
 
         return DbStats(
@@ -1241,13 +1241,13 @@ class LocalDatabase:
             if self._pconn is not None:
                 try:
                     self._pconn.close()
-                except Exception:
+                except sqlite3.Error:
                     pass
                 self._pconn = None
             if self._ro_conn is not None:
                 try:
                     self._ro_conn.close()
-                except Exception:
+                except sqlite3.Error:
                     pass
                 self._ro_conn = None
             self._schema_initialized = False
@@ -2110,7 +2110,7 @@ class LocalDatabase:
         if use_regex and keyword:
             try:
                 prog = re.compile(keyword, re.IGNORECASE)
-            except Exception as exc:
+            except re.error as exc:
                 log.warning("Invalid regex '%s': %s", keyword, exc)
                 return []
 
