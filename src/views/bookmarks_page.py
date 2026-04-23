@@ -268,6 +268,11 @@ class _BookmarkCard(QFrame):
         layout.addWidget(note_frame)
         self._note_frame = note_frame
         self._note_lbl = note_lbl
+        # Click the note area to open the note editor
+        note_frame.setCursor(Qt.PointingHandCursor)
+        note_frame.mousePressEvent = lambda e, bm=self._bm: (
+            self.add_note_requested.emit(bm) if e.button() == Qt.LeftButton else None
+        )
 
     def _rebuild_tags_widget(self):
         layout = self._tag_container.layout()
@@ -289,6 +294,11 @@ class _BookmarkCard(QFrame):
 
         layout.addStretch()
         self._tag_container.setVisible(bool(self._bm.tags))
+        # Click anywhere on the tag area to open the tag editor
+        self._tag_container.setCursor(Qt.PointingHandCursor)
+        self._tag_container.mousePressEvent = lambda e, bm=self._bm: (
+            self.edit_tags_requested.emit(bm) if e.button() == Qt.LeftButton else None
+        )
 
     def _rebuild_tags(self):
         self._rebuild_tags_widget()
