@@ -6,44 +6,55 @@
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 ![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python)
 </div>
-<p align="center">English | <a href="./docs/README.zh.md">中文</a> | <a href="./docs/README.ja.md">日本語</a><br></p>
+<p align="center">
+  English | 
+  <a href="./docs/README.zh-CN.md">简体中文</a> | 
+  <a href="./docs/README.zh-TW.md">繁體中文</a> | 
+  <a href="./docs/README.ja.md">日本語</a> | 
+  <a href="./docs/README.ko.md">한국어</a> | 
+  <a href="./docs/README.ru.md">Русский</a> | 
+  <a href="./docs/README.fr.md">Français</a>
+<br></p>
 
 # HistorySync
-**HistorySync** is a powerful, cross-platform desktop application designed to unify, manage, and back up your browser history. From multi-browser data aggregation and millisecond full-text search to automated WebDAV backups and rich statistics, it gives you complete ownership over your digital footprint.
+**HistorySync** is a powerful, cross-platform desktop application. It provides a complete and efficient solution for unified browser history management and cloud backup. From multi-browser data aggregation and millisecond full-text search to automated WebDAV backups and rich statistics, it gives you complete ownership over your browsing data.
 
 It natively supports the underlying databases of Chromium-based, Firefox-based, and Safari browsers, offering exceptional privacy protection and a seamless local management experience.
 
 ---
 
 ## 📥 Download
-You can download the latest versions for Windows, macOS, and Linux from the **[GitHub Releases](https://github.com/TheSkyC/HistorySync/releases/latest)** page.
+You can download the latest versions from the **[GitHub Releases](https://github.com/TheSkyC/HistorySync/releases/latest)** page.
 
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/TheSkyC/HistorySync?style=for-the-badge)](https://github.com/TheSkyC/HistorySync/releases/latest)
 
 ## 🚀 Core Features
 
-### 📂 Omnipotent Data Aggregation (30+ Browsers)
-*   **Massive Browser Compatibility**: Natively supports Chrome, Edge, Firefox, Safari, Brave, Vivaldi, Arc.
+### 📂 Omnipotent Data Aggregation (Supports 30+ Browsers)
+*   **Massive Browser Compatibility**: Natively supports Chrome, Edge, Firefox, Safari, Brave, Vivaldi, Arc, and numerous regional/custom browsers (QQ, Sogou, CentBrowser, etc.).
 *   **Smart Incremental Extraction**: Safely reads SQLite WAL snapshots, allowing lossless, conflict-free extraction even while your browsers are running.
 *   **Portable DB Import**: Manually import standalone `History` or `places.sqlite` files to easily merge data from old computers or portable browsers.
 
-### 🔍 Spotlight-style Search & Knowledge Base
-*   **Quick Access Overlay**: Press `Ctrl+Shift+H` anywhere to summon a minimalist search overlay. Instantly retrieve history and open URLs without switching windows.
-*   **Advanced Query DSL**: Search like a pro using tokens (`domain:github.com`, `after:2024-01-01`, `is:bookmarked`). Features fuzzy-matching dropdowns and ghost-text inline completion.
+### 🔍 Spotlight-style Quick Search & Knowledge Base
+*   **Quick Access Overlay**: Press `Ctrl+Shift+H` anywhere to summon a minimalist search overlay. Instantly retrieve history and open URLs.
+*   **New Keybinding Engine**: A cross-platform hotkey system based on `pynput`, offering 14 highly customizable global and in-app shortcuts.
+*   **Advanced Query DSL**: Search like a pro using tokens (e.g., `domain:github.com`, `after:2024-01-01`). Features fuzzy-matching dropdowns and ghost-text inline completion.
 *   **Bookmarks & Annotations**: Turn your history into a knowledge base. Add tags and rich-text notes to important pages.
 
-### 📊 Rich Statistics & Analytics
-*   **Visual Activity Dashboard**: Understand your browsing habits through a GitHub-style daily heatmap, browser market-share pie charts, and 24-hour activity bars.
-*   **One-Click Export**: Export your beautiful statistics as high-resolution PNG/JPEG images.
+### ⚡ Extreme Performance & Modern UI
+*   **Silky Smooth Scrolling on Millions of Records**: Rewritten pagination logic introduces two-step pagination and Keyset indexes. Regex searches are pushed down to the SQL layer, completely eliminating stuttering on massive datasets.
+*   **Adaptive Interface**: Proportional column-width distribution ensures smooth window resizing. Seamlessly supports real-time switching between system Dark/Light themes.
+*   **Rich Data Visualization**: Understand your digital footprint through a GitHub-style daily heatmap, browser market-share pie charts, and 24-hour activity bars. Export as high-res images with one click.
 
 ### ☁️ Cloud Sync & Automation
-*   **WebDAV Backup & Merge**: Pack and back up your local database to any WebDAV cloud (Nextcloud, ownCloud, etc.). Restoring intelligently merges records across multiple devices.
-*   **Headless CLI (`hsync`)**: A fully-featured command-line tool for power users. Automate extractions, backups, and CSV/JSON exports via scripts or CI/CD.
+*   **WebDAV Backup & Merge**: Utilizes **atomic streamed uploads**. When restoring from the cloud, the system intelligently merges records across multiple devices.
+*   **Headless CLI (`hsync`)**: A fully-featured command-line tool for power users. Automate extractions, backups, and exports in headless environments with extremely low memory footprint.
 *   **Silent Background Mode**: Runs minimized in the system tray, performing scheduled extractions and backups automatically.
 
 ### 🛡️ Ultimate Privacy & Control
-*   **Master Password**: Secure your WebDAV credentials and sync configurations with industrial-grade HKDF-SHA256 encryption.
-*   **Domain Blacklist & URL Filters**: One-click ban specific domains. They are instantly deleted and permanently ignored in future syncs. Filter out internal browser URLs (e.g., `chrome://`).
+*   **Hidden Mode & Soft Hiding**: A dedicated "Hidden Records" view. Supports soft-hiding specific domains (records remain in the database but disappear from the main view).
+*   **Security Architecture V2**: Protects sensitive configurations like WebDAV credentials using independent HKDF encryption and authentication subkeys.
+*   **Domain Blacklist & URL Filters**: One-click ban specific domains. They are instantly deleted and permanently ignored in future syncs.
 
 ## 📸 Screenshots
 
@@ -98,22 +109,23 @@ You can download the latest versions for Windows, macOS, and Linux from the **[G
 
 ## 🚀 Quick Start
 
-HistorySync can be used as a silent background service or an active management tool:
+HistorySync offers flexible working modes. You can use it as a background service or an active management tool:
 
 ### 1. 🔄 Silent Background Mode (Recommended)
 *Ideal for users who want to "set it and forget it" for automated backups.*
-1.  **Startup**: Go to `Settings > Startup` and enable "Launch at system startup".
+1.  **Startup**: Go to `Settings > Startup Settings` and enable "Launch at system startup".
 2.  **Schedule**: Set your extraction interval under `Auto Sync`.
 3.  **Cloud**: Enter your WebDAV credentials in `WebDAV Cloud Backup` and enable auto-backup.
 4.  **Run**: Close the main window. The app will minimize to the tray and quietly protect your data.
 
 ### 2. 🔍 Active Management Mode
 *Ideal for users who frequently search history, annotate pages, or clear privacy data.*
-1.  **Quick Search**: Press `Ctrl+Shift+H` to use the Spotlight-style overlay anywhere.
+1.  **Quick Search**: Press `Ctrl+Shift+H` anywhere to summon the search overlay.
 2.  **Knowledge Base**: Bookmark important pages and add notes for future reference.
 3.  **Privacy**: Select unwanted records and delete them, or choose "Blacklist Domain" to wipe a site's traces permanently.
 
-## 🌐 Supported UI Languages
+## 🌐 Supported Languages
+This tool supports the following UI languages:
 *   **English** (`en_US`)
 *   **简体中文** (`zh_CN`)
 *   **繁體中文** (`zh_TW`)
