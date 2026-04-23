@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from src.services.local_db import LocalDatabase
 
 from src.models.app_config import WebDavConfig
+from src.services.webdav_resumable import ResumableTransfer
 from src.utils.constants import (
     DB_FILENAME,
     FAVICON_DB_FILENAME,
@@ -127,6 +128,7 @@ class WebDavSyncService:
         self._last_result: SyncResult | None = None
         self._local_db: LocalDatabase | None = None  # set by caller for FTS ops
         self._device_id: int | None = None  # set by caller for last_sync_at tracking
+        self._resumable = ResumableTransfer()  # resumable transfer coordinator
 
     @property
     def status(self) -> SyncStatus:
@@ -167,6 +169,34 @@ class WebDavSyncService:
     def set_device_id(self, device_id: int) -> None:
         """Provide the local device_id so last_sync_at is updated after backup."""
         self._device_id = device_id
+
+    @staticmethod
+    def _make_percent_progress_callback(
+        emit: Callable[[str], None],
+        formatter: Callable[[int, int], str],
+    ) -> Callable[[int, int], None]:
+        """Report progress only when the integer percent changes.
+
+        Transfer code may call progress callbacks per small chunk. Deduplicating
+        repeated integer percentages keeps logs readable while still providing
+        useful UI/status updates.
+        """
+
+        last_percent = -1
+
+        def _progress(transferred: int, total: int) -> None:
+            nonlocal last_percent
+            if total <= 0:
+                emit(formatter(transferred, total))
+                return
+
+            percent = min(100, max(0, int((transferred * 100) / total)))
+            if percent == last_percent:
+                return
+            last_percent = percent
+            emit(formatter(transferred, total))
+
+        return _progress
 
     # ── Connection test ───────────────────────────────────────
 
@@ -319,7 +349,26 @@ class WebDavSyncService:
             remote_filename = f"{WEBDAV_BACKUP_NAME_PREFIX}{int(time.time())}.zip"
             remote_file = f"{remote_dir.rstrip('/')}/{remote_filename}"
             _cb(_("Uploading backup ({size} KB)...").format(size=f"{zip_size / 1024:.0f}"))
-            _webdav_retry(lambda: client.upload_sync(remote_path=remote_file, local_path=tmp_zip_path))
+
+            # Use resumable upload with progress callback
+            _upload_progress = self._make_percent_progress_callback(
+                _cb,
+                lambda uploaded, total: _("Uploading: {percent:.0f}% ({uploaded} / {total} KB)").format(
+                    percent=(uploaded / total * 100) if total > 0 else 0,
+                    uploaded=f"{uploaded / 1024:.0f}",
+                    total=f"{total / 1024:.0f}",
+                ),
+            )
+
+            try:
+                self._resumable.upload_resumable(
+                    client,
+                    Path(tmp_zip_path),
+                    remote_file,
+                    progress_callback=_upload_progress,
+                )
+            except OSError as exc:
+                return self._fail(_("Upload failed: {error}").format(error=str(exc)))
 
             self._set_status(SyncStatus.CLEANING)
             _cb(_("Cleaning up old backups..."))
@@ -440,7 +489,30 @@ class WebDavSyncService:
                 os.close(fd)
             except OSError:
                 pass
-            _webdav_retry(lambda: client.download_sync(remote_path=remote_file, local_path=tmp_download_path))
+
+            # Use resumable download with progress callback
+            _download_progress = self._make_percent_progress_callback(
+                _cb,
+                lambda downloaded, total: _("Downloading: {percent:.0f}% ({downloaded} / {total} KB)").format(
+                    percent=(downloaded / total * 100) if total > 0 else 0,
+                    downloaded=f"{downloaded / 1024:.0f}",
+                    total=f"{total / 1024:.0f}",
+                ),
+            )
+
+            try:
+                self._resumable.download_resumable(
+                    client,
+                    remote_file,
+                    Path(tmp_download_path),
+                    progress_callback=_download_progress,
+                )
+            except OSError as exc:
+                try:
+                    Path(tmp_download_path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+                return self._fail(_("Download failed: {error}").format(error=str(exc)))
 
             hash_info: dict[str, str] = {}
 

@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 import zipfile
 
+from webdav3.urn import Urn
+
 from src.models.app_config import WebDavConfig
 from src.services import webdav_sync
 from src.services.webdav_sync import SyncStatus, WebDavSyncService
@@ -34,13 +36,71 @@ class _FakeWebDavClient:
     def upload_sync(self, remote_path: str, local_path: str) -> None:
         self.files[remote_path] = Path(local_path).read_bytes()
 
+    def upload_file(
+        self,
+        remote_path: str,
+        local_path: str,
+        progress=None,
+        progress_args=(),
+        force: bool = False,
+    ) -> None:
+        data = Path(local_path).read_bytes()
+        if force:
+            self.dirs.add(Urn(remote_path).parent())
+        if callable(progress):
+            progress(0, len(data), *progress_args)
+        self.files[remote_path] = data
+        if callable(progress):
+            progress(len(data), len(data), *progress_args)
+
     def download_sync(self, remote_path: str, local_path: str) -> None:
         if remote_path not in self.files:
             raise FileNotFoundError(remote_path)
         Path(local_path).write_bytes(self.files[remote_path])
 
+    def execute_request(self, action: str, path: str, data=None, headers_ext=None):
+        if action != "download":
+            raise NotImplementedError(action)
+        if path not in self.files:
+            raise FileNotFoundError(path)
+
+        payload = self.files[path]
+        range_start = 0
+        range_end = len(payload) - 1
+        status_code = 200
+
+        for header in headers_ext or []:
+            if not header.lower().startswith("range:"):
+                continue
+            value = header.split(":", 1)[1].strip()
+            if not value.startswith("bytes="):
+                continue
+            start_str, end_str = value[len("bytes=") :].split("-", 1)
+            range_start = int(start_str)
+            range_end = int(end_str)
+            status_code = 206
+            break
+
+        chunk = payload[range_start : range_end + 1]
+
+        class _FakeResponse:
+            def __init__(self, body: bytes, code: int):
+                self.status_code = code
+                self._body = body
+
+            def iter_content(self, chunk_size: int = 8192):
+                for index in range(0, len(self._body), chunk_size):
+                    yield self._body[index : index + chunk_size]
+
+        return _FakeResponse(chunk, status_code)
+
     def clean(self, remote_path: str) -> None:
         self.files.pop(remote_path, None)
+
+    def move(self, remote_path_from: str, remote_path_to: str, overwrite: bool = False) -> None:
+        if not overwrite and remote_path_to in self.files:
+            raise FileExistsError(remote_path_to)
+        self.files[remote_path_to] = self.files.pop(remote_path_from)
 
     def info(self, remote_path: str) -> dict:
         return {"size": len(self.files.get(remote_path, b""))}
@@ -71,6 +131,29 @@ def _make_zip_with_db(path: Path, db_bytes: bytes) -> bytes:
 
 
 class TestWebDavServiceContracts:
+    def test_progress_callback_suppresses_duplicate_percent_messages(self, tmp_path: Path):
+        db_path = tmp_path / "history.db"
+        db_path.write_bytes(b"db")
+
+        svc = WebDavSyncService(_configured_webdav(), db_path)
+        messages: list[str] = []
+        progress = svc._make_percent_progress_callback(
+            messages.append,
+            lambda done, total: f"Downloading: {int((done * 100) / total)}% ({done} / {total})",
+        )
+
+        progress(980, 1000)
+        progress(989, 1000)
+        progress(990, 1000)
+        progress(999, 1000)
+        progress(1000, 1000)
+
+        assert messages == [
+            "Downloading: 98% (980 / 1000)",
+            "Downloading: 99% (990 / 1000)",
+            "Downloading: 100% (1000 / 1000)",
+        ]
+
     def test_is_configured_requires_enabled_url_and_username(self, tmp_path: Path):
         db_path = tmp_path / "history.db"
         db_path.write_bytes(b"db")
