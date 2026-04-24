@@ -1,0 +1,67 @@
+name: Feature Request
+description: Suggest an improvement or new capability for HistorySync.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting an improvement.
+
+        For larger features, please consider opening a discussion first so the approach can be aligned before implementation starts.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What problem are you trying to solve?
+      placeholder: Describe the current limitation or pain point.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior or interface you want.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: List other approaches you considered, if any.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - GUI
+        - CLI
+        - Browser extraction
+        - Search
+        - Database
+        - WebDAV sync
+        - Performance
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Expected impact
+      description: Who benefits from this and how?
+      placeholder: Describe the user value, workflow improvement, or maintenance benefit.
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add mockups, examples from other tools, or implementation notes.
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues and discussions before opening this request.
+          required: true
+        - label: This request is focused on a concrete problem rather than a broad rewrite.
+          required: true

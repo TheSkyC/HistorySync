@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability report
+    url: mailto:0x4fe6@gmail.com
+    about: Report security issues privately by email. Do not open a public issue for vulnerabilities.
+  - name: Questions and discussions
+    url: https://github.com/TheSkyC/HistorySync/discussions
+    about: Use GitHub Discussions for questions, ideas, or broader design conversations.

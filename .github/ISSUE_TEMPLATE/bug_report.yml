@@ -1,0 +1,91 @@
+name: Bug Report
+description: Report a reproducible bug or regression in HistorySync.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug.
+
+        Before submitting, please search existing issues and confirm the problem can be reproduced on a recent release.
+  - type: input
+    id: version
+    attributes:
+      label: HistorySync version
+      description: The app version from the title bar, About dialog, or release package.
+      placeholder: "Example: v1.2.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: os_version
+    attributes:
+      label: OS version
+      placeholder: "Example: Windows 11 24H2"
+  - type: textarea
+    id: browsers
+    attributes:
+      label: Affected browser or profile
+      description: Include browser name, version, and profile path if relevant.
+      placeholder: |
+        Example:
+        - Chrome 136
+        - Default profile
+        - C:\Users\me\AppData\Local\Google\Chrome\User Data\Default
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal, deterministic sequence.
+      placeholder: |
+        1. Open HistorySync
+        2. Start a manual sync
+        3. Open the History page
+        4. Observe the issue
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error messages
+      description: Paste relevant logs, stack traces, or CLI output.
+      render: shell
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add screenshots, recordings, or anything else that may help.
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues before opening this report.
+          required: true
+        - label: I reproduced the issue on a recent release.
+          required: true
