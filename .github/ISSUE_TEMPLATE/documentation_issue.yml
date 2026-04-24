@@ -1,0 +1,58 @@
+name: Documentation Issue
+description: Report incorrect, missing, outdated, or unclear documentation.
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for documentation defects and improvements.
+  - type: input
+    id: location
+    attributes:
+      label: Documentation location
+      description: Which file, page, or section is affected?
+      placeholder: "Example: README.md, CONTRIBUTING.md, docs/README.zh-CN.md"
+    validations:
+      required: true
+  - type: dropdown
+    id: problem_type
+    attributes:
+      label: Problem type
+      options:
+        - Incorrect information
+        - Outdated information
+        - Missing documentation
+        - Unclear wording
+        - Broken example or command
+        - Formatting issue
+        - Translation issue
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: current_behavior
+    attributes:
+      label: Current content or problem
+      description: Describe what is wrong, missing, or confusing.
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_change
+    attributes:
+      label: Suggested improvement
+      description: Describe the correction or improvement you want to see.
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Add screenshots, links, or examples that support the requested change.
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues before opening this documentation issue.
+          required: true

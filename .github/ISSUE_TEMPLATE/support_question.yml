@@ -1,0 +1,77 @@
+name: Support Question
+description: Ask for help with setup, usage, troubleshooting, or expected behavior.
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for setup questions, troubleshooting help, or behavior clarification.
+
+        If you have found a reproducible defect, please use the Bug Report template instead.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Installation and setup
+        - GUI usage
+        - CLI usage
+        - Browser extraction
+        - Search
+        - WebDAV sync
+        - Import/export
+        - Performance
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Question or problem
+      description: Describe what you are trying to do and where you are blocked.
+      placeholder: Explain the goal first, then describe the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you already tried
+      description: List commands, settings, or troubleshooting steps you have already attempted.
+      placeholder: |
+        Example:
+        - Ran hsync -s
+        - Checked WebDAV settings
+        - Reviewed existing issues
+  - type: input
+    id: version
+    attributes:
+      label: HistorySync version
+      placeholder: "Example: v1.2.1"
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or command output
+      description: Paste any relevant logs, stack traces, or CLI output.
+      render: shell
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add screenshots, configuration notes, or related links if helpful.
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues and discussions before opening this question.
+          required: true
