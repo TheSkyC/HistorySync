@@ -6,12 +6,16 @@
 #
 altgraph==0.17.5
     # via pyinstaller
+argcomplete==3.6.3
+    # via -r requirements.txt
 build==1.4.0
     # via pip-tools
 certifi==2026.2.25
     # via
     #   -r requirements.txt
     #   requests
+cfgv==3.5.0
+    # via pre-commit
 charset-normalizer==3.4.6
     # via
     #   -r requirements.txt
@@ -23,6 +27,14 @@ colorama==0.4.6
     #   build
     #   click
     #   pytest
+distlib==0.4.0
+    # via virtualenv
+filelock==3.29.0
+    # via
+    #   python-discovery
+    #   virtualenv
+identify==2.6.19
+    # via pre-commit
 idna==3.11
     # via
     #   -r requirements.txt
@@ -52,6 +64,8 @@ more-itertools==10.8.0
     #   -r requirements.txt
     #   jaraco-classes
     #   jaraco-functools
+nodeenv==1.10.0
+    # via pre-commit
 packaging==26.0
     # via
     #   build
@@ -63,8 +77,14 @@ pefile==2024.8.26
     # via pyinstaller
 pip-tools==7.5.3
     # via -r requirements-dev.in
+platformdirs==4.9.6
+    # via
+    #   python-discovery
+    #   virtualenv
 pluggy==1.6.0
     # via pytest
+pre-commit==4.6.0
+    # via -r requirements-dev.in
 psutil==7.2.2
     # via -r requirements.txt
 pygments==2.19.2
@@ -73,17 +93,19 @@ pyinstaller==6.19.0
     # via -r requirements-dev.in
 pyinstaller-hooks-contrib==2026.3
     # via pyinstaller
+pynput==1.8.1
+    # via -r requirements.txt
 pyproject-hooks==1.2.0
     # via
     #   build
     #   pip-tools
-pyside6==6.10.2
+pyside6==6.11.0
     # via -r requirements.txt
-pyside6-addons==6.10.2
+pyside6-addons==6.11.0
     # via
     #   -r requirements.txt
     #   pyside6
-pyside6-essentials==6.10.2
+pyside6-essentials==6.11.0
     # via
     #   -r requirements.txt
     #   pyside6
@@ -94,18 +116,22 @@ python-dateutil==2.9.0.post0
     # via
     #   -r requirements.txt
     #   webdavclient3
+python-discovery==1.2.2
+    # via virtualenv
 pywin32-ctypes==0.2.3
     # via
     #   -r requirements.txt
     #   keyring
     #   pyinstaller
+pyyaml==6.0.3
+    # via pre-commit
 requests==2.32.5
     # via
     #   -r requirements.txt
     #   webdavclient3
 ruff==0.15.7
     # via -r requirements-dev.in
-shiboken6==6.10.2
+shiboken6==6.11.0
     # via
     #   -r requirements.txt
     #   pyside6
@@ -114,11 +140,14 @@ shiboken6==6.10.2
 six==1.17.0
     # via
     #   -r requirements.txt
+    #   pynput
     #   python-dateutil
 urllib3==2.6.3
     # via
     #   -r requirements.txt
     #   requests
+virtualenv==21.2.4
+    # via pre-commit
 webdavclient3==3.14.7
     # via -r requirements.txt
 wheel==0.46.3
