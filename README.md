@@ -138,7 +138,7 @@ This tool supports the following UI languages:
 *   **Italiano** (`it_IT`)
 
 ## 🤝 Contributing
-Contributions of any kind are welcome! If you have any questions, feature suggestions, or find a bug, please feel free to submit them via GitHub Issues.
+Contributions of any kind are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, coding standards, and DCO sign-off requirements. For bug reports, feature requests, and support questions, please use the GitHub issue templates.
 
 ## 📄 License
 This project is open-sourced under the [Apache 2.0](LICENSE) license, allowing free use, modification, and distribution, provided the copyright notice is retained.

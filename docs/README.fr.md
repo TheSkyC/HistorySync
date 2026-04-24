@@ -138,7 +138,7 @@ Cet outil prend en charge les interfaces utilisateur suivantes :
 *   **Italiano** (`it_IT`)
 
 ## 🤝 Contribution
-Toute forme de contribution est la bienvenue ! Si vous avez des questions, des suggestions de fonctionnalités ou si vous trouvez un bug, n'hésitez pas à les soumettre via les GitHub Issues.
+Toute forme de contribution est la bienvenue. Veuillez consulter [CONTRIBUTING.md](../CONTRIBUTING.md) pour la configuration de développement, les règles de code et les exigences de signature DCO. Pour les bugs, demandes de fonctionnalités et questions d'utilisation, merci d'utiliser les modèles d'issue GitHub.
 
 ## 📄 Licence
 Ce projet est open-source sous la licence [Apache 2.0](../LICENSE), permettant une utilisation, une modification et une distribution libres, à condition que l'avis de droit d'auteur soit conservé.
