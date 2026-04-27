@@ -242,3 +242,49 @@ class TestRestoreBehavior:
         assert calls["restore_favicons"] is True
         assert calls["favicon_cache_dir"] == fav_db_path.parent
         assert calls["backup_filename"] == "history_1700000001.zip"
+
+    def test_restore_replace_uses_local_db_replace_database(self, monkeypatch, tmp_path: Path):
+        parser = cli._build_parser()
+        args = parser.parse_args(["restore", "--latest", "--replace", "--quiet"])
+
+        db_path = tmp_path / "history.db"
+        db_path.write_bytes(b"local")
+        fav_db_path = tmp_path / "favicons.db"
+        downloaded = tmp_path / "downloaded.db"
+        downloaded.write_bytes(b"remote")
+
+        config = SimpleNamespace(
+            webdav=SimpleNamespace(enabled=True, url="https://dav.example", username="u", remote_path="/HistorySync/"),
+            get_db_path=lambda: db_path,
+            get_favicon_db_path=lambda: fav_db_path,
+        )
+
+        calls: dict[str, object] = {}
+
+        class _FakeSvc:
+            def __init__(self, _wdav_cfg, _db_path):
+                pass
+
+            def list_backups(self):
+                return [{"filename": "history_1700000001.zip", "timestamp": 1700000001, "size_bytes": 1}]
+
+            def restore(self, **kwargs):
+                calls["restore_kwargs"] = kwargs
+                return SimpleNamespace(success=True, message="ok", downloaded_path=downloaded)
+
+        class _FakeLocalDb:
+            def __init__(self, _path):
+                calls["db_path"] = _path
+
+            def replace_database(self, new_db_path):
+                calls["replaced_path"] = new_db_path
+
+        monkeypatch.setattr("src.services.webdav_sync.WebDavSyncService", _FakeSvc)
+        monkeypatch.setattr("src.services.local_db.LocalDatabase", _FakeLocalDb)
+
+        rc = cli._cmd_restore(config, args)
+
+        assert rc == 0
+        assert calls["db_path"] == db_path
+        assert calls["replaced_path"] == downloaded
+        assert calls["restore_kwargs"]["backup_filename"] == "history_1700000001.zip"

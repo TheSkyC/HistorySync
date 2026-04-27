@@ -1744,17 +1744,21 @@ def _cmd_restore(config, args: argparse.Namespace) -> int:
             _err(f"Restore failed: {result.message}")
             return 1
 
-        # Move downloaded DB to replace local DB
+        # Replace local DB through LocalDatabase to ensure WAL/SHM-safe swap.
         downloaded_db = result.downloaded_path
         if downloaded_db and downloaded_db.exists():
             try:
-                import shutil
-
-                shutil.move(str(downloaded_db), str(db_path))
+                db = LocalDatabase(db_path)
+                db.replace_database(downloaded_db)
                 _progress("Database replaced successfully.")
             except Exception as exc:
                 _err(f"Failed to replace database: {exc}")
                 return 1
+            finally:
+                try:
+                    downloaded_db.unlink(missing_ok=True)
+                except Exception:
+                    pass
 
     elapsed = time.monotonic() - t0
 
