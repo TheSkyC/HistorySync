@@ -136,6 +136,10 @@ class Scheduler(QObject):
         # Sync timer
         self._sync_timer = QTimer(self)
         self._sync_timer.timeout.connect(self._on_sync_timer)
+        self._sync_lead_timer = QTimer(self)
+        self._sync_lead_timer.setSingleShot(True)
+        self._sync_lead_timer.timeout.connect(self._start_repeating_sync_timer)
+        self._sync_auto_enabled = False
         self._running = False
         self._last_sync: int | None = None
         self._worker_thread: QThread | None = None
@@ -144,6 +148,10 @@ class Scheduler(QObject):
         # Auto-backup timer (independent of sync)
         self._backup_timer = QTimer(self)
         self._backup_timer.timeout.connect(self._on_backup_timer)
+        self._backup_lead_timer = QTimer(self)
+        self._backup_lead_timer.setSingleShot(True)
+        self._backup_lead_timer.timeout.connect(self._start_repeating_backup_timer)
+        self._backup_auto_enabled = False
         self._backup_running = False
         self._backup_thread: QThread | None = None
         self._backup_worker = None
@@ -163,22 +171,21 @@ class Scheduler(QObject):
         """
         # Sync timer
         self._sync_timer.stop()
+        self._sync_lead_timer.stop()
+        self._sync_auto_enabled = bool(config.auto_sync_enabled and config.sync_interval_hours > 0)
         if config.auto_sync_enabled and config.sync_interval_hours > 0:
             interval_ms = min(config.sync_interval_hours * 3600 * 1000, 2_147_483_647)
             sync_ts = last_sync_ts if last_sync_ts > 0 else None
             first_ms = self._calc_first_interval_ms(interval_ms, sync_ts)
+            lead_in_ms = max(0, first_ms)
             if first_ms <= 0:
                 self._sync_timer.setInterval(interval_ms)
-                from PySide6.QtCore import QTimer as _QTimer
-
-                _QTimer.singleShot(0, self._start_repeating_sync_timer)
+                self._schedule_sync_lead_in(lead_in_ms)
                 log.info("Sync timer: overdue, firing now; repeat every %d hours", config.sync_interval_hours)
             else:
                 # Use a one-shot lead-in, then switch to the repeating cadence.
                 self._sync_timer.setInterval(interval_ms)
-                from PySide6.QtCore import QTimer as _QTimer
-
-                _QTimer.singleShot(first_ms, self._start_repeating_sync_timer)
+                self._schedule_sync_lead_in(lead_in_ms)
                 log.info(
                     "Sync timer: first fire in %.1f min, then every %d hours",
                     first_ms / 60000,
@@ -187,21 +194,20 @@ class Scheduler(QObject):
 
         # Backup timer
         self._backup_timer.stop()
+        self._backup_lead_timer.stop()
+        self._backup_auto_enabled = bool(config.auto_backup_enabled and config.auto_backup_interval_hours > 0)
         if config.auto_backup_enabled and config.auto_backup_interval_hours > 0:
             backup_interval_ms = min(config.auto_backup_interval_hours * 3600 * 1000, 2_147_483_647)
             backup_ts = last_backup_ts if last_backup_ts > 0 else None
             first_backup_ms = self._calc_first_interval_ms(backup_interval_ms, backup_ts)
+            lead_in_backup_ms = max(0, first_backup_ms)
             if first_backup_ms <= 0:
                 self._backup_timer.setInterval(backup_interval_ms)
-                from PySide6.QtCore import QTimer as _QTimer
-
-                _QTimer.singleShot(0, self._start_repeating_backup_timer)
+                self._schedule_backup_lead_in(lead_in_backup_ms)
                 log.info("Backup timer: overdue, firing now; repeat every %d hours", config.auto_backup_interval_hours)
             else:
                 self._backup_timer.setInterval(backup_interval_ms)
-                from PySide6.QtCore import QTimer as _QTimer
-
-                _QTimer.singleShot(first_backup_ms, self._start_repeating_backup_timer)
+                self._schedule_backup_lead_in(lead_in_backup_ms)
                 log.info(
                     "Backup timer: first fire in %.1f min, then every %d hours",
                     first_backup_ms / 60000,
@@ -219,9 +225,18 @@ class Scheduler(QObject):
         elapsed_ms = int((time.time() - last_ts) * 1000)
         return interval_ms - elapsed_ms
 
+    def _schedule_sync_lead_in(self, delay_ms: int) -> None:
+        self._sync_lead_timer.start(max(0, delay_ms))
+
+    def _schedule_backup_lead_in(self, delay_ms: int) -> None:
+        self._backup_lead_timer.start(max(0, delay_ms))
+
     @Slot()
     def _start_repeating_sync_timer(self) -> None:
         """Called once by the lead-in singleShot; fires the sync and arms the repeating timer."""
+        if not self._sync_auto_enabled:
+            log.info("Sync lead-in fired after disable/reconfigure; ignoring stale callback")
+            return
         self._on_sync_timer()
         if not self._sync_timer.isActive():
             self._sync_timer.start()
@@ -229,6 +244,9 @@ class Scheduler(QObject):
     @Slot()
     def _start_repeating_backup_timer(self) -> None:
         """Called once by the lead-in singleShot; fires the backup and arms the repeating timer."""
+        if not self._backup_auto_enabled:
+            log.info("Backup lead-in fired after disable/reconfigure; ignoring stale callback")
+            return
         self._on_backup_timer()
         if not self._backup_timer.isActive():
             self._backup_timer.start()
@@ -238,17 +256,23 @@ class Scheduler(QObject):
         log.info("Scheduler started")
 
     def stop(self) -> None:
+        self._sync_auto_enabled = False
+        self._backup_auto_enabled = False
+        self._sync_lead_timer.stop()
+        self._backup_lead_timer.stop()
         self._sync_timer.stop()
         self._backup_timer.stop()
         log.info("Scheduler stopped")
 
     def set_auto_sync_enabled(self, enabled: bool) -> None:
         """Pause or resume the auto-sync timer without touching the backup timer."""
+        self._sync_auto_enabled = enabled
         if enabled:
-            if not self._sync_timer.isActive():
+            if not self._sync_timer.isActive() and not self._sync_lead_timer.isActive():
                 self._sync_timer.start()
                 log.info("Auto sync resumed")
         else:
+            self._sync_lead_timer.stop()
             self._sync_timer.stop()
             log.info("Auto sync paused")
 
@@ -302,6 +326,10 @@ class Scheduler(QObject):
     # ── Shutdown ──────────────────────────────────────────────
 
     def shutdown(self, timeout_ms: int = 8000) -> None:
+        self._sync_auto_enabled = False
+        self._backup_auto_enabled = False
+        self._sync_lead_timer.stop()
+        self._backup_lead_timer.stop()
         self._sync_timer.stop()
         self._backup_timer.stop()
         for thread, worker in [
