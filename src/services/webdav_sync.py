@@ -443,6 +443,7 @@ class WebDavSyncService:
         progress_callback: Callable[[str], None] | None = None,
         restore_favicons: bool = False,
         favicon_cache_dir: Path | None = None,
+        backup_filename: str | None = None,
     ) -> SyncResult:
         if not _WEBDAV3_AVAILABLE:
             return self._fail(_("webdavclient3 is not installed."))
@@ -476,13 +477,23 @@ class WebDavSyncService:
             if not zip_backups:
                 return self._fail(_("No backups found on server."))
 
-            latest_backup = zip_backups[-1]
-            if not _SAFE_BACKUP_FILENAME.match(latest_backup):
-                return self._fail(_("Unsafe backup filename rejected: {filename}").format(filename=latest_backup))
-            remote_file = f"{remote_dir.rstrip('/')}/{latest_backup}"
+            if backup_filename:
+                selected_backup = backup_filename.strip()
+                if not _SAFE_BACKUP_FILENAME.match(selected_backup):
+                    return self._fail(_("Unsafe backup filename rejected: {filename}").format(filename=selected_backup))
+                if selected_backup not in zip_backups:
+                    return self._fail(
+                        _("Selected backup not found on server: {filename}").format(filename=selected_backup)
+                    )
+            else:
+                selected_backup = zip_backups[-1]
+
+            if not _SAFE_BACKUP_FILENAME.match(selected_backup):
+                return self._fail(_("Unsafe backup filename rejected: {filename}").format(filename=selected_backup))
+            remote_file = f"{remote_dir.rstrip('/')}/{selected_backup}"
 
             self._set_status(SyncStatus.DOWNLOADING)
-            _cb(_("Downloading {filename}...").format(filename=latest_backup))
+            _cb(_("Downloading {filename}...").format(filename=selected_backup))
 
             fd, tmp_download_path = tempfile.mkstemp(suffix=".zip")
             try:
@@ -621,7 +632,7 @@ class WebDavSyncService:
             _tmp_db_consumed = True
 
             self._set_status(SyncStatus.SUCCESS)
-            result = SyncResult(True, _("Restored from {filename}").format(filename=latest_backup))
+            result = SyncResult(True, _("Restored from {filename}").format(filename=selected_backup))
             result.downloaded_path = Path(tmp_download_path)
             result.hash_info = hash_info
             tmp_download_path = None

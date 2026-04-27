@@ -1669,6 +1669,7 @@ def _cmd_restore(config, args: argparse.Namespace) -> int:
         return 0
 
     # Perform restore
+    selected_filename = selected_backup.get("filename", "") if isinstance(selected_backup, dict) else ""
     favicon_cache_dir: Path | None = None
     if restore_favicons:
         favicon_db_path = config.get_favicon_db_path()
@@ -1688,7 +1689,12 @@ def _cmd_restore(config, args: argparse.Namespace) -> int:
         _progress("Downloading backup for merge...")
 
         try:
-            result = service.restore(progress_callback=_progress, restore_favicons=False, favicon_cache_dir=None)
+            result = service.restore(
+                progress_callback=_progress,
+                restore_favicons=False,
+                favicon_cache_dir=None,
+                backup_filename=selected_filename or None,
+            )
             if not result.success:
                 _err(f"Restore failed: {result.message}")
                 return 1
@@ -1727,6 +1733,7 @@ def _cmd_restore(config, args: argparse.Namespace) -> int:
                 progress_callback=_progress,
                 restore_favicons=restore_favicons,
                 favicon_cache_dir=favicon_cache_dir,
+                backup_filename=selected_filename or None,
             )
         except Exception as exc:
             _err(f"Restore failed: {exc}")
