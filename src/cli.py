@@ -1691,8 +1691,8 @@ def _cmd_restore(config, args: argparse.Namespace) -> int:
         try:
             result = service.restore(
                 progress_callback=_progress,
-                restore_favicons=False,
-                favicon_cache_dir=None,
+                restore_favicons=restore_favicons,
+                favicon_cache_dir=favicon_cache_dir,
                 backup_filename=selected_filename or None,
             )
             if not result.success:

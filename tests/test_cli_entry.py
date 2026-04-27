@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -192,3 +193,52 @@ class TestDispatchWithRealParser:
         rc = cli._dispatch(SimpleNamespace(), args, parser)
 
         assert rc == 0
+
+
+class TestRestoreBehavior:
+    def test_restore_merge_honors_restore_favicons_flag(self, monkeypatch, tmp_path: Path):
+        parser = cli._build_parser()
+        args = parser.parse_args(["restore", "--latest", "--restore-favicons", "--quiet"])
+
+        db_path = tmp_path / "history.db"
+        db_path.write_bytes(b"local")
+        fav_db_path = tmp_path / "favicons.db"
+        fav_db_path.write_bytes(b"fav")
+        downloaded = tmp_path / "downloaded.db"
+        downloaded.write_bytes(b"remote")
+
+        config = SimpleNamespace(
+            webdav=SimpleNamespace(enabled=True, url="https://dav.example", username="u", remote_path="/HistorySync/"),
+            get_db_path=lambda: db_path,
+            get_favicon_db_path=lambda: fav_db_path,
+        )
+
+        calls: dict[str, object] = {}
+
+        class _FakeSvc:
+            def __init__(self, _wdav_cfg, _db_path):
+                pass
+
+            def list_backups(self):
+                return [{"filename": "history_1700000001.zip", "timestamp": 1700000001, "size_bytes": 1}]
+
+            def restore(self, **kwargs):
+                calls.update(kwargs)
+                return SimpleNamespace(success=True, message="ok", downloaded_path=downloaded)
+
+        class _FakeLocalDb:
+            def __init__(self, _path):
+                self._path = _path
+
+            def merge_from_db(self, _downloaded_db):
+                return None
+
+        monkeypatch.setattr("src.services.webdav_sync.WebDavSyncService", _FakeSvc)
+        monkeypatch.setattr("src.services.local_db.LocalDatabase", _FakeLocalDb)
+
+        rc = cli._cmd_restore(config, args)
+
+        assert rc == 0
+        assert calls["restore_favicons"] is True
+        assert calls["favicon_cache_dir"] == fav_db_path.parent
+        assert calls["backup_filename"] == "history_1700000001.zip"
