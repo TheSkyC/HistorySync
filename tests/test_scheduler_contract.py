@@ -212,8 +212,10 @@ class TestSchedulerContract:
     def test_configure_arms_timers_with_single_shot_leadins(self, monkeypatch):
         s = Scheduler(extractor_manager=SimpleNamespace())
 
-        singles = []
-        monkeypatch.setattr("src.services.scheduler.QTimer.singleShot", lambda ms, cb: singles.append(ms))
+        sync_delays = []
+        backup_delays = []
+        monkeypatch.setattr(s, "_schedule_sync_lead_in", sync_delays.append)
+        monkeypatch.setattr(s, "_schedule_backup_lead_in", backup_delays.append)
 
         cfg = SchedulerConfig(
             auto_sync_enabled=True,
@@ -224,7 +226,35 @@ class TestSchedulerContract:
 
         s.configure(cfg, last_sync_ts=0, last_backup_ts=0)
 
-        # First run for both timers should schedule lead-ins, not immediate trigger.
-        assert len(singles) == 2
-        assert singles[0] > 0
-        assert singles[1] > 0
+        # First run for both timers should schedule lead-ins with positive delays.
+        assert len(sync_delays) == 1
+        assert len(backup_delays) == 1
+        assert sync_delays[0] > 0
+        assert backup_delays[0] > 0
+
+    def test_stop_cancels_lead_in_timers(self):
+        s = Scheduler(extractor_manager=SimpleNamespace())
+
+        cfg = SchedulerConfig(
+            auto_sync_enabled=True,
+            sync_interval_hours=1,
+            auto_backup_enabled=True,
+            auto_backup_interval_hours=2,
+        )
+        s.configure(cfg, last_sync_ts=0, last_backup_ts=0)
+
+        s.stop()
+
+        assert s._sync_lead_timer.isActive() is False
+        assert s._backup_lead_timer.isActive() is False
+
+    def test_stale_sync_lead_in_callback_is_ignored_after_disable(self, monkeypatch):
+        s = Scheduler(extractor_manager=SimpleNamespace())
+        s._sync_auto_enabled = False
+
+        calls = []
+        monkeypatch.setattr(s, "_on_sync_timer", lambda: calls.append("sync"))
+
+        s._start_repeating_sync_timer()
+
+        assert calls == []
