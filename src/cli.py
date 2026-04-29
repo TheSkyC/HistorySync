@@ -176,8 +176,16 @@ def _hint(msg: str) -> None:
     print(f"     {_dim('→  ' + msg)}")
 
 
+def _get_term_width(fallback: int = 80) -> int:
+    """Get terminal width with fallback for non-TTY environments."""
+    try:
+        return os.get_terminal_size().columns
+    except OSError:
+        return fallback
+
+
 def _section(title: str) -> None:
-    width = min(os.get_terminal_size((80, 24)).columns - 2, 60)
+    width = min(_get_term_width() - 2, 60)
     bar = _dim("─" * width)
     print(f"\n{_bold(title)}\n{bar}")
 
@@ -208,7 +216,7 @@ class _ProgressBar:
             return
         self._last_pct = pct
 
-        cols = os.get_terminal_size((80, 24)).columns
+        cols = _get_term_width()
         bar_width = max(10, min(40, cols - 20))
         filled = int(bar_width * pct / 100)
         bar = _green("█" * filled) + _dim("░" * (bar_width - filled))
@@ -1368,7 +1376,7 @@ def _cmd_search(config, args: argparse.Namespace) -> int:
     if not quiet:
         _section(f"Search Results ({len(records)} found)")
 
-    term_width = os.get_terminal_size((80, 24)).columns
+    term_width = _get_term_width()
     title_width = max(20, min(50, term_width - 60))
     url_width = max(30, term_width - title_width - 30)
 
@@ -1449,7 +1457,7 @@ def _cmd_search_interactive(db, initial_query: str, limit: int, quiet: bool, log
             print()
             return
 
-        term_width = os.get_terminal_size((80, 24)).columns
+        term_width = _get_term_width()
         title_width = max(20, min(50, term_width - 60))
         url_width = max(30, term_width - title_width - 30)
 
