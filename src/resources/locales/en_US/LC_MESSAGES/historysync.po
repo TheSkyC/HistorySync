@@ -5,9 +5,9 @@
 # Automatically generated, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: HistorySync 1.2.1\n"
+"Project-Id-Version: HistorySync 1.2.2\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-04-23 15:41+0000\n"
+"POT-Creation-Date: 2026-04-29 13:22+0000\n"
 "PO-Revision-Date: 2026-04-23 12:23+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: en_US\n"
@@ -409,7 +409,7 @@ msgstr "Backs up the favicon database alongside history. Increases backup size."
 msgid "Backup ZIP uploaded but sync_manifest.json failed: {error}"
 msgstr "Backup ZIP uploaded but sync_manifest.json failed: {error}"
 
-#: src/services/webdav_sync.py:540
+#: src/services/webdav_sync.py:551
 msgid "Backup archive missing history.db"
 msgstr "Backup archive missing history.db"
 
@@ -431,7 +431,7 @@ msgstr "Backup saved to:  {path}"
 msgid "Backup to WebDAV"
 msgstr "Backup to WebDAV"
 
-#: src/services/webdav_sync.py:609
+#: src/services/webdav_sync.py:620
 #, python-brace-format
 msgid "Bad zip archive: {error}"
 msgstr "Bad zip archive: {error}"
@@ -745,7 +745,7 @@ msgstr "Confirm password…"
 msgid "Confirm:"
 msgstr "Confirm:"
 
-#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:459
+#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:460
 msgid "Connecting to WebDAV server..."
 msgstr "Connecting to WebDAV server..."
 
@@ -1072,17 +1072,17 @@ msgstr ""
 msgid "Double-click any row to open the link in browser"
 msgstr "Double-click any row to open the link in browser"
 
-#: src/services/webdav_sync.py:515
+#: src/services/webdav_sync.py:526
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "Download failed: {error}"
 
-#: src/services/webdav_sync.py:485
+#: src/services/webdav_sync.py:496
 #, python-brace-format
 msgid "Downloading {filename}..."
 msgstr "Downloading {filename}..."
 
-#: src/services/webdav_sync.py:496
+#: src/services/webdav_sync.py:507
 #, python-brace-format
 msgid "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
 msgstr "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
@@ -1471,7 +1471,7 @@ msgstr "Has annotation"
 msgid "Has note (click to edit)"
 msgstr "Has note (click to edit)"
 
-#: src/services/webdav_sync.py:560
+#: src/services/webdav_sync.py:571
 #, python-brace-format
 msgid "Hash verification FAILED! Expected {exp}, got {act}"
 msgstr "Hash verification FAILED! Expected {exp}, got {act}"
@@ -1855,7 +1855,7 @@ msgstr "Level:"
 msgid "List Remote Backups"
 msgstr "List Remote Backups"
 
-#: src/services/webdav_sync.py:466
+#: src/services/webdav_sync.py:467
 msgid "Listing remote backups..."
 msgstr "Listing remote backups..."
 
@@ -2167,7 +2167,7 @@ msgstr "No Legacy Data"
 msgid "No Selection"
 msgstr "No Selection"
 
-#: src/services/webdav_sync.py:477
+#: src/services/webdav_sync.py:478
 msgid "No backups found on server."
 msgstr "No backups found on server."
 
@@ -2597,7 +2597,7 @@ msgstr "Reload"
 msgid "Remote Path:"
 msgstr "Remote Path:"
 
-#: src/services/webdav_sync.py:470
+#: src/services/webdav_sync.py:471
 msgid "Remote directory not found."
 msgstr "Remote directory not found."
 
@@ -2710,7 +2710,7 @@ msgstr "Restore Database"
 msgid "Restore Default View"
 msgstr "Restore Default View"
 
-#: src/services/webdav_sync.py:632
+#: src/services/webdav_sync.py:643
 #, python-brace-format
 msgid "Restore failed: {error}"
 msgstr "Restore failed: {error}"
@@ -2723,7 +2723,7 @@ msgstr "Restore from WebDAV"
 msgid "Restore the built-in default URL prefix list"
 msgstr "Restore the built-in default URL prefix list"
 
-#: src/services/webdav_sync.py:624
+#: src/services/webdav_sync.py:635
 #, python-brace-format
 msgid "Restored from {filename}"
 msgstr "Restored from {filename}"
@@ -2737,7 +2737,7 @@ msgstr "Restored {n} record(s)."
 msgid "Restoring WAL mode and updating statistics…"
 msgstr "Restoring WAL mode and updating statistics…"
 
-#: src/services/webdav_sync.py:571
+#: src/services/webdav_sync.py:582
 msgid "Restoring favicon cache..."
 msgstr "Restoring favicon cache..."
 
@@ -2931,6 +2931,11 @@ msgstr "Select History Database File"
 #: src/views/export_dialog.py:230
 msgid "Select None"
 msgstr "Select None"
+
+#: src/services/webdav_sync.py:486
+#, python-brace-format
+msgid "Selected backup not found on server: {filename}"
+msgstr "Selected backup not found on server: {filename}"
 
 #: src/views/stats_page.py:78
 msgid "September"
@@ -3475,7 +3480,7 @@ msgstr "Unknown (Skip)"
 msgid "Unlock"
 msgstr "Unlock"
 
-#: src/services/webdav_sync.py:481
+#: src/services/webdav_sync.py:483 src/services/webdav_sync.py:492
 #, python-brace-format
 msgid "Unsafe backup filename rejected: {filename}"
 msgstr "Unsafe backup filename rejected: {filename}"
@@ -3571,7 +3576,7 @@ msgstr "Verify result"
 msgid "Verify the migration result"
 msgstr "Verify the migration result"
 
-#: src/services/webdav_sync.py:520
+#: src/services/webdav_sync.py:531
 msgid "Verifying backup integrity (SHA-256)..."
 msgstr "Verifying backup integrity (SHA-256)..."
 
@@ -3662,7 +3667,7 @@ msgstr "WebDAV Sync Configuration"
 msgid "WebDAV not configured"
 msgstr "WebDAV not configured"
 
-#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:451
+#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:452
 msgid "WebDAV not configured or disabled"
 msgstr "WebDAV not configured or disabled"
 
@@ -3854,7 +3859,7 @@ msgstr "unknown"
 msgid "visits"
 msgstr "visits"
 
-#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:448
+#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:449
 msgid "webdavclient3 is not installed."
 msgstr "webdavclient3 is not installed."
 
@@ -4067,7 +4072,7 @@ msgstr "✓ Full resync complete — {n} new records upserted"
 msgid "✓ Full resync complete — {n} new records upserted."
 msgstr "✓ Full resync complete — {n} new records upserted."
 
-#: src/services/webdav_sync.py:567
+#: src/services/webdav_sync.py:578
 #, python-brace-format
 msgid "✓ Hash verified: {hash}..."
 msgstr "✓ Hash verified: {hash}..."

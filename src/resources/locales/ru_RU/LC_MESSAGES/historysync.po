@@ -5,9 +5,9 @@
 # Automatically generated, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: HistorySync 1.2.1\n"
+"Project-Id-Version: HistorySync 1.2.2\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-04-23 15:41+0000\n"
+"POT-Creation-Date: 2026-04-29 13:22+0000\n"
 "PO-Revision-Date: 2026-04-23 12:17+0000\n"
 "Last-Translator: Grok <grok@x.ai>\n"
 "Language: ru_RU\n"
@@ -424,7 +424,7 @@ msgstr ""
 "ZIP-архив резервной копии загружен, но sync_manifest.json не удалось: "
 "{error}"
 
-#: src/services/webdav_sync.py:540
+#: src/services/webdav_sync.py:551
 msgid "Backup archive missing history.db"
 msgstr "В архиве резервной копии отсутствует history.db"
 
@@ -446,7 +446,7 @@ msgstr "Резервная копия сохранена в: {path}"
 msgid "Backup to WebDAV"
 msgstr "Резервное копирование в WebDAV"
 
-#: src/services/webdav_sync.py:609
+#: src/services/webdav_sync.py:620
 #, python-brace-format
 msgid "Bad zip archive: {error}"
 msgstr "Повреждённый ZIP-архив: {error}"
@@ -760,7 +760,7 @@ msgstr "Подтвердите пароль…"
 msgid "Confirm:"
 msgstr "Подтверждение:"
 
-#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:459
+#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:460
 msgid "Connecting to WebDAV server..."
 msgstr "Подключение к серверу WebDAV..."
 
@@ -1092,17 +1092,17 @@ msgstr ""
 msgid "Double-click any row to open the link in browser"
 msgstr "Дважды щёлкните по любой строке, чтобы открыть ссылку в браузере"
 
-#: src/services/webdav_sync.py:515
+#: src/services/webdav_sync.py:526
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "Ошибка загрузки: {error}"
 
-#: src/services/webdav_sync.py:485
+#: src/services/webdav_sync.py:496
 #, python-brace-format
 msgid "Downloading {filename}..."
 msgstr "Загрузка {filename}..."
 
-#: src/services/webdav_sync.py:496
+#: src/services/webdav_sync.py:507
 #, python-brace-format
 msgid "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
 msgstr "Загрузка: {percent:.0f}% ({downloaded} / {total} КБ)"
@@ -1496,7 +1496,7 @@ msgstr "Есть заметка"
 msgid "Has note (click to edit)"
 msgstr "Есть заметка (нажмите для редактирования)"
 
-#: src/services/webdav_sync.py:560
+#: src/services/webdav_sync.py:571
 #, python-brace-format
 msgid "Hash verification FAILED! Expected {exp}, got {act}"
 msgstr "Проверка хэша НЕ УДАЛАСЬ! Ожидалось {exp}, получено {act}"
@@ -1883,7 +1883,7 @@ msgstr "Уровень:"
 msgid "List Remote Backups"
 msgstr "Список удалённых резервных копий"
 
-#: src/services/webdav_sync.py:466
+#: src/services/webdav_sync.py:467
 msgid "Listing remote backups..."
 msgstr "Перечисление удалённых резервных копий..."
 
@@ -2200,7 +2200,7 @@ msgstr "Нет устаревших данных"
 msgid "No Selection"
 msgstr "Ничего не выбрано"
 
-#: src/services/webdav_sync.py:477
+#: src/services/webdav_sync.py:478
 msgid "No backups found on server."
 msgstr "На сервере не найдено резервных копий."
 
@@ -2636,7 +2636,7 @@ msgstr "Перезагрузить"
 msgid "Remote Path:"
 msgstr "Удалённый путь:"
 
-#: src/services/webdav_sync.py:470
+#: src/services/webdav_sync.py:471
 msgid "Remote directory not found."
 msgstr "Удалённый каталог не найден."
 
@@ -2749,7 +2749,7 @@ msgstr "Восстановить базу данных"
 msgid "Restore Default View"
 msgstr "Восстановить вид по умолчанию"
 
-#: src/services/webdav_sync.py:632
+#: src/services/webdav_sync.py:643
 #, python-brace-format
 msgid "Restore failed: {error}"
 msgstr "Восстановление не удалось: {error}"
@@ -2762,7 +2762,7 @@ msgstr "Восстановить из WebDAV"
 msgid "Restore the built-in default URL prefix list"
 msgstr "Восстановить встроенный список префиксов URL по умолчанию"
 
-#: src/services/webdav_sync.py:624
+#: src/services/webdav_sync.py:635
 #, python-brace-format
 msgid "Restored from {filename}"
 msgstr "Восстановлено из {filename}"
@@ -2776,7 +2776,7 @@ msgstr "Восстановлено {n} запись(ей)."
 msgid "Restoring WAL mode and updating statistics…"
 msgstr "Восстановление режима WAL и обновление статистики…"
 
-#: src/services/webdav_sync.py:571
+#: src/services/webdav_sync.py:582
 msgid "Restoring favicon cache..."
 msgstr "Восстановление кэша значков..."
 
@@ -2970,6 +2970,11 @@ msgstr "Выберите файл базы данных истории"
 #: src/views/export_dialog.py:230
 msgid "Select None"
 msgstr "Снять выделение"
+
+#: src/services/webdav_sync.py:486
+#, python-brace-format
+msgid "Selected backup not found on server: {filename}"
+msgstr "Выбранная резервная копия не найдена на сервере: {filename}"
 
 #: src/views/stats_page.py:78
 msgid "September"
@@ -3517,7 +3522,7 @@ msgstr "Неизвестно (пропустить)"
 msgid "Unlock"
 msgstr "Разблокировать"
 
-#: src/services/webdav_sync.py:481
+#: src/services/webdav_sync.py:483 src/services/webdav_sync.py:492
 #, python-brace-format
 msgid "Unsafe backup filename rejected: {filename}"
 msgstr "Небезопасное имя файла резервной копии отклонено: {filename}"
@@ -3615,7 +3620,7 @@ msgstr "Проверить результат"
 msgid "Verify the migration result"
 msgstr "Проверить результат миграции"
 
-#: src/services/webdav_sync.py:520
+#: src/services/webdav_sync.py:531
 msgid "Verifying backup integrity (SHA-256)..."
 msgstr "Проверка целостности резервной копии (SHA-256)..."
 
@@ -3706,7 +3711,7 @@ msgstr "Конфигурация синхронизации WebDAV"
 msgid "WebDAV not configured"
 msgstr "WebDAV не настроен"
 
-#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:451
+#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:452
 msgid "WebDAV not configured or disabled"
 msgstr "WebDAV не настроен или отключён"
 
@@ -3902,7 +3907,7 @@ msgstr "неизвестно"
 msgid "visits"
 msgstr "посещений"
 
-#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:448
+#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:449
 msgid "webdavclient3 is not installed."
 msgstr "webdavclient3 не установлен."
 
@@ -4122,7 +4127,7 @@ msgstr ""
 "✓ Полная повторная синхронизация завершена — {n} новых записей "
 "добавлено/обновлено."
 
-#: src/services/webdav_sync.py:567
+#: src/services/webdav_sync.py:578
 #, python-brace-format
 msgid "✓ Hash verified: {hash}..."
 msgstr "✓ Хэш проверен: {hash}..."

@@ -5,9 +5,9 @@
 # Automatically generated, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: HistorySync 1.2.1\n"
+"Project-Id-Version: HistorySync 1.2.2\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-04-23 15:41+0000\n"
+"POT-Creation-Date: 2026-04-29 13:22+0000\n"
 "PO-Revision-Date: 2026-04-23 12:24+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: de_DE\n"
@@ -419,7 +419,7 @@ msgstr ""
 msgid "Backup ZIP uploaded but sync_manifest.json failed: {error}"
 msgstr "Backup-ZIP hochgeladen, aber sync_manifest.json fehlgeschlagen: {error}"
 
-#: src/services/webdav_sync.py:540
+#: src/services/webdav_sync.py:551
 msgid "Backup archive missing history.db"
 msgstr "Sicherungsarchiv enthält keine history.db"
 
@@ -441,7 +441,7 @@ msgstr "Sicherung gespeichert unter: {path}"
 msgid "Backup to WebDAV"
 msgstr "Auf WebDAV sichern"
 
-#: src/services/webdav_sync.py:609
+#: src/services/webdav_sync.py:620
 #, python-brace-format
 msgid "Bad zip archive: {error}"
 msgstr "Ungültiges ZIP-Archiv: {error}"
@@ -753,7 +753,7 @@ msgstr "Passwort bestätigen…"
 msgid "Confirm:"
 msgstr "Bestätigen:"
 
-#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:459
+#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:460
 msgid "Connecting to WebDAV server..."
 msgstr "Verbindung zum WebDAV-Server wird hergestellt..."
 
@@ -1086,17 +1086,17 @@ msgstr ""
 msgid "Double-click any row to open the link in browser"
 msgstr "Doppelklicken Sie auf eine Zeile, um den Link im Browser zu öffnen"
 
-#: src/services/webdav_sync.py:515
+#: src/services/webdav_sync.py:526
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "Download fehlgeschlagen: {error}"
 
-#: src/services/webdav_sync.py:485
+#: src/services/webdav_sync.py:496
 #, python-brace-format
 msgid "Downloading {filename}..."
 msgstr "{filename} wird heruntergeladen..."
 
-#: src/services/webdav_sync.py:496
+#: src/services/webdav_sync.py:507
 #, python-brace-format
 msgid "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
 msgstr "Wird heruntergeladen: {percent:.0f}% ({downloaded} / {total} KB)"
@@ -1491,7 +1491,7 @@ msgstr "Hat Anmerkung"
 msgid "Has note (click to edit)"
 msgstr "Hat Anmerkung (zum Bearbeiten klicken)"
 
-#: src/services/webdav_sync.py:560
+#: src/services/webdav_sync.py:571
 #, python-brace-format
 msgid "Hash verification FAILED! Expected {exp}, got {act}"
 msgstr "Hash-Überprüfung FEHLGESCHLAGEN! Erwartet {exp}, erhalten {act}"
@@ -1884,7 +1884,7 @@ msgstr "Ebene:"
 msgid "List Remote Backups"
 msgstr "Remote-Sicherungen auflisten"
 
-#: src/services/webdav_sync.py:466
+#: src/services/webdav_sync.py:467
 msgid "Listing remote backups..."
 msgstr "Remote-Sicherungen werden aufgelistet..."
 
@@ -2204,7 +2204,7 @@ msgstr "Keine Legacy-Daten"
 msgid "No Selection"
 msgstr "Keine Auswahl"
 
-#: src/services/webdav_sync.py:477
+#: src/services/webdav_sync.py:478
 msgid "No backups found on server."
 msgstr "Keine Sicherungen auf dem Server gefunden."
 
@@ -2642,7 +2642,7 @@ msgstr "Neu laden"
 msgid "Remote Path:"
 msgstr "Remote-Pfad:"
 
-#: src/services/webdav_sync.py:470
+#: src/services/webdav_sync.py:471
 msgid "Remote directory not found."
 msgstr "Remote-Verzeichnis nicht gefunden."
 
@@ -2759,7 +2759,7 @@ msgstr "Datenbank wiederherstellen"
 msgid "Restore Default View"
 msgstr "Standardansicht wiederherstellen"
 
-#: src/services/webdav_sync.py:632
+#: src/services/webdav_sync.py:643
 #, python-brace-format
 msgid "Restore failed: {error}"
 msgstr "Wiederherstellung fehlgeschlagen: {error}"
@@ -2772,7 +2772,7 @@ msgstr "Von WebDAV wiederherstellen"
 msgid "Restore the built-in default URL prefix list"
 msgstr "Die integrierte Standard-URL-Präfixliste wiederherstellen"
 
-#: src/services/webdav_sync.py:624
+#: src/services/webdav_sync.py:635
 #, python-brace-format
 msgid "Restored from {filename}"
 msgstr "Wiederhergestellt von {filename}"
@@ -2786,7 +2786,7 @@ msgstr "{n} Einträge wiederhergestellt."
 msgid "Restoring WAL mode and updating statistics…"
 msgstr "WAL-Modus wird wiederhergestellt und Statistiken werden aktualisiert…"
 
-#: src/services/webdav_sync.py:571
+#: src/services/webdav_sync.py:582
 msgid "Restoring favicon cache..."
 msgstr "Favicon-Cache wird wiederhergestellt..."
 
@@ -2980,6 +2980,11 @@ msgstr "Verlaufsdatenbankdatei auswählen"
 #: src/views/export_dialog.py:230
 msgid "Select None"
 msgstr "Keine auswählen"
+
+#: src/services/webdav_sync.py:486
+#, python-brace-format
+msgid "Selected backup not found on server: {filename}"
+msgstr "Ausgewähltes Backup auf dem Server nicht gefunden: {filename}"
 
 #: src/views/stats_page.py:78
 msgid "September"
@@ -3539,7 +3544,7 @@ msgstr "Unbekannt (Überspringen)"
 msgid "Unlock"
 msgstr "Entsperren"
 
-#: src/services/webdav_sync.py:481
+#: src/services/webdav_sync.py:483 src/services/webdav_sync.py:492
 #, python-brace-format
 msgid "Unsafe backup filename rejected: {filename}"
 msgstr "Unsicherer Backup-Dateiname abgelehnt: {filename}"
@@ -3637,7 +3642,7 @@ msgstr "Ergebnis überprüfen"
 msgid "Verify the migration result"
 msgstr "Überprüfen Sie das Migrationsergebnis"
 
-#: src/services/webdav_sync.py:520
+#: src/services/webdav_sync.py:531
 msgid "Verifying backup integrity (SHA-256)..."
 msgstr "Integrität der Sicherung wird überprüft (SHA-256)..."
 
@@ -3730,7 +3735,7 @@ msgstr "WebDAV-Synchronisierungskonfiguration"
 msgid "WebDAV not configured"
 msgstr "WebDAV nicht konfiguriert"
 
-#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:451
+#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:452
 msgid "WebDAV not configured or disabled"
 msgstr "WebDAV nicht konfiguriert oder deaktiviert"
 
@@ -3928,7 +3933,7 @@ msgstr "unbekannt"
 msgid "visits"
 msgstr "Besuche"
 
-#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:448
+#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:449
 msgid "webdavclient3 is not installed."
 msgstr "webdavclient3 ist nicht installiert."
 
@@ -4147,7 +4152,7 @@ msgstr ""
 "✓ Vollständige Neu-Synchronisierung abgeschlossen — {n} neue Einträge "
 "upserted."
 
-#: src/services/webdav_sync.py:567
+#: src/services/webdav_sync.py:578
 #, python-brace-format
 msgid "✓ Hash verified: {hash}..."
 msgstr "✓ Hash verifiziert: {hash}..."

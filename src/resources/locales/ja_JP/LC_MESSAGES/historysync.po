@@ -5,9 +5,9 @@
 # Automatically generated, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: HistorySync 1.2.1\n"
+"Project-Id-Version: HistorySync 1.2.2\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-04-23 15:41+0000\n"
+"POT-Creation-Date: 2026-04-29 13:22+0000\n"
 "PO-Revision-Date: 2026-04-23 12:25+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: ja_JP\n"
@@ -397,7 +397,7 @@ msgstr "履歴と一緒にファビコンデータベースもバックアップ
 msgid "Backup ZIP uploaded but sync_manifest.json failed: {error}"
 msgstr "バックアップ ZIP はアップロードされましたが sync_manifest.json のアップロードに失敗: {error}"
 
-#: src/services/webdav_sync.py:540
+#: src/services/webdav_sync.py:551
 msgid "Backup archive missing history.db"
 msgstr "バックアップアーカイブに history.db がありません"
 
@@ -419,7 +419,7 @@ msgstr "バックアップを保存しました: {path}"
 msgid "Backup to WebDAV"
 msgstr "WebDAV にバックアップ"
 
-#: src/services/webdav_sync.py:609
+#: src/services/webdav_sync.py:620
 #, python-brace-format
 msgid "Bad zip archive: {error}"
 msgstr "ZIP アーカイブが破損しています: {error}"
@@ -730,7 +730,7 @@ msgstr "パスワードを確認…"
 msgid "Confirm:"
 msgstr "確認:"
 
-#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:459
+#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:460
 msgid "Connecting to WebDAV server..."
 msgstr "WebDAV サーバーに接続中..."
 
@@ -1050,17 +1050,17 @@ msgstr "完了。  {before:.1f} MB → {after:.1f} MB  ({saved:.0f} KB 節約、
 msgid "Double-click any row to open the link in browser"
 msgstr "任意の行をダブルクリックするとブラウザでリンクを開きます"
 
-#: src/services/webdav_sync.py:515
+#: src/services/webdav_sync.py:526
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "ダウンロードに失敗しました：{error}"
 
-#: src/services/webdav_sync.py:485
+#: src/services/webdav_sync.py:496
 #, python-brace-format
 msgid "Downloading {filename}..."
 msgstr "{filename} をダウンロード中..."
 
-#: src/services/webdav_sync.py:496
+#: src/services/webdav_sync.py:507
 #, python-brace-format
 msgid "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
 msgstr "ダウンロード中: {percent:.0f}% ({downloaded}/{total}KB)"
@@ -1446,7 +1446,7 @@ msgstr "注釈あり"
 msgid "Has note (click to edit)"
 msgstr "注釈あり（クリックで編集）"
 
-#: src/services/webdav_sync.py:560
+#: src/services/webdav_sync.py:571
 #, python-brace-format
 msgid "Hash verification FAILED! Expected {exp}, got {act}"
 msgstr "ハッシュ検証失敗！期待値: {exp}、実際値: {act}"
@@ -1821,7 +1821,7 @@ msgstr "レベル:"
 msgid "List Remote Backups"
 msgstr "リモートバックアップ一覧"
 
-#: src/services/webdav_sync.py:466
+#: src/services/webdav_sync.py:467
 msgid "Listing remote backups..."
 msgstr "リモートバックアップを一覧表示中..."
 
@@ -2127,7 +2127,7 @@ msgstr "従来データなし"
 msgid "No Selection"
 msgstr "未選択"
 
-#: src/services/webdav_sync.py:477
+#: src/services/webdav_sync.py:478
 msgid "No backups found on server."
 msgstr "サーバーにバックアップが見つかりません。"
 
@@ -2550,7 +2550,7 @@ msgstr "再読み込み"
 msgid "Remote Path:"
 msgstr "リモートパス:"
 
-#: src/services/webdav_sync.py:470
+#: src/services/webdav_sync.py:471
 msgid "Remote directory not found."
 msgstr "リモートディレクトリが見つかりません。"
 
@@ -2663,7 +2663,7 @@ msgstr "データベースを復元"
 msgid "Restore Default View"
 msgstr "デフォルト表示に戻す"
 
-#: src/services/webdav_sync.py:632
+#: src/services/webdav_sync.py:643
 #, python-brace-format
 msgid "Restore failed: {error}"
 msgstr "復元に失敗: {error}"
@@ -2676,7 +2676,7 @@ msgstr "WebDAV から復元"
 msgid "Restore the built-in default URL prefix list"
 msgstr "組み込みのデフォルト URL 接頭辞リストを復元"
 
-#: src/services/webdav_sync.py:624
+#: src/services/webdav_sync.py:635
 #, python-brace-format
 msgid "Restored from {filename}"
 msgstr "{filename} から復元しました"
@@ -2690,7 +2690,7 @@ msgstr "{n} 件のレコードを復元しました。"
 msgid "Restoring WAL mode and updating statistics…"
 msgstr "WAL モードを復元し統計を更新中…"
 
-#: src/services/webdav_sync.py:571
+#: src/services/webdav_sync.py:582
 msgid "Restoring favicon cache..."
 msgstr "ファビコンキャッシュを復元中..."
 
@@ -2884,6 +2884,11 @@ msgstr "履歴データベースファイルを選択"
 #: src/views/export_dialog.py:230
 msgid "Select None"
 msgstr "選択解除"
+
+#: src/services/webdav_sync.py:486
+#, python-brace-format
+msgid "Selected backup not found on server: {filename}"
+msgstr "選択したバックアップがサーバー上に見つかりません: {filename}"
 
 #: src/views/stats_page.py:78
 msgid "September"
@@ -3415,7 +3420,7 @@ msgstr "不明（スキップ）"
 msgid "Unlock"
 msgstr "ロック解除"
 
-#: src/services/webdav_sync.py:481
+#: src/services/webdav_sync.py:483 src/services/webdav_sync.py:492
 #, python-brace-format
 msgid "Unsafe backup filename rejected: {filename}"
 msgstr "安全でないバックアップファイル名が拒否されました: {filename}"
@@ -3511,7 +3516,7 @@ msgstr "結果を検証"
 msgid "Verify the migration result"
 msgstr "移行結果を検証"
 
-#: src/services/webdav_sync.py:520
+#: src/services/webdav_sync.py:531
 msgid "Verifying backup integrity (SHA-256)..."
 msgstr "バックアップの整合性を検証中（SHA-256）..."
 
@@ -3602,7 +3607,7 @@ msgstr "WebDAV 同期設定"
 msgid "WebDAV not configured"
 msgstr "WebDAV が設定されていません"
 
-#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:451
+#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:452
 msgid "WebDAV not configured or disabled"
 msgstr "WebDAV が設定されていないか無効です"
 
@@ -3787,7 +3792,7 @@ msgstr "不明"
 msgid "visits"
 msgstr "訪問"
 
-#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:448
+#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:449
 msgid "webdavclient3 is not installed."
 msgstr "webdavclient3 がインストールされていません。"
 
@@ -3999,7 +4004,7 @@ msgstr "✓ 完全再同期完了 — {n} 件の新規レコードを upsert し
 msgid "✓ Full resync complete — {n} new records upserted."
 msgstr "✓ 完全再同期完了 — {n} 件の新規レコードを upsert しました。"
 
-#: src/services/webdav_sync.py:567
+#: src/services/webdav_sync.py:578
 #, python-brace-format
 msgid "✓ Hash verified: {hash}..."
 msgstr "✓ ハッシュ検証済み: {hash}..."

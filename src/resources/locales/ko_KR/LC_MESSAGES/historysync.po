@@ -5,9 +5,9 @@
 # Automatically generated, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: HistorySync 1.2.1\n"
+"Project-Id-Version: HistorySync 1.2.2\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-04-23 15:41+0000\n"
+"POT-Creation-Date: 2026-04-29 13:22+0000\n"
 "PO-Revision-Date: 2026-04-23 12:19+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: ko_KR\n"
@@ -397,7 +397,7 @@ msgstr "기록과 함께 파비콘 데이터베이스를 백업합니다. 백업
 msgid "Backup ZIP uploaded but sync_manifest.json failed: {error}"
 msgstr "백업 ZIP은 업로드되었으나 sync_manifest.json 업로드 실패: {error}"
 
-#: src/services/webdav_sync.py:540
+#: src/services/webdav_sync.py:551
 msgid "Backup archive missing history.db"
 msgstr "백업 아카이브에 history.db가 없습니다"
 
@@ -419,7 +419,7 @@ msgstr "백업 저장 위치:  {path}"
 msgid "Backup to WebDAV"
 msgstr "WebDAV에 백업"
 
-#: src/services/webdav_sync.py:609
+#: src/services/webdav_sync.py:620
 #, python-brace-format
 msgid "Bad zip archive: {error}"
 msgstr "잘못된 zip 아카이브: {error}"
@@ -730,7 +730,7 @@ msgstr "비밀번호 확인…"
 msgid "Confirm:"
 msgstr "확인:"
 
-#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:459
+#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:460
 msgid "Connecting to WebDAV server..."
 msgstr "WebDAV 서버에 연결 중..."
 
@@ -1052,17 +1052,17 @@ msgstr "완료.  {before:.1f} MB → {after:.1f} MB  ({saved:.0f} KB 절약, {pc
 msgid "Double-click any row to open the link in browser"
 msgstr "행을 더블클릭하면 브라우저에서 링크가 열립니다"
 
-#: src/services/webdav_sync.py:515
+#: src/services/webdav_sync.py:526
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "다운로드 실패: {error}"
 
-#: src/services/webdav_sync.py:485
+#: src/services/webdav_sync.py:496
 #, python-brace-format
 msgid "Downloading {filename}..."
 msgstr "{filename} 다운로드 중..."
 
-#: src/services/webdav_sync.py:496
+#: src/services/webdav_sync.py:507
 #, python-brace-format
 msgid "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
 msgstr "다운로드 중: {percent:.0f}% ({downloaded} / {total} KB)"
@@ -1448,7 +1448,7 @@ msgstr "메모 있음"
 msgid "Has note (click to edit)"
 msgstr "메모 있음 (클릭하여 편집)"
 
-#: src/services/webdav_sync.py:560
+#: src/services/webdav_sync.py:571
 #, python-brace-format
 msgid "Hash verification FAILED! Expected {exp}, got {act}"
 msgstr "해시 검증 실패! 예상: {exp}, 실제: {act}"
@@ -1823,7 +1823,7 @@ msgstr "레벨:"
 msgid "List Remote Backups"
 msgstr "원격 백업 목록 보기"
 
-#: src/services/webdav_sync.py:466
+#: src/services/webdav_sync.py:467
 msgid "Listing remote backups..."
 msgstr "원격 백업 목록 가져오는 중..."
 
@@ -2129,7 +2129,7 @@ msgstr "기존 데이터 없음"
 msgid "No Selection"
 msgstr "선택 없음"
 
-#: src/services/webdav_sync.py:477
+#: src/services/webdav_sync.py:478
 msgid "No backups found on server."
 msgstr "서버에 백업이 없습니다."
 
@@ -2552,7 +2552,7 @@ msgstr "새로 고침"
 msgid "Remote Path:"
 msgstr "원격 경로:"
 
-#: src/services/webdav_sync.py:470
+#: src/services/webdav_sync.py:471
 msgid "Remote directory not found."
 msgstr "원격 디렉토리를 찾을 수 없습니다."
 
@@ -2665,7 +2665,7 @@ msgstr "데이터베이스 복원"
 msgid "Restore Default View"
 msgstr "기본 보기 복원"
 
-#: src/services/webdav_sync.py:632
+#: src/services/webdav_sync.py:643
 #, python-brace-format
 msgid "Restore failed: {error}"
 msgstr "복원 실패: {error}"
@@ -2678,7 +2678,7 @@ msgstr "WebDAV에서 복원"
 msgid "Restore the built-in default URL prefix list"
 msgstr "기본 URL 접두사 목록 복원"
 
-#: src/services/webdav_sync.py:624
+#: src/services/webdav_sync.py:635
 #, python-brace-format
 msgid "Restored from {filename}"
 msgstr "{filename}에서 복원됨"
@@ -2692,7 +2692,7 @@ msgstr "{n}개 레코드가 복원되었습니다."
 msgid "Restoring WAL mode and updating statistics…"
 msgstr "WAL 모드 복원 및 통계 업데이트 중…"
 
-#: src/services/webdav_sync.py:571
+#: src/services/webdav_sync.py:582
 msgid "Restoring favicon cache..."
 msgstr "파비콘 캐시 복원 중..."
 
@@ -2886,6 +2886,11 @@ msgstr "기록 데이터베이스 파일 선택"
 #: src/views/export_dialog.py:230
 msgid "Select None"
 msgstr "선택 해제"
+
+#: src/services/webdav_sync.py:486
+#, python-brace-format
+msgid "Selected backup not found on server: {filename}"
+msgstr "선택한 백업을 서버에서 찾을 수 없습니다: {filename}"
 
 #: src/views/stats_page.py:78
 msgid "September"
@@ -3419,7 +3424,7 @@ msgstr "알 수 없음 (건너뛰기)"
 msgid "Unlock"
 msgstr "잠금 해제"
 
-#: src/services/webdav_sync.py:481
+#: src/services/webdav_sync.py:483 src/services/webdav_sync.py:492
 #, python-brace-format
 msgid "Unsafe backup filename rejected: {filename}"
 msgstr "안전하지 않은 백업 파일 이름이 거부되었습니다: {filename}"
@@ -3515,7 +3520,7 @@ msgstr "결과 확인"
 msgid "Verify the migration result"
 msgstr "마이그레이션 결과 확인"
 
-#: src/services/webdav_sync.py:520
+#: src/services/webdav_sync.py:531
 msgid "Verifying backup integrity (SHA-256)..."
 msgstr "백업 무결성 확인 중 (SHA-256)..."
 
@@ -3606,7 +3611,7 @@ msgstr "WebDAV 동기화 구성"
 msgid "WebDAV not configured"
 msgstr "WebDAV가 구성되지 않음"
 
-#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:451
+#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:452
 msgid "WebDAV not configured or disabled"
 msgstr "WebDAV가 구성되지 않았거나 비활성화됨"
 
@@ -3791,7 +3796,7 @@ msgstr "알 수 없음"
 msgid "visits"
 msgstr "방문"
 
-#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:448
+#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:449
 msgid "webdavclient3 is not installed."
 msgstr "webdavclient3가 설치되지 않았습니다."
 
@@ -4003,7 +4008,7 @@ msgstr "✓ 전체 재동기화 완료 — {n}개 새 레코드 upsert됨"
 msgid "✓ Full resync complete — {n} new records upserted."
 msgstr "✓ 전체 재동기화 완료 — {n}개 새 레코드 upsert됨."
 
-#: src/services/webdav_sync.py:567
+#: src/services/webdav_sync.py:578
 #, python-brace-format
 msgid "✓ Hash verified: {hash}..."
 msgstr "✓ 해시 검증됨: {hash}..."

@@ -5,9 +5,9 @@
 # Automatically generated, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: HistorySync 1.2.1\n"
+"Project-Id-Version: HistorySync 1.2.2\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-04-23 15:41+0000\n"
+"POT-Creation-Date: 2026-04-29 13:22+0000\n"
 "PO-Revision-Date: 2026-04-23 12:16+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: zh_TW\n"
@@ -396,7 +396,7 @@ msgstr "備份時包含網站圖示資料庫以及歷史記錄。會增加備份
 msgid "Backup ZIP uploaded but sync_manifest.json failed: {error}"
 msgstr "已上傳備份 ZIP，但 sync_manifest.json 失敗：{error}"
 
-#: src/services/webdav_sync.py:540
+#: src/services/webdav_sync.py:551
 msgid "Backup archive missing history.db"
 msgstr "備份壓縮檔缺少 history.db"
 
@@ -418,7 +418,7 @@ msgstr "備份已儲存至：{path}"
 msgid "Backup to WebDAV"
 msgstr "備份到 WebDAV"
 
-#: src/services/webdav_sync.py:609
+#: src/services/webdav_sync.py:620
 #, python-brace-format
 msgid "Bad zip archive: {error}"
 msgstr "ZIP 壓縮檔損毀：{error}"
@@ -729,7 +729,7 @@ msgstr "確認密碼…"
 msgid "Confirm:"
 msgstr "確認："
 
-#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:459
+#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:460
 msgid "Connecting to WebDAV server..."
 msgstr "正在連線至 WebDAV 伺服器..."
 
@@ -1048,17 +1048,17 @@ msgstr "完成。  {before:.1f} MB → {after:.1f} MB  （節省 {saved:.0f} KB�
 msgid "Double-click any row to open the link in browser"
 msgstr "雙擊任意列即可在瀏覽器中開啟連結"
 
-#: src/services/webdav_sync.py:515
+#: src/services/webdav_sync.py:526
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "下載失敗：{error}"
 
-#: src/services/webdav_sync.py:485
+#: src/services/webdav_sync.py:496
 #, python-brace-format
 msgid "Downloading {filename}..."
 msgstr "正在下載 {filename}..."
 
-#: src/services/webdav_sync.py:496
+#: src/services/webdav_sync.py:507
 #, python-brace-format
 msgid "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
 msgstr "正在下載：{percent:.0f}% ({downloaded} / {total} KB)"
@@ -1444,7 +1444,7 @@ msgstr "有註解"
 msgid "Has note (click to edit)"
 msgstr "有註解（點擊編輯）"
 
-#: src/services/webdav_sync.py:560
+#: src/services/webdav_sync.py:571
 #, python-brace-format
 msgid "Hash verification FAILED! Expected {exp}, got {act}"
 msgstr "雜湊校驗失敗！預期值：{exp}，實際值：{act}"
@@ -1819,7 +1819,7 @@ msgstr "級別："
 msgid "List Remote Backups"
 msgstr "列出遠端備份"
 
-#: src/services/webdav_sync.py:466
+#: src/services/webdav_sync.py:467
 msgid "Listing remote backups..."
 msgstr "正在列出遠端備份..."
 
@@ -2125,7 +2125,7 @@ msgstr "無舊版資料"
 msgid "No Selection"
 msgstr "未選擇"
 
-#: src/services/webdav_sync.py:477
+#: src/services/webdav_sync.py:478
 msgid "No backups found on server."
 msgstr "伺服器上未找到備份。"
 
@@ -2546,7 +2546,7 @@ msgstr "重新載入"
 msgid "Remote Path:"
 msgstr "遠端路徑："
 
-#: src/services/webdav_sync.py:470
+#: src/services/webdav_sync.py:471
 msgid "Remote directory not found."
 msgstr "遠端目錄未找到。"
 
@@ -2659,7 +2659,7 @@ msgstr "還原資料庫"
 msgid "Restore Default View"
 msgstr "恢復預設檢視"
 
-#: src/services/webdav_sync.py:632
+#: src/services/webdav_sync.py:643
 #, python-brace-format
 msgid "Restore failed: {error}"
 msgstr "還原失敗：{error}"
@@ -2672,7 +2672,7 @@ msgstr "從 WebDAV 還原"
 msgid "Restore the built-in default URL prefix list"
 msgstr "恢復內建的預設 URL 前綴清單"
 
-#: src/services/webdav_sync.py:624
+#: src/services/webdav_sync.py:635
 #, python-brace-format
 msgid "Restored from {filename}"
 msgstr "已從 {filename} 還原"
@@ -2686,7 +2686,7 @@ msgstr "已還原 {n} 筆記錄。"
 msgid "Restoring WAL mode and updating statistics…"
 msgstr "正在還原 WAL 模式並更新統計資訊…"
 
-#: src/services/webdav_sync.py:571
+#: src/services/webdav_sync.py:582
 msgid "Restoring favicon cache..."
 msgstr "正在還原網站圖示快取..."
 
@@ -2880,6 +2880,11 @@ msgstr "選擇歷史紀錄資料庫檔案"
 #: src/views/export_dialog.py:230
 msgid "Select None"
 msgstr "全部取消選擇"
+
+#: src/services/webdav_sync.py:486
+#, python-brace-format
+msgid "Selected backup not found on server: {filename}"
+msgstr "伺服器上找不到所選備份：{filename}"
 
 #: src/views/stats_page.py:78
 msgid "September"
@@ -3408,7 +3413,7 @@ msgstr "未知（跳過）"
 msgid "Unlock"
 msgstr "解除鎖定"
 
-#: src/services/webdav_sync.py:481
+#: src/services/webdav_sync.py:483 src/services/webdav_sync.py:492
 #, python-brace-format
 msgid "Unsafe backup filename rejected: {filename}"
 msgstr "不安全的備份檔名已拒絕：{filename}"
@@ -3504,7 +3509,7 @@ msgstr "驗證結果"
 msgid "Verify the migration result"
 msgstr "驗證遷移結果"
 
-#: src/services/webdav_sync.py:520
+#: src/services/webdav_sync.py:531
 msgid "Verifying backup integrity (SHA-256)..."
 msgstr "正在驗證備份完整性 (SHA-256)..."
 
@@ -3595,7 +3600,7 @@ msgstr "WebDAV 同步設定"
 msgid "WebDAV not configured"
 msgstr "WebDAV 未設定"
 
-#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:451
+#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:452
 msgid "WebDAV not configured or disabled"
 msgstr "WebDAV 未設定或已停用"
 
@@ -3780,7 +3785,7 @@ msgstr "未知"
 msgid "visits"
 msgstr "次造訪"
 
-#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:448
+#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:449
 msgid "webdavclient3 is not installed."
 msgstr "未安裝 webdavclient3。"
 
@@ -3992,7 +3997,7 @@ msgstr "✓ 完整重新同步完成 — 已寫入 {n} 筆新記錄"
 msgid "✓ Full resync complete — {n} new records upserted."
 msgstr "✓ 完整重新同步完成 — 已寫入 {n} 筆新記錄。"
 
-#: src/services/webdav_sync.py:567
+#: src/services/webdav_sync.py:578
 #, python-brace-format
 msgid "✓ Hash verified: {hash}..."
 msgstr "✓ 雜湊驗證通過：{hash}..."
