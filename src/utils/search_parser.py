@@ -63,8 +63,10 @@ def parse_query(text: str) -> SearchQuery:
     }
 
     remaining_text = text
-    # Keyword extracted from url:/title: tokens, used only when no free-text remains.
-    _token_keyword: str = ""
+    # Keywords extracted from title:/url: tokens; each stored separately so
+    # they don't overwrite each other.  Used only when no free-text remains.
+    _title_keyword: str = ""
+    _url_keyword: str = ""
 
     for token, pattern in token_patterns.items():
         if token == "exclude":
@@ -116,12 +118,14 @@ def parse_query(text: str) -> SearchQuery:
                     pass
             elif token == "title":
                 query.title_only = True
-                _token_keyword = match.group(1) or match.group(2)
+                query.url_only = False
+                _title_keyword = match.group(1) or match.group(2)
                 remaining_text = re.sub(pattern, "", remaining_text)
                 continue
             elif token == "url":
                 query.url_only = True
-                _token_keyword = val
+                query.title_only = False
+                _url_keyword = val
                 remaining_text = re.sub(pattern, "", remaining_text)
                 continue
             elif token == "browser":
@@ -131,5 +135,13 @@ def parse_query(text: str) -> SearchQuery:
             remaining_text = re.sub(pattern, "", remaining_text)
 
     free_text = " ".join(remaining_text.split()).strip()
-    query.keyword = free_text or _token_keyword
+    # title: and url: are mutually exclusive; the last one parsed wins (its
+    # flag is already set above and the other flag was cleared).  Pick the
+    # matching keyword, falling back to free-text if present.
+    if free_text:
+        query.keyword = free_text
+    elif query.title_only:
+        query.keyword = _title_keyword
+    elif query.url_only:
+        query.keyword = _url_keyword
     return query
