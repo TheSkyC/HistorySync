@@ -2838,6 +2838,7 @@ class LocalDatabase:
             params.append(browser_type)
 
         conditions.append("_hr.url IS NULL")
+        conditions.append(self._hd_filter(history_alias="h", domain_alias="d"))
 
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         # Inject domains JOIN and hidden_records anti-join so the optimizer can
@@ -2869,6 +2870,7 @@ class LocalDatabase:
                     conditions = [
                         "(h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')",
                         "_hr.url IS NULL",
+                        self._hd_filter(history_alias="h", domain_alias="d"),
                     ]
                     params = [f"%{_escape_like(keyword)}%", f"%{_escape_like(keyword)}%"]
                     if browser_type and browser_type not in ("auto", "all"):
