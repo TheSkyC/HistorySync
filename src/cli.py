@@ -1237,10 +1237,9 @@ def _cmd_search(config, args: argparse.Namespace) -> int:
         _hint("Run  hsync -s  first to populate the database.")
         return 1
 
-    db = LocalDatabase(db_path)
-
     # Interactive mode
     if interactive:
+        db = LocalDatabase(db_path)
         return _cmd_search_interactive(db, query_str, limit, quiet, log)
 
     # If no query provided, show recent records
