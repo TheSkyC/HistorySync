@@ -1192,6 +1192,34 @@ class LocalDatabase:
             except OSError:
                 pass
 
+    @staticmethod
+    def _recreate_fts_triggers(conn: sqlite3.Connection) -> None:
+        """Create (or recreate) the three FTS5 sync triggers on *conn*.
+
+        Called both from the normal upsert path (step 7) and from the crash-
+        recovery check (step 3b) that runs at the start of every upsert_records
+        call.  Using IF NOT EXISTS makes it safe to call when triggers already
+        exist.
+        """
+        conn.execute(
+            "CREATE TRIGGER IF NOT EXISTS history_ai AFTER INSERT ON history BEGIN"
+            " INSERT INTO history_fts(rowid, url, title) VALUES (new.id, new.url, new.title);"
+            " END"
+        )
+        conn.execute(
+            "CREATE TRIGGER IF NOT EXISTS history_ad AFTER DELETE ON history BEGIN"
+            " INSERT INTO history_fts(history_fts, rowid, url, title)"
+            " VALUES('delete', old.id, old.url, old.title);"
+            " END"
+        )
+        conn.execute(
+            "CREATE TRIGGER IF NOT EXISTS history_au AFTER UPDATE ON history BEGIN"
+            " INSERT INTO history_fts(history_fts, rowid, url, title)"
+            " VALUES('delete', old.id, old.url, old.title);"
+            " INSERT INTO history_fts(rowid, url, title) VALUES (new.id, new.url, new.title);"
+            " END"
+        )
+
     def rebuild_fts_index(
         self,
         progress_cb: Callable[[str], None] | None = None,
@@ -1641,12 +1669,28 @@ class LocalDatabase:
             #    only the newly inserted rows afterwards.
             max_id_before: int = conn.execute("SELECT COALESCE(MAX(id), 0) FROM history").fetchone()[0]
 
+            # 3b. Recover from a previous crash that left FTS triggers missing.
+            # SQLite DDL (DROP/CREATE TRIGGER) does not participate in transaction
+            # rollback, so a process crash between DROP and CREATE leaves the
+            # triggers permanently absent.  Detect and repair that state here
+            # before we potentially drop them again below.
+            existing_triggers = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='trigger' AND name IN "
+                    "('history_ai','history_ad','history_au')"
+                ).fetchall()
+            }
+            _missing_triggers = {"history_ai", "history_ad", "history_au"} - existing_triggers
+            if _missing_triggers:
+                log.warning("FTS triggers missing (%s) — rebuilding before upsert", _missing_triggers)
+                self._recreate_fts_triggers(conn)
+
             # 4-8. Wrap the trigger DDL + bulk insert + FTS sync in a SAVEPOINT
-            #      so a mid-operation crash leaves the DB consistent (triggers
-            #      still present, no partial inserts).  We use individual
-            #      execute() calls instead of executescript() because
-            #      executescript() issues an implicit COMMIT which would exit
-            #      the savepoint prematurely.
+            #      so a mid-operation crash leaves the DB consistent for DML
+            #      (no partial inserts).  Note: SQLite DDL (DROP/CREATE TRIGGER)
+            #      does NOT roll back with the savepoint — see comment in step 7
+            #      for how we mitigate the crash window.
             # For small batches the DDL overhead of DROP/CREATE triggers exceeds
             # the per-row FTS cost, so we only disable triggers for large batches.
             _disable_triggers = len(records) > 200
@@ -1738,25 +1782,11 @@ class LocalDatabase:
                 ]
 
                 # 7. Restore FTS triggers (only if they were dropped).
+                # If the process crashes between DROP (step 4) and here, the
+                # triggers will be absent on the next run.  Step 3b detects and
+                # repairs that state at the start of the next upsert_records call.
                 if _disable_triggers:
-                    conn.execute(
-                        "CREATE TRIGGER IF NOT EXISTS history_ai AFTER INSERT ON history BEGIN"
-                        " INSERT INTO history_fts(rowid, url, title) VALUES (new.id, new.url, new.title);"
-                        " END"
-                    )
-                    conn.execute(
-                        "CREATE TRIGGER IF NOT EXISTS history_ad AFTER DELETE ON history BEGIN"
-                        " INSERT INTO history_fts(history_fts, rowid, url, title)"
-                        " VALUES('delete', old.id, old.url, old.title);"
-                        " END"
-                    )
-                    conn.execute(
-                        "CREATE TRIGGER IF NOT EXISTS history_au AFTER UPDATE ON history BEGIN"
-                        " INSERT INTO history_fts(history_fts, rowid, url, title)"
-                        " VALUES('delete', old.id, old.url, old.title);"
-                        " INSERT INTO history_fts(rowid, url, title) VALUES (new.id, new.url, new.title);"
-                        " END"
-                    )
+                    self._recreate_fts_triggers(conn)
 
                 # 8. Batch-sync FTS for the trigger-free window.
                 #    Only needed when triggers were disabled; when triggers were
