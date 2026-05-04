@@ -117,15 +117,15 @@ def parse_query(text: str) -> SearchQuery:
                 except ValueError:
                     pass
             elif token == "title":
-                query.title_only = True
-                query.url_only = False
-                _title_keyword = match.group(1) or match.group(2)
+                if not query.url_only:  # first token wins; ignore if url: already parsed
+                    query.title_only = True
+                    _title_keyword = match.group(1) or match.group(2)
                 remaining_text = re.sub(pattern, "", remaining_text)
                 continue
             elif token == "url":
-                query.url_only = True
-                query.title_only = False
-                _url_keyword = val
+                if not query.title_only:  # first token wins; ignore if title: already parsed
+                    query.url_only = True
+                    _url_keyword = val
                 remaining_text = re.sub(pattern, "", remaining_text)
                 continue
             elif token == "browser":
@@ -135,9 +135,8 @@ def parse_query(text: str) -> SearchQuery:
             remaining_text = re.sub(pattern, "", remaining_text)
 
     free_text = " ".join(remaining_text.split()).strip()
-    # title: and url: are mutually exclusive; the last one parsed wins (its
-    # flag is already set above and the other flag was cleared).  Pick the
-    # matching keyword, falling back to free-text if present.
+    # title: and url: are mutually exclusive; the first one parsed wins.
+    # Pick the matching keyword, falling back to free-text if present.
     if free_text:
         query.keyword = free_text
     elif query.title_only:
