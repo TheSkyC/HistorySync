@@ -1843,6 +1843,17 @@ class LocalDatabase:
             except Exception:
                 conn.execute("ROLLBACK TO upsert_batch")
                 conn.execute("RELEASE upsert_batch")
+                if _disable_triggers:
+                    # DDL (DROP TRIGGER) does not roll back with the savepoint,
+                    # so triggers may be permanently absent after this exception.
+                    # Restore them immediately; step 3b will also catch this on
+                    # the next call, but closing the window here prevents other
+                    # write paths (delete_records_by_ids, merge_from_db) from
+                    # silently skipping FTS updates in the interim.
+                    try:
+                        self._recreate_fts_triggers(conn)
+                    except Exception:
+                        pass  # step 3b will repair on next upsert_records call
                 raise
 
         log.info("Upserted %d / %d records", inserted, len(records))
