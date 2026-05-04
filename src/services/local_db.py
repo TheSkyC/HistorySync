@@ -298,7 +298,8 @@ class LocalDatabase:
                 except Exception:
                     # Reset the RO connection on error so it is recreated next
                     # time.  Avoid calling _reset_conn() here — it also acquires
-                    # _ro_lock which we already hold (regular Lock, not RLock).
+                    # _ro_lock which we already hold (RLock, so re-entry is safe,
+                    # but _reset_conn touches _ro_conn state we manage here).
                     try:
                         conn.close()
                     except sqlite3.Error:
@@ -2287,29 +2288,29 @@ class LocalDatabase:
                         hidden_only=hidden_only,
                     )
                 raise
-        if not id_rows:
-            return []
-        # Resolve full columns + domain host in one query using the page ids.
-        # JOIN on the PK index (200 rows) is cheap; the covering-index scan above
-        # already did the expensive pagination work.  Using a CTE keeps both steps
-        # in the same connection context (single lock acquisition) and preserves
-        # visit_time DESC order via the final ORDER BY.
-        page_ids = [r[0] for r in id_rows]
-        placeholders = ",".join("?" * len(page_ids))
-        _COLS = (
-            "h.id, h.url, h.title, h.visit_time, h.visit_count, "
-            "h.browser_type, h.profile_name, h.metadata, "
-            "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
-            "h.device_id, d.host AS domain"
-        )
-        full_rows = conn.execute(
-            f"SELECT {_COLS} FROM history h "
-            f"LEFT JOIN domains d ON h.domain_id = d.id "
-            f"WHERE h.id IN ({placeholders}) "
-            f"ORDER BY h.visit_time DESC, h.id DESC",
-            page_ids,
-        ).fetchall()
-        return [self._row_to_record(r) for r in full_rows]
+            if not id_rows:
+                return []
+            # Resolve full columns + domain host in one query using the page ids.
+            # JOIN on the PK index (200 rows) is cheap; the covering-index scan above
+            # already did the expensive pagination work.  Using a CTE keeps both steps
+            # in the same connection context (single lock acquisition) and preserves
+            # visit_time DESC order via the final ORDER BY.
+            page_ids = [r[0] for r in id_rows]
+            placeholders = ",".join("?" * len(page_ids))
+            _COLS = (
+                "h.id, h.url, h.title, h.visit_time, h.visit_count, "
+                "h.browser_type, h.profile_name, h.metadata, "
+                "h.typed_count, h.first_visit_time, h.transition_type, h.visit_duration, "
+                "h.device_id, d.host AS domain"
+            )
+            full_rows = conn.execute(
+                f"SELECT {_COLS} FROM history h "
+                f"LEFT JOIN domains d ON h.domain_id = d.id "
+                f"WHERE h.id IN ({placeholders}) "
+                f"ORDER BY h.visit_time DESC, h.id DESC",
+                page_ids,
+            ).fetchall()
+            return [self._row_to_record(r) for r in full_rows]
 
     def get_visit_time_at_offset(
         self,
