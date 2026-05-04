@@ -8,7 +8,7 @@ import sys
 import threading
 import time
 
-from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal, Slot
+from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 
 from src.models.app_config import SchedulerConfig
 from src.utils.constants import APP_NAME, BUNDLE_ID, FAVICON_CACHE_DIR_NAME
@@ -369,9 +369,9 @@ class Scheduler(QObject):
         worker.moveToThread(thread)
 
         thread.started.connect(worker.run)
-        worker.finished.connect(self._on_sync_finished, Qt.DirectConnection)
+        worker.finished.connect(self._on_sync_finished)
         worker.progress.connect(self.sync_progress)
-        worker.error.connect(self._on_sync_error, Qt.DirectConnection)
+        worker.error.connect(self._on_sync_error)
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
@@ -424,7 +424,7 @@ class Scheduler(QObject):
         worker.moveToThread(thread)
 
         thread.started.connect(worker.run)
-        worker.finished.connect(self._on_backup_finished, Qt.DirectConnection)
+        worker.finished.connect(self._on_backup_finished)
         worker.finished.connect(thread.quit)
 
         thread.finished.connect(self._on_backup_thread_finished)
