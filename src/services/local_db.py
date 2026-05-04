@@ -1143,7 +1143,7 @@ class LocalDatabase:
             staging.unlink()
 
         try:
-            with self._lock, self._conn(write=True) as conn:
+            with self._conn(write=True) as conn:
                 safe_staging = _sanitize_vacuum_path(staging_path)
                 conn.execute(f"VACUUM INTO '{safe_staging}'")
 
