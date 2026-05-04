@@ -370,11 +370,10 @@ class WebDavSyncService:
             except OSError as exc:
                 return self._fail(_("Upload failed: {error}").format(error=str(exc)))
 
-            self._set_status(SyncStatus.CLEANING)
-            _cb(_("Cleaning up old backups..."))
-            self._cleanup_old_backups(client, remote_dir)
-
             # ── Upload sync_manifest.json ──
+            # Upload manifest BEFORE cleaning up old backups so that a crash
+            # between cleanup and manifest upload cannot leave the manifest
+            # pointing at a file that was just deleted.
             sync_manifest = {
                 "schema_version": 1,
                 "latest_backup": remote_filename,
@@ -404,6 +403,10 @@ class WebDavSyncService:
                     Path(tmp_manifest_path).unlink(missing_ok=True)
                 except OSError:
                     pass
+
+            self._set_status(SyncStatus.CLEANING)
+            _cb(_("Cleaning up old backups..."))
+            self._cleanup_old_backups(client, remote_dir)
 
             self._set_status(SyncStatus.SUCCESS)
             if self._local_db is not None and self._device_id is not None:
