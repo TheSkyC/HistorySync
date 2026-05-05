@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+import threading
 import time
 
 from src.services.browser_defs import BUILTIN_BROWSERS, get_browser_def
@@ -55,6 +56,7 @@ class ExtractorManager:
         self._device_id: int | None = device_id
         self._registry: dict[str, BaseExtractor] = {}
         self._saved_extractors: dict[str, BaseExtractor] = {}
+        self._config_lock = threading.Lock()
         # Import defaults lazily to avoid circular imports at module level
         from src.models.app_config import DEFAULT_FILTERED_URL_PREFIXES
 
@@ -100,7 +102,8 @@ class ExtractorManager:
                 log.error("Failed to register learned browser %s: %s", browser_type, e)
 
     def register(self, extractor: BaseExtractor) -> None:
-        self._registry[extractor.browser_type] = extractor
+        with self._config_lock:
+            self._registry[extractor.browser_type] = extractor
         log.info("Registered extractor: %s", extractor.display_name)
 
     def register_new_learned(self, learned_browsers: dict) -> None:
@@ -112,7 +115,8 @@ class ExtractorManager:
         self.register(extractor)
 
     def unregister(self, browser_type: str) -> None:
-        self._registry.pop(browser_type, None)
+        with self._config_lock:
+            self._registry.pop(browser_type, None)
 
     # ── Hot-reload ────────────────────────────────────────────
 
@@ -124,37 +128,40 @@ class ExtractorManager:
     ) -> None:
         new_disabled = set(disabled_browsers)
 
-        newly_disabled = new_disabled - self._disabled
-        for bt in newly_disabled:
-            if bt in self._registry:
-                self._saved_extractors[bt] = self._registry.pop(bt)
-            log.info("ExtractorManager: disabled '%s'", bt)
+        with self._config_lock:
+            newly_disabled = new_disabled - self._disabled
+            for bt in newly_disabled:
+                if bt in self._registry:
+                    self._saved_extractors[bt] = self._registry.pop(bt)
+                log.info("ExtractorManager: disabled '%s'", bt)
 
-        newly_enabled = self._disabled - new_disabled
-        for bt in newly_enabled:
-            if bt in self._saved_extractors:
-                self._registry[bt] = self._saved_extractors.pop(bt)
-                log.info("ExtractorManager: re-enabled '%s' (restored saved extractor)", bt)
-            else:
-                defn = get_browser_def(bt)
-                if defn is not None:
-                    self._registry[bt] = _make_extractor(defn)
-                    log.info("ExtractorManager: re-enabled '%s'", bt)
+            newly_enabled = self._disabled - new_disabled
+            for bt in newly_enabled:
+                if bt in self._saved_extractors:
+                    self._registry[bt] = self._saved_extractors.pop(bt)
+                    log.info("ExtractorManager: re-enabled '%s' (restored saved extractor)", bt)
+                else:
+                    defn = get_browser_def(bt)
+                    if defn is not None:
+                        self._registry[bt] = _make_extractor(defn)
+                        log.info("ExtractorManager: re-enabled '%s'", bt)
 
-        self._disabled = new_disabled
+            self._disabled = new_disabled
 
-        if blacklisted_domains is not None:
-            self._blacklisted_domains = {normalize_domain(d) for d in blacklisted_domains}
+            if blacklisted_domains is not None:
+                self._blacklisted_domains = {normalize_domain(d) for d in blacklisted_domains}
 
-        if filtered_url_prefixes is not None:
-            self._filtered_url_prefixes = tuple(filtered_url_prefixes)
-            log.info("ExtractorManager: updated filtered_url_prefixes (%d entries)", len(filtered_url_prefixes))
+            if filtered_url_prefixes is not None:
+                self._filtered_url_prefixes = tuple(filtered_url_prefixes)
+                log.info("ExtractorManager: updated filtered_url_prefixes (%d entries)", len(filtered_url_prefixes))
 
     def set_blacklisted_domains(self, domains: list[str]) -> None:
-        self._blacklisted_domains = {normalize_domain(d) for d in domains}
+        with self._config_lock:
+            self._blacklisted_domains = {normalize_domain(d) for d in domains}
 
     def set_filtered_url_prefixes(self, prefixes: list[str]) -> None:
-        self._filtered_url_prefixes = tuple(prefixes)
+        with self._config_lock:
+            self._filtered_url_prefixes = tuple(prefixes)
         log.info("ExtractorManager: set_filtered_url_prefixes (%d entries)", len(prefixes))
 
     def set_device_id(self, device_id: int) -> None:
@@ -173,9 +180,10 @@ class ExtractorManager:
 
     def unregister_browser(self, browser_type: str) -> None:
         """Removes a browser extractor from the runtime registry."""
-        if browser_type in self._registry:
-            self._registry.pop(browser_type)
-            log.info("Unregistered browser extractor: %s", browser_type)
+        with self._config_lock:
+            if browser_type in self._registry:
+                self._registry.pop(browser_type)
+                log.info("Unregistered browser extractor: %s", browser_type)
 
     def is_browser_disabled(self, browser_type: str) -> bool:
         return browser_type in self._disabled
@@ -230,7 +238,16 @@ class ExtractorManager:
         progress_callback: ProgressCallback | None,
         force_full: bool = False,
     ) -> int:
-        extractor = self._registry[browser_type]
+        # Snapshot config under lock so concurrent update_config calls cannot
+        # mutate _registry or filter sets while this thread is running.
+        with self._config_lock:
+            extractor = self._registry.get(browser_type)
+            filtered_url_prefixes = self._filtered_url_prefixes
+            blacklisted_domains = self._blacklisted_domains
+
+        if extractor is None:
+            log.warning("[%s] Extractor not found in registry, skipping", browser_type)
+            return 0
 
         if force_full:
             since_map: dict[str, int] = {}
@@ -256,17 +273,17 @@ class ExtractorManager:
                 r.device_id = self._device_id
 
         # Filter out internal/scheme-filtered URLs (chrome://, about:, data:, etc.)
-        if self._filtered_url_prefixes:
+        if filtered_url_prefixes:
             before = len(records)
-            records = [r for r in records if not self._is_filtered_url(r.url)]
+            records = [r for r in records if not r.url.startswith(filtered_url_prefixes)]
             after = len(records)
             if before != after:
                 log.info("[%s] URL-prefix filter removed %d internal records", browser_type, before - after)
 
         # Filter out blacklisted domains
-        if self._blacklisted_domains:
+        if blacklisted_domains:
             before = len(records)
-            records = [r for r in records if not self._is_blacklisted(r.url)]
+            records = [r for r in records if not self._is_blacklisted_domain(r.url, blacklisted_domains)]
             after = len(records)
             if before != after:
                 log.info("[%s] Blacklist filtered %d records", browser_type, before - after)
@@ -304,14 +321,17 @@ class ExtractorManager:
         return normalize_domain(domain)
 
     def _is_blacklisted(self, url: str) -> bool:
-        """
-        Return True if the URL's host matches a blacklisted domain or is its subdomain.
-        """
-        if not url or not self._blacklisted_domains:
+        """Return True if the URL's host matches a blacklisted domain or is its subdomain."""
+        return self._is_blacklisted_domain(url, self._blacklisted_domains)
+
+    @staticmethod
+    def _is_blacklisted_domain(url: str, blacklisted_domains: set[str]) -> bool:
+        """Return True if the URL's host matches a blacklisted domain or is its subdomain."""
+        if not url or not blacklisted_domains:
             return False
         from src.utils.url_utils import extract_host
 
         host = normalize_domain(extract_host(url) or "")
         if not host:
             return False
-        return any(host == domain or host.endswith("." + domain) for domain in self._blacklisted_domains)
+        return any(host == domain or host.endswith("." + domain) for domain in blacklisted_domains)
