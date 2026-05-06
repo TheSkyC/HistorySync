@@ -636,6 +636,18 @@ class HistoryTableModel(QAbstractTableModel):
         new_count = len(self._keyword_index)
 
         if new_count > old_count:
+            # Evict cached pages that now contain more rows than when they were fetched.
+            # Example: page 0 was cached with 28 records; after this batch _keyword_index
+            # grows to 114, so rows 28-113 all fall in page 0 — the cached page is stale.
+            first_new_page = old_count // CACHE_PAGE_SIZE
+            last_new_page = (new_count - 1) // CACHE_PAGE_SIZE
+            for page_idx in range(first_new_page, last_new_page + 1):
+                self._page_cache.pop(page_idx, None)
+                self._page_lru.pop(page_idx, None)
+            # Reset the single-entry row cache so it doesn't serve a stale None.
+            self._last_row = -1
+            self._last_record = None
+
             self.beginInsertRows(QModelIndex(), old_count, new_count - 1)
             self._total_count = new_count
             self.endInsertRows()
