@@ -20,11 +20,12 @@ class RecentSearchStore:
         *,
         persist: bool = True,
         storage_path: Path | None = None,
+        filename: str = "recent_searches.json",
         save_scheduler: callable | None = None,
     ):
         self._max = max_items
         self._persist = persist
-        self._path = storage_path if storage_path is not None else get_config_dir() / "recent_searches.json"
+        self._path = storage_path if storage_path is not None else get_config_dir() / filename
         self._save_scheduler = save_scheduler or self._save
         self._items: list[str] = self._load() if self._persist else []
 
