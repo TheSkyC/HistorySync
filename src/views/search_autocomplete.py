@@ -523,6 +523,29 @@ class SearchSuggestionModel(QAbstractListModel):
 
         self.endResetModel()
 
+    def update_regex_suggestions(self, text: str, regex_store: RecentSearchStore) -> None:
+        """Rebuild suggestion list for regex mode: only recent regex searches."""
+        self.beginResetModel()
+        self._rows.clear()
+
+        stripped = text.strip()
+        words = stripped.lower().split() if stripped else []
+        recent = regex_store.items()
+        _recent_rows: list[dict] = []
+        for q in recent:
+            q_lower = q.lower()
+            if words and not all(w in q_lower for w in words):
+                continue
+            _recent_rows.append({"display": q, "type": "recent", "insert": q, "icon": "clock", "match_spans": []})
+            if len(_recent_rows) >= 5:
+                break
+
+        if _recent_rows:
+            self._rows.append({"display": _("Recent"), "type": "header", "insert": "", "header": True})
+            self._rows.extend(_recent_rows)
+
+        self.endResetModel()
+
     def has_suggestions(self) -> bool:
         """Return True if there is at least one non-header suggestion row."""
         return any(not r.get("header") for r in self._rows)
@@ -1345,6 +1368,16 @@ class SmartSearchLineEdit(QWidget):
             storage_path=recent_path,
             save_scheduler=lambda: QTimer.singleShot(0, self._recent_store._save),
         )
+        _regex_path: Path | None = (
+            recent_path.parent / "recent_searches_regex.json" if recent_path is not None else None
+        )
+        self._regex_recent_store = RecentSearchStore(
+            max_items=MAX_RECENT_SEARCHES,
+            persist=persist_recent,
+            storage_path=_regex_path,
+            filename="recent_searches_regex.json",
+            save_scheduler=lambda: QTimer.singleShot(0, self._regex_recent_store._save),
+        )
         self._suggestion_model = SearchSuggestionModel(self._recent_store, self)
         self._dropdown = SuggestionDropdown(self.window() or self)
         self._dropdown.setModel(self._suggestion_model)
@@ -1429,7 +1462,8 @@ class SmartSearchLineEdit(QWidget):
         self._suggestion_model.set_available_tags(tags)
 
     def record_search(self, query: str) -> None:
-        self._recent_store.add(query)
+        store = self._regex_recent_store if self._use_regex else self._recent_store
+        store.add(query)
 
     # ── Internal slots ────────────────────────────────────
 
@@ -1458,8 +1492,13 @@ class SmartSearchLineEdit(QWidget):
 
     def _update_suggestions(self) -> None:
         if self._use_regex:
-            self._dropdown.hide()
             self._editor.clear_ghost_text()
+            full_text = self.text()
+            self._suggestion_model.update_regex_suggestions(full_text, self._regex_recent_store)
+            if self._suggestion_model.has_suggestions() and self._editor.hasFocus():
+                self._dropdown.show_below(self)
+            else:
+                self._dropdown.hide()
             return
         # Use cursor position to determine the token being typed, not end-of-text
         full_text = self.text()
@@ -1642,8 +1681,12 @@ class SmartSearchLineEdit(QWidget):
 
     def _on_delete_recent(self, query: str) -> None:
         """Remove a recent search entry and refresh the dropdown in-place."""
-        self._recent_store.remove(query)
-        self._suggestion_model.update_suggestions(self.text())
+        store = self._regex_recent_store if self._use_regex else self._recent_store
+        store.remove(query)
+        if self._use_regex:
+            self._suggestion_model.update_regex_suggestions(self.text(), self._regex_recent_store)
+        else:
+            self._suggestion_model.update_suggestions(self.text())
         if self._suggestion_model.has_suggestions():
             self._dropdown.show_below(self)
         else:
@@ -1661,11 +1704,12 @@ class SmartSearchLineEdit(QWidget):
         self._editor.setProperty("regex", "true" if checked else "false")
         self._editor.style().unpolish(self._editor)
         self._editor.style().polish(self._editor)
-        self._dropdown.hide()
         self._editor.clear_ghost_text()
         self._ghost_insert_text = ""
         self._ghost_stype = ""
         self.regex_toggled.emit(checked)
+        # Refresh suggestions for the new mode (may show regex history or normal autocomplete)
+        self._suggest_timer.start()
 
     def _show_help(self) -> None:
         from PySide6.QtWidgets import QMessageBox
@@ -1763,7 +1807,8 @@ class SmartSearchLineEdit(QWidget):
                 if key in (Qt.Key_Return, Qt.Key_Enter):
                     text = self.text().strip()
                     if text:
-                        self._recent_store.add(text)
+                        store = self._regex_recent_store if self._use_regex else self._recent_store
+                        store.add(text)
                     self._dropdown.hide()
                     self.search_submitted.emit(text)
                     return True
@@ -1788,16 +1833,21 @@ class SmartSearchLineEdit(QWidget):
         """Show dropdown and ghost text when editor gains focus."""
         if new_widget is not self._editor and new_widget is not self._editor.viewport():
             return
-        if self._use_regex or self._focus_gained_reentrancy_guard:
+        if self._focus_gained_reentrancy_guard:
             return
         self._focus_gained_reentrancy_guard = True
         try:
-            cursor_pos = self._editor.textCursor().position()
-            text_before = self.text()[:cursor_pos]
-            self._suggestion_model.update_suggestions(text_before)
-            if self._suggestion_model.has_suggestions():
-                self._dropdown.show_below(self)
-                self._update_ghost_text()
+            if self._use_regex:
+                self._suggestion_model.update_regex_suggestions(self.text(), self._regex_recent_store)
+                if self._suggestion_model.has_suggestions():
+                    self._dropdown.show_below(self)
+            else:
+                cursor_pos = self._editor.textCursor().position()
+                text_before = self.text()[:cursor_pos]
+                self._suggestion_model.update_suggestions(text_before)
+                if self._suggestion_model.has_suggestions():
+                    self._dropdown.show_below(self)
+                    self._update_ghost_text()
         finally:
             self._focus_gained_reentrancy_guard = False
 
