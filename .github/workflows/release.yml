@@ -573,6 +573,13 @@ jobs:
             echo '#!/bin/bash'
             echo 'SELF="$(readlink -f "$0")"'
             echo 'HERE="${SELF%/*}"'
+            echo 'if [[ -z "${QT_QPA_PLATFORM:-}" ]]; then'
+            echo '  if [[ -n "${DISPLAY:-}" ]]; then'
+            echo '    export QT_QPA_PLATFORM=xcb'
+            echo '  elif [[ -n "${WAYLAND_DISPLAY:-}" ]]; then'
+            echo '    export QT_QPA_PLATFORM=wayland'
+            echo '  fi'
+            echo 'fi'
             echo 'exec "${HERE}/usr/lib/historysync/HistorySync" "$@"'
           } > "$APPDIR/AppRun"
           chmod +x "$APPDIR/AppRun"
@@ -655,7 +662,7 @@ jobs:
             echo 'Architecture: amd64'
             echo 'Maintainer: ${{ env.APP_NAME }} Project <noreply@github.com>'
             echo "Installed-Size: ${INSTALLED_KB}"
-            echo 'Depends: libgl1'
+            echo 'Depends: libgl1, libxcb-cursor0, libxcb-icccm4, libxcb-util1, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libxcb-shape0, libxcb-xkb1, libxkbcommon-x11-0'
             echo 'Homepage: https://github.com/${{ github.repository }}'
             echo 'Description: Browser History Sync'
             echo ' A cross-platform browser history synchronization and search tool.'

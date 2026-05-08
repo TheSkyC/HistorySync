@@ -485,6 +485,43 @@ def _headless_main(args: argparse.Namespace) -> int:
     return exit_code[0]
 
 
+def _configure_qt_platform(headless: bool) -> None:
+    """Pick a sane default Qt platform on Linux when the env is incomplete."""
+    if sys.platform != "linux" or os.environ.get("QT_QPA_PLATFORM"):
+        return
+
+    if headless:
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
+        return
+
+    session_type = os.environ.get("XDG_SESSION_TYPE", "").lower()
+    wayland_display = os.environ.get("WAYLAND_DISPLAY")
+    runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
+    display = os.environ.get("DISPLAY")
+
+    runtime_candidates: list[Path] = []
+    if runtime_dir:
+        runtime_candidates.append(Path(runtime_dir))
+
+    # WSLg exposes the Wayland socket from a non-standard runtime dir.
+    if os.environ.get("WSL_DISTRO_NAME") or Path("/mnt/wslg/runtime-dir").exists():
+        runtime_candidates.append(Path("/mnt/wslg/runtime-dir"))
+
+    if wayland_display:
+        for candidate in runtime_candidates:
+            if (candidate / wayland_display).exists():
+                os.environ["XDG_RUNTIME_DIR"] = str(candidate)
+                os.environ["QT_QPA_PLATFORM"] = "wayland"
+                return
+
+    if display:
+        os.environ["QT_QPA_PLATFORM"] = "xcb"
+        return
+
+    if session_type == "wayland" or wayland_display:
+        return
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # GUI mode
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1004,6 +1041,8 @@ def main():
         from src.utils.memory_tracer import start as _start_tracer
 
         _start_tracer()
+
+    _configure_qt_platform(args.headless)
 
     # ── Step 3: Dispatch to headless export, headless sync, or GUI ──────────
     if getattr(args, "export", None):
