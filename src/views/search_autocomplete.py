@@ -22,6 +22,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import (
     QColor,
+    QFont,
     QIcon,
     QMouseEvent,
     QPainter,
@@ -652,6 +653,15 @@ def _draw_fuzzy_highlighted_text(
 class _SuggestionDelegate(QStyledItemDelegate):
     """Renders suggestion items with icon, text, type badge, and optional delete button."""
 
+    @staticmethod
+    def _scaled_point_size(font: QFont, delta: float, minimum: float = 7.0) -> float:
+        size = font.pointSizeF()
+        if size <= 0:
+            size = float(font.pointSize())
+        if size <= 0:
+            size = minimum - delta
+        return max(size + delta, minimum)
+
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         opt = QStyleOptionViewItem(option)
         self.initStyleOption(opt, index)
@@ -663,7 +673,7 @@ class _SuggestionDelegate(QStyledItemDelegate):
             palette = opt.widget.palette() if opt.widget else None
             font = opt.font
             font.setBold(True)
-            font.setPointSizeF(font.pointSizeF() - 1)
+            font.setPointSizeF(self._scaled_point_size(font, -1.0))
             painter.setFont(font)
             painter.setPen(palette.placeholderText().color() if palette else QColor("#6B7280"))
             fm = painter.fontMetrics()
@@ -844,7 +854,7 @@ class _KeyHintBar(QWidget):
 
             painter.setPen(key_fg)
             font = painter.font()
-            font.setPointSizeF(font.pointSizeF() - 0.5)
+            font.setPointSizeF(_SuggestionDelegate._scaled_point_size(font, -0.5))
             painter.setFont(font)
             painter.drawText(x, badge_y, key_w, badge_h, Qt.AlignCenter, key)
 
