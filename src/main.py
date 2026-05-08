@@ -533,7 +533,7 @@ def _gui_main(args: argparse.Namespace) -> None:
 
     from PySide6.QtCore import Qt, QTimer
     from PySide6.QtGui import QFont
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
     from src.models.app_config import AppConfig
     from src.utils.constants import (
@@ -660,11 +660,15 @@ def _gui_main(args: argparse.Namespace) -> None:
         log.info("Mock data generation complete")
 
     # Compute before ViewModel so lazy_gui can be passed at construction time.
+    tray_available = QSystemTrayIcon.isSystemTrayAvailable()
     should_minimize = (
         args.minimized
         or config.scheduler.start_minimized
         or (config.scheduler.launch_on_startup and _is_startup_launch())
     )
+    if should_minimize and not tray_available:
+        log.info("System tray unavailable - falling back to showing the main window")
+        should_minimize = False
 
     main_vm = MainViewModel(config, lazy_gui=should_minimize)
 
@@ -789,11 +793,12 @@ def _gui_main(args: argparse.Namespace) -> None:
     # ── 7. System tray ───────────────────────────────────────────────────────
     tray = TrayIcon()
 
-    if not tray.is_available():
+    if not tray_available:
         log.warning("System tray not available on this platform")
         app.setQuitOnLastWindowClosed(True)
 
-    tray.show()
+    if tray_available:
+        tray.show()
     tray.set_main_vm(main_vm)
     tray.open_requested.connect(lambda: _get_or_create_window().show_and_raise())
     tray.sync_requested.connect(main_vm.trigger_sync)
