@@ -497,10 +497,7 @@ class BrowserScanner:
         for browser in self._found_browsers:
             # Skip known browsers
             data_dir_str = str(browser.data_dir).lower()
-            if any(
-                data_dir_str.startswith(known_dir.lower()) or known_dir.lower().startswith(data_dir_str)
-                for known_dir in known_data_dirs
-            ):
+            if any(data_dir_str.startswith(known_dir.lower()) for known_dir in known_data_dirs):
                 continue
 
             key = str(browser.data_dir)
