@@ -131,6 +131,12 @@ class WebDavSection(QWidget):
         form.addRow(_("Server URL:"), self._url)
         form.addRow(_("Username:"), self._user)
         form.addRow(_("Password:"), self._password)
+
+        self._password_warning_lbl = QLabel(_("Password could not be decrypted. Please re-enter it."))
+        self._password_warning_lbl.setStyleSheet("color: #e07b00;")
+        self._password_warning_lbl.setVisible(False)
+        form.addRow("", self._password_warning_lbl)
+
         form.addRow(_("Remote Path:"), self._path)
         form.addRow(_("Max backups:"), self._max_backups_spin)
         form.addRow("", self._verify_ssl_cb)
@@ -211,6 +217,7 @@ class WebDavSection(QWidget):
         self._url.setText(cfg.webdav.url)
         self._user.setText(cfg.webdav.username)
         self._password.setText(cfg.webdav.password)
+        self._password_warning_lbl.setVisible(getattr(cfg, "_webdav_password_decryption_failed", False))
         self._path.setText(cfg.webdav.remote_path)
         self._max_backups_spin.setValue(cfg.webdav.max_backups)
         self._verify_ssl_cb.setChecked(cfg.webdav.verify_ssl)

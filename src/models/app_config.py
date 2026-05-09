@@ -231,6 +231,10 @@ class AppConfig:
     _fresh_tmp_dir: object = field(default=None, init=False, repr=False, compare=False)
     # Set to backup path (str) when config was corrupt; "" if backup also failed; None = no error
     _load_error: str | None = field(default=None, init=False, repr=False, compare=False)
+    # WebDAV password decryption failure: original ciphertext preserved here so it is not
+    # overwritten on the next config save before the user has a chance to re-enter the password.
+    _webdav_password_ciphertext: str = field(default="", init=False, repr=False, compare=False)
+    _webdav_password_decryption_failed: bool = field(default=False, init=False, repr=False, compare=False)
 
     def get_db_path(self) -> Path:
         """Return the database file path."""
@@ -282,6 +286,10 @@ class AppConfig:
             from src.utils.security_utils import encrypt_text
 
             webdav_dict["password"] = encrypt_text(webdav_dict["password"])
+        elif self._webdav_password_ciphertext:
+            # Decryption failed on load and the user has not re-entered the password yet;
+            # write back the original ciphertext so it is not silently erased.
+            webdav_dict["password"] = self._webdav_password_ciphertext
 
         return {
             "webdav": webdav_dict,
@@ -322,8 +330,10 @@ class AppConfig:
                     import logging
 
                     logging.getLogger(__name__).warning(
-                        "WebDAV password decryption failed, clearing password to avoid using corrupt ciphertext: %s", e
+                        "WebDAV password decryption failed, preserving ciphertext to prevent data loss: %s", e
                     )
+                    cfg._webdav_password_ciphertext = webdav_data["password"]
+                    cfg._webdav_password_decryption_failed = True
                     webdav_data["password"] = ""
             cfg.webdav = WebDavConfig(**webdav_data)
 
