@@ -681,6 +681,7 @@ class LocalDatabase:
     def merge_device_records(self, from_id: int, to_id: int) -> int:
         """Re-assign all history rows from *from_id* to *to_id*. Returns rows updated."""
         with self._conn() as conn:
+            self._ensure_fts_triggers(conn)
             cur = conn.execute(
                 "UPDATE history SET device_id = ? WHERE device_id = ?",
                 (to_id, from_id),
@@ -690,6 +691,7 @@ class LocalDatabase:
     def delete_device(self, device_id: int) -> None:
         """Remove a device row; history rows get device_id=NULL."""
         with self._conn() as conn:
+            self._ensure_fts_triggers(conn)
             conn.execute("UPDATE history SET device_id = NULL WHERE device_id = ?", (device_id,))
             conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
 
@@ -1221,6 +1223,29 @@ class LocalDatabase:
             " END"
         )
 
+    def _ensure_fts_triggers(self, conn: sqlite3.Connection) -> None:
+        """Recreate FTS triggers if any are missing.
+
+        SQLite DDL (DROP/CREATE TRIGGER) does not participate in transaction
+        rollback.  A process crash between DROP and CREATE — or an exception
+        that prevents the upsert_records exception handler from running —
+        leaves the triggers permanently absent.  Every write path that relies
+        on the triggers for FTS consistency should call this method at the
+        top of its ``_conn(write=True)`` block so that a previous crash
+        window cannot silently desynchronise the FTS index.
+        """
+        existing = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger' AND name IN "
+                "('history_ai','history_ad','history_au')"
+            ).fetchall()
+        }
+        _missing = {"history_ai", "history_ad", "history_au"} - existing
+        if _missing:
+            log.warning("FTS triggers missing (%s) — repairing", _missing)
+            self._recreate_fts_triggers(conn)
+
     def rebuild_fts_index(
         self,
         progress_cb: Callable[[str], None] | None = None,
@@ -1265,6 +1290,7 @@ class LocalDatabase:
         _BATCH = 5000
         while True:
             with self._conn() as conn:
+                self._ensure_fts_triggers(conn)
                 cursor = conn.execute(
                     """
                     UPDATE history
@@ -1483,6 +1509,8 @@ class LocalDatabase:
             src_conn.close()
 
         with self._conn() as conn:
+            self._ensure_fts_triggers(conn)
+
             # 1. Merge tombstones first
             if remote_deleted_records:
                 conn.executemany(
@@ -1675,17 +1703,7 @@ class LocalDatabase:
             # rollback, so a process crash between DROP and CREATE leaves the
             # triggers permanently absent.  Detect and repair that state here
             # before we potentially drop them again below.
-            existing_triggers = {
-                row[0]
-                for row in conn.execute(
-                    "SELECT name FROM sqlite_master WHERE type='trigger' AND name IN "
-                    "('history_ai','history_ad','history_au')"
-                ).fetchall()
-            }
-            _missing_triggers = {"history_ai", "history_ad", "history_au"} - existing_triggers
-            if _missing_triggers:
-                log.warning("FTS triggers missing (%s) — rebuilding before upsert", _missing_triggers)
-                self._recreate_fts_triggers(conn)
+            self._ensure_fts_triggers(conn)
 
             # 4-8. Wrap the trigger DDL + bulk insert + FTS sync in a SAVEPOINT
             #      so a mid-operation crash leaves the DB consistent for DML
@@ -3082,6 +3100,7 @@ class LocalDatabase:
             return 0
         _CHUNK = 900
         with self._conn() as conn:
+            self._ensure_fts_triggers(conn)
             deleted = 0
             for i in range(0, len(ids), _CHUNK):
                 chunk = ids[i : i + _CHUNK]
@@ -3106,6 +3125,7 @@ class LocalDatabase:
     def delete_records_by_browser(self, browser_type: str) -> int:
         """Delete all history records for a specific browser and corresponding backup_stats entries."""
         with self._conn() as conn:
+            self._ensure_fts_triggers(conn)
             # Tombstone only URLs that exist exclusively in this browser.
             # If a URL also appears under a different browser_type it must NOT receive a
             # tombstone — otherwise the next sync would delete the other browser's record.
@@ -3157,6 +3177,7 @@ class LocalDatabase:
 
     def delete_records_by_domain(self, domain: str) -> int:
         with self._conn() as conn:
+            self._ensure_fts_triggers(conn)
             ids = self._domain_ids_for(conn, domain)
             if not ids:
                 return 0
