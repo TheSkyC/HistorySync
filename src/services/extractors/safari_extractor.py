@@ -30,7 +30,7 @@ class SafariExtractor(BaseExtractor):
         since_unix_time: int = 0,
     ) -> list[HistoryRecord]:
         # Convert since_unix_time back to CoreData timestamp for the WHERE clause
-        since_cd = since_unix_time - _COREDATA_EPOCH if since_unix_time > _COREDATA_EPOCH else 0
+        since_cd = since_unix_time - _COREDATA_EPOCH if since_unix_time > 0 else 0
 
         try:
             rows = conn.execute(
