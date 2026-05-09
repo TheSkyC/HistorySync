@@ -55,7 +55,9 @@ class SyncWorker(QObject):
 
             def cb(bt: str, status: str, count: int) -> None:
                 if not self._cancelled.is_set():
-                    self.progress.emit(bt, status, count)
+                    # progress_callback is invoked from ThreadPoolExecutor threads.
+                    # Capture values in the lambda to avoid closure-over-loop-variable bugs.
+                    QTimer.singleShot(0, lambda b=bt, s=status, c=count: self.progress.emit(b, s, c))
 
             results = self._em.run_extraction(
                 browser_types=self._browser_types,
@@ -375,9 +377,12 @@ class Scheduler(QObject):
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        thread.finished.connect(self._on_sync_thread_finished)
+        thread.finished.connect(lambda t=thread: self._on_sync_thread_finished(t))
         thread.finished.connect(thread.deleteLater)
-        thread.finished.connect(worker.deleteLater)
+        # worker is deleted via its own signals, not thread.finished, to avoid
+        # destroying the worker before its queued signals are delivered to the main thread.
+        worker.finished.connect(worker.deleteLater)
+        worker.error.connect(worker.deleteLater)
 
         thread.start()
 
@@ -393,9 +398,9 @@ class Scheduler(QObject):
         self._running = False
         self.sync_error.emit(msg)
 
-    @Slot()
-    def _on_sync_thread_finished(self) -> None:
-        if self.sender() is not self._worker_thread:
+    @Slot(QThread)
+    def _on_sync_thread_finished(self, thread: QThread) -> None:
+        if thread is not self._worker_thread:
             return
         if self._running:
             log.warning("Sync thread finished but _running was still True... resetting.")

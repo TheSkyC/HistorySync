@@ -514,7 +514,7 @@ class HistoryTableModel(QAbstractTableModel):
         }
         use_id_index = bool(self._keyword)
 
-        worker = _ReloadWorker(self._db, params, use_id_index, generation, skip_badges=skip_badges, parent=self)
+        worker = _ReloadWorker(self._db, params, use_id_index, generation, skip_badges=skip_badges)
         worker.done.connect(self._on_reload_done)
         worker.done.connect(worker.deleteLater)
         # Keep a reference so the thread is not garbage-collected mid-run.
