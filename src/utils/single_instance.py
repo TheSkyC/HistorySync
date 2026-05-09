@@ -51,7 +51,10 @@ try:
             try:
                 _TOKEN_FILE.write_bytes(self._nonce)
             except OSError as exc:
-                logger.warning("SingleInstanceServer: could not write token file: %s", exc)
+                logger.warning(
+                    "SingleInstanceServer: could not write token file, falling back to no-auth mode: %s", exc
+                )
+                self._nonce = b""  # clients reading b"" from missing file will still match
 
         def start(self) -> bool:
             if not self.server.listen(QHostAddress.LocalHost, SINGLE_INSTANCE_PORT):
@@ -82,7 +85,7 @@ try:
                 logger.warning("SingleInstanceServer: rejected message with invalid or missing nonce")
                 socket.disconnectFromHost()
                 return
-            payload = data[_NONCE_BYTES:]
+            payload = data[len(self._nonce) :]
             if payload == ACTIVATE_MSG:
                 logger.debug("SingleInstanceServer: activation request received")
                 self.request_activation.emit()
