@@ -70,7 +70,14 @@ class SyncWorker(QObject):
                 and self._wdav.is_configured()
                 and self._wdav.auto_backup_enabled
             ):
-                self._wdav.sync(favicon_cache_dir=self._favicon_cache_dir)
+                try:
+                    self._wdav.sync(favicon_cache_dir=self._favicon_cache_dir)
+                except Exception as backup_exc:
+                    # A backup failure must not propagate into the outer except
+                    # block and corrupt exc_msg.  That would cause the whole sync
+                    # to be reported as failed (and emit sync_error) even though
+                    # extraction completed successfully.
+                    log.error("Auto-backup after sync failed: %s", backup_exc, exc_info=True)
         except Exception as exc:
             log.error("Sync worker unhandled exception: %s", exc, exc_info=True)
             exc_msg = str(exc)
@@ -101,6 +108,10 @@ class BackupWorker(QObject):
     @Slot()
     def run(self) -> None:
         if self._cancelled.is_set():
+            # Always emit finished so that the connected thread.quit() slot fires
+            # and the QThread event loop exits cleanly.  Without this the thread
+            # hangs indefinitely and _backup_running is never reset to False.
+            self.finished.emit(False, "cancelled")
             return
         try:
             res = self._wdav.sync(
@@ -109,9 +120,10 @@ class BackupWorker(QObject):
             )
             if not self._cancelled.is_set():
                 self.finished.emit(res.success, res.message)
+            else:
+                self.finished.emit(False, "cancelled")
         except Exception as exc:
-            if not self._cancelled.is_set():
-                self.finished.emit(False, str(exc))
+            self.finished.emit(False, str(exc))
 
 
 # ── Scheduler ────────────────────────────────────────────────
@@ -434,7 +446,11 @@ class Scheduler(QObject):
 
         thread.finished.connect(self._on_backup_thread_finished)
         thread.finished.connect(thread.deleteLater)
-        thread.finished.connect(worker.deleteLater)
+        # Mirror the _run_sync() pattern: delete the worker via its own signal,
+        # not thread.finished.  This guarantees the worker is still alive when
+        # its queued signals are delivered to the main thread, and avoids any
+        # ambiguity about deletion order relative to _on_backup_thread_finished.
+        worker.finished.connect(worker.deleteLater)
         thread.start()
 
     @Slot(bool, str)
