@@ -1,0 +1,80 @@
+# Normalize line endings
+* text=auto
+
+# Force LF for source and config
+*.py   text eol=lf
+*.pyi  text eol=lf
+*.sh   text eol=lf
+*.bash text eol=lf
+*.zsh  text eol=lf
+*.fish text eol=lf
+*.ps1  text eol=lf
+
+# Web / UI
+*.css  text eol=lf
+*.scss text eol=lf
+*.html text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
+*.ts   text eol=lf
+*.mts  text eol=lf
+*.cts  text eol=lf
+*.qss  text eol=lf
+*.qml  text eol=lf
+
+# Config / data
+*.json text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.ini  text eol=lf
+*.cfg  text eol=lf
+*.lock text eol=lf
+*.xml  text eol=lf
+*.xsl  text eol=lf
+
+# Docs
+*.md   text eol=lf
+*.rst  text eol=lf
+*.txt  text eol=lf
+
+# i18n (Gettext source files are text; compiled .mo/.qm are binary)
+*.po   text eol=lf
+*.pot  text eol=lf
+
+# Binary: images
+*.ico  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.svg  binary
+*.icns binary
+
+# Binary: fonts
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary
+*.eot   binary
+
+# Binary: compiled / packaged
+*.pyc   binary
+*.pyd   binary
+*.pyx   binary
+*.mo    binary
+*.qm    binary
+*.db    binary
+*.db-shm binary
+*.db-wal binary
+*.zip   binary
+*.gz    binary
+*.tgz   binary
+*.whl   binary
+*.pak   binary
+*.node  binary
+*.exe   binary
+*.dll   binary
+*.lib   binary
+*.pem   binary
