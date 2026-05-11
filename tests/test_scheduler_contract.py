@@ -127,7 +127,7 @@ class TestBackupWorkerContract:
 
         assert finished == [(False, "network down")]
 
-    def test_backup_worker_no_signal_when_cancelled(self):
+    def test_backup_worker_emits_cancelled_when_pre_cancelled(self):
         wdav = _FakeWebDav()
         worker = BackupWorker(wdav)
         worker.cancel()
@@ -137,7 +137,8 @@ class TestBackupWorkerContract:
 
         worker.run()
 
-        assert finished == []
+        # Must always emit finished so thread.quit() fires and the QThread exits.
+        assert finished == [(False, "cancelled")]
 
 
 class TestSchedulerContract:
