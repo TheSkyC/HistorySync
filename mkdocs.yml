@@ -1,0 +1,227 @@
+site_name: HistorySync Docs
+site_url: https://theskyc.github.io/HistorySync/
+site_description: HistorySync — Unified browser history management and cloud backup
+site_author: TheSkyC
+repo_url: https://github.com/TheSkyC/HistorySync
+repo_name: TheSkyC/HistorySync
+edit_uri: edit/main/docs/site/
+
+docs_dir: docs/site
+site_dir: site
+
+theme:
+  name: material
+  language: en
+  favicon: assets/favicon.ico
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.suggest
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+    - toc.integrate
+
+plugins:
+  - search:
+      separator: '[\s\-\.]+'
+  - macros:
+      on_error_fail: true
+  - i18n:
+      docs_structure: folder
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: zh
+          name: 简体中文
+          build: true
+          nav_translations:
+            Home: 首页
+            User Guide: 用户指南
+            Installation: 安装
+            Quick Start: 快速上手
+            CLI Reference: CLI 命令参考
+            WebDAV Setup: WebDAV 配置
+            Keyboard Shortcuts: 键盘快捷键
+            FAQ: 常见问题
+            Developer Guide: 开发者指南
+            Architecture: 架构概览
+            Contributing: 贡献指南
+            Security: 安全架构
+            Changelog: 更新日志
+        - locale: zh-TW
+          name: 繁體中文
+          build: true
+          nav_translations:
+            Home: 首頁
+            User Guide: 使用指南
+            Installation: 安裝
+            Quick Start: 快速上手
+            CLI Reference: CLI 命令參考
+            WebDAV Setup: WebDAV 設定
+            Keyboard Shortcuts: 鍵盤快捷鍵
+            FAQ: 常見問題
+            Developer Guide: 開發者指南
+            Architecture: 架構概覽
+            Contributing: 貢獻指南
+            Security: 安全架構
+            Changelog: 更新日誌
+        - locale: ja
+          name: 日本語
+          build: true
+          nav_translations:
+            Home: ホーム
+            User Guide: ユーザーガイド
+            Installation: インストール
+            Quick Start: クイックスタート
+            CLI Reference: CLIリファレンス
+            WebDAV Setup: WebDAV設定
+            Keyboard Shortcuts: キーボードショートカット
+            FAQ: よくある質問
+            Developer Guide: 開発者ガイド
+            Architecture: アーキテクチャ
+            Contributing: コントリビューション
+            Security: セキュリティ
+            Changelog: 更新履歴
+        - locale: ko
+          name: 한국어
+          build: true
+          nav_translations:
+            Home: 홈
+            User Guide: 사용자 가이드
+            Installation: 설치
+            Quick Start: 빠른 시작
+            CLI Reference: CLI 참조
+            WebDAV Setup: WebDAV 설정
+            Keyboard Shortcuts: 키보드 단축키
+            FAQ: 자주 묻는 질문
+            Developer Guide: 개발자 가이드
+            Architecture: 아키텍처
+            Contributing: 기여
+            Security: 보안
+            Changelog: 변경 로그
+        - locale: fr
+          name: Français
+          build: true
+          nav_translations:
+            Home: Accueil
+            User Guide: Guide Utilisateur
+            Installation: Installation
+            Quick Start: Démarrage Rapide
+            CLI Reference: Référence CLI
+            WebDAV Setup: Configuration WebDAV
+            Keyboard Shortcuts: Raccourcis Clavier
+            FAQ: FAQ
+            Developer Guide: Guide Développeur
+            Architecture: Architecture
+            Contributing: Contribuer
+            Security: Sécurité
+            Changelog: Journal des modifications
+        - locale: ru
+          name: Русский
+          build: true
+          nav_translations:
+            Home: Главная
+            User Guide: Руководство пользователя
+            Installation: Установка
+            Quick Start: Быстрый старт
+            CLI Reference: Справочник CLI
+            WebDAV Setup: Настройка WebDAV
+            Keyboard Shortcuts: Горячие клавиши
+            FAQ: ЧАВО
+            Developer Guide: Руководство разработчика
+            Architecture: Архитектура
+            Contributing: Как внести вклад
+            Security: Безопасность
+            Changelog: История изменений
+
+nav:
+  - Home: index.md
+  - User Guide:
+      - Installation: guide/installation.md
+      - Quick Start: guide/quick-start.md
+      - CLI Reference: guide/cli-reference.md
+      - WebDAV Setup: guide/webdav-setup.md
+      - Keyboard Shortcuts: guide/keyboard-shortcuts.md
+      - FAQ: guide/faq.md
+  - Developer Guide:
+      - Architecture: dev/architecture.md
+      - Contributing: dev/contributing.md
+      - Security: dev/security.md
+  - Changelog: changelog.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - def_list
+  - footnotes
+
+extra:
+  app_version: "1.2.2"
+  gh_repo: "https://github.com/TheSkyC/HistorySync"
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/TheSkyC/HistorySync
+      name: GitHub
+  version:
+    provider: mike
+  analytics:
+    provider: google
+    property: ""
+  generator: false
+
+extra_css:
+  - assets/extra.css
