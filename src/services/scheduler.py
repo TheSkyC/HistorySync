@@ -50,20 +50,31 @@ class SyncWorker(QObject):
     def run(self) -> None:
         results: dict[str, int | None] = {}
         exc_msg: str | None = None
+        # Thread-safe buffer for progress updates from ThreadPoolExecutor threads.
+        # list.append is atomic under CPython's GIL.
+        _progress_buffer: list[tuple[str, str, int]] = []
+
         try:
             log.info("Sync worker started")
 
             def cb(bt: str, status: str, count: int) -> None:
                 if not self._cancelled.is_set():
-                    # progress_callback is invoked from ThreadPoolExecutor threads.
-                    # Capture values in the lambda to avoid closure-over-loop-variable bugs.
-                    QTimer.singleShot(0, lambda b=bt, s=status, c=count: self.progress.emit(b, s, c))
+                    _progress_buffer.append((bt, status, count))
 
             results = self._em.run_extraction(
                 browser_types=self._browser_types,
                 progress_callback=cb,
                 force_full=self._force_full,
             )
+
+            # Drain buffered progress updates from the QThread context (safe).
+            # run_extraction() has returned, meaning all ThreadPoolExecutor
+            # threads have joined — no more appends will occur.
+            for bt, status, count in _progress_buffer:
+                if not self._cancelled.is_set():
+                    self.progress.emit(bt, status, count)
+            _progress_buffer.clear()
+
             if (
                 not self._cancelled.is_set()
                 and self._wdav
@@ -73,10 +84,6 @@ class SyncWorker(QObject):
                 try:
                     self._wdav.sync(favicon_cache_dir=self._favicon_cache_dir)
                 except Exception as backup_exc:
-                    # A backup failure must not propagate into the outer except
-                    # block and corrupt exc_msg.  That would cause the whole sync
-                    # to be reported as failed (and emit sync_error) even though
-                    # extraction completed successfully.
                     log.error("Auto-backup after sync failed: %s", backup_exc, exc_info=True)
         except Exception as exc:
             log.error("Sync worker unhandled exception: %s", exc, exc_info=True)
