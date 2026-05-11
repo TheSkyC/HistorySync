@@ -681,6 +681,10 @@ class BookmarksPage(QWidget):
         self._all_bookmarks = bookmarks
         self._annotations = {ann.url: ann for ann in annotations}
         self._all_tags = tags
+        # If the page is hidden, skip rendering — showEvent will call _start_load()
+        # again when the window reopens, so no data is lost.
+        if not self.isVisible():
+            return
         self._rebuild_tag_sidebar_from_cache()
         self._rebuild_cards_from_cache()
 

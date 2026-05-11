@@ -45,6 +45,7 @@ class MainWindow(QMainWindow):
         self._vm = main_vm
         self._settings_vm = SettingsViewModel(main_vm, parent=self)
         self._history_initialized = False
+        self._pending_sync_refresh = False
 
         if getattr(main_vm._config, "_fresh", False):
             self.setWindowTitle(f"{APP_NAME}  {_('[Fresh Mode]')}")
@@ -353,7 +354,10 @@ class MainWindow(QMainWindow):
 
         self._page_dashboard.on_sync_finished(new_count)
         if self._page_history is not None:
-            self._page_history.refresh()
+            if self.isVisible():
+                self._page_history.refresh()
+            else:
+                self._pending_sync_refresh = True
         self._status_bar.showMessage(_("Sync complete — {count} new records added").format(count=new_count), 6000)
         self._progress_label.setText("")
         if self._page_settings is not None:
@@ -458,6 +462,10 @@ class MainWindow(QMainWindow):
         """
         super().showEvent(event)
         self._vm.notify_window_shown()
+        if self._pending_sync_refresh:
+            self._pending_sync_refresh = False
+            if self._page_history is not None:
+                self._page_history.refresh()
 
     def closeEvent(self, event: QCloseEvent):
         self._save_geometry()

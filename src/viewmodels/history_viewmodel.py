@@ -232,6 +232,7 @@ class HistoryTableModel(QAbstractTableModel):
         # Badge URL caches — bulk-loaded on each reload(), O(1) per-row lookup
         self._bookmarked_urls: set[str] = set()
         self._annotated_urls: set[str] = set()
+        self._reload_worker: _ReloadWorker | None = None
 
         self._favicon_manager.favicons_updated.connect(self._on_favicons_updated)
 
@@ -516,8 +517,14 @@ class HistoryTableModel(QAbstractTableModel):
 
         worker = _ReloadWorker(self._db, params, use_id_index, generation, skip_badges=skip_badges)
         worker.done.connect(self._on_reload_done)
-        worker.done.connect(worker.deleteLater)
         # Keep a reference so the thread is not garbage-collected mid-run.
+        # If a previous worker is still running, let it finish naturally before
+        # Qt deletes it — never drop the last Python reference to a live QThread.
+        old = self._reload_worker
+        if old is not None and old.isRunning():
+            old.finished.connect(old.deleteLater)
+        elif old is not None:
+            old.deleteLater()
         self._reload_worker = worker
         worker.start()
 
@@ -533,6 +540,11 @@ class HistoryTableModel(QAbstractTableModel):
         device_name_map: dict,
     ) -> None:
         """Receive async reload result and update the model (main-thread slot)."""
+        # Schedule cleanup of the worker once its thread has fully stopped.
+        # done is emitted from inside run(), so isRunning() may still be True here.
+        if self._reload_worker is not None:
+            self._reload_worker.finished.connect(self._reload_worker.deleteLater)
+            self._reload_worker = None
         # Discard stale results from superseded reload() calls.
         if generation != self._reload_generation:
             return
