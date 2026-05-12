@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.models.app_config import AppConfig
+from src.utils.dialog_utils import exec_centered
 from src.utils.i18n import _
 from src.utils.icon_helper import get_browser_pixmap, get_icon
 from src.utils.logger import get_logger
@@ -299,14 +300,14 @@ class _SyncPage(_PageBase):
         from src.views.dialogs.url_prefix_filter_dialog import UrlPrefixFilterDialog
 
         dlg = UrlPrefixFilterDialog(self._config.privacy.filtered_url_prefixes, parent=self)
-        if dlg.exec() == UrlPrefixFilterDialog.Accepted:
+        if exec_centered(dlg, self) == UrlPrefixFilterDialog.Accepted:
             self._config.privacy.filtered_url_prefixes = dlg.get_prefixes()
 
     def _open_blacklist_dialog(self) -> None:
         from src.views.dialogs.blacklist_domain_dialog import BlacklistDomainDialog
 
         dlg = BlacklistDomainDialog(self._config.privacy.blacklisted_domains, parent=self)
-        if dlg.exec() == BlacklistDomainDialog.Accepted:
+        if exec_centered(dlg, self) == BlacklistDomainDialog.Accepted:
             self._config.privacy.blacklisted_domains = dlg.get_domains()
 
     def apply(self) -> None:
@@ -512,7 +513,7 @@ class _BrowserSyncPage(_PageBase):
         dialog = BrowserScanDialog(self, known_data_dirs=known_dirs)
         dialog.browsers_selected.connect(self._on_browsers_added)
         dialog.start_scan()
-        dialog.exec()
+        exec_centered(dialog, self)
 
     def _on_browsers_added(self, browsers):
         """Add browsers discovered by the scan"""

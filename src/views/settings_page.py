@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.utils.dialog_utils import exec_centered
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
@@ -485,7 +486,7 @@ class SettingsPage(QWidget):
 
         old_domains = set(cfg.privacy.blacklisted_domains)
         dlg = BlacklistDomainDialog(cfg.privacy.blacklisted_domains, parent=self)
-        if dlg.exec() != BlacklistDomainDialog.Accepted:
+        if exec_centered(dlg, self) != BlacklistDomainDialog.Accepted:
             return
 
         new_domains = dlg.get_domains()
@@ -534,7 +535,7 @@ class SettingsPage(QWidget):
         if not require_master_password(cfg.master_password_hash, self):
             return
         dlg = UrlPrefixFilterDialog(cfg.privacy.filtered_url_prefixes, parent=self)
-        if dlg.exec() == UrlPrefixFilterDialog.Accepted:
+        if exec_centered(dlg, self) == UrlPrefixFilterDialog.Accepted:
             new_prefixes = dlg.get_prefixes()
             self._vm._main_vm.set_filtered_url_prefixes(new_prefixes)
             self._set_status(_("URL prefix filters saved"), "success")
@@ -548,7 +549,7 @@ class SettingsPage(QWidget):
             return
         main_vm = self._vm._main_vm
         dlg = HiddenDomainsManagerDialog(main_vm.get_hidden_domains(), parent=self)
-        dlg.exec()
+        exec_centered(dlg, self)
         if dlg.unhide_all_records_requested:
             main_vm._db.clear_hidden_records()
             main_vm.history_vm.set_hidden_ids(set())
@@ -576,7 +577,7 @@ class SettingsPage(QWidget):
 
         cfg = self._vm.get_config()
         dlg = KeybindingDialog(cfg, parent=self)
-        if dlg.exec() == QDialog.Accepted and dlg._accepted_config is not None:
+        if exec_centered(dlg, self) == QDialog.Accepted and dlg._accepted_config is not None:
             cfg.keybindings = dlg._accepted_config
             self._vm.save(cfg)
             self._set_status(_("Keyboard shortcuts saved"), "success")
@@ -607,7 +608,7 @@ class SettingsPage(QWidget):
             import_vm = ImportViewModel(db, local_device_id=local_device_id, parent=self)
             dlg = ImportDialog(import_vm, importer, self)
             dlg.import_finished.connect(self._on_import_finished)
-            dlg.exec()
+            exec_centered(dlg, self)
         except Exception as exc:
             log.error("Failed to open import dialog: %s", exc, exc_info=True)
             QMessageBox.critical(self, _("Error"), str(exc))
@@ -807,4 +808,4 @@ class SettingsPage(QWidget):
             resolved_params=None,  # Entry B — no pre-existing filter
             parent=self,
         )
-        dlg.exec()
+        exec_centered(dlg, self)

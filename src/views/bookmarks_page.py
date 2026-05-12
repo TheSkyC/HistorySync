@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from src.models.history_record import AnnotationRecord, BookmarkRecord
 from src.services.local_db import LocalDatabase
+from src.utils.dialog_utils import exec_centered
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
@@ -980,7 +981,7 @@ class BookmarksPage(QWidget):
     def _edit_note(self, bm: BookmarkRecord):
         existing = self._db.get_annotation(bm.url)
         dlg = AnnotationDialog(bm.url, bm.title or bm.url, existing, parent=self)
-        if not dlg.exec():
+        if not exec_centered(dlg, self):
             return
 
         note = dlg.get_note()

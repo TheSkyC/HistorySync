@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.utils.dialog_utils import exec_centered
 from src.utils.i18n import _
 from src.utils.logger import get_logger
 from src.utils.master_key_manager import get_session, hash_password, verify_password
@@ -351,4 +352,4 @@ def require_master_password(stored_hash: str, parent: QWidget | None = None) -> 
         session.touch()
         return True
     dlg = MasterPasswordUnlockDialog(stored_hash, parent)
-    return dlg.exec() == QDialog.Accepted
+    return exec_centered(dlg, parent) == QDialog.Accepted

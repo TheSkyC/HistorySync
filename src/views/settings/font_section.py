@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.models.app_config import FontConfig
+from src.utils.dialog_utils import exec_centered
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon, get_themed_icon
 from src.views.settings._label_utils import constrain_label_width
@@ -451,7 +452,7 @@ class FontSection(QWidget):
 
     def _open_dialog(self):
         dlg = FontDialog(self._cfg, parent=self)
-        if dlg.exec() == QDialog.Accepted:
+        if exec_centered(dlg, self) == QDialog.Accepted:
             self._cfg = dlg.get_font_config()
             self._refresh_status()
             self.font_config_changed.emit()

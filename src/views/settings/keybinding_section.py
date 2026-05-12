@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.utils.constants import DEFAULT_GLOBAL_HOTKEY, DEFAULT_KEYBINDINGS
+from src.utils.dialog_utils import exec_centered
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.theme_manager import ThemeManager
@@ -660,7 +661,7 @@ class KeybindingDialog(QDialog):
         force_apply_btn.setObjectName("warning_btn")
         cancel_btn = msg_box.addButton(_("Cancel"), QMessageBox.RejectRole)
         msg_box.setDefaultButton(cancel_btn)
-        msg_box.exec()
+        exec_centered(msg_box, self)
         return msg_box.clickedButton() is force_apply_btn
 
     def _format_conflict_details(self, conflicts: list[tuple[str, list[str]]]) -> str:
