@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
@@ -12,6 +14,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -22,6 +25,9 @@ from PySide6.QtWidgets import (
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
+
+if TYPE_CHECKING:
+    from src.services.local_db import LocalDatabase
 
 log = get_logger("view.blacklist_domain_dialog")
 
@@ -36,12 +42,17 @@ class BlacklistDomainDialog(QDialog):
 
     Usage::
 
-        dlg = BlacklistDomainDialog(current_domains, parent=self)
+        dlg = BlacklistDomainDialog(current_domains, db, parent=self)
         if dlg.exec() == QDialog.Accepted:
             new_domains = dlg.get_domains()
     """
 
-    def __init__(self, current_domains: list[str], parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        current_domains: list[str],
+        db: LocalDatabase | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle(_("Blacklisted Domains"))
         self.setMinimumWidth(500)
@@ -50,6 +61,7 @@ class BlacklistDomainDialog(QDialog):
 
         # Working copy — never mutate the caller's list directly.
         self._domains: list[str] = list(current_domains)
+        self._db = db
 
         self._build_ui()
         self._refresh_list()
@@ -184,6 +196,30 @@ class BlacklistDomainDialog(QDialog):
         if raw in self._domains:
             self._input.clear()
             return
+
+        # Show confirmation with record count if DB is available
+        if self._db:
+            record_count = self._db.get_domain_count(raw)
+            if record_count > 0:
+                msg = _(
+                    "Adding <b>{domain}</b> to the blacklist will permanently delete "
+                    "<b>{count}</b> history records from the database.\n\n"
+                    "Continue?"
+                ).format(domain=raw, count=record_count)
+            else:
+                msg = _("Adding <b>{domain}</b> to the blacklist.\n\nNo existing records match this domain.").format(
+                    domain=raw
+                )
+            reply = QMessageBox.question(
+                self,
+                _("Add to Blacklist"),
+                msg,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
+            )
+            if reply != QMessageBox.Yes:
+                return
+
         self._domains.append(raw)
         self._input.clear()
         self._refresh_list()

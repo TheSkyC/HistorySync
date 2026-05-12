@@ -26,6 +26,7 @@ class PrivacySection(QWidget):
 
     Exposes:
         refresh_blacklist_count(count: int)
+        refresh_url_prefix_count(count: int)
         refresh_hidden_domains_count(count: int)
     """
 
@@ -61,7 +62,10 @@ class PrivacySection(QWidget):
         url_filter_row = QHBoxLayout()
         url_filter_lbl = QLabel(_("URL Prefix Filters:"))
         url_filter_lbl.setObjectName("stat_label")
+        self._url_prefix_count_lbl = QLabel("")
+        self._url_prefix_count_lbl.setObjectName("muted")
         url_filter_row.addWidget(url_filter_lbl)
+        url_filter_row.addWidget(self._url_prefix_count_lbl)
         url_filter_row.addStretch()
         cfg_btn = QPushButton(_("Configure…"))
         cfg_btn.setIcon(get_icon("filter"))
@@ -100,6 +104,13 @@ class PrivacySection(QWidget):
             self._bl_count_lbl.setText(_("{n} domains").format(n=count))
         else:
             self._bl_count_lbl.setText(_("none"))
+
+    def refresh_url_prefix_count(self, count: int) -> None:
+        """Update the count label next to the URL Prefix Filters header."""
+        if count:
+            self._url_prefix_count_lbl.setText(_("{n} prefixes").format(n=count))
+        else:
+            self._url_prefix_count_lbl.setText(_("none"))
 
     def refresh_hidden_domains_count(self, count: int) -> None:
         """Update the count label next to the Hidden Domains header."""

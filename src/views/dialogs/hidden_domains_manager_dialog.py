@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
@@ -25,6 +27,9 @@ from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
 
+if TYPE_CHECKING:
+    from src.services.local_db import LocalDatabase
+
 log = get_logger("view.hidden_domains_manager_dialog")
 
 
@@ -38,7 +43,7 @@ class HiddenDomainsManagerDialog(QDialog):
 
     Usage::
 
-        dlg = HiddenDomainsManagerDialog(vm.get_hidden_domains(), parent=self)
+        dlg = HiddenDomainsManagerDialog(vm.get_hidden_domains(), db, parent=self)
         dlg.exec()
         for domain in dlg.domains_to_remove:
             vm.unhide_domain(domain)
@@ -49,6 +54,7 @@ class HiddenDomainsManagerDialog(QDialog):
     def __init__(
         self,
         hidden_domains: list[dict],
+        db: LocalDatabase | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -62,6 +68,7 @@ class HiddenDomainsManagerDialog(QDialog):
         self._to_remove: list[str] = []
         self._to_add: list[dict] = []
         self._unhide_all_records: bool = False
+        self._db = db
         self._build_ui()
         self._refresh_list()
 
@@ -229,6 +236,28 @@ class HiddenDomainsManagerDialog(QDialog):
             self._input.clear()
             return
         subdomain_only = self._subdomain_only_chk.isChecked()
+
+        # Show confirmation with record count if DB is available
+        if self._db:
+            record_count = self._db.count_records_for_domain(raw, subdomain_only)
+            if record_count > 0:
+                msg = _(
+                    "Hiding <b>{domain}</b> will filter <b>{count}</b> history records "
+                    "from the History view.\n\n"
+                    "Continue?"
+                ).format(domain=raw, count=record_count)
+            else:
+                msg = _("Hiding <b>{domain}</b>.\n\nNo existing records match this domain.").format(domain=raw)
+            reply = QMessageBox.question(
+                self,
+                _("Hide Domain"),
+                msg,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
+            )
+            if reply != QMessageBox.Yes:
+                return
+
         entry = {"domain": raw, "subdomain_only": subdomain_only}
         self._entries.insert(0, entry)
         self._to_add.append(entry)
