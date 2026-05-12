@@ -401,6 +401,9 @@ class MainViewModel(QObject):
     def is_sync_running(self) -> bool:
         return self._scheduler.is_running
 
+    def is_backup_running(self) -> bool:
+        return self._scheduler._backup_running
+
     # ── Privacy operations ─────────────────────────────────────
 
     def delete_records(self, ids: list[int]) -> int:
