@@ -2367,6 +2367,16 @@ class HistoryPage(QWidget):
                 # model reset with different data) - un-mark it.
                 del self._separator_rows[row]
 
+        # Re-evaluate the first row of the next page if it was conservatively
+        # marked as a separator while the current page was not yet cached.
+        # Now that this page is loaded, we can make the correct determination.
+        next_row = base_row + len(records)
+        if next_row in self._separator_rows:
+            next_record = model.peek_record_at(next_row)
+            if next_record is not None:
+                if _local_day_number(next_record.visit_time) == _local_day_number(records[-1].visit_time):
+                    del self._separator_rows[next_row]
+
         # Schedule a lazy count fetch for any newly visible separator rows.
         # Use the existing debounce timer instead of singleShot(0, ...) to avoid
         # creating a new QTimer object on every page load (~200+ per scroll session).
