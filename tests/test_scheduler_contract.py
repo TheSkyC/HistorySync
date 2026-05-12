@@ -52,27 +52,66 @@ class _FakeThread:
         return self._running
 
 
+class _ProgressingExtractorManager:
+    def __init__(self):
+        self.calls = []
+
+    def run_extraction(self, **kwargs):
+        self.calls.append(kwargs)
+        progress_callback = kwargs["progress_callback"]
+        progress_callback("chrome", "extracting", 0)
+        progress_callback("chrome", "saving", 3)
+        progress_callback("chrome", "done", 2)
+        return {"chrome": 2}
+
+
 class TestSyncWorkerContract:
     def test_worker_emits_finished_and_optional_webdav_sync(self):
         em = _FakeExtractorManager(results={"chrome": 2})
         wdav = _FakeWebDav(configured=True, auto_backup=True)
-        worker = SyncWorker(em, wdav, browser_types=["chrome"], force_full=True)
+        progress = []
+        worker = SyncWorker(
+            em,
+            wdav,
+            browser_types=["chrome"],
+            force_full=True,
+            progress_callback=lambda bt, status, count: progress.append((bt, status, count)),
+        )
 
         finished = []
-        progress = []
         errors = []
         worker.finished.connect(finished.append)
-        worker.progress.connect(lambda bt, status, count: progress.append((bt, status, count)))
         worker.error.connect(errors.append)
 
         worker.run()
 
+        assert progress == []
         assert finished == [{"chrome": 2}]
         assert errors == []
         assert len(em.calls) == 1
         assert em.calls[0]["browser_types"] == ["chrome"]
         assert em.calls[0]["force_full"] is True
         assert len(wdav.sync_calls) == 1
+
+    def test_worker_forwards_progress_during_extraction(self):
+        em = _ProgressingExtractorManager()
+        progress = []
+        worker = SyncWorker(em, progress_callback=lambda bt, status, count: progress.append((bt, status, count)))
+
+        finished = []
+        errors = []
+        worker.finished.connect(finished.append)
+        worker.error.connect(errors.append)
+
+        worker.run()
+
+        assert progress == [
+            ("chrome", "extracting", 0),
+            ("chrome", "saving", 3),
+            ("chrome", "done", 2),
+        ]
+        assert finished == [{"chrome": 2}]
+        assert errors == []
 
     def test_worker_skips_result_signals_when_cancelled_before_run(self):
         em = _FakeExtractorManager(results={"chrome": 1})
