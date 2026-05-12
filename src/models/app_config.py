@@ -216,7 +216,7 @@ class AppConfig:
     window_height: int = DEFAULT_WINDOW_HEIGHT
     db_path: str = ""
     language: str = ""  # empty = auto-detect from system
-    theme: str = "dark"  # "dark" | "light" | "system"
+    theme: str = "system"  # "dark" | "light" | "system"
     last_backup_ts: int = 0
     last_sync_ts: int = 0
     master_password_hash: str = ""  # bcrypt hash; empty = no password set
