@@ -345,9 +345,7 @@ class MainWindow(QMainWindow):
         self._progress_label.setText(_("Starting…"))
 
     def _on_sync_progress(self, msg: str):
-        # Dashboard no longer has a progress widget — show detail only in status bar
         self._status_bar.showMessage(msg)
-        self._progress_label.setText(msg)
 
     def _on_sync_finished(self, new_count: int):
         import time as _time

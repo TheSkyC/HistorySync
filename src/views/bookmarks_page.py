@@ -639,13 +639,10 @@ class BookmarksPage(QWidget):
         # isRunning() is always safe — there's no risk of a deleted C++ object.
         if self._worker is not None:
             if self._worker.isRunning():
-                # CRITICAL: quit() is a NO-OP here — _LoadWorker.run() never
-                # calls exec(), so there is no Qt event loop inside the thread
-                # to receive the quit signal. The thread will always run to completion.
-                #
-                # NEVER call deleteLater() on a QThread whose run() is still executing.
-                # Safe pattern: let the thread finish naturally, then delete.
-                self._worker.finished.connect(self._worker.deleteLater)
+                # Keep a strong Python ref in the closure until finished; a
+                # direct connection to the C++ deleteLater slot is not enough
+                # to prevent the wrapper from being GC'd while run() is active.
+                self._worker.finished.connect(lambda w=self._worker: w.deleteLater())
             else:
                 # Thread already finished — safe to delete immediately.
                 self._worker.deleteLater()
@@ -1060,7 +1057,7 @@ class BookmarksPage(QWidget):
 
         # Schedule C++ deletion once the thread exits so we don't accumulate
         # finished-but-not-deleted QThread children on the page widget.
-        worker.finished.connect(worker.deleteLater)
+        worker.finished.connect(lambda w=worker: w.deleteLater())
 
         self._tag_worker = worker
         worker.start()

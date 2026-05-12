@@ -24,7 +24,6 @@ class SyncWorker(QObject):
     """Execute extraction + optional WebDAV sync in a background thread."""
 
     finished = Signal(dict)  # {browser_type: inserted_count}
-    progress = Signal(str, str, int)  # browser_type, status, count
     error = Signal(str)
 
     def __init__(
@@ -34,6 +33,7 @@ class SyncWorker(QObject):
         browser_types: list[str] | None = None,
         favicon_cache_dir: Path | None = None,
         force_full: bool = False,
+        progress_callback=None,
     ):
         super().__init__()
         self._em = extractor_manager
@@ -42,6 +42,7 @@ class SyncWorker(QObject):
         self._favicon_cache_dir = favicon_cache_dir
         self._force_full = force_full
         self._cancelled = threading.Event()
+        self._progress_callback = progress_callback
 
     def cancel(self) -> None:
         self._cancelled.set()
@@ -55,8 +56,8 @@ class SyncWorker(QObject):
             log.info("Sync worker started")
 
             def cb(bt: str, status: str, count: int) -> None:
-                if not self._cancelled.is_set():
-                    self.progress.emit(bt, status, count)
+                if not self._cancelled.is_set() and self._progress_callback is not None:
+                    self._progress_callback(bt, status, count)
 
             results = self._em.run_extraction(
                 browser_types=self._browser_types,
@@ -373,6 +374,7 @@ class Scheduler(QObject):
             browser_types=browser_types,
             favicon_cache_dir=self._favicon_cache_dir,
             force_full=force_full,
+            progress_callback=self.sync_progress.emit,
         )
         self._worker = worker
         self._worker_thread = thread
@@ -380,17 +382,15 @@ class Scheduler(QObject):
 
         thread.started.connect(worker.run)
         worker.finished.connect(self._on_sync_finished)
-        worker.progress.connect(self.sync_progress)
         worker.error.connect(self._on_sync_error)
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
         thread.finished.connect(lambda t=thread: self._on_sync_thread_finished(t))
+        # Delete worker only after the thread has fully stopped — finished/error are
+        # emitted from inside run(), so the thread is still running at that point.
+        thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
-        # worker is deleted via its own signals, not thread.finished, to avoid
-        # destroying the worker before its queued signals are delivered to the main thread.
-        worker.finished.connect(worker.deleteLater)
-        worker.error.connect(worker.deleteLater)
 
         thread.start()
 
@@ -441,12 +441,10 @@ class Scheduler(QObject):
         worker.finished.connect(thread.quit)
 
         thread.finished.connect(self._on_backup_thread_finished)
+        # Delete worker only after the thread has fully stopped — finished is
+        # emitted from inside run(), so the thread is still running at that point.
+        thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
-        # Mirror the _run_sync() pattern: delete the worker via its own signal,
-        # not thread.finished.  This guarantees the worker is still alive when
-        # its queued signals are delivered to the main thread, and avoids any
-        # ambiguity about deletion order relative to _on_backup_thread_finished.
-        worker.finished.connect(worker.deleteLater)
         thread.start()
 
     @Slot(bool, str)

@@ -304,7 +304,9 @@ class FaviconManager(QObject):
         thread.started.connect(worker.run)
         worker.finished.connect(self._on_worker_finished)  # QueuedConnection (default): slot runs safely in main thread
         worker.finished.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
+        # Delete worker only after the thread has fully stopped — finished is
+        # emitted from inside run(), so the thread is still running at that point.
+        thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._on_thread_finished)
 
