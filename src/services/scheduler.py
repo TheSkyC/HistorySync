@@ -374,7 +374,7 @@ class Scheduler(QObject):
             browser_types=browser_types,
             favicon_cache_dir=self._favicon_cache_dir,
             force_full=force_full,
-            progress_callback=self.sync_progress.emit,
+            progress_callback=lambda bt, st, cnt: self.sync_progress.emit(str(bt), str(st), int(cnt or 0)),
         )
         self._worker = worker
         self._worker_thread = thread
