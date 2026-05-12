@@ -33,6 +33,7 @@ log = get_logger("local_db")
 # hit rates while avoiding per-URL dict bloat.
 # Example: "https://github.com/user/repo" → key "https://github.com"
 _domain_cache: OrderedDict[str, str] = OrderedDict()
+_domain_cache_lock = threading.Lock()
 _DOMAIN_CACHE_MAX = 8192
 
 
@@ -49,9 +50,10 @@ def _extract_display_domain(url: str) -> str:
     if cached is not None:
         return cached
     result = _extract_display_domain_raw(url)
-    if len(_domain_cache) >= _DOMAIN_CACHE_MAX:
-        _domain_cache.popitem(last=False)  # FIFO: evict oldest entry, not the entire cache
-    _domain_cache[key] = result
+    with _domain_cache_lock:
+        if len(_domain_cache) >= _DOMAIN_CACHE_MAX:
+            _domain_cache.popitem(last=False)  # FIFO: evict oldest entry, not the entire cache
+        _domain_cache[key] = result
     return result
 
 
