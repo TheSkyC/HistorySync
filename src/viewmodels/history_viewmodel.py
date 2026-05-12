@@ -526,7 +526,11 @@ class HistoryTableModel(QAbstractTableModel):
         # Qt deletes it — never drop the last Python reference to a live QThread.
         old = self._reload_worker
         if old is not None and old.isRunning():
-            old.finished.connect(old.deleteLater)
+            # Use a lambda so the closure holds a strong Python reference to
+            # `old` until the thread finishes.  Connecting to old.deleteLater
+            # directly may not keep a Python ref when deleteLater is a C++ slot,
+            # which would let the GC destroy the QThread while it is still running.
+            old.finished.connect(lambda w=old: w.deleteLater())
         elif old is not None:
             old.deleteLater()
         self._reload_worker = worker
@@ -547,8 +551,9 @@ class HistoryTableModel(QAbstractTableModel):
         # Schedule cleanup of the worker once its thread has fully stopped.
         # done is emitted from inside run(), so isRunning() may still be True here.
         if self._reload_worker is not None:
-            self._reload_worker.finished.connect(self._reload_worker.deleteLater)
+            w = self._reload_worker
             self._reload_worker = None
+            w.finished.connect(lambda ww=w: ww.deleteLater())
         # Discard stale results from superseded reload() calls.
         if generation != self._reload_generation:
             return
@@ -1049,7 +1054,8 @@ class HistoryViewModel(QObject):
 
         self._domain_worker = _Worker(self)
         self._domain_worker.done.connect(self.top_domains_loaded)
-        self._domain_worker.done.connect(self._domain_worker.deleteLater)
+        w = self._domain_worker
+        self._domain_worker.done.connect(lambda _domains, ww=w: ww.deleteLater())
         self._domain_worker.start()
 
     def search(
