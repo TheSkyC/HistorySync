@@ -179,6 +179,7 @@ class HistoryTableModel(QAbstractTableModel):
     records_loaded = Signal(int, list)
 
     _VT_CACHE_MAX = 50_000
+    _VT_PAGE_MAX = _VT_CACHE_MAX // CACHE_PAGE_SIZE  # 250 pages
 
     def __init__(self, db: LocalDatabase, favicon_manager: FaviconManager, visible_columns=None, parent=None):
         super().__init__(parent)
@@ -219,8 +220,10 @@ class HistoryTableModel(QAbstractTableModel):
         # Lightweight visit-time index for the scroll bubble.
         # Populated from every _fetch_page() call; survives LRU page eviction.
         # Stores row → visit_time (int) only — much cheaper than full records.
-        # MAX_VT_CACHE entries × ~50 bytes overhead ≈ 2.5 MB for 50k rows.
+        # _vt_page_lru tracks which pages are present in _vt_cache (LRU order)
+        # so eviction is O(PAGE_SIZE) instead of O(total_rows).
         self._vt_cache: dict[int, int] = {}
+        self._vt_page_lru: OrderedDict[int, None] = OrderedDict()
 
         # Regex incremental load state
         # Regex incremental / keyword search state
@@ -470,6 +473,7 @@ class HistoryTableModel(QAbstractTableModel):
         self._page_cache.clear()
         self._page_lru.clear()
         self._vt_cache.clear()
+        self._vt_page_lru.clear()
         self._regex_scan_offset = 0
         self._regex_has_more = False
         self._keyword_materialized = False
@@ -907,22 +911,16 @@ class HistoryTableModel(QAbstractTableModel):
         for rec in records:
             _format_time(rec.visit_time)
 
-        # Trim vt_cache when it grows beyond the configured maximum.
-        # Remove rows that belong to pages NOT currently in the LRU —
-        # i.e. pages that were loaded but have since been evicted.
-        # This keeps the cache coherent without a separate eviction pass on
-        # every page load (it only triggers when the cap is exceeded).
-        if len(self._vt_cache) > self._VT_CACHE_MAX:
-            live_pages = set(self._page_lru.keys())
-            stale = [row for row in self._vt_cache if row // CACHE_PAGE_SIZE not in live_pages]
-            # Remove all stale rows in one pass.
-            for row in stale:
-                del self._vt_cache[row]
-            # Hard-trim the remainder by the oldest rows if still over cap.
-            if len(self._vt_cache) > self._VT_CACHE_MAX:
-                overshoot = len(self._vt_cache) - self._VT_CACHE_MAX
-                for row in list(self._vt_cache.keys())[:overshoot]:
-                    del self._vt_cache[row]
+        # LRU-evict oldest page from vt_cache when over the page limit.
+        # Evicting by page is O(PAGE_SIZE=200) instead of the previous O(50k)
+        # full-dict scan, which was the dominant __iter__ cost during fast scrolling.
+        self._vt_page_lru.pop(page_index, None)
+        self._vt_page_lru[page_index] = None
+        while len(self._vt_page_lru) > self._VT_PAGE_MAX:
+            oldest_page, _ = self._vt_page_lru.popitem(last=False)
+            evict_base = oldest_page * CACHE_PAGE_SIZE
+            for i in range(CACHE_PAGE_SIZE):
+                self._vt_cache.pop(evict_base + i, None)
 
         if records:
             # Coalesce prefetch calls across rapid page fetches — a single
