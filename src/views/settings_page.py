@@ -745,7 +745,11 @@ class SettingsPage(QWidget):
 
             cfg = self._vm.get_config()
             db = self._vm._main_vm._db
+            old_id = self._vm._main_vm._local_device_id
             new_id = adopt_device(cfg, db, target_uuid)
+            if old_id is not None and old_id != new_id:
+                migrated = db.merge_device_records(old_id, new_id)
+                log.info("Migrated %d records from device %d to %d after adoption", migrated, old_id, new_id)
             self._vm._main_vm._local_device_id = new_id
             self._vm._main_vm._webdav.set_device_id(new_id)
             self._vm._main_vm._em.set_device_id(new_id)
