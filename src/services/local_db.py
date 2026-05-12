@@ -3483,8 +3483,10 @@ def _build_fts_query(keyword: str) -> str:
             bare = keyword[len(prefix) :]
             if not bare:
                 return '""'
-            escaped = bare.replace('"', '""')
-            return f'{prefix}"{escaped}"*'
+            tokens = bare.split()
+            if len(tokens) == 1:
+                return f'{prefix}"{tokens[0].replace(chr(34), chr(34) * 2)}"*'
+            return " AND ".join(f'{prefix}"{t.replace(chr(34), chr(34) * 2)}"*' for t in tokens)
 
     # Split on whitespace; each token gets its own prefix-quoted term
     tokens = keyword.split()
