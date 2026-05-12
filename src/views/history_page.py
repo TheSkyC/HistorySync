@@ -63,6 +63,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.models.history_record import BookmarkRecord
+from src.utils.dialog_utils import exec_centered
 from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_browser_icon, get_icon
 from src.utils.logger import get_logger
@@ -3746,7 +3747,7 @@ class HistoryPage(QWidget):
             return
         count = self._vm._db.count_records_for_domain(domain, subdomain_only)
         dlg = HideDomainDialog(domain, subdomain_only, count, parent=self)
-        if dlg.exec() != HideDomainDialog.Accepted:
+        if exec_centered(dlg, self) != HideDomainDialog.Accepted:
             return
         self._pending_scroll_restore = self._table.verticalScrollBar().value()
         self.hide_domain_requested.emit(domain, subdomain_only, dlg.auto_hide)
@@ -3790,7 +3791,7 @@ class HistoryPage(QWidget):
         db = self._vm._db
         existing = db.get_annotation(record.url)
         dlg = AnnotationDialog(record.url, record.title or record.url, existing, parent=self)
-        if dlg.exec():
+        if exec_centered(dlg, self):
             note = dlg.get_note()
             if note.strip():
                 db.upsert_annotation(record.url, note, history_id=record.id)
@@ -3889,7 +3890,7 @@ class HistoryPage(QWidget):
             resolved_params=params,
             parent=self,
         )
-        dlg.exec()
+        exec_centered(dlg, self)
 
 
 def _qdate_to_unix(qdate: QDate, is_start: bool) -> int | None:

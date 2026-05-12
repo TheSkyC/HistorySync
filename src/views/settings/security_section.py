@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.utils.dialog_utils import exec_centered
 from src.utils.i18n import _
 from src.utils.logger import get_logger
 from src.utils.master_key_manager import get_session
@@ -162,7 +163,7 @@ class SecuritySection(QWidget):
         from src.views.master_password_dialog import MasterPasswordSetDialog
 
         dlg = MasterPasswordSetDialog(self)
-        if dlg.exec():
+        if exec_centered(dlg, self):
             new_hash = dlg.get_hash()
             self._stored_hash = new_hash
             self.password_changed.emit(new_hash)
@@ -178,7 +179,7 @@ class SecuritySection(QWidget):
         if not require_master_password(self._stored_hash, self):
             return
         dlg = MasterPasswordChangeDialog(self._stored_hash, self)
-        if dlg.exec():
+        if exec_centered(dlg, self):
             new_hash = dlg.get_hash()
             self._stored_hash = new_hash
             self.password_changed.emit(new_hash)

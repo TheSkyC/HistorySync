@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.utils.dialog_utils import exec_centered
 from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_browser_pixmap, get_icon
 from src.utils.logger import get_logger
@@ -672,7 +673,7 @@ class BrowserCard(QFrame):
         buttons.rejected.connect(dlg.reject)
         layout.addWidget(buttons)
 
-        if dlg.exec() == QDialog.Accepted:
+        if exec_centered(dlg, self) == QDialog.Accepted:
             clear_data = clear_cb.isChecked()
             self.browser_remove_requested.emit(self._browser_type, clear_data)
 
@@ -916,7 +917,7 @@ class BrowserSettingsDialog(QDialog):
         dialog = BrowserScanDialog(self, known_data_dirs=known_dirs)
         dialog.browsers_selected.connect(self._on_browsers_added)
         dialog.start_scan()
-        dialog.exec()
+        exec_centered(dialog, self)
 
     def _on_browsers_added(self, browsers):
         """Add browsers discovered during the scan."""
@@ -1150,7 +1151,7 @@ class DashboardPage(QWidget):
         dlg.browser_sync_changed.connect(self._on_browser_sync_changed_from_dialog)
         dlg.redetect_requested.connect(self.redetect_browsers_requested)
         dlg.browsers_discovered.connect(self.learned_browsers_added)
-        if dlg.exec() == QDialog.Accepted:
+        if exec_centered(dlg, self) == QDialog.Accepted:
             # Apply all changes in bulk
             new_disabled = set(dlg.get_disabled_browsers())
             # Emit signal for each browser whose state has changed

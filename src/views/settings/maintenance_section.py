@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.utils.dialog_utils import exec_centered
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.views.settings._label_utils import constrain_label_width
@@ -287,7 +288,7 @@ class MaintenanceSection(QWidget):
             force_btn = msg.addButton(_("Force Migrate\u2026"), QMessageBox.ActionRole)
             ok_btn = msg.addButton(QMessageBox.Ok)
             msg.setDefaultButton(ok_btn)
-            msg.exec()
+            exec_centered(msg, self)
 
             if msg.clickedButton() is not force_btn:
                 return
@@ -298,4 +299,4 @@ class MaintenanceSection(QWidget):
             legacy = build_force_migrate_result()
 
         wizard = MigrationWizard(legacy, parent=self)
-        wizard.exec()
+        exec_centered(wizard, self)
