@@ -896,6 +896,55 @@ class LocalDatabase:
             row = conn.execute(f"SELECT COUNT(*) FROM history WHERE domain_id IN ({placeholders})", d_ids).fetchone()
             return row[0] if row else 0
 
+    def count_records_by_url_prefixes(self, prefixes: list[str]) -> int:
+        """Return the number of history rows whose URL starts with any of the given prefixes.
+
+        Used by the confirmation dialog to preview how many records will be deleted
+        when URL prefix filters are applied retroactively.
+        """
+        if not prefixes:
+            return 0
+        with self._conn(write=False) as conn:
+            total = 0
+            for prefix in prefixes:
+                # Use LIKE with escaped prefix for matching
+                escaped = prefix.replace("%", r"\%").replace("_", r"\_")
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM history WHERE url LIKE ? ESCAPE '\\'",
+                    (escaped + "%",),
+                ).fetchone()
+                if row:
+                    total += row[0]
+            return total
+
+    def delete_records_by_url_prefixes(self, prefixes: list[str]) -> int:
+        """Delete history rows whose URL starts with any of the given prefixes.
+
+        Used when retroactively applying URL prefix filters. Returns the total
+        number of deleted rows.
+        """
+        if not prefixes:
+            return 0
+        with self._conn() as conn:
+            self._ensure_fts_triggers(conn)
+            total_deleted = 0
+            for prefix in prefixes:
+                escaped = prefix.replace("%", r"\%").replace("_", r"\_")
+                # First, tombstone URLs that will be fully deleted
+                conn.execute(
+                    "INSERT OR IGNORE INTO deleted_records(url) "
+                    "SELECT url FROM history WHERE url LIKE ? ESCAPE '\\' "
+                    "GROUP BY url "
+                    "HAVING COUNT(*) = (SELECT COUNT(*) FROM history h2 WHERE h2.url = history.url)",
+                    (escaped + "%",),
+                )
+                cursor = conn.execute(
+                    "DELETE FROM history WHERE url LIKE ? ESCAPE '\\'",
+                    (escaped + "%",),
+                )
+                total_deleted += cursor.rowcount
+            return total_deleted
+
     def get_hidden_domain_ids(self, _conn: sqlite3.Connection | None = None) -> set[int]:
         """Return history record IDs that match any entry in hidden_domains.
 

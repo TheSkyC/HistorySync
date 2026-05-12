@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
@@ -25,6 +27,9 @@ from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
 from src.utils.logger import get_logger
 
+if TYPE_CHECKING:
+    from src.services.local_db import LocalDatabase
+
 log = get_logger("view.url_prefix_filter_dialog")
 
 
@@ -38,12 +43,18 @@ class UrlPrefixFilterDialog(QDialog):
 
     Usage::
 
-        dlg = UrlPrefixFilterDialog(current_prefixes, parent=self)
+        dlg = UrlPrefixFilterDialog(current_prefixes, db, parent=self)
         if dlg.exec() == QDialog.Accepted:
             new_prefixes = dlg.get_prefixes()
+            deleted_count = dlg.records_deleted  # if user chose to delete
     """
 
-    def __init__(self, current_prefixes: list[str], parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        current_prefixes: list[str],
+        db: LocalDatabase | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle(_("URL Prefix Filters"))
         self.setMinimumWidth(520)
@@ -52,6 +63,8 @@ class UrlPrefixFilterDialog(QDialog):
 
         # Working copy - we never mutate the caller's list directly.
         self._prefixes: list[str] = list(current_prefixes)
+        self._db = db
+        self._records_deleted: int = 0
 
         self._build_ui()
         self._refresh_list()
@@ -111,7 +124,7 @@ class UrlPrefixFilterDialog(QDialog):
         scroll.setWidget(self._list_widget)
         root.addWidget(scroll, 1)
 
-        # ── Bottom bar: Reset + dialog buttons ────────────────
+        # ── Bottom bar: Reset + Delete + dialog buttons ──────────────
         bottom = QHBoxLayout()
 
         reset_btn = QPushButton(_("Reset to Defaults"))
@@ -121,6 +134,18 @@ class UrlPrefixFilterDialog(QDialog):
         reset_btn.setToolTip(_("Restore the built-in default URL prefix list"))
         reset_btn.clicked.connect(self._on_reset)
         bottom.addWidget(reset_btn)
+
+        self._delete_btn = QPushButton(_("Delete Matching Records"))
+        self._delete_btn.setIcon(get_icon("trash-2"))
+        self._delete_btn.setDefault(False)
+        self._delete_btn.setAutoDefault(False)
+        self._delete_btn.setToolTip(
+            _("Delete existing records that match any of the configured prefixes from the database")
+        )
+        self._delete_btn.clicked.connect(self._on_delete_matching)
+        if not self._db:
+            self._delete_btn.setEnabled(False)
+        bottom.addWidget(self._delete_btn)
 
         bottom.addStretch()
 
@@ -242,8 +267,47 @@ class UrlPrefixFilterDialog(QDialog):
             self._refresh_list()
             log.info("URL prefix filters reset to defaults")
 
+    def _on_delete_matching(self) -> None:
+        """Delete existing records matching the configured prefixes."""
+        if not self._db or not self._prefixes:
+            return
+
+        record_count = self._db.count_records_by_url_prefixes(self._prefixes)
+        if record_count == 0:
+            QMessageBox.information(
+                self,
+                _("No Records Found"),
+                _("No existing records match the configured URL prefixes."),
+            )
+            return
+
+        reply = QMessageBox.question(
+            self,
+            _("Delete Matching Records"),
+            _(
+                "This will permanently delete <b>{count}</b> records whose URLs match "
+                "any of the configured prefixes from the database.\n\n"
+                "This action cannot be undone. Continue?"
+            ).format(count=record_count),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply == QMessageBox.Yes:
+            self._records_deleted = self._db.delete_records_by_url_prefixes(self._prefixes)
+            log.info("Deleted %d records matching URL prefixes", self._records_deleted)
+            QMessageBox.information(
+                self,
+                _("Records Deleted"),
+                _("Successfully deleted {count} records.").format(count=self._records_deleted),
+            )
+
     # ── Public API ────────────────────────────────────────────
 
     def get_prefixes(self) -> list[str]:
         """Return the (possibly modified) prefix list after dialog is accepted."""
         return list(self._prefixes)
+
+    @property
+    def records_deleted(self) -> int:
+        """Return the number of records deleted via the Delete Matching Records button."""
+        return self._records_deleted

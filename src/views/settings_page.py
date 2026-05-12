@@ -207,6 +207,7 @@ class SettingsPage(QWidget):
 
         # Privacy
         self._sec_privacy.refresh_blacklist_count(len(cfg.privacy.blacklisted_domains))
+        self._sec_privacy.refresh_url_prefix_count(len(cfg.privacy.filtered_url_prefixes))
         self._sec_privacy.refresh_hidden_domains_count(len(self._vm._main_vm.get_hidden_domains()))
         self._sec_privacy.configure_blacklist_requested.connect(self._on_configure_blacklist)
         self._sec_privacy.configure_url_filters_requested.connect(self._on_configure_url_filters)
@@ -477,6 +478,7 @@ class SettingsPage(QWidget):
     # ── Privacy handlers ──────────────────────────────────────
 
     def _on_configure_blacklist(self) -> None:
+        from src.utils.dialog_utils import exec_centered
         from src.views.dialogs.blacklist_domain_dialog import BlacklistDomainDialog
         from src.views.master_password_dialog import require_master_password
 
@@ -485,7 +487,11 @@ class SettingsPage(QWidget):
             return
 
         old_domains = set(cfg.privacy.blacklisted_domains)
-        dlg = BlacklistDomainDialog(cfg.privacy.blacklisted_domains, parent=self)
+        dlg = BlacklistDomainDialog(
+            cfg.privacy.blacklisted_domains,
+            db=self._vm._main_vm._db,
+            parent=self,
+        )
         if exec_centered(dlg, self) != BlacklistDomainDialog.Accepted:
             return
 
@@ -528,27 +534,44 @@ class SettingsPage(QWidget):
         self._sec_privacy.refresh_blacklist_count(len(cfg.privacy.blacklisted_domains))
 
     def _on_configure_url_filters(self):
+        from src.utils.dialog_utils import exec_centered
         from src.views.dialogs.url_prefix_filter_dialog import UrlPrefixFilterDialog
         from src.views.master_password_dialog import require_master_password
 
         cfg = self._vm.get_config()
         if not require_master_password(cfg.master_password_hash, self):
             return
-        dlg = UrlPrefixFilterDialog(cfg.privacy.filtered_url_prefixes, parent=self)
+        dlg = UrlPrefixFilterDialog(
+            cfg.privacy.filtered_url_prefixes,
+            db=self._vm._main_vm._db,
+            parent=self,
+        )
         if exec_centered(dlg, self) == UrlPrefixFilterDialog.Accepted:
             new_prefixes = dlg.get_prefixes()
             self._vm._main_vm.set_filtered_url_prefixes(new_prefixes)
-            self._set_status(_("URL prefix filters saved"), "success")
+            self._sec_privacy.refresh_url_prefix_count(len(new_prefixes))
+            if dlg.records_deleted > 0:
+                self._set_status(
+                    _("URL prefix filters saved, {n} records deleted").format(n=dlg.records_deleted),
+                    "success",
+                )
+            else:
+                self._set_status(_("URL prefix filters saved"), "success")
 
     def _on_configure_hidden_domains(self) -> None:
         """Open the Hidden Domains manager dialog."""
+        from src.utils.dialog_utils import exec_centered
         from src.views.master_password_dialog import require_master_password
 
         cfg = self._vm.get_config()
         if not require_master_password(cfg.master_password_hash, self):
             return
         main_vm = self._vm._main_vm
-        dlg = HiddenDomainsManagerDialog(main_vm.get_hidden_domains(), parent=self)
+        dlg = HiddenDomainsManagerDialog(
+            main_vm.get_hidden_domains(),
+            db=main_vm._db,
+            parent=self,
+        )
         exec_centered(dlg, self)
         if dlg.unhide_all_records_requested:
             main_vm._db.clear_hidden_records()
