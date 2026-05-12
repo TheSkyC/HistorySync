@@ -50,30 +50,19 @@ class SyncWorker(QObject):
     def run(self) -> None:
         results: dict[str, int | None] = {}
         exc_msg: str | None = None
-        # Thread-safe buffer for progress updates from ThreadPoolExecutor threads.
-        # list.append is atomic under CPython's GIL.
-        _progress_buffer: list[tuple[str, str, int]] = []
 
         try:
             log.info("Sync worker started")
 
             def cb(bt: str, status: str, count: int) -> None:
                 if not self._cancelled.is_set():
-                    _progress_buffer.append((bt, status, count))
+                    self.progress.emit(bt, status, count)
 
             results = self._em.run_extraction(
                 browser_types=self._browser_types,
                 progress_callback=cb,
                 force_full=self._force_full,
             )
-
-            # Drain buffered progress updates from the QThread context (safe).
-            # run_extraction() has returned, meaning all ThreadPoolExecutor
-            # threads have joined — no more appends will occur.
-            for bt, status, count in _progress_buffer:
-                if not self._cancelled.is_set():
-                    self.progress.emit(bt, status, count)
-            _progress_buffer.clear()
 
             if (
                 not self._cancelled.is_set()
