@@ -5,10 +5,10 @@
 # Automatically generated, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: HistorySync 1.2.2\n"
+"Project-Id-Version: HistorySync 1.3.0\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-04-29 13:22+0000\n"
-"PO-Revision-Date: 2026-04-23 12:23+0000\n"
+"POT-Creation-Date: 2026-05-14 05:42+0000\n"
+"PO-Revision-Date: 2026-05-14 05:27+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language: en_US\n"
 "Language-Team: none\n"
@@ -48,18 +48,18 @@ msgstr "  ·  Drag & drop files, or click  Add Files"
 msgid " files"
 msgstr " files"
 
-#: src/views/first_run_wizard.py:201 src/views/first_run_wizard.py:214
+#: src/views/first_run_wizard.py:202 src/views/first_run_wizard.py:215
 #: src/views/settings/scheduler_section.py:37
 #: src/views/settings/webdav_section.py:71
 msgid " hours"
 msgstr " hours"
 
-#: src/views/main_window.py:423
+#: src/views/main_window.py:425
 #, python-brace-format
 msgid "'{domain}' blacklisted — {n} record(s) deleted"
 msgstr "'{domain}' blacklisted — {n} record(s) deleted"
 
-#: src/views/main_window.py:413
+#: src/views/main_window.py:415
 #, python-brace-format
 msgid ""
 "'{domain}' hidden ({n} record(s) affected). Manage hidden domains in "
@@ -68,7 +68,7 @@ msgstr ""
 "'{domain}' hidden ({n} record(s) affected). Manage hidden domains in "
 "Settings → Privacy."
 
-#: src/views/settings/webdav_section.py:298
+#: src/views/settings/webdav_section.py:305
 msgid "(no backups found)"
 msgstr "(no backups found)"
 
@@ -76,12 +76,12 @@ msgstr "(no backups found)"
 msgid "(this device)"
 msgstr "(this device)"
 
-#: src/views/settings/keybinding_section.py:677
+#: src/views/settings/keybinding_section.py:678
 #, python-brace-format
 msgid "- {key}: {actions}"
 msgstr "- {key}: {actions}"
 
-#: src/views/history_page.py:2125
+#: src/views/history_page.py:2126
 msgid "0 total"
 msgstr "0 total"
 
@@ -89,7 +89,7 @@ msgstr "0 total"
 msgid "<b>1</b> existing record will be hidden immediately."
 msgstr "<b>1</b> existing record will be hidden immediately."
 
-#: src/views/search_autocomplete.py:1674
+#: src/views/search_autocomplete.py:1728
 msgid ""
 "<b>Advanced Search Syntax:</b><br><br>• <code>domain:example.com</code> -"
 " Filter by domain<br>• <code>after:2023-01-01</code> - Visit after "
@@ -120,7 +120,7 @@ msgstr ""
 msgid "<b>{n}</b> existing records will be hidden immediately."
 msgstr "<b>{n}</b> existing records will be hidden immediately."
 
-#: src/views/dialogs/url_prefix_filter_dialog.py:210
+#: src/views/dialogs/url_prefix_filter_dialog.py:235
 #, python-brace-format
 msgid ""
 "A URL prefix must end with <b>://</b> (e.g. <code>chrome://</code>) or "
@@ -133,7 +133,7 @@ msgstr ""
 msgid "A WebDAV task is already running."
 msgstr "A WebDAV task is already running."
 
-#: src/views/settings/security_section.py:75
+#: src/views/settings/security_section.py:76
 msgid ""
 "A master password protects sensitive settings from unauthorized changes.\n"
 "You will be prompted before modifying WebDAV credentials, sync config, or"
@@ -143,7 +143,7 @@ msgstr ""
 "You will be prompted before modifying WebDAV credentials, sync config, or"
 " privacy rules."
 
-#: src/views/first_run_wizard.py:661
+#: src/views/first_run_wizard.py:662
 msgid ""
 "A master password protects sensitive settings such as WebDAV credentials,"
 " sync configuration, and privacy rules. You will be prompted before any "
@@ -157,7 +157,7 @@ msgstr ""
 "\n"
 "Leave blank to skip — you can set one later in Settings → Security."
 
-#: src/views/tray_icon.py:135
+#: src/views/tray_icon.py:264
 #, python-brace-format
 msgid ""
 "A {op} is currently running.\n"
@@ -172,11 +172,11 @@ msgstr ""
 "\n"
 "Do you want to quit anyway?"
 
-#: src/views/settings_page.py:117
+#: src/views/settings_page.py:118
 msgid "AUTO SYNC"
 msgstr "AUTO SYNC"
 
-#: src/views/history_page.py:3553
+#: src/views/history_page.py:3564
 msgid "Actions"
 msgstr "Actions"
 
@@ -184,15 +184,15 @@ msgstr "Actions"
 msgid "Activity by hour"
 msgstr "Activity by hour"
 
-#: src/views/dialogs/blacklist_domain_dialog.py:84
-#: src/views/dialogs/hidden_domains_manager_dialog.py:107
-#: src/views/dialogs/url_prefix_filter_dialog.py:88
+#: src/views/dialogs/blacklist_domain_dialog.py:96
+#: src/views/dialogs/hidden_domains_manager_dialog.py:114
+#: src/views/dialogs/url_prefix_filter_dialog.py:101
 #: src/views/settings/custom_paths_section.py:67
-#: src/views/settings/font_section.py:96
+#: src/views/settings/font_section.py:97
 msgid "Add"
 msgstr "Add"
 
-#: src/views/history_page.py:3515
+#: src/views/history_page.py:3526
 msgid "Add Bookmark"
 msgstr "Add Bookmark"
 
@@ -204,7 +204,7 @@ msgstr "Add Files…"
 msgid "Add Note"
 msgstr "Add Note"
 
-#: src/views/history_page.py:3527
+#: src/views/history_page.py:3538
 msgid "Add Note…"
 msgstr "Add Note…"
 
@@ -212,10 +212,38 @@ msgstr "Add Note…"
 msgid "Add Selected"
 msgstr "Add Selected"
 
-#: src/views/settings_page.py:569
+#: src/views/dialogs/blacklist_domain_dialog.py:215
+msgid "Add to Blacklist"
+msgstr "Add to Blacklist"
+
+#: src/views/settings_page.py:593
 #, python-brace-format
 msgid "Added {n} hidden domain(s)"
 msgstr "Added {n} hidden domain(s)"
+
+#: src/views/dialogs/blacklist_domain_dialog.py:205
+#, python-brace-format
+msgid ""
+"Adding <b>{domain}</b> to the blacklist will permanently delete "
+"<b>{count}</b> history records from the database.\n"
+"\n"
+"Continue?"
+msgstr ""
+"Adding <b>{domain}</b> to the blacklist will permanently delete "
+"<b>{count}</b> history records from the database.\n"
+"\n"
+"Continue?"
+
+#: src/views/dialogs/blacklist_domain_dialog.py:210
+#, python-brace-format
+msgid ""
+"Adding <b>{domain}</b> to the blacklist.\n"
+"\n"
+"No existing records match this domain."
+msgstr ""
+"Adding <b>{domain}</b> to the blacklist.\n"
+"\n"
+"No existing records match this domain."
 
 #: src/services/webdav_sync.py:316
 msgid "Adding favicon cache to backup..."
@@ -241,17 +269,17 @@ msgstr ""
 msgid "Advanced Settings"
 msgstr "Advanced Settings"
 
-#: src/views/bookmarks_page.py:553 src/views/overlay_window.py:386
+#: src/views/bookmarks_page.py:554 src/views/overlay_window.py:386
 #: src/views/settings/overlay_section.py:75
 msgid "All"
 msgstr "All"
 
-#: src/views/bookmarks_page.py:693
+#: src/views/bookmarks_page.py:695
 msgid "All Bookmarks"
 msgstr "All Bookmarks"
 
-#: src/services/exporter.py:602 src/views/history_page.py:2155
-#: src/views/history_page.py:3386
+#: src/services/exporter.py:602 src/views/history_page.py:2156
+#: src/views/history_page.py:3397
 msgid "All Browsers"
 msgstr "All Browsers"
 
@@ -271,11 +299,11 @@ msgstr ""
 msgid "All known devices in this database:"
 msgstr "All known devices in this database:"
 
-#: src/views/settings_page.py:555
+#: src/views/settings_page.py:579
 msgid "All records unhidden"
 msgstr "All records unhidden"
 
-#: src/views/first_run_wizard.py:751
+#: src/views/first_run_wizard.py:752
 msgid "All set!"
 msgstr "All set!"
 
@@ -292,11 +320,11 @@ msgstr ""
 "All your data has been migrated successfully.\n"
 "{n} history records are intact."
 
-#: src/views/dashboard_page.py:660
+#: src/views/dashboard_page.py:661
 msgid "Also delete all synced history records for this browser"
 msgstr "Also delete all synced history records for this browser"
 
-#: src/views/settings/keybinding_section.py:556
+#: src/views/settings/keybinding_section.py:557
 msgid "Apply"
 msgstr "Apply"
 
@@ -308,7 +336,7 @@ msgstr "Applying new default fields…"
 msgid "April"
 msgstr "April"
 
-#: src/views/settings/security_section.py:199
+#: src/views/settings/security_section.py:200
 msgid ""
 "Are you sure you want to remove the master password?\n"
 "\n"
@@ -334,7 +362,7 @@ msgstr ""
 "\n"
 "You can run the migration later from Settings → Maintenance."
 
-#: src/views/first_run_wizard.py:934
+#: src/views/first_run_wizard.py:935
 msgid ""
 "Are you sure you want to skip setup?\n"
 "\n"
@@ -358,11 +386,11 @@ msgstr "Auto"
 msgid "Auto (Active / All)"
 msgstr "Auto (Active / All)"
 
-#: src/views/history_page.py:3262
+#: src/views/history_page.py:3273
 msgid "Auto-fit All Columns"
 msgstr "Auto-fit All Columns"
 
-#: src/views/history_page.py:3258
+#: src/views/history_page.py:3269
 msgid "Auto-fit This Column"
 msgstr "Auto-fit This Column"
 
@@ -378,19 +406,19 @@ msgstr "Automatically backup to WebDAV after local scan"
 msgid "Automatically hide new records from this domain in future syncs"
 msgstr "Automatically hide new records from this domain in future syncs"
 
-#: src/views/search_autocomplete.py:709
+#: src/views/search_autocomplete.py:742
 msgid "Available"
 msgstr "Available"
 
-#: src/views/first_run_wizard.py:860 src/views/migration_wizard.py:758
+#: src/views/first_run_wizard.py:861 src/views/migration_wizard.py:758
 msgid "Back"
 msgstr "Back"
 
-#: src/services/local_db.py:1235
+#: src/services/local_db.py:1340
 msgid "Back-filling domain_id on history rows…"
 msgstr "Back-filling domain_id on history rows…"
 
-#: src/services/local_db.py:1256
+#: src/services/local_db.py:1362
 #, python-brace-format
 msgid "Back-filling domain_id on history rows… ({n} so far)"
 msgstr "Back-filling domain_id on history rows… ({n} so far)"
@@ -404,12 +432,12 @@ msgstr "Backed up {name}"
 msgid "Backs up the favicon database alongside history. Increases backup size."
 msgstr "Backs up the favicon database alongside history. Increases backup size."
 
-#: src/services/webdav_sync.py:400
+#: src/services/webdav_sync.py:399
 #, python-brace-format
 msgid "Backup ZIP uploaded but sync_manifest.json failed: {error}"
 msgstr "Backup ZIP uploaded but sync_manifest.json failed: {error}"
 
-#: src/services/webdav_sync.py:551
+#: src/services/webdav_sync.py:554
 msgid "Backup archive missing history.db"
 msgstr "Backup archive missing history.db"
 
@@ -418,7 +446,7 @@ msgstr "Backup archive missing history.db"
 msgid "Backup created: {path}"
 msgstr "Backup created: {path}"
 
-#: src/views/first_run_wizard.py:209
+#: src/views/first_run_wizard.py:210
 msgid "Backup interval:"
 msgstr "Backup interval:"
 
@@ -427,70 +455,70 @@ msgstr "Backup interval:"
 msgid "Backup saved to:  {path}"
 msgstr "Backup saved to:  {path}"
 
-#: src/views/settings/webdav_section.py:161
+#: src/views/settings/webdav_section.py:167
 msgid "Backup to WebDAV"
 msgstr "Backup to WebDAV"
 
-#: src/services/webdav_sync.py:620
+#: src/services/webdav_sync.py:623
 #, python-brace-format
 msgid "Bad zip archive: {error}"
 msgstr "Bad zip archive: {error}"
 
-#: src/views/history_page.py:1086
+#: src/views/history_page.py:1087
 msgid "Bar guide"
 msgstr "Bar guide"
 
-#: src/views/search_autocomplete.py:426
+#: src/views/search_autocomplete.py:427
 msgid "Before 30 days ago"
 msgstr "Before 30 days ago"
 
-#: src/views/search_autocomplete.py:425
+#: src/views/search_autocomplete.py:426
 msgid "Before 7 days ago"
 msgstr "Before 7 days ago"
 
-#: src/views/search_autocomplete.py:427
+#: src/views/search_autocomplete.py:428
 msgid "Before 90 days ago"
 msgstr "Before 90 days ago"
 
-#: src/views/search_autocomplete.py:428
+#: src/views/search_autocomplete.py:429
 msgid "Before last year"
 msgstr "Before last year"
 
-#: src/views/search_autocomplete.py:424
+#: src/views/search_autocomplete.py:425
 msgid "Before today"
 msgstr "Before today"
 
-#: src/views/history_page.py:3747
+#: src/views/history_page.py:3758
 msgid "Blacklist Domain"
 msgstr "Blacklist Domain"
 
-#: src/views/history_page.py:3639
+#: src/views/history_page.py:3650
 #, python-brace-format
 msgid "Blacklist Domain: {domain}"
 msgstr "Blacklist Domain: {domain}"
 
-#: src/views/settings_page.py:505
+#: src/views/settings_page.py:512
 msgid "Blacklist saved"
 msgstr "Blacklist saved"
 
-#: src/views/dialogs/blacklist_domain_dialog.py:46
+#: src/views/dialogs/blacklist_domain_dialog.py:57
 msgid "Blacklisted Domains"
 msgstr "Blacklisted Domains"
 
-#: src/views/settings/privacy_section.py:44
+#: src/views/settings/privacy_section.py:45
 msgid "Blacklisted Domains:"
 msgstr "Blacklisted Domains:"
 
-#: src/views/search_autocomplete.py:715
+#: src/views/search_autocomplete.py:748
 msgid "Bookmark"
 msgstr "Bookmark"
 
-#: src/views/history_page.py:3518
+#: src/views/history_page.py:3529
 #, python-brace-format
 msgid "Bookmark All Selected ({n})"
 msgstr "Bookmark All Selected ({n})"
 
-#: src/views/history_page.py:766
+#: src/views/history_page.py:767
 msgid "Bookmarked (click to edit)"
 msgstr "Bookmarked (click to edit)"
 
@@ -498,12 +526,12 @@ msgstr "Bookmarked (click to edit)"
 msgid "Bookmarked only"
 msgstr "Bookmarked only"
 
-#: src/views/bookmarks_page.py:248
+#: src/views/bookmarks_page.py:249
 #, python-brace-format
 msgid "Bookmarked: {dt}"
 msgstr "Bookmarked: {dt}"
 
-#: src/views/main_window.py:98 src/views/settings/keybinding_section.py:741
+#: src/views/main_window.py:99 src/views/settings/keybinding_section.py:742
 msgid "Bookmarks"
 msgstr "Bookmarks"
 
@@ -513,8 +541,8 @@ msgstr "Browse..."
 
 #: src/services/exporter.py:79 src/services/exporter.py:604
 #: src/viewmodels/history_viewmodel.py:61
-#: src/viewmodels/history_viewmodel.py:331 src/views/import_dialog.py:275
-#: src/views/search_autocomplete.py:723
+#: src/viewmodels/history_viewmodel.py:335 src/views/import_dialog.py:275
+#: src/views/search_autocomplete.py:756
 msgid "Browser"
 msgstr "Browser"
 
@@ -522,28 +550,28 @@ msgstr "Browser"
 msgid "Browser & Profile"
 msgstr "Browser & Profile"
 
-#: src/views/dashboard_page.py:1033
+#: src/views/dashboard_page.py:1034
 msgid "Browser Detection Status"
 msgstr "Browser Detection Status"
 
-#: src/views/dashboard_page.py:991
+#: src/views/dashboard_page.py:992
 msgid "Browser History Sync Center"
 msgstr "Browser History Sync Center"
 
-#: src/viewmodels/history_viewmodel.py:390
+#: src/viewmodels/history_viewmodel.py:394
 #, python-brace-format
 msgid "Browser Profile: {profile}"
 msgstr "Browser Profile: {profile}"
 
-#: src/views/dashboard_page.py:742 src/views/first_run_wizard.py:345
+#: src/views/dashboard_page.py:743 src/views/first_run_wizard.py:346
 msgid "Browser Sync Selection"
 msgstr "Browser Sync Selection"
 
-#: src/views/dashboard_page.py:723 src/views/first_run_wizard.py:177
+#: src/views/dashboard_page.py:724 src/views/first_run_wizard.py:178
 msgid "Browser Sync Settings"
 msgstr "Browser Sync Settings"
 
-#: src/views/dashboard_page.py:1041
+#: src/views/dashboard_page.py:1042
 msgid "Browser Sync Settings & Re-detect"
 msgstr "Browser Sync Settings & Re-detect"
 
@@ -551,7 +579,7 @@ msgstr "Browser Sync Settings & Re-detect"
 msgid "Browser distribution"
 msgstr "Browser distribution"
 
-#: src/views/first_run_wizard.py:388
+#: src/views/first_run_wizard.py:389
 msgid "Browser not in the list? <a href='#scan'>Run a deep scan</a>"
 msgstr "Browser not in the list? <a href='#scan'>Run a deep scan</a>"
 
@@ -560,11 +588,11 @@ msgstr "Browser not in the list? <a href='#scan'>Run a deep scan</a>"
 msgid "Browser: {b}"
 msgstr "Browser: {b}"
 
-#: src/views/first_run_wizard.py:981 src/views/stats_page.py:1715
+#: src/views/first_run_wizard.py:982 src/views/stats_page.py:1715
 msgid "Browsers"
 msgstr "Browsers"
 
-#: src/views/dashboard_page.py:1013
+#: src/views/dashboard_page.py:1014
 msgid "Browsers Detected"
 msgstr "Browsers Detected"
 
@@ -586,7 +614,7 @@ msgstr "Browsing Statistics — {month} {year}"
 msgid "Browsing Statistics — {year}"
 msgstr "Browsing Statistics — {year}"
 
-#: src/views/settings_page.py:122
+#: src/views/settings_page.py:123
 msgid "CONNECTED DEVICES"
 msgstr "CONNECTED DEVICES"
 
@@ -594,7 +622,7 @@ msgstr "CONNECTED DEVICES"
 msgid "CSV Files (*.csv);;All Files (*)"
 msgstr "CSV Files (*.csv);;All Files (*)"
 
-#: src/views/settings_page.py:123
+#: src/views/settings_page.py:124
 msgid "CUSTOM BROWSER PATHS"
 msgstr "CUSTOM BROWSER PATHS"
 
@@ -604,8 +632,8 @@ msgstr "Calculating…"
 
 #: src/views/dialogs/browser_scan_dialog.py:135 src/views/export_dialog.py:285
 #: src/views/export_dialog.py:481 src/views/import_dialog.py:328
-#: src/views/settings/keybinding_section.py:552
-#: src/views/settings/keybinding_section.py:661
+#: src/views/settings/keybinding_section.py:553
+#: src/views/settings/keybinding_section.py:662
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -613,17 +641,17 @@ msgstr "Cancel"
 msgid "Cancelling…"
 msgstr "Cancelling…"
 
-#: src/views/master_password_dialog.py:240
-#: src/views/master_password_dialog.py:263
+#: src/views/master_password_dialog.py:241
+#: src/views/master_password_dialog.py:264
 msgid "Change Master Password"
 msgstr "Change Master Password"
 
-#: src/views/master_password_dialog.py:294
-#: src/views/settings/security_section.py:91
+#: src/views/master_password_dialog.py:295
+#: src/views/settings/security_section.py:92
 msgid "Change Password"
 msgstr "Change Password"
 
-#: src/services/local_db.py:1042
+#: src/services/local_db.py:1096
 msgid "Checkpointing WAL into main file…"
 msgstr "Checkpointing WAL into main file…"
 
@@ -631,7 +659,7 @@ msgstr "Checkpointing WAL into main file…"
 msgid "Choose output file path…"
 msgstr "Choose output file path…"
 
-#: src/views/first_run_wizard.py:183
+#: src/views/first_run_wizard.py:184
 msgid ""
 "Choose whether HistorySync should automatically collect your browser "
 "history."
@@ -639,7 +667,7 @@ msgstr ""
 "Choose whether HistorySync should automatically collect your browser "
 "history."
 
-#: src/views/first_run_wizard.py:353
+#: src/views/first_run_wizard.py:354
 msgid ""
 "Choose which browsers HistorySync should collect history from.\n"
 "You can change this anytime via right-click on a browser card in the "
@@ -653,7 +681,7 @@ msgstr ""
 msgid "Chromium History"
 msgstr "Chromium History"
 
-#: src/services/webdav_sync.py:374
+#: src/services/webdav_sync.py:408
 msgid "Cleaning up old backups..."
 msgstr "Cleaning up old backups..."
 
@@ -661,7 +689,7 @@ msgstr "Cleaning up old backups..."
 msgid "Cleaning up..."
 msgstr "Cleaning up..."
 
-#: src/views/search_autocomplete.py:1319
+#: src/views/search_autocomplete.py:1352
 msgid "Clear"
 msgstr "Clear"
 
@@ -669,7 +697,7 @@ msgstr "Clear"
 msgid "Clear View"
 msgstr "Clear View"
 
-#: src/views/settings/keybinding_section.py:166
+#: src/views/settings/keybinding_section.py:167
 msgid "Clear shortcut"
 msgstr "Clear shortcut"
 
@@ -681,11 +709,11 @@ msgstr "Clear shortcut"
 msgid "Close"
 msgstr "Close"
 
-#: src/views/export_dialog.py:224 src/views/history_page.py:3241
+#: src/views/export_dialog.py:224 src/views/history_page.py:3252
 msgid "Columns"
 msgstr "Columns"
 
-#: src/views/history_page.py:3448
+#: src/views/history_page.py:3459
 msgid "Compact bubble"
 msgstr "Compact bubble"
 
@@ -697,7 +725,7 @@ msgstr "Compressing and packaging backup..."
 msgid "Config verified"
 msgstr "Config verified"
 
-#: src/main.py:722
+#: src/main.py:763
 msgid "Configuration Load Error"
 msgstr "Configuration Load Error"
 
@@ -705,47 +733,47 @@ msgstr "Configuration Load Error"
 msgid "Configuration merged successfully"
 msgstr "Configuration merged successfully"
 
-#: src/views/first_run_wizard.py:290
+#: src/views/first_run_wizard.py:291
 msgid "Configure Blacklist…"
 msgstr "Configure Blacklist…"
 
-#: src/views/settings/font_section.py:446
+#: src/views/settings/font_section.py:447
 msgid "Configure Fonts…"
 msgstr "Configure Fonts…"
 
-#: src/views/first_run_wizard.py:271
+#: src/views/first_run_wizard.py:272
 msgid "Configure URL Filters…"
 msgstr "Configure URL Filters…"
 
-#: src/views/settings_page.py:145
+#: src/views/settings_page.py:146
 msgid "Configure sync behavior and browser data sources"
 msgstr "Configure sync behavior and browser data sources"
 
-#: src/views/settings/keybinding_section.py:800
-#: src/views/settings/privacy_section.py:48
-#: src/views/settings/privacy_section.py:66
-#: src/views/settings/privacy_section.py:81
+#: src/views/settings/keybinding_section.py:801
+#: src/views/settings/privacy_section.py:49
+#: src/views/settings/privacy_section.py:70
+#: src/views/settings/privacy_section.py:85
 msgid "Configure…"
 msgstr "Configure…"
 
-#: src/views/settings/keybinding_section.py:691
+#: src/views/settings/keybinding_section.py:692
 msgid "Confirm"
 msgstr "Confirm"
 
-#: src/views/master_password_dialog.py:273
+#: src/views/master_password_dialog.py:274
 msgid "Confirm new password…"
 msgstr "Confirm new password…"
 
-#: src/views/master_password_dialog.py:174
+#: src/views/master_password_dialog.py:175
 msgid "Confirm password…"
 msgstr "Confirm password…"
 
-#: src/views/first_run_wizard.py:683 src/views/master_password_dialog.py:187
-#: src/views/master_password_dialog.py:287
+#: src/views/first_run_wizard.py:684 src/views/master_password_dialog.py:188
+#: src/views/master_password_dialog.py:288
 msgid "Confirm:"
 msgstr "Confirm:"
 
-#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:460
+#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:463
 msgid "Connecting to WebDAV server..."
 msgstr "Connecting to WebDAV server..."
 
@@ -757,32 +785,32 @@ msgstr "Connecting..."
 msgid "Connection successful"
 msgstr "Connection successful"
 
-#: src/views/history_page.py:3534
+#: src/views/history_page.py:3545
 msgid "Copy"
 msgstr "Copy"
 
-#: src/views/history_page.py:3543
+#: src/views/history_page.py:3554
 #, python-brace-format
 msgid "Copy All URLs ({n})"
 msgstr "Copy All URLs ({n})"
 
-#: src/views/dashboard_page.py:577
+#: src/views/dashboard_page.py:578
 msgid "Copy Browser Name"
 msgstr "Copy Browser Name"
 
-#: src/views/history_page.py:3539
+#: src/views/history_page.py:3550
 msgid "Copy Title"
 msgstr "Copy Title"
 
-#: src/views/history_page.py:3540
+#: src/views/history_page.py:3551
 msgid "Copy Title + URL"
 msgstr "Copy Title + URL"
 
-#: src/views/bookmarks_page.py:155 src/views/history_page.py:3538
+#: src/views/bookmarks_page.py:156 src/views/history_page.py:3549
 msgid "Copy URL"
 msgstr "Copy URL"
 
-#: src/views/dashboard_page.py:1305
+#: src/views/dashboard_page.py:1306
 #, python-brace-format
 msgid "Could not launch {browser}. Please make sure it is installed."
 msgstr "Could not launch {browser}. Please make sure it is installed."
@@ -817,23 +845,23 @@ msgstr "Creating backup…"
 msgid "Current filter: "
 msgstr "Current filter: "
 
-#: src/views/master_password_dialog.py:313
+#: src/views/master_password_dialog.py:314
 msgid "Current password is incorrect."
 msgstr "Current password is incorrect."
 
-#: src/views/master_password_dialog.py:276
+#: src/views/master_password_dialog.py:277
 msgid "Current password:"
 msgstr "Current password:"
 
-#: src/views/master_password_dialog.py:271
+#: src/views/master_password_dialog.py:272
 msgid "Current password…"
 msgstr "Current password…"
 
-#: src/views/settings/font_section.py:436
+#: src/views/settings/font_section.py:437
 msgid "Custom Fonts"
 msgstr "Custom Fonts"
 
-#: src/views/settings/keybinding_section.py:793
+#: src/views/settings/keybinding_section.py:794
 msgid "Customize in-app shortcuts and the global overlay hotkey."
 msgstr "Customize in-app shortcuts and the global overlay hotkey."
 
@@ -841,7 +869,7 @@ msgstr "Customize in-app shortcuts and the global overlay hotkey."
 msgid "Custom…"
 msgstr "Custom…"
 
-#: src/views/settings_page.py:125
+#: src/views/settings_page.py:126
 msgid "DATABASE MAINTENANCE"
 msgstr "DATABASE MAINTENANCE"
 
@@ -853,7 +881,7 @@ msgstr "Daily activity heatmap"
 msgid "Daily average"
 msgstr "Daily average"
 
-#: src/views/history_page.py:1316
+#: src/views/history_page.py:1317
 msgid "Daily visit volume"
 msgstr "Daily visit volume"
 
@@ -875,11 +903,11 @@ msgstr "Database file not found: {path}"
 msgid "Database schema upgraded successfully"
 msgstr "Database schema upgraded successfully"
 
-#: src/views/settings/maintenance_section.py:64
+#: src/views/settings/maintenance_section.py:65
 msgid "Database size"
 msgstr "Database size"
 
-#: src/views/search_autocomplete.py:712
+#: src/views/search_autocomplete.py:745
 msgid "Date"
 msgstr "Date"
 
@@ -887,7 +915,7 @@ msgstr "Date"
 msgid "Date Range"
 msgstr "Date Range"
 
-#: src/services/exporter.py:603 src/views/history_page.py:2159
+#: src/services/exporter.py:603 src/views/history_page.py:2160
 msgid "Date:"
 msgstr "Date:"
 
@@ -903,11 +931,11 @@ msgstr "Deep Browser Scan"
 msgid "Deep Browser Scan - Complete"
 msgstr "Deep Browser Scan - Complete"
 
-#: src/views/dashboard_page.py:793
+#: src/views/dashboard_page.py:794
 msgid "Deep Scan for Browsers"
 msgstr "Deep Scan for Browsers"
 
-#: src/viewmodels/history_viewmodel.py:390
+#: src/viewmodels/history_viewmodel.py:394
 msgid "Default"
 msgstr "Default"
 
@@ -928,16 +956,21 @@ msgstr "Delete Log Files"
 msgid "Delete Logs"
 msgstr "Delete Logs"
 
-#: src/views/history_page.py:3713
+#: src/views/dialogs/url_prefix_filter_dialog.py:138
+#: src/views/dialogs/url_prefix_filter_dialog.py:286
+msgid "Delete Matching Records"
+msgstr "Delete Matching Records"
+
+#: src/views/history_page.py:3724
 msgid "Delete Records"
 msgstr "Delete Records"
 
-#: src/views/history_page.py:3559
+#: src/views/history_page.py:3570
 #, python-brace-format
 msgid "Delete Selected ({n} records)"
 msgstr "Delete Selected ({n} records)"
 
-#: src/views/history_page.py:3563
+#: src/views/history_page.py:3574
 msgid "Delete This Record"
 msgstr "Delete This Record"
 
@@ -954,7 +987,15 @@ msgstr ""
 "History records attributed to this device will be kept but will no longer"
 " be associated with any device. This cannot be undone."
 
-#: src/views/history_page.py:3714
+#: src/views/dialogs/url_prefix_filter_dialog.py:143
+msgid ""
+"Delete existing records that match any of the configured prefixes from "
+"the database"
+msgstr ""
+"Delete existing records that match any of the configured prefixes from "
+"the database"
+
+#: src/views/history_page.py:3725
 #, python-brace-format
 msgid "Delete {n} record(s)? This cannot be undone."
 msgstr "Delete {n} record(s)? This cannot be undone."
@@ -964,12 +1005,12 @@ msgstr "Delete {n} record(s)? This cannot be undone."
 msgid "Deleted {n} log file(s)"
 msgstr "Deleted {n} log file(s)"
 
-#: src/views/main_window.py:397
+#: src/views/main_window.py:399
 #, python-brace-format
 msgid "Deleted {n} record(s)"
 msgstr "Deleted {n} record(s)"
 
-#: src/views/history_page.py:3641
+#: src/views/history_page.py:3652
 msgid "Deletes all records from this domain and adds it to blacklist"
 msgstr "Deletes all records from this domain and adds it to blacklist"
 
@@ -977,20 +1018,20 @@ msgstr "Deletes all records from this domain and adds it to blacklist"
 msgid "Description"
 msgstr "Description"
 
-#: src/views/dashboard_page.py:760 src/views/dialogs/browser_scan_dialog.py:111
-#: src/views/first_run_wizard.py:370
+#: src/views/dashboard_page.py:761 src/views/dialogs/browser_scan_dialog.py:111
+#: src/views/first_run_wizard.py:371
 msgid "Deselect All"
 msgstr "Deselect All"
 
-#: src/views/first_run_wizard.py:488
+#: src/views/first_run_wizard.py:489
 msgid "Detected"
 msgstr "Detected"
 
-#: src/views/dashboard_page.py:855 src/views/dashboard_page.py:894
+#: src/views/dashboard_page.py:856 src/views/dashboard_page.py:895
 msgid "Detected — sync disabled"
 msgstr "Detected — sync disabled"
 
-#: src/views/dashboard_page.py:852 src/views/dashboard_page.py:891
+#: src/views/dashboard_page.py:853 src/views/dashboard_page.py:892
 msgid "Detected — sync enabled"
 msgstr "Detected — sync enabled"
 
@@ -998,33 +1039,33 @@ msgstr "Detected — sync enabled"
 msgid "Device"
 msgstr "Device"
 
-#: src/views/first_run_wizard.py:224
+#: src/views/first_run_wizard.py:225
 msgid "Device name:"
 msgstr "Device name:"
 
-#: src/views/dashboard_page.py:566
+#: src/views/dashboard_page.py:567
 msgid "Disable Sync for This Browser"
 msgstr "Disable Sync for This Browser"
 
 #: src/services/exporter.py:81 src/viewmodels/history_viewmodel.py:64
-#: src/views/search_autocomplete.py:709
+#: src/views/search_autocomplete.py:742
 msgid "Domain"
 msgstr "Domain"
 
-#: src/views/settings_page.py:657
+#: src/views/settings_page.py:681
 msgid "Domain normalisation complete"
 msgstr "Domain normalisation complete"
 
-#: src/services/local_db.py:1258
+#: src/services/local_db.py:1364
 #, python-brace-format
 msgid "Domain normalisation complete — {n} rows updated."
 msgstr "Domain normalisation complete — {n} rows updated."
 
-#: src/views/search_autocomplete.py:509
+#: src/views/search_autocomplete.py:510
 msgid "Domains"
 msgstr "Domains"
 
-#: src/views/dialogs/blacklist_domain_dialog.py:67
+#: src/views/dialogs/blacklist_domain_dialog.py:79
 msgid ""
 "Domains listed here are <b>permanently excluded</b> from sync. All "
 "history records for a blacklisted domain are deleted from the database as"
@@ -1034,7 +1075,7 @@ msgstr ""
 "history records for a blacklisted domain are deleted from the database as"
 " soon as the domain is added."
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:78
+#: src/views/dialogs/hidden_domains_manager_dialog.py:85
 msgid ""
 "Domains listed here are <b>soft-hidden</b>: their records remain in the "
 "database but are filtered from the History view.  Records from hidden "
@@ -1046,7 +1087,7 @@ msgstr ""
 "domains that arrive via sync are also hidden automatically.\n"
 "Remove a domain to make its records visible again."
 
-#: src/views/first_run_wizard.py:983
+#: src/views/first_run_wizard.py:984
 msgid "Done"
 msgstr "Done"
 
@@ -1055,11 +1096,11 @@ msgstr "Done"
 msgid "Done — {ins} new records added, {skip} duplicates skipped."
 msgstr "Done — {ins} new records added, {skip} duplicates skipped."
 
-#: src/services/local_db.py:1093
+#: src/services/local_db.py:1147
 msgid "Done."
 msgstr "Done."
 
-#: src/services/local_db.py:1085
+#: src/services/local_db.py:1139
 #, python-brace-format
 msgid ""
 "Done.  {before:.1f} MB → {after:.1f} MB  (saved {saved:.0f} KB, "
@@ -1068,21 +1109,21 @@ msgstr ""
 "Done.  {before:.1f} MB → {after:.1f} MB  (saved {saved:.0f} KB, "
 "{pct:.1f}%)"
 
-#: src/views/history_page.py:2121 src/views/history_page.py:3836
+#: src/views/history_page.py:2122 src/views/history_page.py:3847
 msgid "Double-click any row to open the link in browser"
 msgstr "Double-click any row to open the link in browser"
 
-#: src/services/webdav_sync.py:526
+#: src/services/webdav_sync.py:529
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "Download failed: {error}"
 
-#: src/services/webdav_sync.py:496
+#: src/services/webdav_sync.py:499
 #, python-brace-format
 msgid "Downloading {filename}..."
 msgstr "Downloading {filename}..."
 
-#: src/services/webdav_sync.py:507
+#: src/services/webdav_sync.py:510
 #, python-brace-format
 msgid "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
 msgstr "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
@@ -1091,23 +1132,23 @@ msgstr "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
 msgid "Edge WebAssistDatabase"
 msgstr "Edge WebAssistDatabase"
 
-#: src/views/annotation_dialog.py:26 src/views/bookmarks_page.py:158
+#: src/views/annotation_dialog.py:26 src/views/bookmarks_page.py:159
 msgid "Edit Note"
 msgstr "Edit Note"
 
-#: src/views/history_page.py:3525
+#: src/views/history_page.py:3536
 msgid "Edit Note…"
 msgstr "Edit Note…"
 
-#: src/views/bookmarks_page.py:157 src/views/bookmarks_page.py:950
+#: src/views/bookmarks_page.py:158 src/views/bookmarks_page.py:952
 msgid "Edit Tags"
 msgstr "Edit Tags"
 
-#: src/views/bookmarks_page.py:209
+#: src/views/bookmarks_page.py:210
 msgid "Edit note"
 msgstr "Edit note"
 
-#: src/views/bookmarks_page.py:208
+#: src/views/bookmarks_page.py:209
 msgid "Edit tags"
 msgstr "Edit tags"
 
@@ -1115,7 +1156,7 @@ msgstr "Edit tags"
 msgid "Embed favicons"
 msgstr "Embed favicons"
 
-#: src/views/dashboard_page.py:569
+#: src/views/dashboard_page.py:570
 msgid "Enable Sync for This Browser"
 msgstr "Enable Sync for This Browser"
 
@@ -1123,19 +1164,19 @@ msgstr "Enable Sync for This Browser"
 msgid "Enable WebDAV Backup"
 msgstr "Enable WebDAV Backup"
 
-#: src/views/first_run_wizard.py:190
+#: src/views/first_run_wizard.py:191
 msgid "Enable automatic background sync"
 msgstr "Enable automatic background sync"
 
-#: src/views/settings/font_section.py:306
+#: src/views/settings/font_section.py:307
 msgid "Enable custom fonts"
 msgstr "Enable custom fonts"
 
-#: src/views/first_run_wizard.py:144
+#: src/views/first_run_wizard.py:145
 msgid "Enable global hotkey (Ctrl+Shift+H)"
 msgstr "Enable global hotkey (Ctrl+Shift+H)"
 
-#: src/views/dashboard_page.py:749
+#: src/views/dashboard_page.py:750
 msgid ""
 "Enable or disable history sync for each browser.\n"
 "Disabled browsers will not be scanned during sync."
@@ -1159,16 +1200,16 @@ msgstr "Enabled"
 msgid "Encryption Key"
 msgstr "Encryption Key"
 
-#: src/views/master_password_dialog.py:90
+#: src/views/master_password_dialog.py:91
 msgid "Enter master password…"
 msgstr "Enter master password…"
 
-#: src/views/dashboard_page.py:613
+#: src/views/dashboard_page.py:614
 #, python-brace-format
 msgid "Enter new name for {}:"
 msgstr "Enter new name for {}:"
 
-#: src/views/settings_page.py:613
+#: src/views/settings_page.py:637
 msgid "Error"
 msgstr "Error"
 
@@ -1198,7 +1239,7 @@ msgstr "Export Format"
 msgid "Export History"
 msgstr "Export History"
 
-#: src/views/settings/maintenance_section.py:111
+#: src/views/settings/maintenance_section.py:112
 msgid "Export History…"
 msgstr "Export History…"
 
@@ -1210,7 +1251,7 @@ msgstr "Export Log"
 msgid "Export PNG"
 msgstr "Export PNG"
 
-#: src/views/history_page.py:2269
+#: src/views/history_page.py:2270
 msgid "Export current filtered results to CSV / JSON / HTML"
 msgstr "Export current filtered results to CSV / JSON / HTML"
 
@@ -1230,7 +1271,7 @@ msgstr "Export statistics as image"
 msgid "Export successful"
 msgstr "Export successful"
 
-#: src/views/settings/maintenance_section.py:115
+#: src/views/settings/maintenance_section.py:116
 msgid ""
 "Export the entire history database to CSV, JSON, or HTML.\n"
 "You can filter by date range and choose which columns to include."
@@ -1255,11 +1296,11 @@ msgstr "Exporting…"
 msgid "Exporting… {c} / {t}"
 msgstr "Exporting… {c} / {t}"
 
-#: src/views/history_page.py:2267
+#: src/views/history_page.py:2268
 msgid "Export…"
 msgstr "Export…"
 
-#: src/views/settings/maintenance_section.py:95
+#: src/views/settings/maintenance_section.py:96
 msgid ""
 "Extract and index domain names from all URLs.\n"
 "Speeds up domain-based queries and enables domain analytics."
@@ -1267,7 +1308,7 @@ msgstr ""
 "Extract and index domain names from all URLs.\n"
 "Speeds up domain-based queries and enables domain analytics."
 
-#: src/viewmodels/main_viewmodel.py:552
+#: src/viewmodels/main_viewmodel.py:555
 msgid "Extracting browser history..."
 msgstr "Extracting browser history..."
 
@@ -1275,15 +1316,15 @@ msgstr "Extracting browser history..."
 msgid "Extracting…"
 msgstr "Extracting…"
 
-#: src/views/settings_page.py:126
+#: src/views/settings_page.py:127
 msgid "FONTS"
 msgstr "FONTS"
 
-#: src/services/local_db.py:1209
+#: src/services/local_db.py:1314
 msgid "FTS index rebuild complete."
 msgstr "FTS index rebuild complete."
 
-#: src/views/settings_page.py:658
+#: src/views/settings_page.py:682
 msgid "FTS rebuild complete"
 msgstr "FTS rebuild complete"
 
@@ -1296,7 +1337,7 @@ msgstr ""
 "Failed to scan for browsers:\n"
 "{}"
 
-#: src/views/first_run_wizard.py:556
+#: src/views/first_run_wizard.py:557
 msgid "Fair"
 msgstr "Fair"
 
@@ -1308,7 +1349,7 @@ msgstr "February"
 msgid "File"
 msgstr "File"
 
-#: src/views/search_autocomplete.py:709
+#: src/views/search_autocomplete.py:742
 msgid "Filter"
 msgstr "Filter"
 
@@ -1324,7 +1365,7 @@ msgstr "Filter browsers:"
 msgid "Filter text..."
 msgstr "Filter text..."
 
-#: src/views/first_run_wizard.py:923
+#: src/views/first_run_wizard.py:924
 msgid "Finish"
 msgstr "Finish"
 
@@ -1336,32 +1377,32 @@ msgstr "Firefox places.sqlite"
 msgid "First Visit Time"
 msgstr "First Visit Time"
 
-#: src/viewmodels/history_viewmodel.py:399
+#: src/viewmodels/history_viewmodel.py:403
 #, python-brace-format
 msgid "First visited: {t}"
 msgstr "First visited: {t}"
 
-#: src/views/settings/font_section.py:291
+#: src/views/settings/font_section.py:292
 msgid "Font Settings"
 msgstr "Font Settings"
 
-#: src/views/settings_page.py:626
+#: src/views/settings_page.py:650
 msgid "Font settings updated — save to persist"
 msgstr "Font settings updated — save to persist"
 
-#: src/views/settings/font_section.py:101
+#: src/views/settings/font_section.py:102
 msgid "Font:"
 msgstr "Font:"
 
-#: src/views/settings/font_section.py:112
+#: src/views/settings/font_section.py:113
 msgid "Fonts are tried in order. The first one that supports a character is used."
 msgstr "Fonts are tried in order. The first one that supports a character is used."
 
-#: src/views/settings/keybinding_section.py:659
+#: src/views/settings/keybinding_section.py:660
 msgid "Force Apply"
 msgstr "Force Apply"
 
-#: src/views/settings/maintenance_section.py:287
+#: src/views/settings/maintenance_section.py:288
 msgid "Force Migrate…"
 msgstr "Force Migrate…"
 
@@ -1396,7 +1437,7 @@ msgstr "Found"
 msgid "Found browsers:"
 msgstr "Found browsers:"
 
-#: src/views/settings/keybinding_section.py:653
+#: src/views/settings/keybinding_section.py:654
 #, python-brace-format
 msgid ""
 "Found {count} shortcut conflicts. Review them below, or choose Force "
@@ -1410,11 +1451,11 @@ msgstr ""
 msgid "Found {} browser(s)..."
 msgstr "Found {} browser(s)..."
 
-#: src/views/history_page.py:128 src/views/stats_page.py:638
+#: src/views/history_page.py:129 src/views/stats_page.py:638
 msgid "Fri"
 msgstr "Fri"
 
-#: src/views/history_page.py:139
+#: src/views/history_page.py:140
 msgid "Friday"
 msgstr "Friday"
 
@@ -1422,19 +1463,19 @@ msgstr "Friday"
 msgid "From:"
 msgstr "From:"
 
-#: src/views/settings/maintenance_section.py:121 src/views/settings_page.py:677
+#: src/views/settings/maintenance_section.py:122 src/views/settings_page.py:701
 msgid "Full Resync"
 msgstr "Full Resync"
 
-#: src/views/history_page.py:3443
+#: src/views/history_page.py:3454
 msgid "Full bubble"
 msgstr "Full bubble"
 
-#: src/views/settings/maintenance_section.py:226
+#: src/views/settings/maintenance_section.py:227
 msgid "Full resync in progress — re-reading all browser history…"
 msgstr "Full resync in progress — re-reading all browser history…"
 
-#: src/views/settings/keybinding_section.py:486
+#: src/views/settings/keybinding_section.py:487
 msgid "GLOBAL HOTKEY"
 msgstr "GLOBAL HOTKEY"
 
@@ -1443,15 +1484,15 @@ msgstr "GLOBAL HOTKEY"
 msgid "Generated {ts}"
 msgstr "Generated {ts}"
 
-#: src/views/first_run_wizard.py:920
+#: src/views/first_run_wizard.py:921
 msgid "Get Started"
 msgstr "Get Started"
 
-#: src/views/settings/keybinding_section.py:737
+#: src/views/settings/keybinding_section.py:738
 msgid "Global"
 msgstr "Global"
 
-#: src/views/first_run_wizard.py:557
+#: src/views/first_run_wizard.py:558
 msgid "Good"
 msgstr "Good"
 
@@ -1459,7 +1500,7 @@ msgstr "Good"
 msgid "HTML Files (*.html);;All Files (*)"
 msgstr "HTML Files (*.html);;All Files (*)"
 
-#: src/views/bookmarks_page.py:560
+#: src/views/bookmarks_page.py:561
 msgid "Has Note"
 msgstr "Has Note"
 
@@ -1467,42 +1508,42 @@ msgstr "Has Note"
 msgid "Has annotation"
 msgstr "Has annotation"
 
-#: src/views/history_page.py:784
+#: src/views/history_page.py:785
 msgid "Has note (click to edit)"
 msgstr "Has note (click to edit)"
 
-#: src/services/webdav_sync.py:571
+#: src/services/webdav_sync.py:574
 #, python-brace-format
 msgid "Hash verification FAILED! Expected {exp}, got {act}"
 msgstr "Hash verification FAILED! Expected {exp}, got {act}"
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:55
+#: src/views/dialogs/hidden_domains_manager_dialog.py:61
 msgid "Hidden Domains"
 msgstr "Hidden Domains"
 
-#: src/views/settings/privacy_section.py:77
+#: src/views/settings/privacy_section.py:81
 msgid "Hidden Domains:"
 msgstr "Hidden Domains:"
 
-#: src/views/history_page.py:3827
+#: src/views/history_page.py:3838
 msgid "Hidden Records"
 msgstr "Hidden Records"
 
-#: src/views/bookmarks_page.py:580
+#: src/views/bookmarks_page.py:581
 msgid "Hidden mode — showing only bookmarks pointing to hidden records"
 msgstr "Hidden mode — showing only bookmarks pointing to hidden records"
 
-#: src/views/main_window.py:417
+#: src/views/main_window.py:419
 #, python-brace-format
 msgid "Hidden {n} record(s) from '{domain}'."
 msgstr "Hidden {n} record(s) from '{domain}'."
 
-#: src/views/history_page.py:3725
+#: src/views/history_page.py:3736
 #, python-brace-format
 msgid "Hidden {n} record(s). Manage in Settings → Privacy."
 msgstr "Hidden {n} record(s). Manage in Settings → Privacy."
 
-#: src/views/main_window.py:402
+#: src/views/main_window.py:404
 #, python-brace-format
 msgid "Hidden {n} record(s). Unhide anytime in Settings → Privacy."
 msgstr "Hidden {n} record(s). Unhide anytime in Settings → Privacy."
@@ -1511,12 +1552,13 @@ msgstr "Hidden {n} record(s). Unhide anytime in Settings → Privacy."
 msgid "Hide"
 msgstr "Hide"
 
+#: src/views/dialogs/hidden_domains_manager_dialog.py:253
 #: src/views/dialogs/hide_domain_dialog.py:50
 msgid "Hide Domain"
 msgstr "Hide Domain"
 
-#: src/views/history_page.py:3607 src/views/history_page.py:3616
-#: src/views/history_page.py:3627
+#: src/views/history_page.py:3618 src/views/history_page.py:3627
+#: src/views/history_page.py:3638
 #, python-brace-format
 msgid "Hide Domain: {domain}"
 msgstr "Hide Domain: {domain}"
@@ -1525,7 +1567,7 @@ msgstr "Hide Domain: {domain}"
 msgid "Hide Password"
 msgstr "Hide Password"
 
-#: src/views/history_page.py:3589
+#: src/views/history_page.py:3600
 #, python-brace-format
 msgid "Hide Selected ({n} records)"
 msgstr "Hide Selected ({n} records)"
@@ -1534,36 +1576,60 @@ msgstr "Hide Selected ({n} records)"
 msgid "Hide Subdomain"
 msgstr "Hide Subdomain"
 
-#: src/views/history_page.py:3602
+#: src/views/history_page.py:3613
 #, python-brace-format
 msgid "Hide Subdomain: {domain}"
 msgstr "Hide Subdomain: {domain}"
 
-#: src/views/history_page.py:3592
+#: src/views/history_page.py:3603
 msgid "Hide This Record"
 msgstr "Hide This Record"
 
-#: src/views/history_page.py:3458
+#: src/views/history_page.py:3469
 msgid "Hide bubble"
 msgstr "Hide bubble"
 
-#: src/views/history_page.py:3604
+#: src/views/history_page.py:3615
 #, python-brace-format
 msgid "Hide only records from {domain}"
 msgstr "Hide only records from {domain}"
 
-#: src/views/history_page.py:3610 src/views/history_page.py:3619
-#: src/views/history_page.py:3630
+#: src/views/history_page.py:3621 src/views/history_page.py:3630
+#: src/views/history_page.py:3641
 #, python-brace-format
 msgid "Hide records from {domain} and all its subdomains"
 msgstr "Hide records from {domain} and all its subdomains"
 
-#: src/views/history_page.py:3583
+#: src/views/history_page.py:3594
 msgid "Hide…"
 msgstr "Hide…"
 
-#: src/views/history_page.py:2105 src/views/history_page.py:3835
-#: src/views/main_window.py:97 src/views/settings/keybinding_section.py:739
+#: src/views/dialogs/hidden_domains_manager_dialog.py:245
+#, python-brace-format
+msgid ""
+"Hiding <b>{domain}</b> will filter <b>{count}</b> history records from "
+"the History view.\n"
+"\n"
+"Continue?"
+msgstr ""
+"Hiding <b>{domain}</b> will filter <b>{count}</b> history records from "
+"the History view.\n"
+"\n"
+"Continue?"
+
+#: src/views/dialogs/hidden_domains_manager_dialog.py:250
+#, python-brace-format
+msgid ""
+"Hiding <b>{domain}</b>.\n"
+"\n"
+"No existing records match this domain."
+msgstr ""
+"Hiding <b>{domain}</b>.\n"
+"\n"
+"No existing records match this domain."
+
+#: src/views/history_page.py:2106 src/views/history_page.py:3846
+#: src/views/main_window.py:98 src/views/settings/keybinding_section.py:740
 msgid "History"
 msgstr "History"
 
@@ -1583,7 +1649,7 @@ msgstr "History database file path..."
 msgid "HistorySync Backup"
 msgstr "HistorySync Backup"
 
-#: src/main.py:655
+#: src/main.py:696
 msgid ""
 "HistorySync could not acquire the single-instance lock\n"
 "(port 20455 is already in use by another process).\n"
@@ -1595,7 +1661,7 @@ msgstr ""
 "\n"
 "Please close any other running instances and try again."
 
-#: src/main.py:734
+#: src/main.py:775
 msgid ""
 "HistorySync has been minimized to the system tray and continues running "
 "in the background."
@@ -1603,7 +1669,7 @@ msgstr ""
 "HistorySync has been minimized to the system tray and continues running "
 "in the background."
 
-#: src/views/first_run_wizard.py:758
+#: src/views/first_run_wizard.py:759
 msgid ""
 "HistorySync is ready to go.\n"
 "\n"
@@ -1615,7 +1681,7 @@ msgstr ""
 "You can adjust any of these settings later in the Settings page.\n"
 "The app will run quietly in your system tray."
 
-#: src/views/first_run_wizard.py:92
+#: src/views/first_run_wizard.py:93
 msgid ""
 "HistorySync quietly collects your browser history in the background\n"
 "and optionally syncs it to WebDAV cloud storage.\n"
@@ -1627,7 +1693,7 @@ msgstr ""
 "\n"
 "Let's take a moment to configure the basics."
 
-#: src/views/first_run_wizard.py:806
+#: src/views/first_run_wizard.py:807
 msgid "HistorySync — First-Time Setup"
 msgstr "HistorySync — First-Time Setup"
 
@@ -1639,11 +1705,11 @@ msgstr "HistorySync — Migration Wizard"
 msgid "ID"
 msgstr "ID"
 
-#: src/views/settings_page.py:124
+#: src/views/settings_page.py:125
 msgid "IMPORT HISTORY DATABASE"
 msgstr "IMPORT HISTORY DATABASE"
 
-#: src/views/settings/keybinding_section.py:506
+#: src/views/settings/keybinding_section.py:507
 msgid "IN-APP SHORTCUTS"
 msgstr "IN-APP SHORTCUTS"
 
@@ -1655,7 +1721,7 @@ msgstr "Identifier (e.g. chrome_portable)"
 msgid "Idle"
 msgstr "Idle"
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:104
+#: src/views/dialogs/hidden_domains_manager_dialog.py:111
 msgid ""
 "If checked, only hide the exact subdomain entered. Otherwise hide the "
 "domain and all its subdomains."
@@ -1663,7 +1729,7 @@ msgstr ""
 "If checked, only hide the exact subdomain entered. Otherwise hide the "
 "domain and all its subdomains."
 
-#: src/views/settings/maintenance_section.py:282
+#: src/views/settings/maintenance_section.py:283
 msgid ""
 "If legacy data was not detected automatically, or you want to test the "
 "migration pipeline, you can force-run it on current data "
@@ -1705,12 +1771,12 @@ msgstr ""
 "manually backed-up Chrome History file, a Firefox places.sqlite, a Safari"
 " History.db, or an older HistorySync backup."
 
-#: src/views/settings_page.py:616
+#: src/views/settings_page.py:640
 #, python-brace-format
 msgid "Import complete: {n} new records added."
 msgstr "Import complete: {n} new records added."
 
-#: src/views/settings/maintenance_section.py:149
+#: src/views/settings/maintenance_section.py:150
 msgid ""
 "Import data from a previous HistorySync installation.\n"
 "Useful if you skipped migration on first launch."
@@ -1722,7 +1788,7 @@ msgstr ""
 msgid "Include favicon cache in backup"
 msgstr "Include favicon cache in backup"
 
-#: src/views/master_password_dialog.py:117
+#: src/views/master_password_dialog.py:118
 msgid "Incorrect password. Please try again."
 msgstr "Incorrect password. Please try again."
 
@@ -1730,15 +1796,15 @@ msgstr "Incorrect password. Please try again."
 msgid "Initializing scan..."
 msgstr "Initializing scan..."
 
-#: src/services/local_db.py:1226
+#: src/services/local_db.py:1331
 msgid "Inserting new domain entries…"
 msgstr "Inserting new domain entries…"
 
-#: src/views/first_run_wizard.py:124
+#: src/views/first_run_wizard.py:125
 msgid "Instant History Search"
 msgstr "Instant History Search"
 
-#: src/views/settings/font_section.py:329
+#: src/views/settings/font_section.py:330
 msgid "Interface Font"
 msgstr "Interface Font"
 
@@ -1746,7 +1812,7 @@ msgstr "Interface Font"
 msgid "Interface language:"
 msgstr "Interface language:"
 
-#: src/views/dialogs/url_prefix_filter_dialog.py:208
+#: src/views/dialogs/url_prefix_filter_dialog.py:233
 msgid "Invalid Prefix"
 msgstr "Invalid Prefix"
 
@@ -1766,20 +1832,20 @@ msgstr "July"
 msgid "June"
 msgstr "June"
 
-#: src/views/settings_page.py:129
+#: src/views/settings_page.py:130
 msgid "KEYBOARD SHORTCUTS"
 msgstr "KEYBOARD SHORTCUTS"
 
-#: src/views/settings/keybinding_section.py:651
+#: src/views/settings/keybinding_section.py:652
 msgid "Keybinding Conflict"
 msgstr "Keybinding Conflict"
 
-#: src/views/settings/keybinding_section.py:458
-#: src/views/settings/keybinding_section.py:790
+#: src/views/settings/keybinding_section.py:459
+#: src/views/settings/keybinding_section.py:791
 msgid "Keyboard Shortcuts"
 msgstr "Keyboard Shortcuts"
 
-#: src/views/settings_page.py:582
+#: src/views/settings_page.py:606
 msgid "Keyboard shortcuts saved"
 msgstr "Keyboard shortcuts saved"
 
@@ -1788,23 +1854,23 @@ msgstr "Keyboard shortcuts saved"
 msgid "Keyword: {kw}"
 msgstr "Keyword: {kw}"
 
-#: src/views/settings_page.py:116
+#: src/views/settings_page.py:117
 msgid "LANGUAGE"
 msgstr "LANGUAGE"
 
-#: src/views/search_autocomplete.py:418
+#: src/views/search_autocomplete.py:419
 msgid "Last 30 days"
 msgstr "Last 30 days"
 
-#: src/views/search_autocomplete.py:417
+#: src/views/search_autocomplete.py:418
 msgid "Last 7 days"
 msgstr "Last 7 days"
 
-#: src/views/search_autocomplete.py:419
+#: src/views/search_autocomplete.py:420
 msgid "Last 90 days"
 msgstr "Last 90 days"
 
-#: src/views/dashboard_page.py:1014
+#: src/views/dashboard_page.py:1015
 msgid "Last Sync"
 msgstr "Last Sync"
 
@@ -1813,21 +1879,21 @@ msgstr "Last Sync"
 msgid "Last cloud sync: {t}"
 msgstr "Last cloud sync: {t}"
 
-#: src/main.py:913
+#: src/main.py:955
 #, python-brace-format
 msgid "Last sync: {count} new"
 msgstr "Last sync: {count} new"
 
-#: src/views/search_autocomplete.py:420
+#: src/views/search_autocomplete.py:421
 msgid "Last year"
 msgstr "Last year"
 
-#: src/views/history_page.py:185
+#: src/views/history_page.py:186
 #, python-brace-format
 msgid "Last {weekday}"
 msgstr "Last {weekday}"
 
-#: src/main.py:653
+#: src/main.py:694
 msgid "Launch Error"
 msgstr "Launch Error"
 
@@ -1851,32 +1917,32 @@ msgstr "Less"
 msgid "Level:"
 msgstr "Level:"
 
-#: src/views/settings/webdav_section.py:143
+#: src/views/settings/webdav_section.py:149
 msgid "List Remote Backups"
 msgstr "List Remote Backups"
 
-#: src/services/webdav_sync.py:467
+#: src/services/webdav_sync.py:470
 msgid "Listing remote backups..."
 msgstr "Listing remote backups..."
 
-#: src/views/bookmarks_page.py:870
+#: src/views/bookmarks_page.py:872
 #, python-brace-format
 msgid "Load {n} more…"
 msgstr "Load {n} more…"
 
-#: src/views/bookmarks_page.py:654
+#: src/views/bookmarks_page.py:652
 msgid "Loading…"
 msgstr "Loading…"
 
-#: src/views/bookmarks_page.py:160 src/views/bookmarks_page.py:210
+#: src/views/bookmarks_page.py:161 src/views/bookmarks_page.py:211
 msgid "Locate in History"
 msgstr "Locate in History"
 
-#: src/views/settings/security_section.py:100
+#: src/views/settings/security_section.py:101
 msgid "Lock Session"
 msgstr "Lock Session"
 
-#: src/views/settings/security_section.py:101
+#: src/views/settings/security_section.py:102
 msgid "Lock the current session — next protected action will require the password"
 msgstr "Lock the current session — next protected action will require the password"
 
@@ -1884,7 +1950,7 @@ msgstr "Lock the current session — next protected action will require the pass
 msgid "Log Files (*.log *.txt);;All Files (*)"
 msgstr "Log Files (*.log *.txt);;All Files (*)"
 
-#: src/views/log_viewer_page.py:102 src/views/main_window.py:100
+#: src/views/log_viewer_page.py:102 src/views/main_window.py:101
 msgid "Log Viewer"
 msgstr "Log Viewer"
 
@@ -1907,11 +1973,11 @@ msgstr "Log file not found: {}"
 msgid "Log file: {}"
 msgstr "Log file: {}"
 
-#: src/views/search_autocomplete.py:857
+#: src/views/search_autocomplete.py:890
 msgid "Logic:"
 msgstr "Logic:"
 
-#: src/views/settings/privacy_section.py:69
+#: src/views/settings/privacy_section.py:73
 msgid ""
 "Manage URL prefixes (e.g. chrome://, about:, data:) that are silently "
 "excluded from history collection."
@@ -1919,7 +1985,7 @@ msgstr ""
 "Manage URL prefixes (e.g. chrome://, about:, data:) that are silently "
 "excluded from history collection."
 
-#: src/views/settings/privacy_section.py:51
+#: src/views/settings/privacy_section.py:52
 msgid ""
 "Manage domains that are permanently excluded from sync and whose records "
 "are deleted."
@@ -1927,7 +1993,7 @@ msgstr ""
 "Manage domains that are permanently excluded from sync and whose records "
 "are deleted."
 
-#: src/views/settings/privacy_section.py:85
+#: src/views/settings/privacy_section.py:89
 msgid ""
 "Manage soft-hidden domains. Records from hidden domains remain in the "
 "database but are excluded from the History view."
@@ -1935,7 +2001,7 @@ msgstr ""
 "Manage soft-hidden domains. Records from hidden domains remain in the "
 "database but are excluded from the History view."
 
-#: src/viewmodels/history_viewmodel.py:395
+#: src/viewmodels/history_viewmodel.py:399
 #, python-brace-format
 msgid "Manually typed in address bar {count} time(s)"
 msgstr "Manually typed in address bar {count} time(s)"
@@ -1944,27 +2010,27 @@ msgstr "Manually typed in address bar {count} time(s)"
 msgid "March"
 msgstr "March"
 
-#: src/views/first_run_wizard.py:653
+#: src/views/first_run_wizard.py:654
 msgid "Master Password (Optional)"
 msgstr "Master Password (Optional)"
 
-#: src/views/master_password_dialog.py:62
+#: src/views/master_password_dialog.py:63
 msgid "Master Password Required"
 msgstr "Master Password Required"
 
-#: src/views/settings/security_section.py:135
+#: src/views/settings/security_section.py:136
 msgid "Master password is set"
 msgstr "Master password is set"
 
-#: src/views/settings_page.py:460
+#: src/views/settings_page.py:462
 msgid "Master password removed"
 msgstr "Master password removed"
 
-#: src/views/settings_page.py:460
+#: src/views/settings_page.py:462
 msgid "Master password updated"
 msgstr "Master password updated"
 
-#: src/views/settings/webdav_section.py:135
+#: src/views/settings/webdav_section.py:141
 msgid "Max backups:"
 msgstr "Max backups:"
 
@@ -1972,7 +2038,7 @@ msgstr "Max backups:"
 msgid "May"
 msgstr "May"
 
-#: src/services/local_db.py:1403
+#: src/services/local_db.py:1509
 #, python-brace-format
 msgid "Merge complete: {inserted} new records added (of {total} in backup)."
 msgstr "Merge complete: {inserted} new records added (of {total} in backup)."
@@ -1989,11 +2055,11 @@ msgstr "Merge your configuration"
 msgid "Merging configuration…"
 msgstr "Merging configuration…"
 
-#: src/services/local_db.py:1427
+#: src/services/local_db.py:1533
 msgid "Merging user data (bookmarks, annotations, hidden records)..."
 msgstr "Merging user data (bookmarks, annotations, hidden records)..."
 
-#: src/services/local_db.py:1341
+#: src/services/local_db.py:1447
 #, python-brace-format
 msgid "Merging {n} records from backup..."
 msgstr "Merging {n} records from backup..."
@@ -2002,7 +2068,7 @@ msgstr "Merging {n} records from backup..."
 msgid "Metadata"
 msgstr "Metadata"
 
-#: src/views/settings/maintenance_section.py:146
+#: src/views/settings/maintenance_section.py:147
 msgid "Migrate Legacy Data…"
 msgstr "Migrate Legacy Data…"
 
@@ -2065,19 +2131,19 @@ msgstr ""
 "Closing now may leave your data in an inconsistent state.\n"
 "Are you sure you want to quit?"
 
-#: src/views/history_page.py:3453
+#: src/views/history_page.py:3464
 msgid "Minimal bubble"
 msgstr "Minimal bubble"
 
-#: src/views/history_page.py:124 src/views/stats_page.py:638
+#: src/views/history_page.py:125 src/views/stats_page.py:638
 msgid "Mon"
 msgstr "Mon"
 
-#: src/views/history_page.py:135
+#: src/views/history_page.py:136
 msgid "Monday"
 msgstr "Monday"
 
-#: src/views/settings/font_section.py:338
+#: src/views/settings/font_section.py:339
 msgid "Monospace Font  (log viewer)"
 msgstr "Monospace Font  (log viewer)"
 
@@ -2089,19 +2155,19 @@ msgstr "Month"
 msgid "More"
 msgstr "More"
 
-#: src/views/settings/font_section.py:132
+#: src/views/settings/font_section.py:133
 msgid "Move Down — lower priority"
 msgstr "Move Down — lower priority"
 
-#: src/views/settings/font_section.py:126
+#: src/views/settings/font_section.py:127
 msgid "Move Up — higher priority"
 msgstr "Move Up — higher priority"
 
-#: src/views/dashboard_page.py:162 src/views/dashboard_page.py:170
+#: src/views/dashboard_page.py:163 src/views/dashboard_page.py:171
 msgid "Needs sync"
 msgstr "Needs sync"
 
-#: src/views/dashboard_page.py:1014 src/views/dashboard_page.py:1325
+#: src/views/dashboard_page.py:1015 src/views/dashboard_page.py:1326
 #: src/views/settings/devices_section.py:30
 msgid "Never"
 msgstr "Never"
@@ -2110,48 +2176,48 @@ msgstr "Never"
 msgid "New device name:"
 msgstr "New device name:"
 
-#: src/views/master_password_dialog.py:318
+#: src/views/master_password_dialog.py:319
 msgid "New password cannot be empty."
 msgstr "New password cannot be empty."
 
-#: src/views/master_password_dialog.py:321
+#: src/views/master_password_dialog.py:322
 msgid "New password must be at least 4 characters."
 msgstr "New password must be at least 4 characters."
 
-#: src/views/first_run_wizard.py:682 src/views/master_password_dialog.py:177
-#: src/views/master_password_dialog.py:277
+#: src/views/first_run_wizard.py:683 src/views/master_password_dialog.py:178
+#: src/views/master_password_dialog.py:278
 msgid "New password:"
 msgstr "New password:"
 
-#: src/views/master_password_dialog.py:324
+#: src/views/master_password_dialog.py:325
 msgid "New passwords do not match."
 msgstr "New passwords do not match."
 
-#: src/views/master_password_dialog.py:173
-#: src/views/master_password_dialog.py:272
+#: src/views/master_password_dialog.py:174
+#: src/views/master_password_dialog.py:273
 msgid "New password…"
 msgstr "New password…"
 
-#: src/services/exporter.py:612 src/views/first_run_wizard.py:865
-#: src/views/first_run_wizard.py:926
+#: src/services/exporter.py:612 src/views/first_run_wizard.py:866
+#: src/views/first_run_wizard.py:927
 msgid "Next"
 msgstr "Next"
 
-#: src/views/settings_page.py:372
+#: src/views/settings_page.py:374
 #, python-brace-format
 msgid "Next backup in: {t}"
 msgstr "Next backup in: {t}"
 
-#: src/views/settings_page.py:372
+#: src/views/settings_page.py:374
 msgid "Next backup: due soon"
 msgstr "Next backup: due soon"
 
-#: src/views/settings_page.py:361
+#: src/views/settings_page.py:363
 #, python-brace-format
 msgid "Next sync in: {t}"
 msgstr "Next sync in: {t}"
 
-#: src/views/settings_page.py:361
+#: src/views/settings_page.py:363
 msgid "Next sync: due soon"
 msgstr "Next sync: due soon"
 
@@ -2159,19 +2225,23 @@ msgstr "Next sync: due soon"
 msgid "No Columns"
 msgstr "No Columns"
 
-#: src/views/settings/maintenance_section.py:278
+#: src/views/settings/maintenance_section.py:279
 msgid "No Legacy Data"
 msgstr "No Legacy Data"
+
+#: src/views/dialogs/url_prefix_filter_dialog.py:279
+msgid "No Records Found"
+msgstr "No Records Found"
 
 #: src/views/dialogs/browser_scan_dialog.py:251
 msgid "No Selection"
 msgstr "No Selection"
 
-#: src/services/webdav_sync.py:478
+#: src/services/webdav_sync.py:481
 msgid "No backups found on server."
 msgstr "No backups found on server."
 
-#: src/views/dashboard_page.py:702
+#: src/views/dashboard_page.py:703
 msgid "No browsers detected"
 msgstr "No browsers detected"
 
@@ -2184,7 +2254,7 @@ msgstr "No data"
 msgid "No database file — skipped"
 msgstr "No database file — skipped"
 
-#: src/viewmodels/history_viewmodel.py:392
+#: src/viewmodels/history_viewmodel.py:396
 msgid "No description available"
 msgstr "No description available"
 
@@ -2192,13 +2262,17 @@ msgstr "No description available"
 msgid "No devices recorded yet."
 msgstr "No devices recorded yet."
 
-#: src/views/dialogs/blacklist_domain_dialog.py:138
+#: src/views/dialogs/blacklist_domain_dialog.py:150
 msgid "No domains blacklisted — all domains are accepted."
 msgstr "No domains blacklisted — all domains are accepted."
 
 #: src/services/exporter.py:610
 msgid "No entries match the current filter."
 msgstr "No entries match the current filter."
+
+#: src/views/dialogs/url_prefix_filter_dialog.py:280
+msgid "No existing records match the configured URL prefixes."
+msgstr "No existing records match the configured URL prefixes."
 
 #: src/views/dialogs/hide_domain_dialog.py:98
 msgid ""
@@ -2218,15 +2292,15 @@ msgstr ""
 "\n"
 "Drop files here, or click  Add Files  below."
 
-#: src/views/dialogs/url_prefix_filter_dialog.py:156
+#: src/views/dialogs/url_prefix_filter_dialog.py:181
 msgid "No filters configured — all URLs are accepted."
 msgstr "No filters configured — all URLs are accepted."
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:170
+#: src/views/dialogs/hidden_domains_manager_dialog.py:177
 msgid "No hidden domains — all domains are visible."
 msgstr "No hidden domains — all domains are visible."
 
-#: src/views/settings/maintenance_section.py:279
+#: src/views/settings/maintenance_section.py:280
 msgid ""
 "No legacy HistorySync data was found.\n"
 "\n"
@@ -2240,8 +2314,8 @@ msgstr ""
 msgid "No log file found."
 msgstr "No log file found."
 
-#: src/views/settings/security_section.py:64
-#: src/views/settings/security_section.py:151
+#: src/views/settings/security_section.py:65
+#: src/views/settings/security_section.py:152
 msgid "No master password set"
 msgstr "No master password set"
 
@@ -2257,52 +2331,52 @@ msgstr ""
 "No valid files to import.\n"
 "Mark at least one file with a known format."
 
-#: src/views/settings/maintenance_section.py:214
+#: src/views/settings/maintenance_section.py:215
 msgid "None"
 msgstr "None"
 
-#: src/views/settings/maintenance_section.py:91
+#: src/views/settings/maintenance_section.py:92
 msgid "Normalize Domains"
 msgstr "Normalize Domains"
 
-#: src/viewmodels/history_viewmodel.py:402
+#: src/viewmodels/history_viewmodel.py:406
 msgid "Not available"
 msgstr "Not available"
 
-#: src/viewmodels/history_viewmodel.py:396
 #: src/viewmodels/history_viewmodel.py:400
-#: src/viewmodels/history_viewmodel.py:406
+#: src/viewmodels/history_viewmodel.py:404
+#: src/viewmodels/history_viewmodel.py:410
 msgid "Not available for this browser"
 msgstr "Not available for this browser"
 
-#: src/views/dashboard_page.py:858 src/views/dashboard_page.py:897
-#: src/views/first_run_wizard.py:491
+#: src/views/dashboard_page.py:859 src/views/dashboard_page.py:898
+#: src/views/first_run_wizard.py:492
 msgid "Not detected"
 msgstr "Not detected"
 
 #: src/viewmodels/main_viewmodel.py:385 src/viewmodels/main_viewmodel.py:394
-#: src/views/dashboard_page.py:1015
+#: src/views/dashboard_page.py:1016
 msgid "Not enabled"
 msgstr "Not enabled"
 
-#: src/views/dashboard_page.py:165 src/views/dashboard_page.py:173
+#: src/views/dashboard_page.py:166 src/views/dashboard_page.py:174
 msgid "Not found"
 msgstr "Not found"
 
-#: src/views/settings/keybinding_section.py:150
-#: src/views/settings/keybinding_section.py:317
-#: src/views/settings/keybinding_section.py:421
-#: src/views/settings/keybinding_section.py:429
-#: src/views/settings/keybinding_section.py:435
-#: src/views/settings/keybinding_section.py:441
+#: src/views/settings/keybinding_section.py:151
+#: src/views/settings/keybinding_section.py:318
+#: src/views/settings/keybinding_section.py:422
+#: src/views/settings/keybinding_section.py:430
+#: src/views/settings/keybinding_section.py:436
+#: src/views/settings/keybinding_section.py:442
 msgid "Not set"
 msgstr "Not set"
 
-#: src/views/dashboard_page.py:163 src/views/dashboard_page.py:171
+#: src/views/dashboard_page.py:164 src/views/dashboard_page.py:172
 msgid "Not synced"
 msgstr "Not synced"
 
-#: src/views/history_page.py:782
+#: src/views/history_page.py:783
 #, python-brace-format
 msgid "Note: {note}"
 msgstr "Note: {note}"
@@ -2315,7 +2389,7 @@ msgstr "November"
 msgid "October"
 msgstr "October"
 
-#: src/views/settings/keybinding_section.py:507
+#: src/views/settings/keybinding_section.py:508
 msgid "Only active when the application window is focused."
 msgstr "Only active when the application window is focused."
 
@@ -2324,12 +2398,12 @@ msgstr "Only active when the application window is focused."
 msgid "Only records from the exact subdomain <b>{domain}</b> will be hidden."
 msgstr "Only records from the exact subdomain <b>{domain}</b> will be hidden."
 
-#: src/views/history_page.py:3503
+#: src/views/history_page.py:3514
 #, python-brace-format
 msgid "Open All Selected in Browser ({n})"
 msgstr "Open All Selected in Browser ({n})"
 
-#: src/views/dashboard_page.py:574
+#: src/views/dashboard_page.py:575
 msgid "Open Browser"
 msgstr "Open Browser"
 
@@ -2337,15 +2411,15 @@ msgstr "Open Browser"
 msgid "Open Folder"
 msgstr "Open Folder"
 
-#: src/views/tray_icon.py:76
+#: src/views/tray_icon.py:211
 msgid "Open Main Window"
 msgstr "Open Main Window"
 
-#: src/views/bookmarks_page.py:154 src/views/history_page.py:3499
+#: src/views/bookmarks_page.py:155 src/views/history_page.py:3510
 msgid "Open in Browser"
 msgstr "Open in Browser"
 
-#: src/views/bookmarks_page.py:207
+#: src/views/bookmarks_page.py:208
 msgid "Open in browser"
 msgstr "Open in browser"
 
@@ -2357,15 +2431,15 @@ msgstr "Open with"
 msgid "Open with:"
 msgstr "Open with:"
 
-#: src/services/local_db.py:1309
+#: src/services/local_db.py:1415
 msgid "Opening backup database for merge..."
 msgstr "Opening backup database for merge..."
 
-#: src/views/settings_page.py:660
+#: src/views/settings_page.py:684
 msgid "Operation complete"
 msgstr "Operation complete"
 
-#: src/views/tray_icon.py:133
+#: src/views/tray_icon.py:262
 msgid "Operation in Progress"
 msgstr "Operation in Progress"
 
@@ -2377,7 +2451,7 @@ msgstr "Output File"
 msgid "Overlay settings"
 msgstr "Overlay settings"
 
-#: src/views/settings/font_section.py:313
+#: src/views/settings/font_section.py:314
 msgid ""
 "Override the built-in UI typeface and the monospace font used in the log "
 "viewer.  Add multiple families as fallbacks — if a character isn't in the"
@@ -2387,12 +2461,12 @@ msgstr ""
 "viewer.  Add multiple families as fallbacks — if a character isn't in the"
 " first font, the next one is tried automatically."
 
-#: src/views/dashboard_page.py:989 src/views/main_window.py:96
+#: src/views/dashboard_page.py:990 src/views/main_window.py:97
 #: src/views/stats_page.py:1692
 msgid "Overview"
 msgstr "Overview"
 
-#: src/views/settings_page.py:120
+#: src/views/settings_page.py:121
 msgid "PRIVACY & BLACKLIST"
 msgstr "PRIVACY & BLACKLIST"
 
@@ -2404,20 +2478,24 @@ msgstr "Page Title"
 msgid "Pages"
 msgstr "Pages"
 
-#: src/views/master_password_dialog.py:211
+#: src/views/master_password_dialog.py:212
 msgid "Password cannot be empty."
 msgstr "Password cannot be empty."
 
-#: src/views/first_run_wizard.py:714 src/views/master_password_dialog.py:214
+#: src/views/settings/webdav_section.py:135
+msgid "Password could not be decrypted. Please re-enter it."
+msgstr "Password could not be decrypted. Please re-enter it."
+
+#: src/views/first_run_wizard.py:715 src/views/master_password_dialog.py:215
 msgid "Password must be at least 4 characters."
 msgstr "Password must be at least 4 characters."
 
-#: src/views/master_password_dialog.py:92
+#: src/views/master_password_dialog.py:93
 #: src/views/settings/webdav_section.py:133
 msgid "Password:"
 msgstr "Password:"
 
-#: src/views/first_run_wizard.py:712 src/views/master_password_dialog.py:217
+#: src/views/first_run_wizard.py:713 src/views/master_password_dialog.py:218
 msgid "Passwords do not match."
 msgstr "Passwords do not match."
 
@@ -2437,7 +2515,7 @@ msgstr ""
 "Please do not close the application during migration.   Estimated time: <"
 " 30 s"
 
-#: src/views/master_password_dialog.py:110
+#: src/views/master_password_dialog.py:111
 msgid "Please enter the password."
 msgstr "Please enter the password."
 
@@ -2449,7 +2527,7 @@ msgstr "Please select at least one browser to add."
 msgid "Please select at least one column to export."
 msgstr "Please select at least one column to export."
 
-#: src/views/settings_page.py:143
+#: src/views/settings_page.py:144
 msgid "Preferences"
 msgstr "Preferences"
 
@@ -2457,7 +2535,7 @@ msgstr "Preferences"
 msgid "Preparing database for upload (stripping FTS index)..."
 msgstr "Preparing database for upload (stripping FTS index)..."
 
-#: src/views/first_run_wizard.py:131
+#: src/views/first_run_wizard.py:132
 msgid ""
 "Press Ctrl+Shift+H anywhere to instantly search your browser history\n"
 "and open any URL — without switching to the main window."
@@ -2465,8 +2543,8 @@ msgstr ""
 "Press Ctrl+Shift+H anywhere to instantly search your browser history\n"
 "and open any URL — without switching to the main window."
 
-#: src/views/settings/keybinding_section.py:312
-#: src/views/settings/keybinding_section.py:394
+#: src/views/settings/keybinding_section.py:313
+#: src/views/settings/keybinding_section.py:395
 msgid "Press a key..."
 msgstr "Press a key..."
 
@@ -2479,33 +2557,33 @@ msgstr "Prev"
 msgid "Profile"
 msgstr "Profile"
 
-#: src/services/local_db.py:1078
+#: src/services/local_db.py:1132
 #, python-brace-format
 msgid "Pruned {n} expired tombstone rows (>90 days old)."
 msgstr "Pruned {n} expired tombstone rows (>90 days old)."
 
-#: src/views/settings_page.py:127
+#: src/views/settings_page.py:128
 msgid "QUICK ACCESS OVERLAY"
 msgstr "QUICK ACCESS OVERLAY"
 
-#: src/views/first_run_wizard.py:979
+#: src/views/first_run_wizard.py:980
 msgid "Quick Access"
 msgstr "Quick Access"
 
-#: src/views/settings/keybinding_section.py:497
-#: src/views/settings/keybinding_section.py:725
+#: src/views/settings/keybinding_section.py:498
+#: src/views/settings/keybinding_section.py:726
 msgid "Quick Access Overlay"
 msgstr "Quick Access Overlay"
 
-#: src/views/tray_icon.py:91
+#: src/views/tray_icon.py:226
 msgid "Quit HistorySync"
 msgstr "Quit HistorySync"
 
-#: src/views/dashboard_page.py:786
+#: src/views/dashboard_page.py:787
 msgid "Re-detect Browsers Now"
 msgstr "Re-detect Browsers Now"
 
-#: src/views/settings/maintenance_section.py:125
+#: src/views/settings/maintenance_section.py:126
 msgid ""
 "Re-extract the complete browser history from scratch and upsert all "
 "records.\n"
@@ -2519,14 +2597,14 @@ msgstr ""
 "in earlier syncs. Existing records are never deleted — only updated.\n"
 "This may take a while for large histories."
 
-#: src/viewmodels/main_viewmodel.py:613
+#: src/viewmodels/main_viewmodel.py:616
 #, python-brace-format
 msgid "Reading {browser} history..."
 msgstr "Reading {browser} history..."
 
-#: src/views/history_page.py:2262 src/views/import_dialog.py:490
-#: src/views/import_dialog.py:512 src/views/main_window.py:80
-#: src/views/tray_icon.py:86
+#: src/views/history_page.py:2263 src/views/import_dialog.py:490
+#: src/views/import_dialog.py:512 src/views/main_window.py:81
+#: src/views/tray_icon.py:221
 msgid "Ready"
 msgstr "Ready"
 
@@ -2534,11 +2612,11 @@ msgstr "Ready"
 msgid "Real-time application log — auto-refreshes every 2 seconds"
 msgstr "Real-time application log — auto-refreshes every 2 seconds"
 
-#: src/views/settings/maintenance_section.py:101
+#: src/views/settings/maintenance_section.py:102
 msgid "Rebuild FTS Index"
 msgstr "Rebuild FTS Index"
 
-#: src/views/settings/maintenance_section.py:105
+#: src/views/settings/maintenance_section.py:106
 msgid ""
 "Rebuild the full-text search index from scratch.\n"
 "Run this if search results seem incomplete or incorrect."
@@ -2546,19 +2624,20 @@ msgstr ""
 "Rebuild the full-text search index from scratch.\n"
 "Run this if search results seem incomplete or incorrect."
 
-#: src/services/local_db.py:1206
+#: src/services/local_db.py:1311
 msgid "Rebuilding full-text search index…"
 msgstr "Rebuilding full-text search index…"
 
-#: src/views/search_autocomplete.py:506 src/views/search_autocomplete.py:723
+#: src/views/search_autocomplete.py:507 src/views/search_autocomplete.py:545
+#: src/views/search_autocomplete.py:756
 msgid "Recent"
 msgstr "Recent"
 
-#: src/views/search_autocomplete.py:575
+#: src/views/search_autocomplete.py:599
 msgid "Recent search"
 msgstr "Recent search"
 
-#: src/views/settings/maintenance_section.py:85
+#: src/views/settings/maintenance_section.py:86
 msgid ""
 "Reclaim wasted space, defragment pages, and update query planner "
 "statistics.\n"
@@ -2568,24 +2647,28 @@ msgstr ""
 "statistics.\n"
 "Requires ~2× the current DB size as free disk space."
 
-#: src/views/history_page.py:1318
+#: src/views/history_page.py:1319
 msgid "Record rank within the day"
 msgstr "Record rank within the day"
 
-#: src/views/settings/maintenance_section.py:66
+#: src/views/settings/maintenance_section.py:67
 msgid "Records"
 msgstr "Records"
+
+#: src/views/dialogs/url_prefix_filter_dialog.py:300
+msgid "Records Deleted"
+msgstr "Records Deleted"
 
 #: src/views/dialogs/hide_domain_dialog.py:88
 #, python-brace-format
 msgid "Records from <b>{domain}</b> and all its subdomains will be hidden."
 msgstr "Records from <b>{domain}</b> and all its subdomains will be hidden."
 
-#: src/views/search_autocomplete.py:1312
+#: src/views/search_autocomplete.py:1345
 msgid "Regex Mode"
 msgstr "Regex Mode"
 
-#: src/views/search_autocomplete.py:1655
+#: src/views/search_autocomplete.py:1708
 msgid "Regex: e.g. github\\.com.*release"
 msgstr "Regex: e.g. github\\.com.*release"
 
@@ -2593,57 +2676,57 @@ msgstr "Regex: e.g. github\\.com.*release"
 msgid "Reload"
 msgstr "Reload"
 
-#: src/views/settings/webdav_section.py:134
+#: src/views/settings/webdav_section.py:140
 msgid "Remote Path:"
 msgstr "Remote Path:"
 
-#: src/services/webdav_sync.py:471
+#: src/services/webdav_sync.py:474
 msgid "Remote directory not found."
 msgstr "Remote directory not found."
 
-#: src/views/dashboard_page.py:666
-#: src/views/dialogs/blacklist_domain_dialog.py:160
-#: src/views/dialogs/hidden_domains_manager_dialog.py:204
-#: src/views/dialogs/url_prefix_filter_dialog.py:178
-#: src/views/settings/font_section.py:138
+#: src/views/dashboard_page.py:667
+#: src/views/dialogs/blacklist_domain_dialog.py:172
+#: src/views/dialogs/hidden_domains_manager_dialog.py:211
+#: src/views/dialogs/url_prefix_filter_dialog.py:203
+#: src/views/settings/font_section.py:139
 msgid "Remove"
 msgstr "Remove"
 
-#: src/views/dashboard_page.py:650
+#: src/views/dashboard_page.py:651
 #, python-brace-format
 msgid "Remove <b>{}</b> from config?"
 msgstr "Remove <b>{}</b> from config?"
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:136
+#: src/views/dialogs/hidden_domains_manager_dialog.py:143
 msgid "Remove All"
 msgstr "Remove All"
 
-#: src/views/bookmarks_page.py:162 src/views/bookmarks_page.py:1008
-#: src/views/history_page.py:3513
+#: src/views/bookmarks_page.py:163 src/views/bookmarks_page.py:1010
+#: src/views/history_page.py:3524
 msgid "Remove Bookmark"
 msgstr "Remove Bookmark"
 
-#: src/views/dashboard_page.py:642
+#: src/views/dashboard_page.py:643
 msgid "Remove Browser"
 msgstr "Remove Browser"
 
-#: src/views/settings/security_section.py:198
+#: src/views/settings/security_section.py:199
 msgid "Remove Master Password"
 msgstr "Remove Master Password"
 
-#: src/views/settings/security_section.py:95
+#: src/views/settings/security_section.py:96
 msgid "Remove Password"
 msgstr "Remove Password"
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:138
+#: src/views/dialogs/hidden_domains_manager_dialog.py:145
 msgid "Remove all hidden-domain entries (records become visible again)"
 msgstr "Remove all hidden-domain entries (records become visible again)"
 
-#: src/views/bookmarks_page.py:211
+#: src/views/bookmarks_page.py:212
 msgid "Remove bookmark"
 msgstr "Remove bookmark"
 
-#: src/views/bookmarks_page.py:1009
+#: src/views/bookmarks_page.py:1011
 #, python-brace-format
 msgid ""
 "Remove bookmark for:\n"
@@ -2652,7 +2735,7 @@ msgstr ""
 "Remove bookmark for:\n"
 "{title}"
 
-#: src/views/dashboard_page.py:585
+#: src/views/dashboard_page.py:586
 msgid "Remove from Config"
 msgstr "Remove from Config"
 
@@ -2664,7 +2747,7 @@ msgstr "Remove this device and all its history records from the database."
 msgid "Rename"
 msgstr "Rename"
 
-#: src/views/dashboard_page.py:582 src/views/dashboard_page.py:613
+#: src/views/dashboard_page.py:583 src/views/dashboard_page.py:614
 msgid "Rename Browser"
 msgstr "Rename Browser"
 
@@ -2676,25 +2759,25 @@ msgstr "Rename Device"
 msgid "Rename…"
 msgstr "Rename…"
 
-#: src/views/history_page.py:2179
+#: src/views/history_page.py:2180
 msgid "Reset"
 msgstr "Reset"
 
-#: src/views/settings/font_section.py:355
+#: src/views/settings/font_section.py:356
 msgid "Reset Defaults"
 msgstr "Reset Defaults"
 
-#: src/views/settings/keybinding_section.py:692
+#: src/views/settings/keybinding_section.py:693
 msgid "Reset all keybindings to their default settings?"
 msgstr "Reset all keybindings to their default settings?"
 
-#: src/views/dialogs/url_prefix_filter_dialog.py:117
-#: src/views/dialogs/url_prefix_filter_dialog.py:235
-#: src/views/settings/keybinding_section.py:545
+#: src/views/dialogs/url_prefix_filter_dialog.py:130
+#: src/views/dialogs/url_prefix_filter_dialog.py:260
+#: src/views/settings/keybinding_section.py:546
 msgid "Reset to Defaults"
 msgstr "Reset to Defaults"
 
-#: src/views/settings/keybinding_section.py:158
+#: src/views/settings/keybinding_section.py:159
 msgid "Reset to default shortcut"
 msgstr "Reset to default shortcut"
 
@@ -2702,42 +2785,42 @@ msgstr "Reset to default shortcut"
 msgid "Restart required to apply language changes."
 msgstr "Restart required to apply language changes."
 
-#: src/views/settings_page.py:416
+#: src/views/settings_page.py:418
 msgid "Restore Database"
 msgstr "Restore Database"
 
-#: src/views/history_page.py:3267
+#: src/views/history_page.py:3278
 msgid "Restore Default View"
 msgstr "Restore Default View"
 
-#: src/services/webdav_sync.py:643
+#: src/services/webdav_sync.py:646
 #, python-brace-format
 msgid "Restore failed: {error}"
 msgstr "Restore failed: {error}"
 
-#: src/views/settings/webdav_section.py:165
+#: src/views/settings/webdav_section.py:171
 msgid "Restore from WebDAV"
 msgstr "Restore from WebDAV"
 
-#: src/views/dialogs/url_prefix_filter_dialog.py:121
+#: src/views/dialogs/url_prefix_filter_dialog.py:134
 msgid "Restore the built-in default URL prefix list"
 msgstr "Restore the built-in default URL prefix list"
 
-#: src/services/webdav_sync.py:635
+#: src/services/webdav_sync.py:638
 #, python-brace-format
 msgid "Restored from {filename}"
 msgstr "Restored from {filename}"
 
-#: src/views/history_page.py:3731 src/views/main_window.py:407
+#: src/views/history_page.py:3742 src/views/main_window.py:409
 #, python-brace-format
 msgid "Restored {n} record(s)."
 msgstr "Restored {n} record(s)."
 
-#: src/services/local_db.py:1064
+#: src/services/local_db.py:1118
 msgid "Restoring WAL mode and updating statistics…"
 msgstr "Restoring WAL mode and updating statistics…"
 
-#: src/services/webdav_sync.py:582
+#: src/services/webdav_sync.py:585
 msgid "Restoring favicon cache..."
 msgstr "Restoring favicon cache..."
 
@@ -2745,11 +2828,11 @@ msgstr "Restoring favicon cache..."
 msgid "Resume"
 msgstr "Resume"
 
-#: src/views/history_page.py:3830
+#: src/views/history_page.py:3841
 msgid "Return to normal view"
 msgstr "Return to normal view"
 
-#: src/views/history_page.py:1319
+#: src/views/history_page.py:1320
 msgid "Right-click scrollbar to change settings"
 msgstr "Right-click scrollbar to change settings"
 
@@ -2757,11 +2840,11 @@ msgstr "Right-click scrollbar to change settings"
 msgid "Rows"
 msgstr "Rows"
 
-#: src/views/first_run_wizard.py:774
+#: src/views/first_run_wizard.py:775
 msgid "Run initial sync now"
 msgstr "Run initial sync now"
 
-#: src/services/local_db.py:1057
+#: src/services/local_db.py:1111
 msgid "Running VACUUM — rewriting database file…"
 msgstr "Running VACUUM — rewriting database file…"
 
@@ -2769,15 +2852,15 @@ msgstr "Running VACUUM — rewriting database file…"
 msgid "Running schema migration…"
 msgstr "Running schema migration…"
 
-#: src/views/settings_page.py:128
+#: src/views/settings_page.py:129
 msgid "SEARCH ENGINE"
 msgstr "SEARCH ENGINE"
 
-#: src/views/settings_page.py:121
+#: src/views/settings_page.py:122
 msgid "SECURITY"
 msgstr "SECURITY"
 
-#: src/views/settings/webdav_section.py:281
+#: src/views/settings/webdav_section.py:288
 msgid "SHA-256 Hashes:"
 msgstr "SHA-256 Hashes:"
 
@@ -2785,7 +2868,7 @@ msgstr "SHA-256 Hashes:"
 msgid "SQLite Database (History *.sqlite *.db);;All Files (*)"
 msgstr "SQLite Database (History *.sqlite *.db);;All Files (*)"
 
-#: src/views/settings_page.py:118
+#: src/views/settings_page.py:119
 msgid "STARTUP SETTINGS"
 msgstr "STARTUP SETTINGS"
 
@@ -2793,19 +2876,19 @@ msgstr "STARTUP SETTINGS"
 msgid "Safari History.db"
 msgstr "Safari History.db"
 
-#: src/views/history_page.py:129
+#: src/views/history_page.py:130
 msgid "Sat"
 msgstr "Sat"
 
-#: src/views/history_page.py:140
+#: src/views/history_page.py:141
 msgid "Saturday"
 msgstr "Saturday"
 
-#: src/views/settings_page.py:150
+#: src/views/settings_page.py:151
 msgid "Save Settings"
 msgstr "Save Settings"
 
-#: src/viewmodels/main_viewmodel.py:614
+#: src/viewmodels/main_viewmodel.py:617
 #, python-brace-format
 msgid "Saving {browser} ({count} records)..."
 msgstr "Saving {browser} ({count} records)..."
@@ -2834,7 +2917,7 @@ msgstr "Scan failed: {}"
 msgid "Scanning for browsers..."
 msgstr "Scanning for browsers..."
 
-#: src/services/local_db.py:1222
+#: src/services/local_db.py:1327
 msgid "Scanning for un-normalised URLs…"
 msgstr "Scanning for un-normalised URLs…"
 
@@ -2864,20 +2947,20 @@ msgstr "Search"
 msgid "Search \"{query}\""
 msgstr "Search \"{query}\""
 
-#: src/views/search_autocomplete.py:574
+#: src/views/search_autocomplete.py:598
 #, python-brace-format
 msgid "Search \"{query}\" on {engine}"
 msgstr "Search \"{query}\" on {engine}"
 
-#: src/views/search_autocomplete.py:1689
+#: src/views/search_autocomplete.py:1743
 msgid "Search Help"
 msgstr "Search Help"
 
-#: src/views/search_autocomplete.py:1327
+#: src/views/search_autocomplete.py:1360
 msgid "Search Syntax Help"
 msgstr "Search Syntax Help"
 
-#: src/views/bookmarks_page.py:548
+#: src/views/bookmarks_page.py:549
 msgid "Search bookmarks… (tag:work, after:2024-01-01, has:note)"
 msgstr "Search bookmarks… (tag:work, after:2024-01-01, has:note)"
 
@@ -2885,7 +2968,7 @@ msgstr "Search bookmarks… (tag:work, after:2024-01-01, has:note)"
 msgid "Search engine:"
 msgstr "Search engine:"
 
-#: src/views/search_autocomplete.py:569
+#: src/views/search_autocomplete.py:593
 msgid "Search filter"
 msgstr "Search filter"
 
@@ -2893,7 +2976,7 @@ msgstr "Search filter"
 msgid "Search history…"
 msgstr "Search history…"
 
-#: src/views/search_autocomplete.py:1303 src/views/search_autocomplete.py:1658
+#: src/views/search_autocomplete.py:1336 src/views/search_autocomplete.py:1711
 msgid "Search title or URL..."
 msgstr "Search title or URL..."
 
@@ -2901,22 +2984,22 @@ msgstr "Search title or URL..."
 msgid "Search title, URL, or domain..."
 msgstr "Search title, URL, or domain..."
 
-#: src/views/search_autocomplete.py:543
+#: src/views/search_autocomplete.py:567
 #, python-brace-format
 msgid "Search {query}"
 msgstr "Search {query}"
 
-#: src/views/history_page.py:3651
+#: src/views/history_page.py:3662
 #, python-brace-format
 msgid "Search: {domain}"
 msgstr "Search: {domain}"
 
-#: src/views/first_run_wizard.py:982
+#: src/views/first_run_wizard.py:983
 msgid "Security"
 msgstr "Security"
 
-#: src/views/dashboard_page.py:758 src/views/dialogs/browser_scan_dialog.py:106
-#: src/views/export_dialog.py:229 src/views/first_run_wizard.py:368
+#: src/views/dashboard_page.py:759 src/views/dialogs/browser_scan_dialog.py:106
+#: src/views/export_dialog.py:229 src/views/first_run_wizard.py:369
 msgid "Select All"
 msgstr "Select All"
 
@@ -2932,7 +3015,7 @@ msgstr "Select History Database File"
 msgid "Select None"
 msgstr "Select None"
 
-#: src/services/webdav_sync.py:486
+#: src/services/webdav_sync.py:489
 #, python-brace-format
 msgid "Selected backup not found on server: {filename}"
 msgstr "Selected backup not found on server: {filename}"
@@ -2945,37 +3028,37 @@ msgstr "September"
 msgid "Server URL:"
 msgstr "Server URL:"
 
-#: src/views/settings_page.py:474
+#: src/views/settings_page.py:476
 msgid "Session locked"
 msgstr "Session locked"
 
-#: src/views/settings/security_section.py:145
+#: src/views/settings/security_section.py:146
 msgid "Session locked — password will be requested on next protected action"
 msgstr "Session locked — password will be requested on next protected action"
 
-#: src/views/settings/security_section.py:142
+#: src/views/settings/security_section.py:143
 msgid "Session unlocked — no password required until you lock or restart"
 msgstr "Session unlocked — no password required until you lock or restart"
 
-#: src/views/master_password_dialog.py:132
-#: src/views/settings/security_section.py:87
+#: src/views/master_password_dialog.py:133
+#: src/views/settings/security_section.py:88
 msgid "Set Master Password"
 msgstr "Set Master Password"
 
-#: src/views/master_password_dialog.py:194
+#: src/views/master_password_dialog.py:195
 msgid "Set Password"
 msgstr "Set Password"
 
-#: src/views/master_password_dialog.py:155
+#: src/views/master_password_dialog.py:156
 msgid "Set a Master Password"
 msgstr "Set a Master Password"
 
-#: src/views/main_window.py:99 src/views/overlay_window.py:333
-#: src/views/settings/keybinding_section.py:745
+#: src/views/main_window.py:100 src/views/overlay_window.py:333
+#: src/views/settings/keybinding_section.py:746
 msgid "Settings"
 msgstr "Settings"
 
-#: src/views/main_window.py:388
+#: src/views/main_window.py:390
 msgid "Settings saved"
 msgstr "Settings saved"
 
@@ -2987,7 +3070,7 @@ msgstr "Show Password"
 msgid "Showing"
 msgstr "Showing"
 
-#: src/views/history_page.py:3828
+#: src/views/history_page.py:3839
 msgid "Showing only hidden records."
 msgstr "Showing only hidden records."
 
@@ -2995,7 +3078,7 @@ msgstr "Showing only hidden records."
 msgid "Site Icon Cache"
 msgstr "Site Icon Cache"
 
-#: src/views/settings/font_section.py:160
+#: src/views/settings/font_section.py:161
 msgid "Size:"
 msgstr "Size:"
 
@@ -3003,11 +3086,11 @@ msgstr "Size:"
 msgid "Skip Migration?"
 msgstr "Skip Migration?"
 
-#: src/views/first_run_wizard.py:856
+#: src/views/first_run_wizard.py:857
 msgid "Skip Setup"
 msgstr "Skip Setup"
 
-#: src/views/first_run_wizard.py:932
+#: src/views/first_run_wizard.py:933
 msgid "Skip Setup?"
 msgstr "Skip Setup?"
 
@@ -3031,15 +3114,15 @@ msgstr "Start minimized to tray when opening the app"
 msgid "Starting import…"
 msgstr "Starting import…"
 
-#: src/views/settings_page.py:430
+#: src/views/settings_page.py:432
 msgid "Starting..."
 msgstr "Starting..."
 
-#: src/views/main_window.py:344
+#: src/views/main_window.py:345
 msgid "Starting…"
 msgstr "Starting…"
 
-#: src/views/main_window.py:101 src/views/settings/keybinding_section.py:743
+#: src/views/main_window.py:102 src/views/settings/keybinding_section.py:744
 #: src/views/stats_page.py:1676
 msgid "Statistics"
 msgstr "Statistics"
@@ -3057,24 +3140,29 @@ msgstr ""
 msgid "Status"
 msgstr "Status"
 
-#: src/views/first_run_wizard.py:558
+#: src/views/first_run_wizard.py:559
 msgid "Strong"
 msgstr "Strong"
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:102
+#: src/views/dialogs/hidden_domains_manager_dialog.py:109
 msgid "Subdomain only"
 msgstr "Subdomain only"
+
+#: src/views/dialogs/url_prefix_filter_dialog.py:301
+#, python-brace-format
+msgid "Successfully deleted {count} records."
+msgstr "Successfully deleted {count} records."
 
 #: src/views/export_dialog.py:507
 #, python-brace-format
 msgid "Successfully exported {n} records."
 msgstr "Successfully exported {n} records."
 
-#: src/views/history_page.py:130
+#: src/views/history_page.py:131
 msgid "Sun"
 msgstr "Sun"
 
-#: src/views/history_page.py:141
+#: src/views/history_page.py:142
 msgid "Sunday"
 msgstr "Sunday"
 
@@ -3086,55 +3174,55 @@ msgstr ""
 "Supported: Chrome/Edge/Brave History  ·  Firefox places.sqlite  ·  Safari"
 " History.db  ·  HistorySync history.db"
 
-#: src/views/first_run_wizard.py:980
+#: src/views/first_run_wizard.py:981
 msgid "Sync"
 msgstr "Sync"
 
-#: src/main.py:916
+#: src/main.py:958
 msgid "Sync Complete"
 msgstr "Sync Complete"
 
-#: src/main.py:928
+#: src/main.py:970
 msgid "Sync Failed"
 msgstr "Sync Failed"
 
-#: src/views/dashboard_page.py:996 src/views/dashboard_page.py:1316
-#: src/views/dashboard_page.py:1320 src/views/tray_icon.py:81
-#: src/views/tray_icon.py:110
+#: src/views/dashboard_page.py:997 src/views/dashboard_page.py:1317
+#: src/views/dashboard_page.py:1321 src/views/tray_icon.py:190
+#: src/views/tray_icon.py:216
 msgid "Sync Now"
 msgstr "Sync Now"
 
-#: src/views/dashboard_page.py:555
+#: src/views/dashboard_page.py:556
 msgid "Sync This Browser"
 msgstr "Sync This Browser"
 
-#: src/views/main_window.py:357
+#: src/views/main_window.py:359
 #, python-brace-format
 msgid "Sync complete — {count} new records added"
 msgstr "Sync complete — {count} new records added"
 
-#: src/views/dashboard_page.py:527
+#: src/views/dashboard_page.py:528
 msgid "Sync disabled"
 msgstr "Sync disabled"
 
-#: src/main.py:927 src/viewmodels/main_viewmodel.py:393
+#: src/main.py:969 src/viewmodels/main_viewmodel.py:393
 msgid "Sync error"
 msgstr "Sync error"
 
-#: src/viewmodels/main_viewmodel.py:568
+#: src/viewmodels/main_viewmodel.py:571
 msgid "Sync failed: all browser extractions encountered errors"
 msgstr "Sync failed: all browser extractions encountered errors"
 
-#: src/views/main_window.py:368
+#: src/views/main_window.py:370
 #, python-brace-format
 msgid "Sync failed: {error}"
 msgstr "Sync failed: {error}"
 
-#: src/views/first_run_wizard.py:196 src/views/settings/scheduler_section.py:33
+#: src/views/first_run_wizard.py:197 src/views/settings/scheduler_section.py:33
 msgid "Sync interval:"
 msgstr "Sync interval:"
 
-#: src/views/history_page.py:2702
+#: src/views/history_page.py:2713
 msgid "Sync triggered..."
 msgstr "Sync triggered..."
 
@@ -3142,12 +3230,12 @@ msgstr "Sync triggered..."
 msgid "Synced"
 msgstr "Synced"
 
-#: src/views/main_window.py:343
+#: src/views/main_window.py:344
 msgid "Syncing browser history…"
 msgstr "Syncing browser history…"
 
-#: src/views/dashboard_page.py:164 src/views/dashboard_page.py:172
-#: src/views/dashboard_page.py:1312 src/views/tray_icon.py:107
+#: src/views/dashboard_page.py:165 src/views/dashboard_page.py:173
+#: src/views/dashboard_page.py:1313 src/views/tray_icon.py:186
 msgid "Syncing..."
 msgstr "Syncing..."
 
@@ -3156,19 +3244,19 @@ msgstr "Syncing..."
 msgid "Tag: {tag}"
 msgstr "Tag: {tag}"
 
-#: src/views/bookmarks_page.py:528
+#: src/views/bookmarks_page.py:529
 msgid "Tags"
 msgstr "Tags"
 
-#: src/views/bookmarks_page.py:951
+#: src/views/bookmarks_page.py:953
 msgid "Tags (comma-separated):"
 msgstr "Tags (comma-separated):"
 
-#: src/views/settings/webdav_section.py:157
+#: src/views/settings/webdav_section.py:163
 msgid "Test Connection"
 msgstr "Test Connection"
 
-#: src/main.py:716
+#: src/main.py:757
 msgid ""
 "The configuration file was corrupt or unreadable and could not be loaded."
 "\n"
@@ -3188,7 +3276,7 @@ msgstr ""
 "The backup of the corrupt file also failed. Please check your config "
 "directory."
 
-#: src/main.py:709
+#: src/main.py:750
 #, python-brace-format
 msgid ""
 "The configuration file was corrupt or unreadable and could not be loaded."
@@ -3217,7 +3305,7 @@ msgstr "The following items will be processed:"
 msgid "The following steps will be performed (all are reversible):"
 msgstr "The following steps will be performed (all are reversible):"
 
-#: src/views/master_password_dialog.py:163
+#: src/views/master_password_dialog.py:164
 msgid ""
 "The master password protects sensitive settings (WebDAV credentials, sync"
 " config, privacy rules). You will be asked to enter it before any "
@@ -3239,11 +3327,11 @@ msgstr "Theme: Dark"
 msgid "Theme: Light"
 msgstr "Theme: Light"
 
-#: src/views/master_password_dialog.py:82
+#: src/views/master_password_dialog.py:83
 msgid "This action is protected by a master password."
 msgstr "This action is protected by a master password."
 
-#: src/views/dashboard_page.py:655
+#: src/views/dashboard_page.py:656
 msgid ""
 "This browser was added via deep scan. Removing it will stop HistorySync "
 "from syncing it."
@@ -3278,11 +3366,11 @@ msgstr ""
 "\n"
 "Continue?"
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:265
+#: src/views/dialogs/hidden_domains_manager_dialog.py:294
 msgid "This will make all individually hidden records visible again. Continue?"
 msgstr "This will make all individually hidden records visible again. Continue?"
 
-#: src/views/settings_page.py:418
+#: src/views/settings_page.py:420
 msgid ""
 "This will merge the WebDAV backup into your current local history "
 "database. Existing records will be kept and new records from the backup "
@@ -3291,12 +3379,25 @@ msgstr ""
 "This will merge the WebDAV backup into your current local history "
 "database. Existing records will be kept and new records from the backup "
 "will be added. Are you sure you want to continue?"
+
+#: src/views/dialogs/url_prefix_filter_dialog.py:288
+#, python-brace-format
+msgid ""
+"This will permanently delete <b>{count}</b> records whose URLs match any "
+"of the configured prefixes from the database.\n"
+"\n"
+"This action cannot be undone. Continue?"
+msgstr ""
+"This will permanently delete <b>{count}</b> records whose URLs match any "
+"of the configured prefixes from the database.\n"
+"\n"
+"This action cannot be undone. Continue?"
 
 #: src/views/log_viewer_page.py:372
 msgid "This will permanently delete all log files. Continue?"
 msgstr "This will permanently delete all log files. Continue?"
 
-#: src/views/settings_page.py:679
+#: src/views/settings_page.py:703
 msgid ""
 "This will re-read the complete history from all browser databases\n"
 "and upsert every record, back-filling any fields that were missing\n"
@@ -3306,7 +3407,7 @@ msgstr ""
 "and upsert every record, back-filling any fields that were missing\n"
 "No existing records will be deleted. Continue?"
 
-#: src/views/dialogs/url_prefix_filter_dialog.py:236
+#: src/views/dialogs/url_prefix_filter_dialog.py:261
 msgid ""
 "This will replace your current filter list with the built-in defaults.\n"
 "\n"
@@ -3316,7 +3417,7 @@ msgstr ""
 "\n"
 "Continue?"
 
-#: src/views/history_page.py:3748
+#: src/views/history_page.py:3759
 #, python-brace-format
 msgid ""
 "This will:\n"
@@ -3331,20 +3432,20 @@ msgstr ""
 "\n"
 "Continue?"
 
-#: src/views/history_page.py:127
+#: src/views/history_page.py:128
 msgid "Thu"
 msgstr "Thu"
 
-#: src/views/history_page.py:138
+#: src/views/history_page.py:139
 msgid "Thursday"
 msgstr "Thursday"
 
-#: src/viewmodels/history_viewmodel.py:405
+#: src/viewmodels/history_viewmodel.py:409
 #, python-brace-format
 msgid "Time on page: {s:.1f} seconds"
 msgstr "Time on page: {s:.1f} seconds"
 
-#: src/views/history_page.py:1317
+#: src/views/history_page.py:1318
 msgid "Time position within the day"
 msgstr "Time position within the day"
 
@@ -3360,7 +3461,7 @@ msgstr "Title & URL"
 msgid "To:"
 msgstr "To:"
 
-#: src/views/history_page.py:165 src/views/search_autocomplete.py:416
+#: src/views/history_page.py:166 src/views/search_autocomplete.py:417
 msgid "Today"
 msgstr "Today"
 
@@ -3376,7 +3477,7 @@ msgstr "Top 10 domains"
 msgid "Total Items"
 msgstr "Total Items"
 
-#: src/views/dashboard_page.py:1012
+#: src/views/dashboard_page.py:1013
 msgid "Total Local Records"
 msgstr "Total Local Records"
 
@@ -3388,11 +3489,11 @@ msgstr "Total visits"
 msgid "Transition Type"
 msgstr "Transition Type"
 
-#: src/views/history_page.py:125
+#: src/views/history_page.py:126
 msgid "Tue"
 msgstr "Tue"
 
-#: src/views/history_page.py:136
+#: src/views/history_page.py:137
 msgid "Tuesday"
 msgstr "Tuesday"
 
@@ -3400,7 +3501,7 @@ msgstr "Tuesday"
 msgid "Typed Count"
 msgstr "Typed Count"
 
-#: src/views/settings/font_section.py:47
+#: src/views/settings/font_section.py:48
 #, python-brace-format
 msgid "UI: {ui} {ups}px  ·  Mono: {mono} {mps}px"
 msgstr "UI: {ui} {ups}px  ·  Mono: {mono} {mps}px"
@@ -3409,23 +3510,28 @@ msgstr "UI: {ui} {ups}px  ·  Mono: {mono} {mps}px"
 msgid "URL"
 msgstr "URL"
 
-#: src/views/dialogs/url_prefix_filter_dialog.py:48
+#: src/views/dialogs/url_prefix_filter_dialog.py:59
 msgid "URL Prefix Filters"
 msgstr "URL Prefix Filters"
 
-#: src/views/settings/privacy_section.py:62
+#: src/views/settings/privacy_section.py:63
 msgid "URL Prefix Filters:"
 msgstr "URL Prefix Filters:"
 
-#: src/views/settings_page.py:540
+#: src/views/settings_page.py:559
 msgid "URL prefix filters saved"
 msgstr "URL prefix filters saved"
+
+#: src/views/settings_page.py:555
+#, python-brace-format
+msgid "URL prefix filters saved, {n} records deleted"
+msgstr "URL prefix filters saved, {n} records deleted"
 
 #: src/views/settings/search_engine_section.py:58
 msgid "URL template:"
 msgstr "URL template:"
 
-#: src/views/dialogs/url_prefix_filter_dialog.py:69
+#: src/views/dialogs/url_prefix_filter_dialog.py:82
 msgid ""
 "URLs whose address begins with any of the prefixes below are silently "
 "discarded during extraction and never stored in the database. This is "
@@ -3437,34 +3543,34 @@ msgstr ""
 "useful for filtering browser-internal pages (e.g. <b>chrome://</b>, "
 "<b>about:</b>) and protocol handlers (e.g. <b>data:</b>)."
 
-#: src/views/settings_page.py:567
+#: src/views/settings_page.py:591
 #, python-brace-format
 msgid "Unhid {n} domain(s)"
 msgstr "Unhid {n} domain(s)"
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:142
-#: src/views/dialogs/hidden_domains_manager_dialog.py:264
+#: src/views/dialogs/hidden_domains_manager_dialog.py:149
+#: src/views/dialogs/hidden_domains_manager_dialog.py:293
 msgid "Unhide All Records"
 msgstr "Unhide All Records"
 
-#: src/views/history_page.py:3577
+#: src/views/history_page.py:3588
 #, python-brace-format
 msgid "Unhide Selected ({n} records)"
 msgstr "Unhide Selected ({n} records)"
 
-#: src/views/history_page.py:3580
+#: src/views/history_page.py:3591
 msgid "Unhide This Record"
 msgstr "Unhide This Record"
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:145
+#: src/views/dialogs/hidden_domains_manager_dialog.py:152
 msgid "Unhide all individually hidden records (does not affect hidden domains)"
 msgstr "Unhide all individually hidden records (does not affect hidden domains)"
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:208
+#: src/views/dialogs/hidden_domains_manager_dialog.py:215
 msgid "Unhide this domain — its records will become visible again"
 msgstr "Unhide this domain — its records will become visible again"
 
-#: src/views/settings/maintenance_section.py:67
+#: src/views/settings/maintenance_section.py:68
 msgid "Unique domains"
 msgstr "Unique domains"
 
@@ -3476,16 +3582,16 @@ msgstr "Unknown"
 msgid "Unknown (Skip)"
 msgstr "Unknown (Skip)"
 
-#: src/views/master_password_dialog.py:100
+#: src/views/master_password_dialog.py:101
 msgid "Unlock"
 msgstr "Unlock"
 
-#: src/services/webdav_sync.py:483 src/services/webdav_sync.py:492
+#: src/services/webdav_sync.py:486 src/services/webdav_sync.py:495
 #, python-brace-format
 msgid "Unsafe backup filename rejected: {filename}"
 msgstr "Unsafe backup filename rejected: {filename}"
 
-#: src/views/dashboard_page.py:161 src/views/dashboard_page.py:169
+#: src/views/dashboard_page.py:162 src/views/dashboard_page.py:170
 msgid "Up to date"
 msgstr "Up to date"
 
@@ -3501,12 +3607,12 @@ msgstr "Upgrade the database schema"
 msgid "Upgrading database schema…"
 msgstr "Upgrading database schema…"
 
-#: src/services/webdav_sync.py:371 src/services/webdav_sync.py:426
+#: src/services/webdav_sync.py:371 src/services/webdav_sync.py:429
 #, python-brace-format
 msgid "Upload failed: {error}"
 msgstr "Upload failed: {error}"
 
-#: src/services/webdav_sync.py:416
+#: src/services/webdav_sync.py:419
 #, python-brace-format
 msgid "Upload successful: {filename} ({size} KB) — SHA-256 verified"
 msgstr "Upload successful: {filename} ({size} KB) — SHA-256 verified"
@@ -3534,11 +3640,11 @@ msgstr ""
 "Use {query} as the placeholder for the search term.\n"
 "Example: https://www.google.com/search?q={query}"
 
-#: src/views/first_run_wizard.py:237
+#: src/views/first_run_wizard.py:238
 msgid "Used to identify this machine in multi-device history views."
 msgstr "Used to identify this machine in multi-device history views."
 
-#: src/services/local_db.py:1611
+#: src/services/local_db.py:1719
 msgid "User data merge complete."
 msgstr "User data merge complete."
 
@@ -3547,15 +3653,15 @@ msgstr "User data merge complete."
 msgid "Username:"
 msgstr "Username:"
 
-#: src/views/settings/font_section.py:44 src/views/settings/font_section.py:440
+#: src/views/settings/font_section.py:45 src/views/settings/font_section.py:441
 msgid "Using built-in defaults"
 msgstr "Using built-in defaults"
 
-#: src/views/settings/maintenance_section.py:80
+#: src/views/settings/maintenance_section.py:81
 msgid "Vacuum && Optimize"
 msgstr "Vacuum && Optimize"
 
-#: src/views/settings_page.py:656
+#: src/views/settings_page.py:680
 msgid "Vacuum complete"
 msgstr "Vacuum complete"
 
@@ -3576,7 +3682,7 @@ msgstr "Verify result"
 msgid "Verify the migration result"
 msgstr "Verify the migration result"
 
-#: src/services/webdav_sync.py:531
+#: src/services/webdav_sync.py:534
 msgid "Verifying backup integrity (SHA-256)..."
 msgstr "Verifying backup integrity (SHA-256)..."
 
@@ -3584,15 +3690,15 @@ msgstr "Verifying backup integrity (SHA-256)..."
 msgid "Verifying migration…"
 msgstr "Verifying migration…"
 
-#: src/views/first_run_wizard.py:554
+#: src/views/first_run_wizard.py:555
 msgid "Very weak"
 msgstr "Very weak"
 
-#: src/views/dashboard_page.py:559
+#: src/views/dashboard_page.py:560
 msgid "View History"
 msgstr "View History"
 
-#: src/views/history_page.py:2111 src/views/history_page.py:3838
+#: src/views/history_page.py:2112 src/views/history_page.py:3849
 msgid "View hidden records"
 msgstr "View hidden records"
 
@@ -3618,7 +3724,7 @@ msgstr "Visit Duration (s)"
 msgid "Visit Time"
 msgstr "Visit Time"
 
-#: src/viewmodels/history_viewmodel.py:386
+#: src/viewmodels/history_viewmodel.py:390
 #, python-brace-format
 msgid "Visited {count} times"
 msgstr "Visited {count} times"
@@ -3627,19 +3733,19 @@ msgstr "Visited {count} times"
 msgid "Visualize your browsing activity"
 msgstr "Visualize your browsing activity"
 
-#: src/views/settings_page.py:119
+#: src/views/settings_page.py:120
 msgid "WEBDAV CLOUD BACKUP"
 msgstr "WEBDAV CLOUD BACKUP"
 
-#: src/views/first_run_wizard.py:286
+#: src/views/first_run_wizard.py:287
 msgid "Want to block specific domains from being recorded?"
 msgstr "Want to block specific domains from being recorded?"
 
-#: src/views/first_run_wizard.py:267
+#: src/views/first_run_wizard.py:268
 msgid "Want to exclude internal browser URLs?"
 msgstr "Want to exclude internal browser URLs?"
 
-#: src/views/settings/maintenance_section.py:65
+#: src/views/settings/maintenance_section.py:66
 msgid "Wasted space"
 msgstr "Wasted space"
 
@@ -3651,11 +3757,11 @@ msgstr ""
 "We found existing HistorySync data from a previous version.\n"
 "The following items can be safely migrated to the current version:"
 
-#: src/views/first_run_wizard.py:555
+#: src/views/first_run_wizard.py:556
 msgid "Weak"
 msgstr "Weak"
 
-#: src/views/dashboard_page.py:1015
+#: src/views/dashboard_page.py:1016
 msgid "WebDAV Status"
 msgstr "WebDAV Status"
 
@@ -3667,23 +3773,23 @@ msgstr "WebDAV Sync Configuration"
 msgid "WebDAV not configured"
 msgstr "WebDAV not configured"
 
-#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:452
+#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:455
 msgid "WebDAV not configured or disabled"
 msgstr "WebDAV not configured or disabled"
 
-#: src/views/history_page.py:126 src/views/stats_page.py:638
+#: src/views/history_page.py:127 src/views/stats_page.py:638
 msgid "Wed"
 msgstr "Wed"
 
-#: src/views/history_page.py:137
+#: src/views/history_page.py:138
 msgid "Wednesday"
 msgstr "Wednesday"
 
-#: src/views/first_run_wizard.py:978
+#: src/views/first_run_wizard.py:979
 msgid "Welcome"
 msgstr "Welcome"
 
-#: src/views/first_run_wizard.py:85
+#: src/views/first_run_wizard.py:86
 msgid "Welcome to HistorySync"
 msgstr "Welcome to HistorySync"
 
@@ -3715,7 +3821,7 @@ msgstr ""
 "When enabled, the main window will not appear on launch — HistorySync "
 "runs silently in the system tray."
 
-#: src/views/settings/keybinding_section.py:487
+#: src/views/settings/keybinding_section.py:488
 msgid "Works system-wide even when the app window is not focused."
 msgstr "Works system-wide even when the app window is not focused."
 
@@ -3735,11 +3841,11 @@ msgstr "Year"
 msgid "Year at a glance"
 msgstr "Year at a glance"
 
-#: src/views/history_page.py:181
+#: src/views/history_page.py:182
 msgid "Yesterday"
 msgstr "Yesterday"
 
-#: src/views/first_run_wizard.py:250
+#: src/views/first_run_wizard.py:251
 msgid "You can enable 'Launch on startup' in Settings → Startup later."
 msgstr "You can enable 'Launch on startup' in Settings → Startup later."
 
@@ -3769,23 +3875,23 @@ msgstr ""
 "You can always run the migration later from\n"
 "Settings → Maintenance → Migrate from Legacy Data."
 
-#: src/views/main_window.py:50
+#: src/views/main_window.py:51
 msgid "[Fresh Mode]"
 msgstr "[Fresh Mode]"
 
-#: src/views/tray_icon.py:130
+#: src/views/tray_icon.py:259
 msgid "backup"
 msgstr "backup"
 
-#: src/views/overlay_window.py:303 src/views/search_autocomplete.py:778
+#: src/views/overlay_window.py:303 src/views/search_autocomplete.py:811
 msgid "close"
 msgstr "close"
 
-#: src/views/search_autocomplete.py:777
+#: src/views/search_autocomplete.py:810
 msgid "complete"
 msgstr "complete"
 
-#: src/views/search_autocomplete.py:776
+#: src/views/search_autocomplete.py:809
 msgid "confirm"
 msgstr "confirm"
 
@@ -3793,16 +3899,16 @@ msgstr "confirm"
 msgid "copy"
 msgstr "copy"
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:198
+#: src/views/dialogs/hidden_domains_manager_dialog.py:205
 msgid "domain + subdomains"
 msgstr "domain + subdomains"
 
-#: src/views/dialogs/blacklist_domain_dialog.py:80
-#: src/views/dialogs/hidden_domains_manager_dialog.py:98
+#: src/views/dialogs/blacklist_domain_dialog.py:92
+#: src/views/dialogs/hidden_domains_manager_dialog.py:105
 msgid "e.g.  example.com"
 msgstr "e.g.  example.com"
 
-#: src/views/dialogs/url_prefix_filter_dialog.py:84
+#: src/views/dialogs/url_prefix_filter_dialog.py:97
 msgid "e.g.  moz-extension://  or  chrome://"
 msgstr "e.g.  moz-extension://  or  chrome://"
 
@@ -3810,7 +3916,7 @@ msgstr "e.g.  moz-extension://  or  chrome://"
 msgid "e.g. Default"
 msgstr "e.g. Default"
 
-#: src/views/first_run_wizard.py:227
+#: src/views/first_run_wizard.py:228
 msgid "e.g. My Laptop"
 msgstr "e.g. My Laptop"
 
@@ -3818,12 +3924,13 @@ msgstr "e.g. My Laptop"
 msgid "entries"
 msgstr "entries"
 
-#: src/views/overlay_window.py:300 src/views/search_autocomplete.py:775
+#: src/views/overlay_window.py:300 src/views/search_autocomplete.py:808
 msgid "navigate"
 msgstr "navigate"
 
-#: src/views/settings/privacy_section.py:102
-#: src/views/settings/privacy_section.py:109
+#: src/views/settings/privacy_section.py:106
+#: src/views/settings/privacy_section.py:113
+#: src/views/settings/privacy_section.py:120
 msgid "none"
 msgstr "none"
 
@@ -3839,15 +3946,15 @@ msgstr "open"
 msgid "page"
 msgstr "page"
 
-#: src/views/dialogs/hidden_domains_manager_dialog.py:198
+#: src/views/dialogs/hidden_domains_manager_dialog.py:205
 msgid "subdomain only"
 msgstr "subdomain only"
 
-#: src/views/tray_icon.py:130
+#: src/views/tray_icon.py:259
 msgid "sync"
 msgstr "sync"
 
-#: src/views/tray_icon.py:130
+#: src/views/tray_icon.py:259
 msgid "sync and backup"
 msgstr "sync and backup"
 
@@ -3859,7 +3966,7 @@ msgstr "unknown"
 msgid "visits"
 msgstr "visits"
 
-#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:449
+#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:452
 msgid "webdavclient3 is not installed."
 msgstr "webdavclient3 is not installed."
 
@@ -3867,22 +3974,22 @@ msgstr "webdavclient3 is not installed."
 msgid "webdavclient3 is not installed. Run: pip install webdavclient3"
 msgstr "webdavclient3 is not installed. Run: pip install webdavclient3"
 
-#: src/views/settings/keybinding_section.py:671
+#: src/views/settings/keybinding_section.py:672
 #, python-brace-format
 msgid "{action} [{scope}]"
 msgstr "{action} [{scope}]"
 
-#: src/viewmodels/main_viewmodel.py:615
+#: src/viewmodels/main_viewmodel.py:618
 #, python-brace-format
 msgid "{browser} done — {count} new records"
 msgstr "{browser} done — {count} new records"
 
-#: src/viewmodels/main_viewmodel.py:616
+#: src/viewmodels/main_viewmodel.py:619
 #, python-brace-format
 msgid "{browser} extraction failed"
 msgstr "{browser} extraction failed"
 
-#: src/main.py:917
+#: src/main.py:959
 #, python-brace-format
 msgid "{count} new history records added"
 msgstr "{count} new history records added"
@@ -3892,7 +3999,7 @@ msgstr "{count} new history records added"
 msgid "{count} records will be exported"
 msgstr "{count} records will be exported"
 
-#: src/views/history_page.py:335 src/views/search_autocomplete.py:567
+#: src/views/history_page.py:336 src/views/search_autocomplete.py:591
 #: src/views/stats_page.py:1143 src/views/stats_page.py:1278
 #: src/views/stats_page.py:1433
 #, python-brace-format
@@ -3909,7 +4016,7 @@ msgstr "{d}d {h}h"
 msgid "{h}h {m}m"
 msgstr "{h}h {m}m"
 
-#: src/views/history_page.py:187
+#: src/views/history_page.py:188
 #, python-brace-format
 msgid "{month}/{day}  {weekday}"
 msgstr "{month}/{day}  {weekday}"
@@ -3924,13 +4031,13 @@ msgstr "{m}m {s}s"
 msgid "{n} backup(s) found"
 msgstr "{n} backup(s) found"
 
-#: src/views/bookmarks_page.py:813 src/views/bookmarks_page.py:1039
+#: src/views/bookmarks_page.py:815 src/views/bookmarks_page.py:1041
 #, python-brace-format
 msgid "{n} bookmarks"
 msgstr "{n} bookmarks"
 
-#: src/views/settings/privacy_section.py:100
-#: src/views/settings/privacy_section.py:107
+#: src/views/settings/privacy_section.py:104
+#: src/views/settings/privacy_section.py:118
 #, python-brace-format
 msgid "{n} domains"
 msgstr "{n} domains"
@@ -3945,17 +4052,22 @@ msgstr "{n} icons"
 msgid "{n} lines displayed"
 msgstr "{n} lines displayed"
 
-#: src/views/history_page.py:1208
+#: src/views/history_page.py:1209
 #, python-brace-format
 msgid "{n} more drag(s) to close"
 msgstr "{n} more drag(s) to close"
+
+#: src/views/settings/privacy_section.py:111
+#, python-brace-format
+msgid "{n} prefixes"
+msgstr "{n} prefixes"
 
 #: src/views/migration_wizard.py:254
 #, python-brace-format
 msgid "{n} records"
 msgstr "{n} records"
 
-#: src/views/history_page.py:3313
+#: src/views/history_page.py:3324
 #, python-brace-format
 msgid "{n} rows selected"
 msgstr "{n} rows selected"
@@ -3985,27 +4097,27 @@ msgstr "{start}:00 - {end}:00"
 msgid "{s}s"
 msgstr "{s}s"
 
-#: src/views/history_page.py:3380
+#: src/views/history_page.py:3391
 #, python-brace-format
 msgid "{total} records"
 msgstr "{total} records"
 
-#: src/main.py:769
+#: src/main.py:811
 #, python-brace-format
 msgid "{total} records in total"
 msgstr "{total} records in total"
 
-#: src/views/history_page.py:3378
+#: src/views/history_page.py:3389
 #, python-brace-format
 msgid "{total}+ records"
 msgstr "{total}+ records"
 
-#: src/views/history_page.py:183
+#: src/views/history_page.py:184
 #, python-brace-format
 msgid "{weekday}"
 msgstr "{weekday}"
 
-#: src/views/history_page.py:188
+#: src/views/history_page.py:189
 #, python-brace-format
 msgid "{year}/{month}/{day}  {weekday}"
 msgstr "{year}/{month}/{day}  {weekday}"
@@ -4014,11 +4126,11 @@ msgstr "{year}/{month}/{day}  {weekday}"
 msgid "⏳ Importing…"
 msgstr "⏳ Importing…"
 
-#: src/views/settings_page.py:317
+#: src/views/settings_page.py:319
 msgid "⚠ Failed to configure startup"
 msgstr "⚠ Failed to configure startup"
 
-#: src/views/settings_page.py:314
+#: src/views/settings_page.py:316
 msgid "⚠ Failed to configure startup — check permissions"
 msgstr "⚠ Failed to configure startup — check permissions"
 
@@ -4034,7 +4146,7 @@ msgstr "⚠ The selected range extends beyond the original filter range."
 msgid "⚠ Unknown"
 msgstr "⚠ Unknown"
 
-#: src/services/local_db.py:1048
+#: src/services/local_db.py:1102
 msgid ""
 "⚠ WAL checkpoint partially blocked by active readers; VACUUM will handle "
 "remaining pages…"
@@ -4050,71 +4162,71 @@ msgstr ""
 "⚠️ Warning: Disabling SSL verification exposes your backup to man-in-the-"
 "middle attacks."
 
-#: src/views/settings_page.py:763
+#: src/views/settings_page.py:791
 msgid "✓ Device deleted"
 msgstr "✓ Device deleted"
 
-#: src/views/settings_page.py:753
+#: src/views/settings_page.py:781
 msgid "✓ Device identity adopted"
 msgstr "✓ Device identity adopted"
 
-#: src/views/settings_page.py:737
+#: src/views/settings_page.py:761
 msgid "✓ Device renamed"
 msgstr "✓ Device renamed"
 
-#: src/views/settings_page.py:705
+#: src/views/settings_page.py:729
 #, python-brace-format
 msgid "✓ Full resync complete — {n} new records upserted"
 msgstr "✓ Full resync complete — {n} new records upserted"
 
-#: src/views/settings/maintenance_section.py:234
+#: src/views/settings/maintenance_section.py:235
 #, python-brace-format
 msgid "✓ Full resync complete — {n} new records upserted."
 msgstr "✓ Full resync complete — {n} new records upserted."
 
-#: src/services/webdav_sync.py:578
+#: src/services/webdav_sync.py:581
 #, python-brace-format
 msgid "✓ Hash verified: {hash}..."
 msgstr "✓ Hash verified: {hash}..."
 
-#: src/views/settings_page.py:621
+#: src/views/settings_page.py:645
 msgid "✓ Saved"
 msgstr "✓ Saved"
 
-#: src/views/settings_page.py:307
+#: src/views/settings_page.py:309
 msgid "✓ Startup disabled"
 msgstr "✓ Startup disabled"
 
-#: src/views/settings_page.py:307
+#: src/views/settings_page.py:309
 msgid "✓ Startup enabled"
 msgstr "✓ Startup enabled"
 
-#: src/views/settings_page.py:756
+#: src/views/settings_page.py:784
 msgid "✗ Failed to adopt device identity"
 msgstr "✗ Failed to adopt device identity"
 
-#: src/views/settings_page.py:766
+#: src/views/settings_page.py:794
 msgid "✗ Failed to delete device"
 msgstr "✗ Failed to delete device"
 
-#: src/views/settings_page.py:740
+#: src/views/settings_page.py:764
 msgid "✗ Failed to rename device"
 msgstr "✗ Failed to rename device"
 
-#: src/views/settings_page.py:715
+#: src/views/settings_page.py:739
 msgid "✗ Full resync failed — check log"
 msgstr "✗ Full resync failed — check log"
 
-#: src/views/settings/maintenance_section.py:241
+#: src/views/settings/maintenance_section.py:242
 #, python-brace-format
 msgid "✗ Full resync failed: {msg}"
 msgstr "✗ Full resync failed: {msg}"
 
-#: src/views/settings_page.py:667
+#: src/views/settings_page.py:691
 msgid "✗ Maintenance failed — check log"
 msgstr "✗ Maintenance failed — check log"
 
-#: src/views/settings_page.py:629
+#: src/views/settings_page.py:653
 #, python-brace-format
 msgid "✗ Save failed: {msg}"
 msgstr "✗ Save failed: {msg}"
