@@ -129,6 +129,52 @@ class TestGetFaviconDbPath:
         assert isinstance(path, Path)
 
 
+class TestConfigResilience:
+    """Tests for backup-rotation and recovery logic added in fix/config-resilience."""
+
+    def test_save_creates_prev_backup_on_second_save(self, tmp_path: Path):
+        cfg = AppConfig()
+        cfg.save()
+        cfg.window_width = 1400
+        cfg.save()
+        assert (tmp_path / "config.json.prev").exists()
+
+    def test_no_prev_backup_on_first_save(self, tmp_path: Path):
+        AppConfig().save()
+        assert not (tmp_path / "config.json.prev").exists()
+
+    def test_load_recovers_from_backup_when_primary_missing(self, tmp_path: Path):
+        cfg = AppConfig()
+        cfg.window_width = 1234
+        cfg.save()
+        # Simulate primary missing but .prev present
+        (tmp_path / "config.json").rename(tmp_path / "config.json.prev")
+        loaded = AppConfig.load()
+        assert loaded.window_width == 1234
+        assert not loaded._load_error
+
+    def test_load_recovers_from_backup_when_primary_corrupt(self, tmp_path: Path):
+        cfg = AppConfig()
+        cfg.window_width = 5678
+        cfg.save()
+        (tmp_path / "config.json").rename(tmp_path / "config.json.prev")
+        (tmp_path / "config.json").write_text("CORRUPT{{", encoding="utf-8")
+        loaded = AppConfig.load()
+        assert loaded.window_width == 5678
+
+    def test_load_falls_back_to_defaults_when_both_corrupt(self, tmp_path: Path):
+        (tmp_path / "config.json").write_text("BAD", encoding="utf-8")
+        (tmp_path / "config.json.prev").write_text("ALSO BAD", encoding="utf-8")
+        loaded = AppConfig.load()
+        assert isinstance(loaded, AppConfig)
+        assert loaded.window_width == 1100  # default
+
+    def test_saved_config_has_config_version(self, tmp_path: Path):
+        AppConfig().save()
+        raw = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
+        assert raw.get("config_version", 0) >= 2
+
+
 class TestFreshMode:
     @pytest.fixture(autouse=True)
     def _patch_config_dirs(self, monkeypatch, tmp_path):
