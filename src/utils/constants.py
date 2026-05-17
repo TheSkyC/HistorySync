@@ -12,6 +12,7 @@ BUNDLE_ID = "com.historysync.app"
 # ── File / directory names ────────────────────────────────────────────────────
 
 CONFIG_FILENAME = "config.json"
+CONFIG_BACKUP_FILENAME = "config.json.prev"
 DB_FILENAME = "history.db"
 LOG_FILENAME = "historysync.log"
 SECRET_FILENAME = "secret.key"

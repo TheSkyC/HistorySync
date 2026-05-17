@@ -5,11 +5,13 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 import json
+import logging
 import os
 from pathlib import Path
 import tempfile
 
 from src.utils.constants import (
+    CONFIG_BACKUP_FILENAME,
     CONFIG_FILENAME,
     DB_FILENAME,
     DEFAULT_AUTO_BACKUP_INTERVAL_HOURS,
@@ -292,6 +294,7 @@ class AppConfig:
             webdav_dict["password"] = self._webdav_password_ciphertext
 
         return {
+            "config_version": 2,
             "webdav": webdav_dict,
             "scheduler": asdict(self.scheduler),
             "extractor": asdict(self.extractor),
@@ -327,8 +330,6 @@ class AppConfig:
 
                     webdav_data["password"] = decrypt_text(webdav_data["password"])
                 except DecryptionError as e:
-                    import logging
-
                     logging.getLogger(__name__).warning(
                         "WebDAV password decryption failed, preserving ciphertext to prevent data loss: %s", e
                     )
@@ -395,14 +396,43 @@ class AppConfig:
         """Load configuration from disk."""
         config_dir = _resolve_config_dir()
         config_file = config_dir / CONFIG_FILENAME
+        backup_file = config_dir / CONFIG_BACKUP_FILENAME
         config_dir.mkdir(parents=True, exist_ok=True)
         if not config_file.exists():
+            # Primary missing — try the last-good backup before giving up.
+            if backup_file.exists():
+                logging.getLogger(__name__).warning("Config file missing; recovering from backup '%s'", backup_file)
+                try:
+                    with backup_file.open(encoding="utf-8") as f:
+                        cfg = cls.from_dict(json.load(f))
+                    # Restore backup as primary so subsequent saves work normally.
+                    backup_file.replace(config_file)
+                    return cfg
+                except (json.JSONDecodeError, OSError):
+                    pass
             return cls()
         try:
             with config_file.open(encoding="utf-8") as f:
                 return cls.from_dict(json.load(f))
         except (json.JSONDecodeError, OSError) as exc:
-            import logging
+            log = logging.getLogger(__name__)
+            # Primary is corrupt — try backup before falling back to defaults.
+            if backup_file.exists():
+                log.warning("Config file '%s' corrupt (%s); trying backup '%s'", config_file, exc, backup_file)
+                try:
+                    with backup_file.open(encoding="utf-8") as f:
+                        cfg = cls.from_dict(json.load(f))
+                    bak_corrupt = config_file.with_suffix(".json.bak")
+                    try:
+                        config_file.replace(bak_corrupt)
+                    except OSError:
+                        bak_corrupt = None
+                    backup_file.replace(config_file)
+                    log.warning("Recovered config from backup. Corrupt file backed up to '%s'.", bak_corrupt)
+                    cfg._load_error = str(bak_corrupt) if bak_corrupt else ""
+                    return cfg
+                except (json.JSONDecodeError, OSError):
+                    log.warning("Backup '%s' also unreadable; starting with defaults.", backup_file)
 
             bak_file = config_file.with_suffix(".json.bak")
             try:
@@ -411,7 +441,7 @@ class AppConfig:
                 logging.getLogger(__name__).warning("Could not back up corrupt config to '%s': %s", bak_file, bak_exc)
                 bak_file = None
 
-            logging.getLogger(__name__).error(
+            log.error(
                 "Config file '%s' is corrupt or unreadable (%s); starting with defaults. %s",
                 config_file,
                 exc,
@@ -428,6 +458,7 @@ class AppConfig:
 
         config_dir = _resolve_config_dir()
         config_file = config_dir / CONFIG_FILENAME
+        backup_file = config_dir / CONFIG_BACKUP_FILENAME
         config_dir.mkdir(parents=True, exist_ok=True)
         data = json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
         fd, tmp_path = tempfile.mkstemp(dir=config_dir, suffix=".tmp")
@@ -436,6 +467,15 @@ class AppConfig:
                 f.write(data)
                 f.flush()
                 os.fsync(f.fileno())
+            # Rotate: current → .prev, then tmp → current.
+            # If config.json doesn't exist yet (first save), skip the rotation.
+            if config_file.exists():
+                try:
+                    config_file.replace(backup_file)
+                except OSError as _bak_exc:
+                    logging.getLogger(__name__).warning(
+                        "Could not rotate config backup to '%s': %s", backup_file, _bak_exc
+                    )
             Path(tmp_path).replace(config_file)
         except Exception:
             try:

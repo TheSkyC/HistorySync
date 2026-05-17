@@ -127,8 +127,13 @@ def detect_legacy_installation() -> LegacyDetectionResult:
     except Exception:
         return LegacyDetectionResult(found=False, parse_error=True)
 
-    # 3. New-format config already has first_run_completed=True → not legacy.
-    if raw.get("first_run_completed") is True:
+    # 3. New-format config is identified by either:
+    #    a) first_run_completed=True (written at end of first-run wizard), or
+    #    b) config_version >= 2 (written on every save since 1.1+).
+    #    Checking only (a) is fragile: a Windows update rollback or a crash
+    #    between wizard completion and config.save() leaves a valid new-format
+    #    file that lacks first_run_completed, causing a false-positive migration.
+    if raw.get("first_run_completed") is True or raw.get("config_version", 0) >= 2:
         return LegacyDetectionResult(found=False)
 
     # 4. Config exists but lacks first_run_completed → 1.0.x legacy data.
