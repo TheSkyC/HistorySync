@@ -861,6 +861,53 @@ class TestDbStats:
 
 
 # ══════════════════════════════════════════════════════════════
+# get_day_stats
+# ══════════════════════════════════════════════════════════════
+
+
+class TestGetDayStats:
+    """Regression tests for get_day_stats (P1-4: dead _hd_filter call removed)."""
+
+    def _day_window(self, ts: int) -> tuple[int, int]:
+        """Return (day_start, day_end) for the day containing ts."""
+        day_start = (ts // 86400) * 86400
+        return day_start, day_start + 86400
+
+    def test_total_matches_upserted_count(self, local_db, make_rec):
+        """total equals the number of records in the day window."""
+        base = 1_704_067_200  # 2024-01-01 00:00:00 UTC
+        records = [make_rec(url=f"https://example{i}.com", visit_time=base + i * 60) for i in range(5)]
+        local_db.upsert_records(records)
+        day_start, day_end = self._day_window(base)
+        stats = local_db.get_day_stats(day_start, day_end)
+        assert stats["total"] == 5
+
+    def test_domains_list_length_bounded_by_top_n(self, local_db, make_rec):
+        """domains list has at most top_n entries."""
+        base = 1_704_067_200
+        records = [make_rec(url=f"https://site{i}.com", visit_time=base + i * 60) for i in range(10)]
+        local_db.upsert_records(records)
+        day_start, day_end = self._day_window(base)
+        stats = local_db.get_day_stats(day_start, day_end, top_n=3)
+        assert len(stats["domains"]) <= 3
+
+    def test_domain_counts_do_not_exceed_total(self, local_db, make_rec):
+        """Sum of domain counts never exceeds total (guards against double-counting)."""
+        base = 1_704_067_200
+        records = [make_rec(url=f"https://example.com/page{i}", visit_time=base + i * 60) for i in range(4)]
+        local_db.upsert_records(records)
+        day_start, day_end = self._day_window(base)
+        stats = local_db.get_day_stats(day_start, day_end)
+        assert sum(cnt for _, cnt in stats["domains"]) <= stats["total"]
+
+    def test_empty_day_returns_zero_total(self, local_db):
+        """Day with no records returns total=0 and empty domains."""
+        stats = local_db.get_day_stats(0, 86400)
+        assert stats["total"] == 0
+        assert stats["domains"] == []
+
+
+# ══════════════════════════════════════════════════════════════
 # Module-level Helpers
 # ══════════════════════════════════════════════════════════════
 
