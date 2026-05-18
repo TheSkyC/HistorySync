@@ -835,20 +835,26 @@ class LocalDatabase:
         If *domain_alias* names an already-joined ``domains`` table alias the
         host column is referenced directly (no extra join).  Otherwise an
         inline ``JOIN domains`` subquery is used.
+
+        hd.domain values are escaped via REPLACE() before use in LIKE patterns
+        so that any literal % or _ in a stored domain name is not treated as a
+        wildcard character.
         """
+        # Escape % and _ in hd.domain so they are treated as literals in LIKE
+        _escaped = "REPLACE(REPLACE(hd.domain, '%', '\\%'), '_', '\\_')"
         if domain_alias:
             return (
                 f"NOT EXISTS (SELECT 1 FROM hidden_domains hd "
                 f"WHERE (hd.subdomain_only = 1 AND {domain_alias}.host = hd.domain) "
                 f"OR (hd.subdomain_only = 0 AND "
-                f"({domain_alias}.host = hd.domain OR {domain_alias}.host LIKE '%.' || hd.domain)))"
+                f"({domain_alias}.host = hd.domain OR {domain_alias}.host LIKE '%.' || {_escaped} ESCAPE '\\')))"
             )
         return (
             f"NOT EXISTS (SELECT 1 FROM hidden_domains hd "
             f"JOIN domains _hdd ON _hdd.id = {history_alias}.domain_id "
             f"WHERE (hd.subdomain_only = 1 AND _hdd.host = hd.domain) "
             f"OR (hd.subdomain_only = 0 AND "
-            f"(_hdd.host = hd.domain OR _hdd.host LIKE '%.' || hd.domain)))"
+            f"(_hdd.host = hd.domain OR _hdd.host LIKE '%.' || {_escaped} ESCAPE '\\')))"
         )
 
     # ── Hidden domains CRUD ───────────────────────────────────
