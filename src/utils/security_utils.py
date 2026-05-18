@@ -118,16 +118,16 @@ def _derive_keystream(master_key: bytes, salt: bytes, length: int) -> bytes:
     return _hkdf_expand(prk, length)  # HKDF-Expand
 
 
-def _derive_subkeys(master_key: bytes, salt: bytes) -> tuple[bytes, bytes, bytes]:
-    """Derive independent enc and auth subkeys from master_key via HKDF.
+def _derive_subkeys(master_key: bytes, salt: bytes) -> tuple[bytes, bytes]:
+    """Derive enc and auth subkeys from master_key via HKDF.
 
-    Returns (prk, enc_keystream_prk, auth_key) where enc_keystream_prk is used
-    to generate the keystream and auth_key is used exclusively for HMAC authentication.
+    Returns (prk, auth_key).  prk is passed to _hkdf_expand_with_info at the
+    call site to produce a variable-length keystream; auth_key is used
+    exclusively for HMAC-SHA256 authentication.
     """
     prk = hmac.new(salt, master_key, hashlib.sha256).digest()  # HKDF-Extract
-    enc_key = _hkdf_expand_with_info(prk, _HKDF_INFO_ENC, 32)
     auth_key = _hkdf_expand_with_info(prk, _HKDF_INFO_AUTH, 32)
-    return prk, enc_key, auth_key
+    return prk, auth_key
 
 
 def _set_win32_owner_only(path: Path) -> None:
@@ -238,7 +238,7 @@ def encrypt_text(text: str) -> str:
     master_key = _get_or_create_master_key()
     text_bytes = _pad(text.encode("utf-8"))
     salt = os.urandom(16)
-    prk, _enc_key, auth_key = _derive_subkeys(master_key, salt)
+    prk, auth_key = _derive_subkeys(master_key, salt)
     keystream = _hkdf_expand_with_info(prk, _HKDF_INFO_ENC, len(text_bytes))
     encrypted_bytes = bytes(a ^ b for a, b in zip(text_bytes, keystream, strict=False))
     signature = hmac.new(auth_key, salt + encrypted_bytes, hashlib.sha256).digest()
@@ -271,7 +271,7 @@ def _try_decrypt_v2(payload: bytes, master_key: bytes) -> str | None:
     salt = payload[1:17]
     signature = payload[17:49]
     encrypted_bytes = payload[49:]
-    prk, _enc_key, auth_key = _derive_subkeys(master_key, salt)
+    prk, auth_key = _derive_subkeys(master_key, salt)
     expected = hmac.new(auth_key, salt + encrypted_bytes, hashlib.sha256).digest()
     if not hmac.compare_digest(signature, expected):
         return None

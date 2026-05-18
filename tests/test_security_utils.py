@@ -140,6 +140,50 @@ class TestEncryptDecryptRoundtrip:
         assert decrypted == plaintext
 
 
+class TestDeriveSubkeys:
+    """Unit tests for the _derive_subkeys internal helper."""
+
+    def test_returns_two_values(self):
+        """_derive_subkeys returns exactly (prk, auth_key)."""
+        from src.utils.security_utils import _derive_subkeys
+
+        result = _derive_subkeys(b"\x00" * 32, b"\x01" * 16)
+        assert len(result) == 2
+
+    def test_prk_is_32_bytes(self):
+        from src.utils.security_utils import _derive_subkeys
+
+        prk, _ = _derive_subkeys(b"\x00" * 32, b"\x01" * 16)
+        assert len(prk) == 32
+
+    def test_auth_key_is_32_bytes(self):
+        from src.utils.security_utils import _derive_subkeys
+
+        _, auth_key = _derive_subkeys(b"\x00" * 32, b"\x01" * 16)
+        assert len(auth_key) == 32
+
+    def test_prk_and_auth_key_differ(self):
+        """prk and auth_key must be distinct (different HKDF info labels)."""
+        from src.utils.security_utils import _derive_subkeys
+
+        prk, auth_key = _derive_subkeys(b"\x00" * 32, b"\x01" * 16)
+        assert prk != auth_key
+
+    def test_deterministic_with_same_inputs(self):
+        from src.utils.security_utils import _derive_subkeys
+
+        r1 = _derive_subkeys(b"\xab" * 32, b"\xcd" * 16)
+        r2 = _derive_subkeys(b"\xab" * 32, b"\xcd" * 16)
+        assert r1 == r2
+
+    def test_different_salts_produce_different_keys(self):
+        from src.utils.security_utils import _derive_subkeys
+
+        r1 = _derive_subkeys(b"\x00" * 32, b"\x01" * 16)
+        r2 = _derive_subkeys(b"\x00" * 32, b"\x02" * 16)
+        assert r1 != r2
+
+
 class TestMasterKeyFallback:
     """Test _get_or_create_master_key fallback logic."""
 
