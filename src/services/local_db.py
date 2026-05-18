@@ -3087,7 +3087,7 @@ class LocalDatabase:
         hd = self._hd_filter()
         with self._conn(write=False) as conn:
             row = conn.execute(
-                f"SELECT COUNT(*) FROM history WHERE visit_time BETWEEN ? AND ? AND {hr} AND {hd}",
+                f"SELECT COUNT(*) FROM history WHERE visit_time >= ? AND visit_time <= ? AND {hr} AND {hd}",
                 (day_start_ts, ts),
             ).fetchone()
         return row[0] if row else 1
