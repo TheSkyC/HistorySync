@@ -1053,8 +1053,6 @@ class LocalDatabase:
 
         Returns the total number of rows deleted across all three tables.
         """
-        import time
-
         threshold = int(time.time()) - keep_days * 86400
         total = 0
         with self._conn(write=True) as conn:
