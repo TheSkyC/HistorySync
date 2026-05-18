@@ -129,8 +129,9 @@ def _try_backup(
         finally:
             _close_quietly(src_conn)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_do_backup)
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
+        future = pool.submit(_do_backup)
         try:
             result = future.result(timeout=_LOCK_PROBE_TIMEOUT_SEC)
             if result is not None:
@@ -160,6 +161,8 @@ def _try_backup(
             except Exception:
                 pass
             return None
+    finally:
+        pool.shutdown(wait=False)
 
 
 def _try_file_copy(
