@@ -908,6 +908,49 @@ class TestGetDayStats:
 
 
 # ══════════════════════════════════════════════════════════════
+# _time_range
+# ══════════════════════════════════════════════════════════════
+
+
+class TestTimeRange:
+    """Regression tests for _time_range (P3-9: DST boundary fix)."""
+
+    @staticmethod
+    def _time_range(year, month=None):
+        from src.services.local_db import LocalDatabase
+
+        return LocalDatabase._time_range(year, month)
+
+    def test_none_year_returns_none(self):
+        assert self._time_range(None) is None
+
+    def test_year_range_spans_full_year(self):
+        """Year range end equals start of next year (no DST gap)."""
+        import datetime as dt
+
+        start, end = self._time_range(2024)
+        assert start == int(dt.datetime(2024, 1, 1, fold=0).timestamp())
+        assert end == int(dt.datetime(2025, 1, 1, fold=0).timestamp())
+
+    def test_month_range_end_equals_next_month_start(self):
+        """Month range end is exactly the start of the following month."""
+        _, jan_end = self._time_range(2024, 1)
+        feb_start, _ = self._time_range(2024, 2)
+        assert jan_end == feb_start
+
+    def test_december_wraps_to_next_year(self):
+        """December end equals January 1 of the next year."""
+        _, dec_end = self._time_range(2024, 12)
+        jan_start, _ = self._time_range(2025, 1)
+        assert dec_end == jan_start
+
+    def test_month_range_start_lt_end(self):
+        for month in range(1, 13):
+            start, end = self._time_range(2024, month)
+            assert start < end, f"month {month}: start >= end"
+
+
+# ══════════════════════════════════════════════════════════════
 # Module-level Helpers
 # ══════════════════════════════════════════════════════════════
 
