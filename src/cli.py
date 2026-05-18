@@ -241,8 +241,6 @@ class _ProgressBar:
 
 
 def _setup_shell_completion(parser: argparse.ArgumentParser) -> None:
-    if "_ARGCOMPLETE" not in os.environ:
-        return
     """Configure argcomplete for intelligent shell completion.
 
     Provides context-aware completions for:
@@ -265,6 +263,8 @@ def _setup_shell_completion(parser: argparse.ArgumentParser) -> None:
         # Fish
         register-python-argcomplete --shell fish hsync > ~/.config/fish/completions/hsync.fish
     """
+    if "_ARGCOMPLETE" not in os.environ:
+        return
     try:
         import argcomplete
     except ImportError:
