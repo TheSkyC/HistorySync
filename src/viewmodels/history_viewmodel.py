@@ -700,9 +700,12 @@ class HistoryTableModel(QAbstractTableModel):
 
     def _load_badge_data(self):
         """Load badge URL sets for O(1) lookup during rendering (deferred)."""
-        self._bookmarked_urls = self._db.get_bookmarked_urls()
-        self._annotated_urls = self._db.get_annotated_urls()
-        self._device_name_map = self._db.get_device_name_map()
+        try:
+            self._bookmarked_urls = self._db.get_bookmarked_urls()
+            self._annotated_urls = self._db.get_annotated_urls()
+            self._device_name_map = self._db.get_device_name_map()
+        except Exception as exc:
+            log.warning("Failed to load badge data: %s", exc)
 
     def load_more(self) -> bool:
         """In virtualised mode, delegate to load_more_regex() for regex searches; otherwise no manual loading needed."""
