@@ -835,20 +835,26 @@ class LocalDatabase:
         If *domain_alias* names an already-joined ``domains`` table alias the
         host column is referenced directly (no extra join).  Otherwise an
         inline ``JOIN domains`` subquery is used.
+
+        hd.domain values are escaped via REPLACE() before use in LIKE patterns
+        so that any literal % or _ in a stored domain name is not treated as a
+        wildcard character.
         """
+        # Escape % and _ in hd.domain so they are treated as literals in LIKE
+        _escaped = "REPLACE(REPLACE(hd.domain, '%', '\\%'), '_', '\\_')"
         if domain_alias:
             return (
                 f"NOT EXISTS (SELECT 1 FROM hidden_domains hd "
                 f"WHERE (hd.subdomain_only = 1 AND {domain_alias}.host = hd.domain) "
                 f"OR (hd.subdomain_only = 0 AND "
-                f"({domain_alias}.host = hd.domain OR {domain_alias}.host LIKE '%.' || hd.domain)))"
+                f"({domain_alias}.host = hd.domain OR {domain_alias}.host LIKE '%.' || {_escaped} ESCAPE '\\')))"
             )
         return (
             f"NOT EXISTS (SELECT 1 FROM hidden_domains hd "
             f"JOIN domains _hdd ON _hdd.id = {history_alias}.domain_id "
             f"WHERE (hd.subdomain_only = 1 AND _hdd.host = hd.domain) "
             f"OR (hd.subdomain_only = 0 AND "
-            f"(_hdd.host = hd.domain OR _hdd.host LIKE '%.' || hd.domain)))"
+            f"(_hdd.host = hd.domain OR _hdd.host LIKE '%.' || {_escaped} ESCAPE '\\')))"
         )
 
     # ── Hidden domains CRUD ───────────────────────────────────
@@ -901,21 +907,16 @@ class LocalDatabase:
 
         Used by the confirmation dialog to preview how many records will be deleted
         when URL prefix filters are applied retroactively.
+        A single SQL query with OR clauses avoids double-counting URLs that match
+        more than one prefix.
         """
         if not prefixes:
             return 0
+        escaped = [p.replace("%", r"\%").replace("_", r"\_") + "%" for p in prefixes]
+        clauses = " OR ".join(["url LIKE ? ESCAPE '\\'"] * len(escaped))
         with self._conn(write=False) as conn:
-            total = 0
-            for prefix in prefixes:
-                # Use LIKE with escaped prefix for matching
-                escaped = prefix.replace("%", r"\%").replace("_", r"\_")
-                row = conn.execute(
-                    "SELECT COUNT(*) FROM history WHERE url LIKE ? ESCAPE '\\'",
-                    (escaped + "%",),
-                ).fetchone()
-                if row:
-                    total += row[0]
-            return total
+            row = conn.execute(f"SELECT COUNT(*) FROM history WHERE {clauses}", escaped).fetchone()
+        return row[0] if row else 0
 
     def delete_records_by_url_prefixes(self, prefixes: list[str]) -> int:
         """Delete history rows whose URL starts with any of the given prefixes.
