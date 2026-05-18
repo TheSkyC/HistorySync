@@ -29,7 +29,7 @@ log = get_logger("exporter")
 # embedding so a crafted icon file cannot execute code when the export is opened.
 
 _SVG_SCRIPT_TAG_RE = re.compile(
-    r"<script(?:\s[^>]*)?>[ \S]*?</script\s*>",
+    r"<script(?:\s[^>]*)?>.*?</script\s*>",
     re.IGNORECASE | re.DOTALL,
 )
 _SVG_EVENT_ATTR_RE = re.compile(
