@@ -2766,19 +2766,23 @@ class LocalDatabase:
 
     @staticmethod
     def _time_range(year: int | None, month: int | None = None) -> tuple[int, int] | None:
-        """Return (start_ts, end_ts) for the given year/month, or None for all-time."""
-        import calendar as _cal
+        """Return (start_ts, end_ts) for the given year/month, or None for all-time.
+
+        Boundaries are computed as local midnight to match the 'localtime' modifier
+        used in SQL queries.  fold=0 is passed to datetime to resolve DST-ambiguous
+        wall-clock times (e.g. the repeated hour when clocks fall back) consistently.
+        """
         import datetime as _dt
 
         if year is None:
             return None
         if month is not None:
-            last_day = _cal.monthrange(year, month)[1]
-            start = int(_dt.datetime(year, month, 1).timestamp())
-            end = int(_dt.datetime(year, month, last_day, 23, 59, 59).timestamp()) + 1
+            next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
+            start = int(_dt.datetime(year, month, 1, fold=0).timestamp())
+            end = int(_dt.datetime(next_year, next_month, 1, fold=0).timestamp())
             return start, end
-        start = int(_dt.datetime(year, 1, 1).timestamp())
-        end = int(_dt.datetime(year + 1, 1, 1).timestamp())
+        start = int(_dt.datetime(year, 1, 1, fold=0).timestamp())
+        end = int(_dt.datetime(year + 1, 1, 1, fold=0).timestamp())
         return start, end
 
     def get_available_years(self) -> list[int]:
