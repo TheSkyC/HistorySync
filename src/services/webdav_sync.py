@@ -377,7 +377,7 @@ class WebDavSyncService:
             sync_manifest = {
                 "schema_version": 1,
                 "latest_backup": remote_filename,
-                "latest_backup_ts": int(time.time()),
+                "latest_backup_ts": _backup_timestamp(remote_filename),
                 "history_count": history_count,
                 "bookmark_count": bookmark_count,
                 "annotation_count": annotation_count,
@@ -406,7 +406,7 @@ class WebDavSyncService:
 
             self._set_status(SyncStatus.CLEANING)
             _cb(_("Cleaning up old backups..."))
-            self._cleanup_old_backups(client, remote_dir)
+            cleanup_failed = self._cleanup_old_backups(client, remote_dir)
 
             self._set_status(SyncStatus.SUCCESS)
             if self._local_db is not None and self._device_id is not None:
@@ -414,13 +414,20 @@ class WebDavSyncService:
                     self._local_db.update_device_last_sync(self._device_id)
                 except Exception as exc:
                     log.warning("Failed to update device last_sync_at: %s", exc)
-            result = SyncResult(
-                True,
-                _("Upload successful: {filename} ({size} KB) — SHA-256 verified").format(
-                    filename=remote_filename,
-                    size=f"{zip_size / 1024:.0f}",
-                ),
+            base_msg = _("Upload successful: {filename} ({size} KB) — SHA-256 verified").format(
+                filename=remote_filename,
+                size=f"{zip_size / 1024:.0f}",
             )
+            if cleanup_failed:
+                warn = _("⚠ Could not delete {n} old backup(s): {files}").format(
+                    n=len(cleanup_failed),
+                    files=", ".join(cleanup_failed),
+                )
+                log.warning("Backup cleanup incomplete: %s", warn)
+                msg = f"{base_msg}\n{warn}"
+            else:
+                msg = base_msg
+            result = SyncResult(True, msg)
             result.hash_info = hash_manifest
             self._set_result(result)
             return result
@@ -746,8 +753,15 @@ class WebDavSyncService:
             path += "/"
         return path
 
-    def _cleanup_old_backups(self, client, remote_dir: str) -> None:
+    def _cleanup_old_backups(self, client, remote_dir: str) -> list[str]:
+        """Delete old backup ZIPs beyond max_backups.
+
+        Returns a list of filenames that could not be deleted (empty on full
+        success).  Errors are logged as warnings but never raised so that a
+        cleanup failure does not abort an otherwise successful backup.
+        """
         max_b = max(1, self._config.max_backups)
+        failed: list[str] = []
         try:
             all_items = client.list(remote_dir)
             backups = sorted(
@@ -756,9 +770,15 @@ class WebDavSyncService:
             )
             to_delete = backups[:-max_b] if len(backups) > max_b else []
             for filename in to_delete:
-                client.clean(f"{remote_dir.rstrip('/')}/{filename}")
+                try:
+                    client.clean(f"{remote_dir.rstrip('/')}/{filename}")
+                except Exception as exc:
+                    log.warning("Cleanup: failed to delete %s: %s", filename, exc)
+                    failed.append(filename)
         except Exception as exc:
-            log.warning("Cleanup failed (non-fatal): %s", exc)
+            log.warning("Cleanup: could not list remote directory: %s", exc)
+            failed.append("(listing failed)")
+        return failed
 
     def _fail(self, message: str) -> SyncResult:
         result = SyncResult(False, message)
