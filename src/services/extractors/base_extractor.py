@@ -177,6 +177,9 @@ def _try_file_copy(
     caller gives up and returns ``None`` immediately.  The worker thread is
     detached (shutdown(wait=False)) so it does not block the caller — Python
     cannot forcibly kill threads, but the thread will finish on its own.
+
+    Worst-case wall-clock time: retry * timeout_sec + (retry - 1) * delay.
+    With the defaults (retry=3, timeout_sec=10, delay=0.5) that is 31 s.
     """
     for attempt in range(1, retry + 1):
         mem_conn: sqlite3.Connection | None = None
