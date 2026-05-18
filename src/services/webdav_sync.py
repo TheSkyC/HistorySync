@@ -701,11 +701,7 @@ class WebDavSyncService:
             for item in sorted(all_items, reverse=True):
                 if not item.startswith(WEBDAV_BACKUP_NAME_PREFIX) or not item.endswith(".zip"):
                     continue
-                try:
-                    ts_part = item.split("_")[1].split(".")[0]
-                    ts = int(ts_part)
-                except Exception:
-                    ts = 0
+                ts = _backup_timestamp(item)
 
                 # Get file size
                 remote_path = f"{remote_dir.rstrip('/')}/{item}"
