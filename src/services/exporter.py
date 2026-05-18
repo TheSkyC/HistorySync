@@ -634,7 +634,10 @@ class _HtmlWriter:
             raise ValueError("Invalid HTML template: missing /*_DATA_INJECT_START_*/ marker")
 
         header_html = parts[0]
-        self._footer_html = parts[1].split("/*_DATA_INJECT_END_*/")[1]
+        parts2 = parts[1].split("/*_DATA_INJECT_END_*/")
+        if len(parts2) != 2:
+            raise ValueError("Invalid HTML template: missing /*_DATA_INJECT_END_*/ marker")
+        self._footer_html = parts2[1]
 
         self._fh.write(header_html)
         browser_meta = self._get_browser_metadata()
