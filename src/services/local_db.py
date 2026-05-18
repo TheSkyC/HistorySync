@@ -1196,10 +1196,23 @@ class LocalDatabase:
         if staging.exists():
             staging.unlink()
 
+        # VACUUM INTO can take tens of seconds on large databases.  Holding
+        # _lock for that duration blocks every write operation (hide record,
+        # add bookmark, etc.) for the entire duration.  Instead, reset the
+        # persistent connection under the lock (same pattern as
+        # vacuum_and_analyze) and run VACUUM INTO outside the lock via an
+        # independent connection.  SQLite's own file-level locking prevents
+        # concurrent writers from corrupting the source while we read it.
+        with self._lock:
+            self._reset_conn()
+
         try:
-            with self._conn(write=True) as conn:
+            vac_conn = sqlite3.connect(str(self.db_path), timeout=120)
+            try:
                 safe_staging = _sanitize_vacuum_path(staging_path)
-                conn.execute(f"VACUUM INTO '{safe_staging}'")
+                vac_conn.execute(f"VACUUM INTO '{safe_staging}'")
+            finally:
+                vac_conn.close()
 
             # ── Phase 2: DROP FTS objects in the staging copy ────────────────
             stage_conn = sqlite3.connect(staging_path, timeout=30)
