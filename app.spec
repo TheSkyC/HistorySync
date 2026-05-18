@@ -85,8 +85,10 @@ gui_a = Analysis(
         "PySide6.QtSvg",
         "PySide6.QtSvgWidgets",
         # WebDAV client loaded at runtime via import string
-        "webdav4",
-        "webdav4.client",
+        "webdav3",
+        "webdav3.client",
+        "webdav3.urn",
+        "webdav3.exceptions",
     ],
     hookspath=[],
     hooksconfig={},
@@ -132,8 +134,10 @@ cli_a = Analysis(
     datas=_cli_datas,
     hiddenimports=[
         # WebDAV client (--backup command)
-        "webdav4",
-        "webdav4.client",
+        "webdav3",
+        "webdav3.client",
+        "webdav3.urn",
+        "webdav3.exceptions",
     ],
     hookspath=[],
     hooksconfig={},
