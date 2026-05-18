@@ -466,6 +466,18 @@ class MainWindow(QMainWindow):
                 self._page_history.refresh()
 
     def closeEvent(self, event: QCloseEvent):
+        from src.models.app_config import is_session_ending
+
+        # On Windows OS shutdown / restart, Qt translates WM_ENDSESSION into a
+        # closeEvent for every top-level HWND, ignoring our event.ignore() (the
+        # tray-minimise idiom).  In that path the config persistence sequence
+        # is unsafe — see app_config._session_ending — so skip both the
+        # geometry capture (the window may report -32000 hidden-window
+        # coordinates) and the save call entirely.
+        if is_session_ending():
+            super().closeEvent(event)
+            return
+
         self._save_geometry()
         # Auto-exit hidden-records mode so next open shows normal history/bookmarks
         if self._page_history is not None:

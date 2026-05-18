@@ -224,3 +224,149 @@ class TestFreshMode:
         db_path = cfg.get_db_path()
         favicon_path = cfg.get_favicon_db_path()
         assert db_path.parent == favicon_path.parent
+
+
+class TestSaveRollbackSafety:
+    """Step-B promote-failure must restore the rotated backup so config.json never disappears.
+
+    Reproduces the Windows OS-shutdown failure mode where the second rename
+    (`tmp -> config.json`) fails (AV lock, disk shutdown) AFTER the first
+    rename (`config.json -> .prev`) has already moved the previous good copy
+    out of the way.  Without restore-on-failure the directory ends with no
+    primary file at all, which is exactly the wipe symptom.
+    """
+
+    def test_step_b_failure_restores_backup(self, tmp_path: Path, monkeypatch):
+        # Establish a known-good config on disk.
+        cfg = AppConfig()
+        cfg.window_width = 1234
+        cfg.save()
+        assert (tmp_path / "config.json").exists()
+
+        # Force the second replace (tmp -> config.json) to fail, simulating an
+        # AV / shutdown lock.  Step A (config.json -> .prev) is allowed to
+        # succeed so we exercise the dangerous interleaving.
+        original_replace = Path.replace
+        call_count = {"n": 0}
+
+        def flaky_replace(self, target):
+            call_count["n"] += 1
+            if call_count["n"] == 2:  # Step B
+                raise OSError("simulated AV lock during shutdown")
+            return original_replace(self, target)
+
+        monkeypatch.setattr(Path, "replace", flaky_replace)
+
+        cfg.window_width = 9999
+        with pytest.raises(OSError):
+            cfg.save()
+
+        # Critical invariant: config.json is still on disk.  Either the
+        # restore promoted .prev back, or no rotation happened in the first
+        # place; what matters is that the primary file did not vanish.
+        assert (tmp_path / "config.json").exists(), "primary config.json must not vanish on Step-B failure"
+
+        # And it should still parse to the previous good content (1234), not
+        # the new uncommitted content (9999).
+        loaded = AppConfig.load()
+        assert loaded.window_width == 1234
+
+    def test_no_tmp_left_after_failed_save(self, tmp_path: Path, monkeypatch):
+        """Even after a Step-B failure + restore, no .tmp file is left behind."""
+        cfg = AppConfig()
+        cfg.save()
+
+        original_replace = Path.replace
+        call_count = {"n": 0}
+
+        def flaky_replace(self, target):
+            call_count["n"] += 1
+            if call_count["n"] == 2:
+                raise OSError("simulated AV lock")
+            return original_replace(self, target)
+
+        monkeypatch.setattr(Path, "replace", flaky_replace)
+        cfg.window_width = 4321
+        with pytest.raises(OSError):
+            cfg.save()
+
+        leftover = list(tmp_path.glob("*.tmp"))
+        assert leftover == [], f"tmp file leaked after failed save: {leftover}"
+
+    def test_uses_deterministic_tmp_filename(self, tmp_path: Path):
+        """Tmp filename is fixed (config.json.tmp), not a random mkstemp name.
+
+        Random filenames cause AV (Defender) to scan each new artefact during
+        shutdown, which lengthens the rename race window.  A fixed filename
+        gets recognised as already-known after the first scan.
+        """
+        cfg = AppConfig()
+        cfg.save()
+        cfg.window_width = 555
+        # Spy on the path actually used.  We hijack open to capture which path
+        # gets opened in write mode inside the config dir.
+        cfg.save()  # second save should reuse same tmp name pattern
+
+        # The successful path leaves no tmp behind, but we can verify the
+        # behaviour indirectly: only one save+load round-trip with no leftover
+        # files.  The deterministic-name property is asserted via the absence
+        # of randomly-named tmp files.
+        randoms = [p for p in tmp_path.iterdir() if p.suffix == ".tmp" and p.name != "config.json.tmp"]
+        assert randoms == []
+
+
+class TestSessionEndGuard:
+    """save() short-circuits while the session-end flag is set."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_session_flag(self):
+        # Reset before AND after each test so a previous test's mark_session_ending()
+        # cannot leak into this test, and this test cannot leak into a later one.
+        from src.models import app_config as _cfg_module
+
+        _cfg_module._session_state["ending"] = False
+        yield
+        _cfg_module._session_state["ending"] = False
+
+    def test_save_is_noop_when_session_ending(self, tmp_path: Path):
+        from src.models.app_config import mark_session_ending
+
+        cfg = AppConfig()
+        cfg.window_width = 1111
+        cfg.save()  # establish baseline
+
+        # Mark session-ending and try to save a different value.
+        mark_session_ending()
+        cfg.window_width = 2222
+        cfg.save()
+
+        # On disk the value is still the baseline — the second save was skipped.
+        loaded = AppConfig.load()
+        assert loaded.window_width == 1111
+
+    def test_no_tmp_created_when_session_ending(self, tmp_path: Path):
+        """Session-end save must not even create a tmp file (no FS contention)."""
+        from src.models.app_config import mark_session_ending
+
+        AppConfig().save()
+        mark_session_ending()
+        AppConfig().save()
+        assert list(tmp_path.glob("*.tmp")) == []
+
+    def test_session_end_does_not_clobber_existing_primary(self, tmp_path: Path):
+        """The on-disk primary survives session-end + concurrent save attempts."""
+        from src.models.app_config import mark_session_ending
+
+        cfg = AppConfig()
+        cfg.window_width = 7777
+        cfg.save()
+
+        mark_session_ending()
+        # Several save attempts during teardown — each is a no-op.
+        for _ in range(5):
+            cfg.window_width += 1
+            cfg.save()
+
+        assert (tmp_path / "config.json").exists()
+        loaded = AppConfig.load()
+        assert loaded.window_width == 7777

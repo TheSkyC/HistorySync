@@ -8,7 +8,6 @@ import json
 import logging
 import os
 from pathlib import Path
-import tempfile
 
 from src.utils.constants import (
     CONFIG_BACKUP_FILENAME,
@@ -37,6 +36,42 @@ def _resolve_data_dir() -> Path:
     from src.utils.path_helper import get_app_data_dir
 
     return get_app_data_dir()
+
+
+# ── Session-end guard ────────────────────────────────────────────────────────
+# Process-wide flag set when the OS is shutting down (Windows WM_QUERYENDSESSION
+# / WM_ENDSESSION, Qt commitDataRequest, or the orderly tray-quit path).
+#
+# While set, AppConfig.save() short-circuits to a no-op.  The rationale: during
+# the ~5s TerminateProcess window after WM_ENDSESSION, several closeEvent and
+# queued worker-finished slots all try to persist config.json back-to-back.
+# Each save's two-step "rotate primary -> .prev, then promote tmp -> primary"
+# sequence is non-atomic; being TerminateProcess'd between the two steps leaves
+# the primary file missing on disk, which surfaces on the next launch as
+# "config wiped + first-run wizard re-fired".
+#
+# The on-disk config from the user's last interactive change is already a
+# known-good state.  Skipping all writes during session-end trades a stale
+# last_sync_ts (re-derived on next launch from the scheduler watermark anyway)
+# for guaranteed config integrity.
+#
+# A mutable container is used so module-level state can be flipped without
+# triggering ruff's PLW0603 (no `global` statement required).
+_session_state: dict = {"ending": False}
+
+
+def mark_session_ending() -> None:
+    """Mark the process as in OS-shutdown teardown.
+
+    Idempotent.  Once set, all subsequent ``AppConfig.save()`` calls become
+    no-ops for the remaining lifetime of the process.
+    """
+    _session_state["ending"] = True
+
+
+def is_session_ending() -> bool:
+    """Return True if ``mark_session_ending()`` has been called."""
+    return _session_state["ending"]
 
 
 @dataclass
@@ -452,8 +487,21 @@ class AppConfig:
             return cfg
 
     def save(self) -> None:
-        """Persist configuration to disk."""
+        """Persist configuration to disk.
+
+        On any failure during the rename sequence, the previous good copy
+        (rotated to ``config.json.prev``) is promoted back to ``config.json``
+        so the directory is never left without a primary file.  If the
+        process-wide session-end flag is set, this is a no-op — see the
+        module-level docstring on ``_session_ending`` for the rationale.
+        """
         if self._fresh:
+            return
+
+        if _session_state["ending"]:
+            # Windows OS shutdown / orderly app quit in progress.
+            # Avoid the non-atomic rotate-and-promote sequence entirely; the
+            # on-disk file from the most recent interactive save is still good.
             return
 
         config_dir = _resolve_config_dir()
@@ -461,25 +509,65 @@ class AppConfig:
         backup_file = config_dir / CONFIG_BACKUP_FILENAME
         config_dir.mkdir(parents=True, exist_ok=True)
         data = json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
-        fd, tmp_path = tempfile.mkstemp(dir=config_dir, suffix=".tmp")
+
+        # Use a deterministic tmp filename rather than mkstemp's random
+        # ``tmpXXXXXXXX.tmp``: on Windows, antivirus (Defender, corporate AV)
+        # treats every new filename in a watched directory as a new artefact
+        # and queues a full scan, holding the file handle long enough to make
+        # the subsequent ``replace()`` race against AV during shutdown.  A
+        # fixed name lets AV recognise the file as already-scanned.
+        tmp_path = config_dir / f"{CONFIG_FILENAME}.tmp"
+        rotated_backup = False
         try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
+            # Write+fsync the new content into the tmp file.
+            # ``open(..., "w")`` truncates any leftover tmp from a prior crashed
+            # save attempt, which is the desired behaviour here.
+            with tmp_path.open("w", encoding="utf-8") as f:
                 f.write(data)
                 f.flush()
                 os.fsync(f.fileno())
-            # Rotate: current → .prev, then tmp → current.
-            # If config.json doesn't exist yet (first save), skip the rotation.
+
+            # Step A — rotate the existing primary to .prev so a previous good
+            # copy is always on disk.  Skipped on first save when no primary
+            # yet exists.
             if config_file.exists():
                 try:
                     config_file.replace(backup_file)
+                    rotated_backup = True
                 except OSError as _bak_exc:
                     logging.getLogger(__name__).warning(
                         "Could not rotate config backup to '%s': %s", backup_file, _bak_exc
                     )
-            Path(tmp_path).replace(config_file)
+
+            # Step B — promote the new tmp into place.  If this fails (AV lock,
+            # disk shutting down, etc.) we MUST restore the rotated backup so
+            # the primary file does not vanish from disk.  Without this rescue,
+            # every Step-B failure during Windows shutdown leaves config.json
+            # missing — which is the symptom the previous fix only papered over
+            # via load()'s .prev fallback.
+            try:
+                tmp_path.replace(config_file)
+            except OSError as promote_exc:
+                if rotated_backup and backup_file.exists() and not config_file.exists():
+                    try:
+                        backup_file.replace(config_file)
+                        logging.getLogger(__name__).warning(
+                            "Config promote step failed (%s); restored '%s' from backup.",
+                            promote_exc,
+                            config_file,
+                        )
+                    except OSError as restore_exc:
+                        logging.getLogger(__name__).error(
+                            "Config promote step failed (%s) AND restore failed (%s); "
+                            "primary may be missing. Backup preserved at '%s'.",
+                            promote_exc,
+                            restore_exc,
+                            backup_file,
+                        )
+                raise
         except Exception:
             try:
-                Path(tmp_path).unlink(missing_ok=True)
+                tmp_path.unlink(missing_ok=True)
             except OSError:
                 pass
             raise
