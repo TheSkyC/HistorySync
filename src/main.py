@@ -723,6 +723,37 @@ def _gui_main(args: argparse.Namespace) -> None:
     # Ensure the pynput listener thread is cleanly stopped when Qt shuts down.
     app.aboutToQuit.connect(_hotkey_mgr.unregister)
 
+    # ── Session-end / orderly-shutdown wiring ────────────────────────────────
+    # On Windows OS shutdown / restart, Qt translates WM_QUERYENDSESSION /
+    # WM_ENDSESSION into the QGuiApplication.commitDataRequest signal.  Mark
+    # the session-ending flag as early as possible so any closeEvent / queued
+    # worker.finished slot that fires inside the ~5s TerminateProcess window
+    # short-circuits its config.save() call.  Without this, the back-to-back
+    # saves from MainWindow.closeEvent + OverlayWindow.closeEvent + a queued
+    # _on_sync_finished can each be interrupted between the rotate-and-promote
+    # rename steps, leaving config.json missing on disk.
+    def _on_commit_data_request(*_args):
+        from src.models.app_config import mark_session_ending
+
+        mark_session_ending()
+        log.warning("Session-end detected (commitDataRequest); skipping further config writes")
+
+    try:
+        app.commitDataRequest.connect(_on_commit_data_request)
+    except (AttributeError, TypeError):
+        # PySide6 versions that do not expose commitDataRequest on QGuiApplication
+        # still raise WM_ENDSESSION → closeEvent → aboutToQuit, which is enough.
+        pass
+
+    # aboutToQuit is the catch-all: it fires for tray-quit, session-end, and
+    # last-window-closed paths.  Wiring _quit here makes the scheduler /
+    # favicon-manager / DB teardown run on EVERY exit path, not just tray-quit.
+    # Critically, this sets each worker's _cancelled flag so a SyncWorker that
+    # would otherwise complete during the teardown window does not emit
+    # finished -> queued _on_sync_finished -> config.save() (the third
+    # save-collision contributor to the original wipe bug).
+    app.aboutToQuit.connect(lambda: _quit(main_vm, log))
+
     def _on_settings_saved():
         cfg = main_vm._config
         if cfg.overlay.enabled:
@@ -973,18 +1004,38 @@ def _on_tray_sync_error(tray, msg: str):
 def _quit(main_vm=None, log=None):
     from PySide6.QtWidgets import QApplication
 
+    from src.models.app_config import mark_session_ending
     from src.utils.constants import FAVICON_MANAGER_SHUTDOWN_TIMEOUT_MS, SCHEDULER_SHUTDOWN_TIMEOUT_MS
     from src.utils.logger import get_logger
 
     if log is None:
         log = get_logger("main")
+
+    # Idempotent: tray-quit + aboutToQuit both call us; do real teardown once.
+    if getattr(_quit, "_already_ran", False):
+        return
+    _quit._already_ran = True
+
     log.warning("HistorySync shutting down")
+
+    # Block all further config.save() calls process-wide.  The on-disk file is
+    # already a known-good copy of the user's last interactive state; the
+    # back-to-back saves that closeEvent / worker.finished slots would
+    # otherwise emit during the teardown window are exactly what the
+    # non-atomic rotate-then-promote sequence cannot survive on Windows
+    # session-end.  See app_config._session_ending.
+    mark_session_ending()
 
     if main_vm is not None:
         try:
             if main_vm._monitor is not None:
                 main_vm._monitor.stop()
             main_vm._scheduler.stop()
+            # shutdown() sets each worker's _cancelled flag, so SyncWorker /
+            # BackupWorker skip their finished.emit() in the finally clause.
+            # That suppresses the queued cross-thread call into
+            # MainViewModel._on_sync_finished / _on_backup_finished, which
+            # would otherwise fire one more config.save() during teardown.
             main_vm._scheduler.shutdown(timeout_ms=SCHEDULER_SHUTDOWN_TIMEOUT_MS)
             if main_vm._favicon_manager is not None:
                 main_vm._favicon_manager.shutdown(timeout_ms=FAVICON_MANAGER_SHUTDOWN_TIMEOUT_MS)

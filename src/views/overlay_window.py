@@ -711,7 +711,15 @@ class OverlayWindow(QWidget):
         if self._is_hiding:
             event.ignore()
             return
-        self._save_config()
+        from src.models.app_config import is_session_ending
+
+        # On Windows OS shutdown the OverlayWindow's HWND (kept alive after
+        # the user dismissed the overlay) also receives WM_ENDSESSION → Qt
+        # closeEvent.  Skip the save so we do not race the MainWindow save and
+        # any in-flight worker save through the non-atomic rename sequence in
+        # AppConfig.save().
+        if not is_session_ending():
+            self._save_config()
         super().closeEvent(event)
 
     def _save_config(self) -> None:
