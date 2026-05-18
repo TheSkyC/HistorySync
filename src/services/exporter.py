@@ -313,6 +313,7 @@ class Exporter:
         """
         For regex mode: compile all matching IDs first, then fetch by ID in batches.
         Avoids the offset-pagination semantic error in regex mode.
+        Scans the full candidate set via cursor pagination to avoid the old 100k hard limit.
         """
         try:
             prog = re.compile(params.keyword, re.IGNORECASE)
@@ -320,36 +321,40 @@ class Exporter:
             log.warning("Invalid regex '%s': %s", params.keyword, exc)
             return []
 
-        # Pull candidate pool without regex (DB level)
-        candidates = self._db.get_records(
-            keyword="",
-            browser_type=params.browser_type,
-            date_from=params.date_from,
-            date_to=params.date_to,
-            limit=100_000,
-            offset=0,
-            domain_ids=params.domain_ids,
-            excludes=params.excludes,
-            title_only=params.title_only,
-            url_only=params.url_only,
-            use_regex=False,
-            bookmarked_only=params.bookmarked_only,
-            has_annotation=params.has_annotation,
-            bookmark_tag=params.bookmark_tag,
-            device_ids=params.device_ids,
-            hidden_only=params.hidden_only,
-        )
-
+        # Paginate through all candidates so no records are silently skipped
         matched_ids: list[int] = []
-        for r in candidates:
-            if params.title_only:
-                hit = prog.search(r.title or "")
-            elif params.url_only:
-                hit = prog.search(r.url)
-            else:
-                hit = prog.search(r.title or "") or prog.search(r.url)
-            if hit and r.id is not None:
-                matched_ids.append(r.id)
+        offset = 0
+        while True:
+            batch = self._db.get_records(
+                keyword="",
+                browser_type=params.browser_type,
+                date_from=params.date_from,
+                date_to=params.date_to,
+                limit=self.BATCH_SIZE,
+                offset=offset,
+                domain_ids=params.domain_ids,
+                excludes=params.excludes,
+                title_only=params.title_only,
+                url_only=params.url_only,
+                use_regex=False,
+                bookmarked_only=params.bookmarked_only,
+                has_annotation=params.has_annotation,
+                bookmark_tag=params.bookmark_tag,
+                device_ids=params.device_ids,
+                hidden_only=params.hidden_only,
+            )
+            if not batch:
+                break
+            for r in batch:
+                if params.title_only:
+                    hit = prog.search(r.title or "")
+                elif params.url_only:
+                    hit = prog.search(r.url)
+                else:
+                    hit = prog.search(r.title or "") or prog.search(r.url)
+                if hit and r.id is not None:
+                    matched_ids.append(r.id)
+            offset += len(batch)
 
         # Fetch by IDs in batches to preserve order & avoid huge IN clauses
         results: list[HistoryRecord] = []
