@@ -3103,7 +3103,6 @@ class LocalDatabase:
             }
         """
         hr_h = self._hr_filter("h")
-        self._hd_filter("h")
         hr = self._hr_filter()
         hd = self._hd_filter()
         hd_d = self._hd_filter("h", domain_alias="d")
