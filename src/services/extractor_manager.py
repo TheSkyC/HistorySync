@@ -312,17 +312,9 @@ class ExtractorManager:
 
         return inserted
 
-    def _is_filtered_url(self, url: str) -> bool:
-        """Return True if the URL starts with any configured filtered prefix."""
-        return bool(self._filtered_url_prefixes) and url.startswith(self._filtered_url_prefixes)
-
     @staticmethod
     def _normalize_domain(domain: str) -> str:
         return normalize_domain(domain)
-
-    def _is_blacklisted(self, url: str) -> bool:
-        """Return True if the URL's host matches a blacklisted domain or is its subdomain."""
-        return self._is_blacklisted_domain(url, self._blacklisted_domains)
 
     @staticmethod
     def _is_blacklisted_domain(url: str, blacklisted_domains: set[str]) -> bool:
