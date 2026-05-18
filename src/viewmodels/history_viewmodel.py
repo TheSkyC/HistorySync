@@ -165,6 +165,86 @@ class _ReloadWorker(QThread):
             self.done.emit(self._generation, [], 0, False, set(), set(), {})
 
 
+class _RegexWorker(QThread):
+    """Run the first regex scan batch off the main thread.
+
+    Fetches up to REGEX_SCAN_BATCH candidate records from the DB and applies
+    the compiled regex in the worker thread, so the Qt event loop is never
+    blocked.
+
+    Signal ``done`` carries:
+      (generation, keyword_index, has_more, bookmarked_urls, annotated_urls, device_name_map)
+    """
+
+    # generation, keyword_index, has_more, bookmarked, annotated, device_map
+    done: Signal = Signal(int, list, bool, object, object, object)
+
+    def __init__(
+        self,
+        db: LocalDatabase,
+        params: dict,
+        generation: int,
+        parent: QObject | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._db = db
+        self._params = params
+        self._generation = generation
+
+    def run(self) -> None:
+        try:
+            p = self._params
+            try:
+                prog = re.compile(p["keyword"], re.IGNORECASE)
+            except re.error as exc:
+                log.warning("Invalid regex '%s': %s", p["keyword"], exc)
+                self.done.emit(self._generation, [], False, set(), set(), {})
+                return
+
+            candidates = self._db.get_records(
+                keyword="",
+                browser_type=p["browser_type"],
+                date_from=p["date_from"],
+                date_to=p["date_to"],
+                limit=REGEX_SCAN_BATCH,
+                offset=0,
+                excluded_ids=p["excluded_ids"],
+                domain_ids=p["domain_ids"],
+                excludes=p["excludes"],
+                title_only=False,
+                url_only=False,
+                use_regex=False,
+                bookmarked_only=p["bookmarked_only"],
+                has_annotation=p["has_annotation"],
+                bookmark_tag=p["bookmark_tag"],
+                device_ids=p["device_ids"],
+                hidden_only=p.get("hidden_only", False),
+            )
+
+            title_only = p["title_only"]
+            url_only = p["url_only"]
+            index: list[tuple[int, int]] = []
+            for r in candidates:
+                if title_only:
+                    hit = bool(prog.search(r.title or ""))
+                elif url_only:
+                    hit = bool(prog.search(r.url))
+                else:
+                    hit = bool(prog.search(r.title or "") or prog.search(r.url))
+                if hit:
+                    index.append((r.id, r.visit_time))
+
+            has_more = len(candidates) >= REGEX_SCAN_BATCH
+            bookmarked = self._db.get_bookmarked_urls()
+            annotated = self._db.get_annotated_urls()
+            device_map = self._db.get_device_name_map()
+
+            self.done.emit(self._generation, index, has_more, bookmarked, annotated, device_map)
+        except Exception:
+            log.exception("_RegexWorker failed (generation=%d)", self._generation)
+            self.done.emit(self._generation, [], False, set(), set(), {})
+
+
 # ── Table model ──────────────────────────────────────────────
 
 
@@ -235,7 +315,7 @@ class HistoryTableModel(QAbstractTableModel):
         # Badge URL caches — bulk-loaded on each reload(), O(1) per-row lookup
         self._bookmarked_urls: set[str] = set()
         self._annotated_urls: set[str] = set()
-        self._reload_worker: _ReloadWorker | None = None
+        self._reload_worker: _ReloadWorker | _RegexWorker | None = None
 
         self._favicon_manager.favicons_updated.connect(self._on_favicons_updated)
 
@@ -485,20 +565,6 @@ class HistoryTableModel(QAbstractTableModel):
         self._reload_generation: int = getattr(self, "_reload_generation", 0) + 1
         generation = self._reload_generation
 
-        if self._use_regex and self._keyword:
-            # Regex incremental mode runs synchronously (already batched / cheap).
-            # Badge data is not fetched by the worker in this path, so load it
-            # on the next event-loop tick (small tables, negligible cost).
-            QTimer.singleShot(0, self._load_badge_data)
-            self._scan_regex_batch()
-            self._apply_reload_result(
-                generation=generation,
-                keyword_index=list(self._keyword_index),
-                total_count=len(self._keyword_index),
-                keyword_materialized=False,
-            )
-            return
-
         # Snapshot filter params for the worker (avoids races if set_filter is
         # called again before the worker finishes).
         params = {
@@ -517,6 +583,22 @@ class HistoryTableModel(QAbstractTableModel):
             "device_ids": list(self._device_ids) if self._device_ids is not None else None,
             "hidden_only": self._hidden_mode,
         }
+
+        if self._use_regex and self._keyword:
+            # Run DB fetch + regex matching in a background thread so the Qt
+            # event loop is never blocked.  _RegexWorker uses a dedicated
+            # done signal (includes has_more) handled by _on_regex_done.
+            worker = _RegexWorker(self._db, params, generation)
+            worker.done.connect(self._on_regex_done)
+            old = self._reload_worker
+            if old is not None and old.isRunning():
+                old.finished.connect(lambda w=old: w.deleteLater())
+            elif old is not None:
+                old.deleteLater()
+            self._reload_worker = worker
+            worker.start()
+            return
+
         use_id_index = bool(self._keyword)
 
         worker = _ReloadWorker(self._db, params, use_id_index, generation, skip_badges=skip_badges)
@@ -565,6 +647,34 @@ class HistoryTableModel(QAbstractTableModel):
         if device_name_map is not None:
             self._device_name_map = device_name_map
         self._apply_reload_result(generation, keyword_index, total_count, keyword_materialized)
+
+    @Slot(int, list, bool, object, object, object)
+    def _on_regex_done(
+        self,
+        generation: int,
+        keyword_index: list,
+        has_more: bool,
+        bookmarked_urls: set,
+        annotated_urls: set,
+        device_name_map: dict,
+    ) -> None:
+        """Receive async regex scan result and update the model (main-thread slot)."""
+        if self._reload_worker is not None:
+            w = self._reload_worker
+            self._reload_worker = None
+            w.finished.connect(lambda ww=w: ww.deleteLater())
+        if generation != self._reload_generation:
+            return
+        self._keyword_index = keyword_index
+        self._regex_scan_offset = REGEX_SCAN_BATCH
+        self._regex_has_more = has_more
+        if bookmarked_urls is not None:
+            self._bookmarked_urls = bookmarked_urls
+        if annotated_urls is not None:
+            self._annotated_urls = annotated_urls
+        if device_name_map is not None:
+            self._device_name_map = device_name_map
+        self._apply_reload_result(generation, keyword_index, len(keyword_index), False)
 
     def _apply_reload_result(
         self,
