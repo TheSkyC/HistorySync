@@ -256,7 +256,7 @@ class AppConfig:
     theme: str = "system"  # "dark" | "light" | "system"
     last_backup_ts: int = 0
     last_sync_ts: int = 0
-    master_password_hash: str = ""  # bcrypt hash; empty = no password set
+    master_password_hash: str = ""  # Password hash; empty = no password set
     first_run_completed: bool = False
     # ── Device identity ───────────────────────────────────────────────────────
     device_uuid: str = ""  # Generated on first run; permanently unique
