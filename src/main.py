@@ -694,9 +694,10 @@ def _gui_main(args: argparse.Namespace) -> None:
             _("Launch Error"),
             _(
                 "HistorySync could not acquire the single-instance lock\n"
-                "(port 20455 is already in use by another process).\n\n"
+                "(port %d is already in use by another process).\n\n"
                 "Please close any other running instances and try again."
-            ),
+            )
+            % SINGLE_INSTANCE_PORT,
         )
         sys.exit(1)
     _single_instance_server.request_activation.connect(lambda: _get_or_create_window().show_and_raise())
