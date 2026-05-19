@@ -1,19 +1,216 @@
 ---
 title: 更新日誌
-description: HistorySync 的版本歷史與重要更新。
+description: HistorySync 的版本歷程與重要變更。
 ---
 
 # 更新日誌
 
-所有重要變更均記錄於此。下載連結和完整發布說明請造訪 [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases) 頁面。
+所有重要變更都會記錄於此。格式基於 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，且本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
 ---
 
-## 未發布
+## [Unreleased]
 
-*`main` 分支上尚未打標籤發布的變更。*
+*`main` 分支上尚未包含在已標記版本中的變更。*
 
 ---
 
-!!! info "完整歷史"
-    包含下載連結的完整版本歷史請造訪 [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases) 頁面。
+## [1.3.0] - 2026-05-14
+
+### 新增
+- 預設主題由 Dark 改為 System，應用程式現在預設會跟隨作業系統外觀。
+- 在黑名單與隱藏網域管理對話框中新增紀錄數量預覽，確認前即可看見影響範圍。
+- 為正規表示式模式隔離近期搜尋歷史，讓進階搜尋工作流程更整潔。
+- 重新設計應用程式圖示，使用以 SVG 為基礎的動畫托盤渲染器取代靜態托盤資源。
+- 多語言 MkDocs 文件網站。
+
+### 修正
+- 程式崩潰後靜默遺失的 FTS 觸發器，現在會在所有歷史寫入路徑前自動恢復。
+- `title:` 與 `url:` 搜尋權杖不再互相覆蓋；多詞欄位查詢現在也會正確拆分為 AND 條件。
+- 隱藏網域現在會在快速搜尋浮層中被正確過濾。
+- 修正 Safari 增量擷取的時間邊界條件。
+- 移除了瀏覽器掃描器中錯誤的路徑過濾邏輯，該邏輯先前會排除非標準安裝。
+- 設定載入時若解密失敗，現在仍會保留 WebDAV 密碼密文。
+- 單一執行個體啟動在權杖檔案寫入失敗時，現在會安全地回退。
+- 在採用舊裝置身分時，歷史紀錄現在會被正確遷移。
+- `sync_progress` 訊號現在會防護工作執行緒送出的錯誤參數型別。
+- 即時同步進度已恢復；同時強化了 QThread 包裝器的生命週期管理，避免執行中遭銷毀而崩潰。
+- 修正了備份執行緒生命週期問題，並將自動備份例外與同步流程隔離。
+- 解決了同步期間的跨執行緒訊號競爭與 QThread 生命週期問題。
+- 在 upsert 例外發生後會立即恢復 FTS 觸發器，縮短寫入視窗。
+- `get_records` 現在會在查詢的兩個階段都持有 `_ro_lock`，以消除連線競爭。
+- WebDAV 同步清單現在會在清理舊備份之前上傳，防止崩潰後殘留過期清單。
+- 網域快取寫入現在使用鎖保護，以防止 TOCTOU 競爭。
+- 在正規表示式 load-more 路徑中會清除過期頁面快取，避免出現空白列。
+- 消除了對話框首次開啟時在左上角閃一下的問題。
+- 在 Linux 上將自動補全字型大小限制在有效範圍內。
+- 當系統托盤不可用時，阻止最小化到托盤。
+
+### 效能
+- 將 `vt_cache` 的 O(N) 清理替換為按頁粒度的 LRU 淘汰。
+- 在 `export_without_fts` 中，`VACUUM INTO` 前會先釋放寫入鎖。
+- 擷取管理器中的共享註冊表與過濾集合現在由鎖保護，防止資料競爭。
+
+### 建置
+- 為 Linux 新增 Qt 平台回退，並封裝 xcb 相依套件，確保開箱即可啟動。
+- 新增完整的 `.gitattributes` 規則，用於處理換行與二進位檔案。
+
+---
+
+## [1.2.2] - 2026-04-29
+
+### 修正
+- CLI `restore` 過去總是還原最新備份，而不是使用者選擇的備份。
+- CLI `restore` 過去不會遵守 favicon 還原旗標。
+- `CLI restore --replace` 過去使用了不安全的資料庫替換方式。
+- 排程器的前置計時器未被取消，導致重新排程後舊回呼仍會觸發。
+- 修正了終端機尺寸 API 的使用方式，恢復了所有 CLI 命令的輸出格式。
+
+---
+
+## [1.2.1] - 2026-04-23
+
+### 新增
+- 在書籤卡片上新增「在歷史中定位」按鈕，方便快速跳轉。
+- 點擊書籤卡片上的標籤區域或備註區域，現在會直接開啟編輯器。
+
+### 修正
+- 解決了 `Ctrl+F` / `Ctrl+R` 全域快捷鍵衝突；快捷鍵現在能在歷史檢視中穩定運作。
+- 日期分隔符上的造訪計數現在會正確反映目前的篩選條件與隱藏紀錄檢視模式。
+
+---
+
+## [1.2.0] - 2026-04-23
+
+### 新增
+- 14 個可設定的全域與應用程式內鍵盤快捷鍵，並提供專用設定面板。
+- 「隱藏紀錄」檢視模式：為軟隱藏紀錄提供獨立檢視。
+- 軟隱藏網域：可在不刪除紀錄的情況下隱藏某個網域下的所有紀錄，並提供獨立管理介面。
+- 可攜模式：自動偵測應用程式根目錄下的 `.portable` 標記檔，並將所有資料導向 `data/` 子目錄。
+- 在快速存取浮層與自動補全下拉中新增「Search the Web」項目，並提供可設定的搜尋引擎預設。
+- 「啟動時最小化到托盤」設定。
+- 延遲 GUI 的最小化到托盤模式：視窗與子系統會延遲到首次開啟時再初始化。
+- 欄位切換或重排後，日期分隔符現在會被正確恢復。
+- 即時跟隨系統深色/淺色模式。
+
+### 變更
+- WebDAV 上傳從 chunked 模式切換為 atomic streamed 模式，大幅提升可靠性，並消除 Windows 上的暫存檔案描述元洩漏。
+- 無介面模式現在會略過 GUI 子系統並使用更低的 SQLite 快取，降低背景記憶體占用。
+- 網域與圖示快取淘汰從整體 `clear()` 改為 FIFO `popitem()`，以消除週期性淘汰尖峰。
+- 欄位可見性切換已移入子選單，使工具列更整潔。
+
+### 修正
+- 透過統一連線生命週期的加鎖順序，解決了 WAL 寫後讀不一致問題。
+- 修正了 `_vacuuming=True` 時 `prune_tombstones` 執行導致 VACUUM 崩潰的問題。
+- 在 VACUUM 期間清理 tombstone，防止資料表無限制成長。
+- 修正刪除、隱藏、取消隱藏後的捲動抖動；現在會保留捲動位置，而不是跳回頂端。
+- 長標題不再把設定卡片中的操作按鈕擠出畫面。
+- 消除了主題切換後偶發的水平捲動條。
+- 書籤與註解讀取在寫入後現在可以立即看到最新資料，修正了過期 WAL 快照問題。
+- BFS 瀏覽器掃描不再遍歷 Windows Junction。
+- 將 `QTimer` 間隔限制為 `INT32_MAX`，防止超長時間間隔導致整數溢位。
+- `BrowserMonitor` 現在會在應用程式結束時正確終止。
+- 多詞 CLI 搜尋查詢現在無需引號也可使用。
+- CLI 中過長的表格輸出現在會以省略號截斷，避免行溢出。
+- `encrypt_text` 失敗現在會向上拋出，而不是靜默丟棄 WebDAV 密碼。
+- `get_bookmarked_urls` 現在使用 `DISTINCT`，避免回傳重複 URL。
+
+### 效能
+- `get_records` 中的兩階段 keyset pagination 消除了大型歷史資料上的 O(N) offset scan。
+- 正規表示式搜尋分頁下推到 SQL 層，消除了對整張表的 O(N) 掃描。
+- 透過最佳化 paint、`data()`、URL 解析與 `eventFilter` 熱路徑，降低了快速捲動卡頓。
+- 當視窗隱藏時，`DashboardPage` 會略過瀏覽器狀態更新。
+
+### 安全性
+- 加密升級到 V2 格式，使用彼此獨立的 HKDF 加密子金鑰與驗證子金鑰。
+- 單一執行個體 IPC 新增基於 nonce 的驗證，以防止重放攻擊。
+- 修補了 HTML 匯出的 XSS 漏洞：嵌入前會先淨化 SVG 圖示。
+- 主密碼閒置逾時現在使用 `time.time()`，以便系統睡眠期間也能正確計時。
+- 修補了主密碼繞過漏洞，並清理了過期的工作階段 UI 問題。
+
+### 建置
+- 新增 macOS 獨立 `tar.gz` 建置產物。
+- 新增 Windows 可攜 ZIP 與安裝程式。
+- 在 CI 中快取 Windows 獨立 Python 執行環境，縮短建置時間。
+
+---
+
+## [1.1.1] - 2026-04-12
+
+### 修正
+- 修正了快速搜尋浮層 (`Ctrl+Shift+H`) 重新開啟時的垂直漂移問題。
+- 修正了歷史表格中隨機出現水平捲動條的問題。
+- 修正了從「歷史」頁面修改書籤後，「書籤」頁面未刷新的問題。
+- 修正了 `bookmarked_at` 時間戳在衝突時未更新的問題。
+- 修正了 WebDAV 用戶端初始化期間潛在的競爭條件。
+- 修正了連線重設後 `_excl_cache` 未清除導致舊篩選命中殘留的問題。
+
+### 效能
+- 將歷史查詢與書籤/註解徽章載入移到背景執行緒，避免阻塞 UI。
+- 顯示網域現在透過 `domains` 資料表 JOIN 解析，而不是在渲染路徑上逐列解析 URL。
+- 移除了 `export_without_fts` 中冗餘的第二次 VACUUM。
+- 將 `hidden_records` 上的 `NOT IN` 子查詢替換為更有效率的 `NOT EXISTS` 關聯查詢。
+
+---
+
+## [1.1.0] - 2026-04-11
+
+### 新增
+- Spotlight 風格的全域快速搜尋浮層 (`Ctrl+Shift+H`)：可從任何應用程式中即時搜尋歷史、書籤與註解。
+- 進階搜尋語法：`domain:`、`after:`、`before:`、`title:`、`url:`、`browser:`、`device:`、`is:bookmarked`、`has:note`、`tag:`。
+- 搜尋列內嵌幽靈文字自動補全，以及模糊比對下拉建議。
+- 統計頁面：包含 GitHub 風格年度活躍熱圖、瀏覽器使用圓餅圖、24 小時活躍長條圖，以及一鍵匯出高解析度圖片。
+- 書籤與註解系統：可為 URL 加上標籤並撰寫富文字備註，建立個人知識庫。
+- 無介面 CLI `hsync`，包含 `sync`、`backup`、`search`、`export`、`restore`、`config`、`db` 與 watch 模式命令。
+- 透過 `argcomplete` 為 `hsync` 提供 Shell 自動補全，支援 Bash、Zsh、Fish。
+- 裝置身分管理：可重新命名裝置、刪除過時裝置，或在系統重灌後承接舊身分。
+- WebDAV 還原現在會與本機資料合併，而不是破壞性覆寫。
+- 支援從歷史表格原生拖放匯出 URL，使用 `Alt`+拖曳或拖曳 favicon 即可匯出到桌面或編輯器。
+- 捲動時間氣泡：拖曳捲動條時顯示日期、主要網域與活動密度條。
+- 新增原生支援：QQ Browser、Sogou、Twinkstar、CentBrowser、2345 Explorer、Liebao、UC Browser (Desktop)、Quark。
+- 新增 Firefox 系分支支援：Waterfox、LibreWolf、Pale Moon、Basilisk、SeaMonkey。
+- 支援 Chrome、Edge 與 Brave 的 Canary/Dev/Beta 通道。
+- 新增 BFS 深度掃描，自動發現可攜版或非標準瀏覽器安裝。
+- 浮層淡入淡出動畫。
+- 重構首次執行精靈，簡化初始設定流程。
+- 新增 v1.0.x 無損遷移精靈。
+- 為捲動時間氣泡顯示模式新增捲動條右鍵選單。
+- 為捲動時間氣泡新增慣性平滑動畫。
+
+### 修正
+- 修正了 Windows 上 WebDAV 備份期間的檔案鎖定問題。
+- 修正了深色/淺色主題切換時捲動條位置跳動的問題。
+- 多詞 FTS 查詢現在使用 AND 語意，提高搜尋精準度。
+- `normalize_domains` 的 UPDATE 現在按每批 5000 列處理，避免長時間寫入鎖定。
+- 隱藏紀錄會從分析統計與快速搜尋浮層中排除。
+- 使用 `_vacuuming` 旗標保護 `_ensure_conn`，防止 VACUUM 期間並行存取。
+
+### 效能
+- 使用批次插入與預先編譯正規表示式重寫 SQLite 擷取流程，降低記憶體占用並提升速度。
+- 透過 LRU 快取與 SVG 重新著色最佳化 favicon 渲染，減少快速捲動時的卡頓。
+- 歷史頁面初始載入採用漸進式初始化，縮短首幀顯示時間。
+
+---
+
+## [1.0.0] - 2026-03-24
+
+首個穩定版本發佈。
+
+### 新增
+- 聚合 Chromium 系、Firefox 系與 Safari 瀏覽器歷史紀錄，支援 Chrome、Edge、Brave、Opera、Vivaldi、Arc 等。
+- 本機 SQLite 資料庫，搭配使用 trigram tokenizer 的 FTS5 全文搜尋，可實現毫秒級子字串搜尋。
+- 透過 ZIP 壓縮與 SHA-256 完整性驗證實現 WebDAV 雲端備份與還原。
+- 支援多瀏覽器、多設定檔，並採用 WAL 安全資料庫複製。
+- 提供虛擬捲動，以流暢瀏覽數百萬筆歷史紀錄。
+- 系統托盤整合與同步狀態通知。
+- 透過 HKDF-SHA256 與系統金鑰圈整合，為 WebDAV 憑證提供主密碼加密。
+- 提供 Windows 與 macOS 安裝套件。
+
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0
+[1.2.2]: https://github.com/TheSkyC/HistorySync/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/TheSkyC/HistorySync/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/TheSkyC/HistorySync/compare/v1.1.1...v1.2.0
+[1.1.1]: https://github.com/TheSkyC/HistorySync/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/TheSkyC/HistorySync/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/TheSkyC/HistorySync/commits/v1.0.0

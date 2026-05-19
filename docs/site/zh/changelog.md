@@ -1,5 +1,220 @@
 ---
 title: 更新日志
+description: HistorySync 的版本历史与重要变更。
+---
+
+# 更新日志
+
+所有重要变更都会记录在这里。格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，并且本项目遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
+
+---
+
+## [Unreleased]
+
+*`main` 分支上尚未包含到已打标签版本中的变更。*
+
+---
+
+## [1.3.0] - 2026-05-14
+
+### 新增
+- 默认主题从 Dark 改为 System，应用现在开箱即会跟随操作系统外观。
+- 在黑名单和隐藏域名管理对话框中增加记录数量预览，确认前即可看到影响范围。
+- 为正则模式隔离最近搜索历史，让高级搜索工作流更整洁。
+- 重新设计应用图标，使用基于 SVG 的动画托盘渲染器替换静态托盘资源。
+- 多语言 MkDocs 文档站点。
+
+### 修复
+- 进程崩溃后静默丢失的 FTS 触发器，现在会在所有历史写入路径前自动恢复。
+- `title:` 与 `url:` 搜索令牌不再互相覆盖；多词字段查询现在会正确拆分为 AND 条件。
+- 隐藏域名现在会在悬浮快速搜索中被正确过滤。
+- 修正 Safari 增量提取的时间边界条件。
+- 移除了 browser scanner 中错误的路径过滤逻辑，该逻辑此前会排除非标准安装。
+- 配置加载时如果解密失败，现在仍会保留 WebDAV 密码密文。
+- 单实例启动在令牌文件写入失败时，现在会安全地回退。
+- 在采用旧设备身份时，历史记录现在会被正确迁移。
+- `sync_progress` 信号现在会防护工作线程发出的错误参数类型。
+- 实时同步进度已恢复；同时强化了 QThread 包装器的生命周期管理，避免 destroyed-while-running 崩溃。
+- 修复了备份线程生命周期问题，并将自动备份异常与同步流程隔离开。
+- 解决了同步过程中的跨线程信号竞争和 QThread 生命周期问题。
+- 在 upsert 异常发生后会立即恢复 FTS 触发器，缩短写入窗口。
+- `get_records` 现在会在查询的两个阶段都持有 `_ro_lock`，以消除连接竞争。
+- WebDAV 同步清单现在会在清理旧备份之前上传，防止崩溃后残留过期清单。
+- 域名缓存写入现在使用锁保护，以防止 TOCTOU 竞争。
+- 在正则 load-more 路径中会清除过期页面缓存，避免出现空白行。
+- 消除了对话框首次打开时在左上角闪一下的问题。
+- 在 Linux 上将自动补全字体大小限制在有效范围内。
+- 当系统托盘不可用时，阻止最小化到托盘。
+
+### 性能
+- 将 `vt_cache` 的 O(N) 清理替换为按页粒度的 LRU 淘汰。
+- 在 `export_without_fts` 中，`VACUUM INTO` 前会先释放写锁。
+- extractor manager 中共享注册表和过滤集合现在由锁保护，防止数据竞争。
+
+### 构建
+- 为 Linux 增加 Qt 平台回退，并打包 xcb 依赖，确保开箱即可启动。
+- 增加了完整的 `.gitattributes` 规则，用于处理换行符和二进制文件。
+
+---
+
+## [1.2.2] - 2026-04-29
+
+### 修复
+- CLI `restore` 过去总是恢复最新备份，而不是用户选择的备份。
+- CLI `restore` 过去不会遵守 favicon 恢复标志。
+- `CLI restore --replace` 过去使用了不安全的数据库替换方式。
+- 调度器的前置定时器未被取消，导致重新调度后旧回调仍会触发。
+- 修正了终端尺寸 API 的使用方式，恢复了所有 CLI 命令的输出格式。
+
+---
+
+## [1.2.1] - 2026-04-23
+
+### 新增
+- 在书签卡片上增加“在历史中定位”按钮，方便快速跳转。
+- 点击书签卡片上的标签区域或备注区域，现在会直接打开编辑器。
+
+### 修复
+- 解决了 `Ctrl+F` / `Ctrl+R` 全局快捷键冲突；快捷键现在能在历史视图中稳定工作。
+- 日期分隔符上的访问计数现在会正确反映当前过滤条件和隐藏记录查看模式。
+
+---
+
+## [1.2.0] - 2026-04-23
+
+### 新增
+- 14 个可配置的全局与应用内键盘快捷键，并提供专门的设置面板。
+- Hidden Records 查看模式：为软隐藏记录提供独立视图。
+- 软隐藏域名：可以在不删除记录的情况下隐藏某个域名下的所有记录，并提供独立管理界面。
+- 便携模式：自动检测应用根目录下的 `.portable` 标记文件，并将所有数据路由到 `data/` 子目录。
+- 在快速访问悬浮窗和自动补全下拉中新增“Search the Web”入口，并提供可配置的搜索引擎预设。
+- “启动时最小化到托盘”设置。
+- 延迟 GUI 的最小化到托盘模式：窗口和子系统会延迟到首次打开时再初始化。
+- 列切换或重排后，日期分隔符现在会被正确恢复。
+- 实时跟随系统深色/浅色模式。
+
+### 变更
+- WebDAV 上传从 chunked 模式切换为 atomic streamed 模式，显著提升可靠性，并消除 Windows 上的临时文件句柄泄漏。
+- 无界面模式现在会跳过 GUI 子系统并使用更低的 SQLite 缓存，降低后台内存占用。
+- 域名和图标缓存淘汰从整体 `clear()` 改为 FIFO `popitem()`，以消除周期性淘汰尖峰。
+- 列可见性切换被移入子菜单，使工具栏更整洁。
+
+### 修复
+- 通过统一连接生命周期的加锁顺序，解决了 WAL 写后读不一致问题。
+- 修复了 `_vacuuming=True` 时 `prune_tombstones` 运行导致 VACUUM 崩溃的问题。
+- 在 VACUUM 期间清理 tombstone，防止表无限增长。
+- 修复删除、隐藏、取消隐藏后的滚动抖动；现在会保留滚动位置，而不是跳回顶部。
+- 长标题不再把设置卡片中的操作按钮挤出屏幕。
+- 消除了主题切换后偶发的水平滚动条。
+- 书签和注释读取在写入后现在可以立即看到最新数据，修复了陈旧 WAL 快照问题。
+- BFS 浏览器扫描不再遍历 Windows Junction。
+- 将 `QTimer` 间隔限制为 `INT32_MAX`，防止超长时间间隔导致整数溢出。
+- `BrowserMonitor` 现在会在应用退出时正确终止。
+- 多词 CLI 搜索查询现在无需引号也可使用。
+- CLI 中过长的表格输出现在会以省略号截断，避免行溢出。
+- `encrypt_text` 失败现在会向上抛出，而不是静默丢弃 WebDAV 密码。
+- `get_bookmarked_urls` 现在使用 `DISTINCT`，避免返回重复 URL。
+
+### 性能
+- `get_records` 中的两阶段 keyset pagination 消除了大规模历史数据上的 O(N) offset scan。
+- 正则搜索分页下推到 SQL 层，消除了对整张表的 O(N) 扫描。
+- 通过优化 paint、`data()`、URL 解析和 `eventFilter` 热路径，降低了快速滚动卡顿。
+- 当窗口隐藏时，`DashboardPage` 会跳过浏览器状态更新。
+
+### 安全
+- 加密升级到 V2 格式，使用相互独立的 HKDF 加密子密钥和认证子密钥。
+- 单实例 IPC 增加基于 nonce 的认证，以防止重放攻击。
+- 修复了 HTML 导出的 XSS 漏洞：嵌入前会先净化 SVG 图标。
+- 主密码空闲超时现在使用 `time.time()`，以便系统睡眠期间也能正确计时。
+- 修复了主密码绕过漏洞，并清理了陈旧会话 UI 问题。
+
+### 构建
+- 新增 macOS 独立 `tar.gz` 构建产物。
+- 新增 Windows 便携 ZIP 和安装程序。
+- 在 CI 中缓存 Windows 独立 Python 运行时，缩短构建时间。
+
+---
+
+## [1.1.1] - 2026-04-12
+
+### 修复
+- 修复了悬浮搜索窗口 (`Ctrl+Shift+H`) 重新打开时的垂直漂移问题。
+- 修复了历史表格中随机出现水平滚动条的问题。
+- 修复了从 History 页面修改书签后，Bookmarks 页面不刷新的问题。
+- 修复了 `bookmarked_at` 时间戳在冲突时不更新的问题。
+- 修复了 WebDAV 客户端初始化期间潜在的竞争条件。
+- 修复了连接重置后 `_excl_cache` 未清理导致旧过滤命中残留的问题。
+
+### 性能
+- 将历史查询和书签/注释徽标加载移到后台线程，避免阻塞 UI。
+- 显示域名现在通过 `domains` 表 JOIN 解析，而不是在渲染路径上逐行解析 URL。
+- 移除了 `export_without_fts` 中冗余的第二次 VACUUM。
+- 将 `hidden_records` 上的 `NOT IN` 子查询替换为更高效的 `NOT EXISTS` 相关查询。
+
+---
+
+## [1.1.0] - 2026-04-11
+
+### 新增
+- Spotlight 风格的全局快速搜索悬浮窗 (`Ctrl+Shift+H`)：可从任何应用中即时搜索历史、书签和注释。
+- 高级搜索语法：`domain:`、`after:`、`before:`、`title:`、`url:`、`browser:`、`device:`、`is:bookmarked`、`has:note`、`tag:`。
+- 搜索栏内联幽灵文字自动补全，以及模糊匹配下拉建议。
+- 统计页面：包含 GitHub 风格年度活跃热力图、浏览器使用饼图、24 小时活跃柱状图，以及一键导出高分辨率图片。
+- 书签与注释系统：可为 URL 打标签并编写富文本备注，构建个人知识库。
+- 无界面 CLI `hsync`，包含 `sync`、`backup`、`search`、`export`、`restore`、`config`、`db` 和 watch 模式命令。
+- 通过 `argcomplete` 为 `hsync` 提供 Shell 自动补全，支持 Bash、Zsh、Fish。
+- 设备身份管理：可重命名设备、删除过时设备，或在系统重装后继承旧身份。
+- WebDAV 恢复现在会与本地数据合并，而不是破坏性覆盖。
+- 支持从历史表格原生拖放导出 URL，使用 `Alt`+拖动或拖动 favicon 即可导出到桌面或编辑器。
+- 滚动时间气泡：拖动滚动条时显示日期、主要域名和活动密度条。
+- 新增原生支持：QQ Browser、Sogou、Twinkstar、CentBrowser、2345 Explorer、Liebao、UC Browser (Desktop)、Quark。
+- 新增 Firefox 系分支支持：Waterfox、LibreWolf、Pale Moon、Basilisk、SeaMonkey。
+- 支持 Chrome、Edge 和 Brave 的 Canary/Dev/Beta 通道。
+- 增加 BFS 深度扫描，自动发现便携版或非标准浏览器安装。
+- 悬浮窗淡入淡出动画。
+- 重构首次运行向导，简化初始设置流程。
+- 新增 v1.0.x 无损迁移向导。
+- 为滚动时间气泡显示模式新增滚动条右键菜单。
+- 为滚动时间气泡新增惯性平滑动画。
+
+### 修复
+- 修复了 Windows 上 WebDAV 备份期间的文件锁问题。
+- 修复了深色/浅色主题切换时滚动条位置跳动的问题。
+- 多词 FTS 查询现在使用 AND 语义，提高搜索精度。
+- `normalize_domains` 的 UPDATE 现在按每批 5000 行处理，避免长时间写锁。
+- 隐藏记录会从统计分析和悬浮快速搜索中排除。
+- 使用 `_vacuuming` 标志保护 `_ensure_conn`，防止 VACUUM 期间并发访问。
+
+### 性能
+- 使用批量插入和预编译正则重写 SQLite 提取流程，降低内存占用并提升速度。
+- 通过 LRU 缓存和 SVG 重着色优化 favicon 渲染，消除快速滚动时的卡顿。
+- 历史页面初始加载使用渐进式初始化，缩短首帧显示时间。
+
+---
+
+## [1.0.0] - 2026-03-24
+
+首个稳定版本发布。
+
+### 新增
+- 聚合 Chromium 系、Firefox 系和 Safari 浏览器历史记录，支持 Chrome、Edge、Brave、Opera、Vivaldi、Arc 等。
+- 本地 SQLite 数据库，带有使用 trigram tokenizer 的 FTS5 全文搜索，可实现毫秒级子串搜索。
+- 通过 ZIP 压缩和 SHA-256 完整性校验实现 WebDAV 云备份与恢复。
+- 支持多浏览器、多配置文件，并采用 WAL 安全数据库复制。
+- 提供虚拟滚动，以流畅浏览数百万条历史记录。
+- 系统托盘集成及同步状态通知。
+- 通过 HKDF-SHA256 和系统密钥环集成，为 WebDAV 凭据提供主密码加密。
+- 提供 Windows 和 macOS 安装包。
+
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0
+[1.2.2]: https://github.com/TheSkyC/HistorySync/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/TheSkyC/HistorySync/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/TheSkyC/HistorySync/compare/v1.1.1...v1.2.0
+[1.1.1]: https://github.com/TheSkyC/HistorySync/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/TheSkyC/HistorySync/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/TheSkyC/HistorySync/commits/v1.0.0---
+title: 更新日志
 description: HistorySync 的版本历史与重要更新。
 ---
 
