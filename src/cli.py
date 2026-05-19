@@ -756,95 +756,95 @@ def _cmd_sync(config, args: argparse.Namespace) -> int:
         _section("Sync")
         _kv("Database", str(db_path))
 
-    db = LocalDatabase(db_path)
-    disabled = list(config.extractor.disabled_browsers)
-    blacklist = list(config.privacy.blacklisted_domains)
-    manager = ExtractorManager(db=db, disabled_browsers=disabled, blacklisted_domains=blacklist)
+    with LocalDatabase(db_path) as db:
+        disabled = list(config.extractor.disabled_browsers)
+        blacklist = list(config.privacy.blacklisted_domains)
+        manager = ExtractorManager(db=db, disabled_browsers=disabled, blacklisted_domains=blacklist)
 
-    for browser_type, path_str in config.extractor.custom_paths.items():
-        if not path_str:
-            continue
-        p = Path(path_str)
-        if not p.exists():
-            _warn(f"Custom path for '{browser_type}' not found, skipping: {p}")
-            log.warning("Custom path missing: %s → %s", browser_type, p)
-            continue
-        try:
-            manager.register_custom_path(browser_type, browser_type, p)
-        except Exception as exc:
-            _warn(f"Could not register custom browser '{browser_type}': {exc}")
+        for browser_type, path_str in config.extractor.custom_paths.items():
+            if not path_str:
+                continue
+            p = Path(path_str)
+            if not p.exists():
+                _warn(f"Custom path for '{browser_type}' not found, skipping: {p}")
+                log.warning("Custom path missing: %s → %s", browser_type, p)
+                continue
+            try:
+                manager.register_custom_path(browser_type, browser_type, p)
+            except Exception as exc:
+                _warn(f"Could not register custom browser '{browser_type}': {exc}")
 
-    all_registered = manager.get_all_registered()
-    available = manager.get_available_browsers()
+        all_registered = manager.get_all_registered()
+        available = manager.get_available_browsers()
 
-    if not available:
-        _warn("No browser installations found on this system.")
-        return 0
+        if not available:
+            _warn("No browser installations found on this system.")
+            return 0
 
-    browsers_arg = getattr(args, "browsers", None)
-    if browsers_arg:
-        requested = [b.strip() for b in browsers_arg.split(",") if b.strip()]
-        unknown = [b for b in requested if b not in all_registered]
-        targets = [b for b in requested if b in all_registered]
-        for b in unknown:
-            _warn(f"Browser '{b}' is not registered; skipping. Known: {', '.join(sorted(all_registered))}")
-        if not targets:
-            _err("None of the requested browsers are registered.")
-            return 1
-        unavailable = [b for b in targets if b not in available]
-        for b in unavailable:
-            _warn(f"Browser '{b}' is registered but not installed; skipping.")
-        targets = [b for b in targets if b in available]
-        if not targets:
-            _err("None of the requested browsers are available on this system.")
-            return 1
-    else:
-        targets = available
+        browsers_arg = getattr(args, "browsers", None)
+        if browsers_arg:
+            requested = [b.strip() for b in browsers_arg.split(",") if b.strip()]
+            unknown = [b for b in requested if b not in all_registered]
+            targets = [b for b in requested if b in all_registered]
+            for b in unknown:
+                _warn(f"Browser '{b}' is not registered; skipping. Known: {', '.join(sorted(all_registered))}")
+            if not targets:
+                _err("None of the requested browsers are registered.")
+                return 1
+            unavailable = [b for b in targets if b not in available]
+            for b in unavailable:
+                _warn(f"Browser '{b}' is registered but not installed; skipping.")
+            targets = [b for b in targets if b in available]
+            if not targets:
+                _err("None of the requested browsers are available on this system.")
+                return 1
+        else:
+            targets = available
 
-    if not quiet:
-        _kv("Browsers", ", ".join(targets))
+        if not quiet:
+            _kv("Browsers", ", ".join(targets))
 
-    if dry_run:
-        _info(_dim("Dry-run mode — no data will be written."))
-        return 0
+        if dry_run:
+            _info(_dim("Dry-run mode — no data will be written."))
+            return 0
 
-    log.info("Starting sync for browsers: %s", targets)
-    start_times: dict[str, float] = {}
+        log.info("Starting sync for browsers: %s", targets)
+        start_times: dict[str, float] = {}
 
-    def _progress(browser_type: str, status: str, count: int) -> None:
-        if quiet:
-            return
-        if status == "extracting":
-            start_times[browser_type] = time.monotonic()
-            print(f"  {_cyan('→')}  {browser_type}: extracting …", flush=True)
-        elif status == "saving":
-            elapsed = time.monotonic() - start_times.get(browser_type, time.monotonic())
-            print(
-                f"  {_cyan('→')}  {browser_type}: saving {_bold(f'{count:,}')} records  {_dim(f'({elapsed:.1f}s)')}",
-                flush=True,
+        def _progress(browser_type: str, status: str, count: int) -> None:
+            if quiet:
+                return
+            if status == "extracting":
+                start_times[browser_type] = time.monotonic()
+                print(f"  {_cyan('→')}  {browser_type}: extracting …", flush=True)
+            elif status == "saving":
+                elapsed = time.monotonic() - start_times.get(browser_type, time.monotonic())
+                print(
+                    f"  {_cyan('→')}  {browser_type}: saving {_bold(f'{count:,}')} records  {_dim(f'({elapsed:.1f}s)')}",
+                    flush=True,
+                )
+            elif status == "done":
+                elapsed = time.monotonic() - start_times.get(browser_type, time.monotonic())
+                label = f"{_bold(f'{count:,}')} new" if count else _dim("no new records")
+                print(f"  {_green('✔')}  {browser_type}: {label}  {_dim(f'({elapsed:.1f}s)')}", flush=True)
+            elif status == "error":
+                print(f"  {_red('✖')}  {browser_type}: extraction failed", file=sys.stderr, flush=True)
+
+        t0 = time.monotonic()
+        results = manager.run_extraction(browser_types=targets, progress_callback=_progress)
+        elapsed = time.monotonic() - t0
+
+        total_new = sum(v for v in results.values() if v is not None)
+        log.info("Sync complete: %d new records in %.1fs", total_new, elapsed)
+
+        if not quiet:
+            print()
+            _ok(
+                f"Sync complete — {_bold(f'{total_new:,}')} new records  "
+                f"{_dim(f'across {len(results)} browser(s) in {elapsed:.1f}s')}"
             )
-        elif status == "done":
-            elapsed = time.monotonic() - start_times.get(browser_type, time.monotonic())
-            label = f"{_bold(f'{count:,}')} new" if count else _dim("no new records")
-            print(f"  {_green('✔')}  {browser_type}: {label}  {_dim(f'({elapsed:.1f}s)')}", flush=True)
-        elif status == "error":
-            print(f"  {_red('✖')}  {browser_type}: extraction failed", file=sys.stderr, flush=True)
 
-    t0 = time.monotonic()
-    results = manager.run_extraction(browser_types=targets, progress_callback=_progress)
-    elapsed = time.monotonic() - t0
-
-    total_new = sum(v for v in results.values() if v is not None)
-    log.info("Sync complete: %d new records in %.1fs", total_new, elapsed)
-
-    if not quiet:
-        print()
-        _ok(
-            f"Sync complete — {_bold(f'{total_new:,}')} new records  "
-            f"{_dim(f'across {len(results)} browser(s) in {elapsed:.1f}s')}"
-        )
-
-    return 0
+        return 0
 
 
 # ══════════════════════════════════════════════════════════════════════════════
