@@ -984,11 +984,8 @@ def _cmd_export(config, args: argparse.Namespace) -> int:
     domain_arg = getattr(args, "domain", None)
     domain_ids: list[int] | None = None
     if domain_arg:
-        ids: list[int] = []
-        with db._conn(write=False) as conn:
-            for d in domain_arg:
-                ids.extend(LocalDatabase._domain_ids_for(conn, d))
-        domain_ids = list(set(ids)) if ids else None
+        ids = db.get_domain_ids(list(domain_arg))
+        domain_ids = ids if ids else None
         if domain_arg and domain_ids is None and not quiet:
             _warn(f"No records found for domain(s): {', '.join(domain_arg)}")
 
@@ -1272,11 +1269,8 @@ def _cmd_search(config, args: argparse.Namespace) -> int:
     # Resolve domain IDs
     domain_ids: list[int] | None = None
     if query.domains:
-        ids: list[int] = []
-        with db._conn(write=False) as conn:
-            for d in query.domains:
-                ids.extend(LocalDatabase._domain_ids_for(conn, d))
-        domain_ids = list(set(ids)) if ids else None
+        ids = db.get_domain_ids(list(query.domains))
+        domain_ids = ids if ids else None
         if not domain_ids and not quiet:
             _warn(f"No records found for domain(s): {', '.join(query.domains)}")
             return 0
@@ -1409,7 +1403,6 @@ def _cmd_search_interactive(db, initial_query: str, limit: int, quiet: bool, log
     from datetime import datetime
 
     from src.models.history_record import HistoryRecord
-    from src.services.local_db import LocalDatabase
     from src.utils.search_parser import parse_query
 
     current_query = initial_query
@@ -1422,11 +1415,8 @@ def _cmd_search_interactive(db, initial_query: str, limit: int, quiet: bool, log
 
         domain_ids: list[int] | None = None
         if query.domains:
-            ids: list[int] = []
-            with db._conn(write=False) as conn:
-                for d in query.domains:
-                    ids.extend(LocalDatabase._domain_ids_for(conn, d))
-            domain_ids = list(set(ids)) if ids else None
+            ids = db.get_domain_ids(list(query.domains))
+            domain_ids = ids if ids else None
 
         device_ids: list[int] | None = None
         if query.device:
