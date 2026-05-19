@@ -15,6 +15,27 @@ Tous les changements notables sont documentés ici. Le format est basé sur [Kee
 
 ---
 
+## [1.3.1] - 2026-05-19
+
+### Corrigé
+- L'export par expression régulière n'est plus limité à 100 000 enregistrements ; remplacé par une pagination par curseur pour les exports volumineux complets.
+- L'interface ne se fige plus pendant une recherche d'historique par expression régulière ; le scan est déplacé dans un thread en arrière-plan.
+- Les calculs de plage temporelle mensuelle ne dérivent plus lors des transitions DST (heure d'été).
+- Le filtre de domaines masqués échappe désormais correctement les caractères génériques LIKE dans les noms de domaine.
+- Le comptage des enregistrements par préfixe URL ne double-compte plus les préfixes chevauchants.
+- Les échecs de nettoyage WebDAV sont désormais remontés au lieu d'être ignorés silencieusement ; l'horodatage du manifeste est aligné sur l'heure d'upload.
+- L'export HTML génère maintenant une erreur quand le marqueur d'injection est absent du template, au lieu de produire un fichier corrompu.
+- La sauvegarde de la configuration est supprimée à l'arrêt pour éviter toute corruption ; les promotions de configuration échouées sont maintenant annulées proprement.
+- La rotation des sauvegardes de configuration est corrigée ; une protection contre les faux positifs de détection de migration a été ajoutée.
+- Le chargement des données de badge gère désormais les erreurs de base de données sans planter.
+- Le thread de sauvegarde de l'extracteur ne bloque plus implicitement le processus principal à l'arrêt.
+- Résolution d'un potentiel interblocage lors de l'export d'une base de données sans FTS.
+
+### Build
+- L'import caché WebDAV dans la spec PyInstaller est corrigé de `webdav4` vers `webdav3`, résolvant les erreurs de module manquant dans les builds packagés.
+
+---
+
 ## [1.3.0] - 2026-05-14
 
 ### Ajouté
@@ -206,35 +227,12 @@ Version stable initiale.
 - Chiffrement par mot de passe maître pour les identifiants WebDAV via HKDF-SHA256 et intégration au trousseau système.
 - Paquets Windows et macOS.
 
-[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/TheSkyC/HistorySync/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/TheSkyC/HistorySync/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/TheSkyC/HistorySync/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/TheSkyC/HistorySync/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/TheSkyC/HistorySync/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/TheSkyC/HistorySync/commits/v1.0.0---
-title: Journal des modifications
-description: Historique des versions et modifications notables de HistorySync.
----
-
-# Journal des modifications
-
-Toutes les modifications notables sont documentées ici. Consultez la page [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases) pour les liens de téléchargement et les notes de version complètes.
-
----
-
-## Non publié
-
-*Modifications sur `main` pas encore dans une version taguée.*
-
----
-
-## [Dernière version]
-
-Consultez [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases/latest) pour les notes de la version la plus récente.
-
----
-
-!!! info "Historique complet"
-    L'historique complet des versions avec les liens de téléchargement est disponible sur la page [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases).
+[1.0.0]: https://github.com/TheSkyC/HistorySync/commits/v1.0.0

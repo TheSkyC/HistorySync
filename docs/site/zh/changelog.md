@@ -15,6 +15,27 @@ description: HistorySync 的版本历史与重要变更。
 
 ---
 
+## [1.3.1] - 2026-05-19
+
+### 修复
+- 正则导出不再受 100,000 条记录上限限制，改用游标分页以支持完整的大规模导出。
+- 正则历史搜索期间 UI 不再冻结；扫描操作已移至后台线程执行。
+- 月份时间范围计算不再因夏令时切换产生偏差。
+- 隐藏域名过滤器现在正确转义域名中的 LIKE 通配符。
+- URL 前缀记录计数不再对重叠前缀重复统计。
+- WebDAV 清理失败现在会被正确报告而非静默忽略；清单时间戳已与上传时间对齐。
+- HTML 导出模板缺少注入标记时，现在会抛出错误而非生成损坏的输出。
+- 应用关闭时的配置保存已被抑制以防止数据损坏；失败的配置提升现在会干净地回滚。
+- 配置备份轮转已修正；增加了迁移误判检测防护。
+- 徽章数据加载现在能优雅地处理数据库错误，不再崩溃。
+- 提取器备份线程在关闭时不再隐式阻塞主进程。
+- 修复了 FTS 裁剪数据库导出时可能发生的死锁。
+
+### 构建
+- 修正 PyInstaller spec 中 WebDAV 隐式导入，从 `webdav4` 更正为 `webdav3`，解决打包版本的模块缺失错误。
+
+---
+
 ## [1.3.0] - 2026-05-14
 
 ### 新增
@@ -206,29 +227,12 @@ description: HistorySync 的版本历史与重要变更。
 - 通过 HKDF-SHA256 和系统密钥环集成，为 WebDAV 凭据提供主密码加密。
 - 提供 Windows 和 macOS 安装包。
 
-[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/TheSkyC/HistorySync/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/TheSkyC/HistorySync/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/TheSkyC/HistorySync/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/TheSkyC/HistorySync/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/TheSkyC/HistorySync/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/TheSkyC/HistorySync/commits/v1.0.0---
-title: 更新日志
-description: HistorySync 的版本历史与重要更新。
----
-
-# 更新日志
-
-所有重要更改均记录于此。下载链接和完整发布说明请访问 [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases) 页面。
-
----
-
-## 未发布
-
-*`main` 分支上尚未打标签发布的更改。*
-
----
-
-!!! info "完整历史"
-    包含下载链接的完整版本历史请访问 [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases) 页面。
+[1.0.0]: https://github.com/TheSkyC/HistorySync/commits/v1.0.0

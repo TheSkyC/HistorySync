@@ -15,6 +15,27 @@ All notable changes are documented here. The format is based on [Keep a Changelo
 
 ---
 
+## [1.3.1] - 2026-05-19
+
+### Fixed
+- Regex export no longer capped at 100 000 records; replaced with cursor pagination for complete large exports.
+- UI no longer freezes during regex history search; scan moved to a background thread.
+- Monthly time range calculations no longer skew around DST transitions.
+- Hidden-domain filter now correctly escapes LIKE wildcard characters in domain names.
+- URL prefix record counts no longer double-count overlapping prefixes.
+- WebDAV cleanup failures now surfaced instead of silently swallowed; manifest timestamp aligned with upload time.
+- HTML export now raises an error when the template is missing the injection marker instead of producing corrupt output.
+- Config saves suppressed on shutdown to prevent corruption; failed config promotes now roll back cleanly.
+- Config backup rotation fixed; migration false-positive detection guard added.
+- Badge data loading now handles DB errors gracefully instead of crashing.
+- Extractor backup thread no longer implicitly blocks the main process on shutdown.
+- Potential deadlock during FTS-stripped database export resolved.
+
+### Build
+- WebDAV hidden import corrected from `webdav4` to `webdav3` in PyInstaller spec, fixing missing-module errors in packaged builds.
+
+---
+
 ## [1.3.0] - 2026-05-14
 
 ### Added
@@ -206,7 +227,8 @@ Initial stable release.
 - Master password encryption for WebDAV credentials via HKDF-SHA256 and system keyring integration.
 - Windows and macOS packages.
 
-[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/TheSkyC/HistorySync/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/TheSkyC/HistorySync/compare/v1.2.0...v1.2.1

@@ -15,6 +15,27 @@ description: HistorySync의 릴리스 이력과 주요 변경 사항.
 
 ---
 
+## [1.3.1] - 2026-05-19
+
+### 수정됨
+- 정규식 내보내기의 100,000개 레코드 상한을 제거하고 커서 기반 페이지네이션으로 대용량 내보내기를 완전히 지원.
+- 정규식 히스토리 검색 중 UI 응답 불가 문제 해결; 스캔 처리를 백그라운드 스레드로 이동.
+- 월간 시간 범위 계산이 DST(서머타임) 전환 시 더 이상 어긋나지 않음.
+- 숨겨진 도메인 필터가 도메인 이름의 LIKE 와일드카드 문자를 올바르게 이스케이프 처리.
+- URL 접두사별 레코드 집계에서 중복되는 접두사의 이중 계산 문제 해결.
+- WebDAV 정리 실패가 무시되지 않고 보고되도록 수정; 매니페스트 타임스탬프를 업로드 시간과 일치시킴.
+- HTML 내보내기 템플릿에 주입 마커가 없을 경우 손상된 출력 대신 오류를 발생시키도록 수정.
+- 종료 시 설정 저장을 억제하여 데이터 손상 방지; 실패한 설정 승격이 이제 올바르게 롤백됨.
+- 설정 백업 순환 수정; 마이그레이션 오탐지 방어 로직 추가.
+- 배지 데이터 로딩 중 데이터베이스 오류를 충돌 없이 올바르게 처리.
+- 익스트랙터 백업 스레드가 종료 시 메인 프로세스를 암묵적으로 차단하지 않음.
+- FTS 제거 데이터베이스 내보내기 중 발생 가능한 교착 상태 해결.
+
+### 빌드
+- PyInstaller spec의 WebDAV 숨겨진 임포트를 `webdav4`에서 `webdav3`로 수정하여 패키지 빌드의 모듈 누락 오류 해결.
+
+---
+
 ## [1.3.0] - 2026-05-14
 
 ### 추가됨
@@ -206,35 +227,12 @@ description: HistorySync의 릴리스 이력과 주요 변경 사항.
 - HKDF-SHA256 및 시스템 키링 통합을 통한 WebDAV 자격 증명 마스터 비밀번호 암호화를 추가했습니다.
 - Windows 및 macOS 패키지를 제공했습니다.
 
-[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/TheSkyC/HistorySync/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/TheSkyC/HistorySync/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/TheSkyC/HistorySync/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/TheSkyC/HistorySync/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/TheSkyC/HistorySync/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/TheSkyC/HistorySync/commits/v1.0.0---
-title: 변경 로그
-description: HistorySync의 릴리스 내역 및 주요 변경 사항.
----
-
-# 변경 로그
-
-모든 주요 변경 사항이 여기에 기록됩니다. 다운로드 링크 및 전체 릴리스 노트는 [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases) 페이지를 참조하세요.
-
----
-
-## 미출시 (Unreleased)
-
-*태그 릴리스에 아직 포함되지 않은 `main` 브랜치의 변경 사항.*
-
----
-
-## [최신 릴리스]
-
-최신 버전 노트는 [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases/latest)를 확인하세요.
-
----
-
-!!! info "전체 내역"
-    다운로드 링크를 포함한 전체 릴리스 내역은 [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases) 페이지에서 확인할 수 있습니다.
+[1.0.0]: https://github.com/TheSkyC/HistorySync/commits/v1.0.0

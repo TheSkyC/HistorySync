@@ -15,6 +15,27 @@ description: HistorySync のリリース履歴と主な変更点。
 
 ---
 
+## [1.3.1] - 2026-05-19
+
+### Fixed
+- 正規表現エクスポートの 100,000 件上限を撤廃し、カーソルページネーションによる完全な大規模エクスポートに対応。
+- 正規表現での履歴検索中に UI がフリーズしなくなった。スキャン処理をバックグラウンドスレッドに移行。
+- 月次時間範囲の計算が DST（夏時間）の切り替えで不正にずれる問題を修正。
+- 隠しドメインフィルターがドメイン名に含まれる LIKE ワイルドカード文字を正しくエスケープするように修正。
+- URL プレフィックスのレコード集計で重複するプレフィックスを二重計上しなくなった。
+- WebDAV クリーンアップの失敗が静かに無視されずに報告されるようになった。マニフェストのタイムスタンプをアップロード時刻に合わせて修正。
+- HTML エクスポートのテンプレートに注入マーカーがない場合、破損した出力を生成する代わりにエラーを発生させるように修正。
+- シャットダウン時の設定保存を抑制してデータ破損を防止。失敗した設定プロモーションがクリーンにロールバックされるように修正。
+- 設定バックアップのローテーションを修正。マイグレーション誤検知の防護を追加。
+- バッジデータの読み込みでデータベースエラーが発生してもクラッシュせず適切に処理するように修正。
+- エクストラクターのバックアップスレッドがシャットダウン時にメインプロセスを暗黙的にブロックしなくなった。
+- FTS 除外データベースエクスポート中に発生しうるデッドロックを解消。
+
+### Build
+- PyInstaller spec の WebDAV 隠しインポートを `webdav4` から `webdav3` に修正し、パッケージ版でのモジュール欠落エラーを解決。
+
+---
+
 ## [1.3.0] - 2026-05-14
 
 ### Added
@@ -206,35 +227,12 @@ description: HistorySync のリリース履歴と主な変更点。
 - HKDF-SHA256 とシステムキーチェーン統合による WebDAV 認証情報のマスターパスワード暗号化を追加しました。
 - Windows および macOS パッケージを提供しました。
 
-[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/TheSkyC/HistorySync/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/TheSkyC/HistorySync/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/TheSkyC/HistorySync/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/TheSkyC/HistorySync/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/TheSkyC/HistorySync/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/TheSkyC/HistorySync/commits/v1.0.0---
-title: 変更履歴
-description: HistorySync のリリース履歴と主な変更点。
----
-
-# 変更履歴
-
-注目すべき変更はすべてこちらに記録されています。ダウンロードリンクと完全なリリースノートは [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases) ページをご覧ください。
-
----
-
-## Unreleased（未リリース）
-
-*`main` ブランチ上にあるが、まだタグ付きリリースに含まれていない変更。*
-
----
-
-## [最新リリース]
-
-最新バージョンのリリースノートは [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases/latest) をご確認ください。
-
----
-
-!!! info "完全な履歴"
-    ダウンロードリンクを含む完全なリリース履歴は [GitHub Releases](https://github.com/TheSkyC/HistorySync/releases) ページで確認できます。
+[1.0.0]: https://github.com/TheSkyC/HistorySync/commits/v1.0.0
