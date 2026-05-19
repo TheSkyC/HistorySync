@@ -487,6 +487,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_vac = db_subs.add_parser("vacuum", help="VACUUM the database and ANALYZE")
     p_fts = db_subs.add_parser("rebuild-fts", help="Rebuild the full-text search index")
     p_nor = db_subs.add_parser("normalize", help="Normalise domain names in all records")
+    p_nor.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
     p_dst = db_subs.add_parser("stats", help="Show database statistics (alias for hsync -S)")
     p_dst.add_argument("--json", action="store_true", help="Emit JSON instead of human-readable text")
     for p in (p_vac, p_fts, p_nor, p_dst):
@@ -1187,6 +1188,17 @@ def _cmd_db_normalize(config, args: argparse.Namespace) -> int:
     if dry_run:
         _info(_dim("Dry-run mode — nothing will be changed."))
         return 0
+
+    if not getattr(args, "yes", False) and not quiet:
+        _warn("This will rewrite the domain field for every history record.")
+        try:
+            confirm = input(f"  {_bold('Continue? [y/N]:')} ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 0
+        if confirm not in ("y", "yes"):
+            _info("Normalise cancelled.")
+            return 0
 
     db = LocalDatabase(db_path)
 
