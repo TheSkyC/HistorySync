@@ -5,15 +5,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-import tempfile
 from unittest import mock
 
 from src.utils.single_instance import (
     _NONCE_BYTES,
-    _TOKEN_FILE,
     ACTIVATE_MSG,
     ACTIVATE_QUICK_MSG,
+    _get_token_file,
     _read_nonce,
 )
 
@@ -21,20 +19,20 @@ from src.utils.single_instance import (
 class TestReadNonce:
     def test_returns_nonce_when_file_exists(self, tmp_path):
         nonce = bytes(range(_NONCE_BYTES))
-        token_file = tmp_path / "hs_ipc.token"
+        token_file = tmp_path / "ipc.token"
         token_file.write_bytes(nonce)
-        with mock.patch("src.utils.single_instance._TOKEN_FILE", token_file):
+        with mock.patch("src.utils.single_instance._get_token_file", return_value=token_file):
             assert _read_nonce() == nonce
 
     def test_returns_empty_when_file_missing(self, tmp_path):
         token_file = tmp_path / "nonexistent.token"
-        with mock.patch("src.utils.single_instance._TOKEN_FILE", token_file):
+        with mock.patch("src.utils.single_instance._get_token_file", return_value=token_file):
             assert _read_nonce() == b""
 
     def test_returns_empty_when_file_wrong_length(self, tmp_path):
-        token_file = tmp_path / "hs_ipc.token"
+        token_file = tmp_path / "ipc.token"
         token_file.write_bytes(b"short")
-        with mock.patch("src.utils.single_instance._TOKEN_FILE", token_file):
+        with mock.patch("src.utils.single_instance._get_token_file", return_value=token_file):
             assert _read_nonce() == b""
 
 
@@ -50,6 +48,7 @@ class TestNonceConstants:
 
 
 class TestTokenFileLocation:
-    def test_token_file_in_tempdir(self):
-        assert _TOKEN_FILE.parent == Path(tempfile.gettempdir())
-        assert _TOKEN_FILE.name == "hs_ipc.token"
+    def test_token_file_in_config_dir(self):
+        from src.utils.path_helper import get_config_dir
+
+        assert _get_token_file() == get_config_dir() / "ipc.token"

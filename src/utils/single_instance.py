@@ -2,13 +2,27 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import os
 from pathlib import Path
 import secrets
-import tempfile
+import sys
+
+from src.utils.path_helper import get_config_dir
 
 logger = logging.getLogger(__name__)
 
-SINGLE_INSTANCE_PORT = 20455
+
+def _get_single_instance_port() -> int:
+    base_port = 20455
+    if sys.platform == "win32":
+        # Windows desktop is typically single-user per session; fixed port avoids
+        # cross-version detection failures caused by hash() randomisation.
+        return base_port
+    # On Linux/macOS offset by UID so concurrent multi-user sessions don't collide.
+    return base_port + (os.getuid() % 10000)
+
+
+SINGLE_INSTANCE_PORT = _get_single_instance_port()
 ACTIVATE_MSG = b"ACTIVATE_HISTORYSYNC"
 ACTIVATE_QUICK_MSG = b"ACTIVATE_QUICK"
 
@@ -18,13 +32,17 @@ ACTIVATE_QUICK_MSG = b"ACTIVATE_QUICK"
 # unrelated local processes that know the port number and message format cannot
 # trigger activation blindly.
 _NONCE_BYTES = 20
-_TOKEN_FILE = Path(tempfile.gettempdir()) / "hs_ipc.token"
+
+
+def _get_token_file() -> Path:
+    """Return the IPC token file path, resolved at call time after runtime paths are set."""
+    return get_config_dir() / "ipc.token"
 
 
 def _read_nonce() -> bytes:
     """Read the server nonce from the token file.  Returns b'' on any error."""
     try:
-        data = _TOKEN_FILE.read_bytes()
+        data = _get_token_file().read_bytes()
         if len(data) == _NONCE_BYTES:
             return data
     except OSError:
@@ -49,7 +67,11 @@ try:
             self.server.newConnection.connect(self._handle_new_connection)
             self._nonce: bytes = secrets.token_bytes(_NONCE_BYTES)
             try:
-                _TOKEN_FILE.write_bytes(self._nonce)
+                token_file = _get_token_file()
+                token_file.parent.mkdir(parents=True, exist_ok=True)
+                token_file.write_bytes(self._nonce)
+                if sys.platform != "win32":
+                    token_file.chmod(0o600)
             except OSError as exc:
                 logger.warning(
                     "SingleInstanceServer: could not write token file, falling back to no-auth mode: %s", exc
@@ -70,7 +92,7 @@ try:
             """Close the server and remove the token file."""
             self.server.close()
             try:
-                _TOKEN_FILE.unlink(missing_ok=True)
+                _get_token_file().unlink(missing_ok=True)
             except OSError:
                 pass
 
