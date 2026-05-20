@@ -7,9 +7,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: HistorySync 1.3.0\n"
+"Project-Id-Version: HistorySync 1.3.2\n"
 "Report-Msgid-Bugs-To: 0x4fe6@gmail.com\n"
-"POT-Creation-Date: 2026-05-14 05:42+0000\n"
+"POT-Creation-Date: 2026-05-20 01:07+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -67,7 +67,7 @@ msgstr ""
 msgid "(this device)"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:678
+#: src/views/settings/keybinding_section.py:679
 #, python-brace-format
 msgid "- {key}: {actions}"
 msgstr ""
@@ -157,6 +157,11 @@ msgstr ""
 msgid "Add"
 msgstr ""
 
+#: src/views/settings/keybinding_section.py:107
+#: src/views/settings/keybinding_section.py:114
+msgid "Add / Edit Note"
+msgstr ""
+
 #: src/views/history_page.py:3526
 msgid "Add Bookmark"
 msgstr ""
@@ -234,7 +239,7 @@ msgstr ""
 msgid "All Bookmarks"
 msgstr ""
 
-#: src/services/exporter.py:602 src/views/history_page.py:2156
+#: src/services/exporter.py:607 src/views/history_page.py:2156
 #: src/views/history_page.py:3397
 msgid "All Browsers"
 msgstr ""
@@ -276,7 +281,7 @@ msgstr ""
 msgid "Also delete all synced history records for this browser"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:557
+#: src/views/settings/keybinding_section.py:558
 msgid "Apply"
 msgstr ""
 
@@ -353,11 +358,11 @@ msgstr ""
 msgid "Back"
 msgstr ""
 
-#: src/services/local_db.py:1340
+#: src/services/local_db.py:1352
 msgid "Back-filling domain_id on history rows…"
 msgstr ""
 
-#: src/services/local_db.py:1362
+#: src/services/local_db.py:1374
 #, python-brace-format
 msgid "Back-filling domain_id on history rows… ({n} so far)"
 msgstr ""
@@ -376,7 +381,7 @@ msgstr ""
 msgid "Backup ZIP uploaded but sync_manifest.json failed: {error}"
 msgstr ""
 
-#: src/services/webdav_sync.py:554
+#: src/services/webdav_sync.py:561
 msgid "Backup archive missing history.db"
 msgstr ""
 
@@ -398,7 +403,7 @@ msgstr ""
 msgid "Backup to WebDAV"
 msgstr ""
 
-#: src/services/webdav_sync.py:623
+#: src/services/webdav_sync.py:630
 #, python-brace-format
 msgid "Bad zip archive: {error}"
 msgstr ""
@@ -470,7 +475,8 @@ msgstr ""
 msgid "Bookmarked: {dt}"
 msgstr ""
 
-#: src/views/main_window.py:99 src/views/settings/keybinding_section.py:742
+#: src/views/main_window.py:99 src/views/settings/keybinding_section.py:110
+#: src/views/settings/keybinding_section.py:743
 msgid "Bookmarks"
 msgstr ""
 
@@ -478,14 +484,14 @@ msgstr ""
 msgid "Browse..."
 msgstr ""
 
-#: src/services/exporter.py:79 src/services/exporter.py:604
+#: src/services/exporter.py:79 src/services/exporter.py:609
 #: src/viewmodels/history_viewmodel.py:61
-#: src/viewmodels/history_viewmodel.py:335 src/views/import_dialog.py:275
+#: src/viewmodels/history_viewmodel.py:415 src/views/import_dialog.py:275
 #: src/views/search_autocomplete.py:756
 msgid "Browser"
 msgstr ""
 
-#: src/services/exporter.py:617
+#: src/services/exporter.py:622
 msgid "Browser & Profile"
 msgstr ""
 
@@ -497,7 +503,7 @@ msgstr ""
 msgid "Browser History Sync Center"
 msgstr ""
 
-#: src/viewmodels/history_viewmodel.py:394
+#: src/viewmodels/history_viewmodel.py:474
 #, python-brace-format
 msgid "Browser Profile: {profile}"
 msgstr ""
@@ -571,8 +577,8 @@ msgstr ""
 
 #: src/views/dialogs/browser_scan_dialog.py:135 src/views/export_dialog.py:285
 #: src/views/export_dialog.py:481 src/views/import_dialog.py:328
-#: src/views/settings/keybinding_section.py:553
-#: src/views/settings/keybinding_section.py:662
+#: src/views/settings/keybinding_section.py:554
+#: src/views/settings/keybinding_section.py:663
 msgid "Cancel"
 msgstr ""
 
@@ -590,7 +596,7 @@ msgstr ""
 msgid "Change Password"
 msgstr ""
 
-#: src/services/local_db.py:1096
+#: src/services/local_db.py:1095
 msgid "Checkpointing WAL into main file…"
 msgstr ""
 
@@ -631,7 +637,7 @@ msgstr ""
 msgid "Clear View"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:167
+#: src/views/settings/keybinding_section.py:168
 msgid "Clear shortcut"
 msgstr ""
 
@@ -659,7 +665,7 @@ msgstr ""
 msgid "Config verified"
 msgstr ""
 
-#: src/main.py:763
+#: src/main.py:795
 msgid "Configuration Load Error"
 msgstr ""
 
@@ -683,14 +689,14 @@ msgstr ""
 msgid "Configure sync behavior and browser data sources"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:801
+#: src/views/settings/keybinding_section.py:802
 #: src/views/settings/privacy_section.py:49
 #: src/views/settings/privacy_section.py:70
 #: src/views/settings/privacy_section.py:85
 msgid "Configure…"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:692
+#: src/views/settings/keybinding_section.py:693
 msgid "Confirm"
 msgstr ""
 
@@ -707,7 +713,7 @@ msgstr ""
 msgid "Confirm:"
 msgstr ""
 
-#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:463
+#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:470
 msgid "Connecting to WebDAV server..."
 msgstr ""
 
@@ -736,11 +742,13 @@ msgstr ""
 msgid "Copy Title"
 msgstr ""
 
-#: src/views/history_page.py:3551
+#: src/views/history_page.py:3551 src/views/settings/keybinding_section.py:105
 msgid "Copy Title + URL"
 msgstr ""
 
 #: src/views/bookmarks_page.py:156 src/views/history_page.py:3549
+#: src/views/settings/keybinding_section.py:104
+#: src/views/settings/keybinding_section.py:112
 msgid "Copy URL"
 msgstr ""
 
@@ -793,7 +801,7 @@ msgstr ""
 msgid "Custom Fonts"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:794
+#: src/views/settings/keybinding_section.py:795
 msgid "Customize in-app shortcuts and the global overlay hotkey."
 msgstr ""
 
@@ -847,7 +855,7 @@ msgstr ""
 msgid "Date Range"
 msgstr ""
 
-#: src/services/exporter.py:603 src/views/history_page.py:2160
+#: src/services/exporter.py:608 src/views/history_page.py:2160
 msgid "Date:"
 msgstr ""
 
@@ -867,7 +875,7 @@ msgstr ""
 msgid "Deep Scan for Browsers"
 msgstr ""
 
-#: src/viewmodels/history_viewmodel.py:394
+#: src/viewmodels/history_viewmodel.py:474
 msgid "Default"
 msgstr ""
 
@@ -895,6 +903,10 @@ msgstr ""
 
 #: src/views/history_page.py:3724
 msgid "Delete Records"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:102
+msgid "Delete Selected"
 msgstr ""
 
 #: src/views/history_page.py:3570
@@ -982,7 +994,7 @@ msgstr ""
 msgid "Domain normalisation complete"
 msgstr ""
 
-#: src/services/local_db.py:1364
+#: src/services/local_db.py:1376
 #, python-brace-format
 msgid "Domain normalisation complete — {n} rows updated."
 msgstr ""
@@ -1015,11 +1027,11 @@ msgstr ""
 msgid "Done — {ins} new records added, {skip} duplicates skipped."
 msgstr ""
 
-#: src/services/local_db.py:1147
+#: src/services/local_db.py:1146
 msgid "Done."
 msgstr ""
 
-#: src/services/local_db.py:1139
+#: src/services/local_db.py:1138
 #, python-brace-format
 msgid ""
 "Done.  {before:.1f} MB → {after:.1f} MB  (saved {saved:.0f} KB, "
@@ -1030,17 +1042,17 @@ msgstr ""
 msgid "Double-click any row to open the link in browser"
 msgstr ""
 
-#: src/services/webdav_sync.py:529
+#: src/services/webdav_sync.py:536
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr ""
 
-#: src/services/webdav_sync.py:499
+#: src/services/webdav_sync.py:506
 #, python-brace-format
 msgid "Downloading {filename}..."
 msgstr ""
 
-#: src/services/webdav_sync.py:510
+#: src/services/webdav_sync.py:517
 #, python-brace-format
 msgid "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
 msgstr ""
@@ -1138,7 +1150,7 @@ msgstr ""
 msgid "Export"
 msgstr ""
 
-#: src/services/exporter.py:599
+#: src/services/exporter.py:604
 msgid "Export Date"
 msgstr ""
 
@@ -1209,7 +1221,7 @@ msgstr ""
 msgid "Exporting… {c} / {t}"
 msgstr ""
 
-#: src/views/history_page.py:2268
+#: src/views/history_page.py:2268 src/views/settings/keybinding_section.py:108
 msgid "Export…"
 msgstr ""
 
@@ -1231,7 +1243,7 @@ msgstr ""
 msgid "FONTS"
 msgstr ""
 
-#: src/services/local_db.py:1314
+#: src/services/local_db.py:1326
 msgid "FTS index rebuild complete."
 msgstr ""
 
@@ -1286,9 +1298,13 @@ msgstr ""
 msgid "First Visit Time"
 msgstr ""
 
-#: src/viewmodels/history_viewmodel.py:403
+#: src/viewmodels/history_viewmodel.py:483
 #, python-brace-format
 msgid "First visited: {t}"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:100
+msgid "Focus Search"
 msgstr ""
 
 #: src/views/settings/font_section.py:292
@@ -1307,7 +1323,7 @@ msgstr ""
 msgid "Fonts are tried in order. The first one that supports a character is used."
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:660
+#: src/views/settings/keybinding_section.py:661
 msgid "Force Apply"
 msgstr ""
 
@@ -1343,7 +1359,7 @@ msgstr ""
 msgid "Found browsers:"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:654
+#: src/views/settings/keybinding_section.py:655
 #, python-brace-format
 msgid ""
 "Found {count} shortcut conflicts. Review them below, or choose Force "
@@ -1379,7 +1395,7 @@ msgstr ""
 msgid "Full resync in progress — re-reading all browser history…"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:487
+#: src/views/settings/keybinding_section.py:488
 msgid "GLOBAL HOTKEY"
 msgstr ""
 
@@ -1392,8 +1408,36 @@ msgstr ""
 msgid "Get Started"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:738
+#: src/views/settings/keybinding_section.py:739
 msgid "Global"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:98
+msgid "Global Actions"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:94
+msgid "Go to Bookmarks"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:92
+msgid "Go to Dashboard"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:93
+msgid "Go to History"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:96
+msgid "Go to Log Viewer"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:95
+msgid "Go to Settings"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:97
+msgid "Go to Statistics"
 msgstr ""
 
 #: src/views/first_run_wizard.py:558
@@ -1416,7 +1460,7 @@ msgstr ""
 msgid "Has note (click to edit)"
 msgstr ""
 
-#: src/services/webdav_sync.py:574
+#: src/services/webdav_sync.py:581
 #, python-brace-format
 msgid "Hash verification FAILED! Expected {exp}, got {act}"
 msgstr ""
@@ -1469,6 +1513,10 @@ msgstr ""
 
 #: src/views/password_edit.py:166
 msgid "Hide Password"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:109
+msgid "Hide Selected"
 msgstr ""
 
 #: src/views/history_page.py:3600
@@ -1526,7 +1574,8 @@ msgid ""
 msgstr ""
 
 #: src/views/history_page.py:2106 src/views/history_page.py:3846
-#: src/views/main_window.py:98 src/views/settings/keybinding_section.py:740
+#: src/views/main_window.py:98 src/views/settings/keybinding_section.py:101
+#: src/views/settings/keybinding_section.py:741
 msgid "History"
 msgstr ""
 
@@ -1534,7 +1583,7 @@ msgstr ""
 msgid "History Database"
 msgstr ""
 
-#: src/services/exporter.py:596
+#: src/services/exporter.py:601
 msgid "History Report"
 msgstr ""
 
@@ -1547,14 +1596,15 @@ msgid "HistorySync Backup"
 msgstr ""
 
 #: src/main.py:696
+#, python-format
 msgid ""
 "HistorySync could not acquire the single-instance lock\n"
-"(port 20455 is already in use by another process).\n"
+"(port %d is already in use by another process).\n"
 "\n"
 "Please close any other running instances and try again."
 msgstr ""
 
-#: src/main.py:775
+#: src/main.py:807
 msgid ""
 "HistorySync has been minimized to the system tray and continues running "
 "in the background."
@@ -1592,7 +1642,7 @@ msgstr ""
 msgid "IMPORT HISTORY DATABASE"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:507
+#: src/views/settings/keybinding_section.py:508
 msgid "IN-APP SHORTCUTS"
 msgstr ""
 
@@ -1668,7 +1718,7 @@ msgstr ""
 msgid "Initializing scan..."
 msgstr ""
 
-#: src/services/local_db.py:1331
+#: src/services/local_db.py:1343
 msgid "Inserting new domain entries…"
 msgstr ""
 
@@ -1708,12 +1758,12 @@ msgstr ""
 msgid "KEYBOARD SHORTCUTS"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:652
+#: src/views/settings/keybinding_section.py:653
 msgid "Keybinding Conflict"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:459
-#: src/views/settings/keybinding_section.py:791
+#: src/views/settings/keybinding_section.py:460
+#: src/views/settings/keybinding_section.py:792
 msgid "Keyboard Shortcuts"
 msgstr ""
 
@@ -1751,7 +1801,7 @@ msgstr ""
 msgid "Last cloud sync: {t}"
 msgstr ""
 
-#: src/main.py:955
+#: src/main.py:987
 #, python-brace-format
 msgid "Last sync: {count} new"
 msgstr ""
@@ -1793,7 +1843,7 @@ msgstr ""
 msgid "List Remote Backups"
 msgstr ""
 
-#: src/services/webdav_sync.py:470
+#: src/services/webdav_sync.py:477
 msgid "Listing remote backups..."
 msgstr ""
 
@@ -1807,6 +1857,7 @@ msgid "Loading…"
 msgstr ""
 
 #: src/views/bookmarks_page.py:161 src/views/bookmarks_page.py:211
+#: src/views/settings/keybinding_section.py:115
 msgid "Locate in History"
 msgstr ""
 
@@ -1865,7 +1916,7 @@ msgid ""
 "database but are excluded from the History view."
 msgstr ""
 
-#: src/viewmodels/history_viewmodel.py:399
+#: src/viewmodels/history_viewmodel.py:479
 #, python-brace-format
 msgid "Manually typed in address bar {count} time(s)"
 msgstr ""
@@ -1902,7 +1953,7 @@ msgstr ""
 msgid "May"
 msgstr ""
 
-#: src/services/local_db.py:1509
+#: src/services/local_db.py:1521
 #, python-brace-format
 msgid "Merge complete: {inserted} new records added (of {total} in backup)."
 msgstr ""
@@ -1919,11 +1970,11 @@ msgstr ""
 msgid "Merging configuration…"
 msgstr ""
 
-#: src/services/local_db.py:1533
+#: src/services/local_db.py:1545
 msgid "Merging user data (bookmarks, annotations, hidden records)..."
 msgstr ""
 
-#: src/services/local_db.py:1447
+#: src/services/local_db.py:1459
 #, python-brace-format
 msgid "Merging {n} records from backup..."
 msgstr ""
@@ -2018,6 +2069,10 @@ msgstr ""
 msgid "Move Up — higher priority"
 msgstr ""
 
+#: src/views/settings/keybinding_section.py:91
+msgid "Navigation"
+msgstr ""
+
 #: src/views/dashboard_page.py:163 src/views/dashboard_page.py:171
 msgid "Needs sync"
 msgstr ""
@@ -2053,9 +2108,13 @@ msgstr ""
 msgid "New password…"
 msgstr ""
 
-#: src/services/exporter.py:612 src/views/first_run_wizard.py:866
+#: src/services/exporter.py:617 src/views/first_run_wizard.py:866
 #: src/views/first_run_wizard.py:927
 msgid "Next"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:118
+msgid "Next Period"
 msgstr ""
 
 #: src/views/settings_page.py:374
@@ -2092,7 +2151,7 @@ msgstr ""
 msgid "No Selection"
 msgstr ""
 
-#: src/services/webdav_sync.py:481
+#: src/services/webdav_sync.py:488
 msgid "No backups found on server."
 msgstr ""
 
@@ -2109,7 +2168,7 @@ msgstr ""
 msgid "No database file — skipped"
 msgstr ""
 
-#: src/viewmodels/history_viewmodel.py:396
+#: src/viewmodels/history_viewmodel.py:476
 msgid "No description available"
 msgstr ""
 
@@ -2121,7 +2180,7 @@ msgstr ""
 msgid "No domains blacklisted — all domains are accepted."
 msgstr ""
 
-#: src/services/exporter.py:610
+#: src/services/exporter.py:615
 msgid "No entries match the current filter."
 msgstr ""
 
@@ -2184,13 +2243,13 @@ msgstr ""
 msgid "Normalize Domains"
 msgstr ""
 
-#: src/viewmodels/history_viewmodel.py:406
+#: src/viewmodels/history_viewmodel.py:486
 msgid "Not available"
 msgstr ""
 
-#: src/viewmodels/history_viewmodel.py:400
-#: src/viewmodels/history_viewmodel.py:404
-#: src/viewmodels/history_viewmodel.py:410
+#: src/viewmodels/history_viewmodel.py:480
+#: src/viewmodels/history_viewmodel.py:484
+#: src/viewmodels/history_viewmodel.py:490
 msgid "Not available for this browser"
 msgstr ""
 
@@ -2208,12 +2267,12 @@ msgstr ""
 msgid "Not found"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:151
-#: src/views/settings/keybinding_section.py:318
-#: src/views/settings/keybinding_section.py:422
-#: src/views/settings/keybinding_section.py:430
-#: src/views/settings/keybinding_section.py:436
-#: src/views/settings/keybinding_section.py:442
+#: src/views/settings/keybinding_section.py:152
+#: src/views/settings/keybinding_section.py:319
+#: src/views/settings/keybinding_section.py:423
+#: src/views/settings/keybinding_section.py:431
+#: src/views/settings/keybinding_section.py:437
+#: src/views/settings/keybinding_section.py:443
 msgid "Not set"
 msgstr ""
 
@@ -2234,7 +2293,7 @@ msgstr ""
 msgid "October"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:508
+#: src/views/settings/keybinding_section.py:509
 msgid "Only active when the application window is focused."
 msgstr ""
 
@@ -2261,6 +2320,8 @@ msgid "Open Main Window"
 msgstr ""
 
 #: src/views/bookmarks_page.py:155 src/views/history_page.py:3510
+#: src/views/settings/keybinding_section.py:103
+#: src/views/settings/keybinding_section.py:111
 msgid "Open in Browser"
 msgstr ""
 
@@ -2276,7 +2337,7 @@ msgstr ""
 msgid "Open with:"
 msgstr ""
 
-#: src/services/local_db.py:1415
+#: src/services/local_db.py:1427
 msgid "Opening backup database for merge..."
 msgstr ""
 
@@ -2292,7 +2353,7 @@ msgstr ""
 msgid "Output File"
 msgstr ""
 
-#: src/views/overlay_window.py:948
+#: src/views/overlay_window.py:956
 msgid "Overlay settings"
 msgstr ""
 
@@ -2316,7 +2377,7 @@ msgstr ""
 msgid "Page Title"
 msgstr ""
 
-#: src/services/exporter.py:606
+#: src/services/exporter.py:611
 msgid "Pages"
 msgstr ""
 
@@ -2381,13 +2442,17 @@ msgid ""
 "and open any URL — without switching to the main window."
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:313
-#: src/views/settings/keybinding_section.py:395
+#: src/views/settings/keybinding_section.py:314
+#: src/views/settings/keybinding_section.py:396
 msgid "Press a key..."
 msgstr ""
 
-#: src/services/exporter.py:611
+#: src/services/exporter.py:616
 msgid "Prev"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:117
+msgid "Previous Period"
 msgstr ""
 
 #: src/services/exporter.py:80 src/viewmodels/history_viewmodel.py:65
@@ -2395,7 +2460,7 @@ msgstr ""
 msgid "Profile"
 msgstr ""
 
-#: src/services/local_db.py:1132
+#: src/services/local_db.py:1131
 #, python-brace-format
 msgid "Pruned {n} expired tombstone rows (>90 days old)."
 msgstr ""
@@ -2408,8 +2473,8 @@ msgstr ""
 msgid "Quick Access"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:498
-#: src/views/settings/keybinding_section.py:726
+#: src/views/settings/keybinding_section.py:499
+#: src/views/settings/keybinding_section.py:727
 msgid "Quick Access Overlay"
 msgstr ""
 
@@ -2455,7 +2520,7 @@ msgid ""
 "Run this if search results seem incomplete or incorrect."
 msgstr ""
 
-#: src/services/local_db.py:1311
+#: src/services/local_db.py:1323
 msgid "Rebuilding full-text search index…"
 msgstr ""
 
@@ -2508,7 +2573,7 @@ msgstr ""
 msgid "Remote Path:"
 msgstr ""
 
-#: src/services/webdav_sync.py:474
+#: src/services/webdav_sync.py:481
 msgid "Remote directory not found."
 msgstr ""
 
@@ -2530,7 +2595,7 @@ msgid "Remove All"
 msgstr ""
 
 #: src/views/bookmarks_page.py:163 src/views/bookmarks_page.py:1010
-#: src/views/history_page.py:3524
+#: src/views/history_page.py:3524 src/views/settings/keybinding_section.py:113
 msgid "Remove Bookmark"
 msgstr ""
 
@@ -2593,17 +2658,17 @@ msgstr ""
 msgid "Reset Defaults"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:693
+#: src/views/settings/keybinding_section.py:694
 msgid "Reset all keybindings to their default settings?"
 msgstr ""
 
 #: src/views/dialogs/url_prefix_filter_dialog.py:130
 #: src/views/dialogs/url_prefix_filter_dialog.py:260
-#: src/views/settings/keybinding_section.py:546
+#: src/views/settings/keybinding_section.py:547
 msgid "Reset to Defaults"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:159
+#: src/views/settings/keybinding_section.py:160
 msgid "Reset to default shortcut"
 msgstr ""
 
@@ -2619,7 +2684,7 @@ msgstr ""
 msgid "Restore Default View"
 msgstr ""
 
-#: src/services/webdav_sync.py:646
+#: src/services/webdav_sync.py:653
 #, python-brace-format
 msgid "Restore failed: {error}"
 msgstr ""
@@ -2632,7 +2697,7 @@ msgstr ""
 msgid "Restore the built-in default URL prefix list"
 msgstr ""
 
-#: src/services/webdav_sync.py:638
+#: src/services/webdav_sync.py:645
 #, python-brace-format
 msgid "Restored from {filename}"
 msgstr ""
@@ -2642,11 +2707,11 @@ msgstr ""
 msgid "Restored {n} record(s)."
 msgstr ""
 
-#: src/services/local_db.py:1118
+#: src/services/local_db.py:1117
 msgid "Restoring WAL mode and updating statistics…"
 msgstr ""
 
-#: src/services/webdav_sync.py:585
+#: src/services/webdav_sync.py:592
 msgid "Restoring favicon cache..."
 msgstr ""
 
@@ -2662,7 +2727,7 @@ msgstr ""
 msgid "Right-click scrollbar to change settings"
 msgstr ""
 
-#: src/services/exporter.py:613
+#: src/services/exporter.py:618
 msgid "Rows"
 msgstr ""
 
@@ -2670,7 +2735,7 @@ msgstr ""
 msgid "Run initial sync now"
 msgstr ""
 
-#: src/services/local_db.py:1111
+#: src/services/local_db.py:1110
 msgid "Running VACUUM — rewriting database file…"
 msgstr ""
 
@@ -2710,7 +2775,7 @@ msgstr ""
 msgid "Saturday"
 msgstr ""
 
-#: src/views/settings_page.py:151
+#: src/views/settings/keybinding_section.py:120 src/views/settings_page.py:151
 msgid "Save Settings"
 msgstr ""
 
@@ -2743,7 +2808,7 @@ msgstr ""
 msgid "Scanning for browsers..."
 msgstr ""
 
-#: src/services/local_db.py:1327
+#: src/services/local_db.py:1339
 msgid "Scanning for un-normalised URLs…"
 msgstr ""
 
@@ -2760,7 +2825,7 @@ msgstr ""
 msgid "Schema migration complete, verifying columns…"
 msgstr ""
 
-#: src/services/exporter.py:619
+#: src/services/exporter.py:624
 msgid "Scroll to Top"
 msgstr ""
 
@@ -2806,7 +2871,7 @@ msgstr ""
 msgid "Search title or URL..."
 msgstr ""
 
-#: src/services/exporter.py:601
+#: src/services/exporter.py:606
 msgid "Search title, URL, or domain..."
 msgstr ""
 
@@ -2841,7 +2906,7 @@ msgstr ""
 msgid "Select None"
 msgstr ""
 
-#: src/services/webdav_sync.py:489
+#: src/services/webdav_sync.py:496
 #, python-brace-format
 msgid "Selected backup not found on server: {filename}"
 msgstr ""
@@ -2880,7 +2945,8 @@ msgid "Set a Master Password"
 msgstr ""
 
 #: src/views/main_window.py:100 src/views/overlay_window.py:333
-#: src/views/settings/keybinding_section.py:746
+#: src/views/settings/keybinding_section.py:119
+#: src/views/settings/keybinding_section.py:747
 msgid "Settings"
 msgstr ""
 
@@ -2892,7 +2958,7 @@ msgstr ""
 msgid "Show Password"
 msgstr ""
 
-#: src/services/exporter.py:607
+#: src/services/exporter.py:612
 msgid "Showing"
 msgstr ""
 
@@ -2948,8 +3014,8 @@ msgstr ""
 msgid "Starting…"
 msgstr ""
 
-#: src/views/main_window.py:102 src/views/settings/keybinding_section.py:744
-#: src/views/stats_page.py:1676
+#: src/views/main_window.py:102 src/views/settings/keybinding_section.py:116
+#: src/views/settings/keybinding_section.py:745 src/views/stats_page.py:1676
 msgid "Statistics"
 msgstr ""
 
@@ -3000,11 +3066,11 @@ msgstr ""
 msgid "Sync"
 msgstr ""
 
-#: src/main.py:958
+#: src/main.py:990
 msgid "Sync Complete"
 msgstr ""
 
-#: src/main.py:970
+#: src/main.py:1002
 msgid "Sync Failed"
 msgstr ""
 
@@ -3027,7 +3093,7 @@ msgstr ""
 msgid "Sync disabled"
 msgstr ""
 
-#: src/main.py:969 src/viewmodels/main_viewmodel.py:393
+#: src/main.py:1001 src/viewmodels/main_viewmodel.py:393
 msgid "Sync error"
 msgstr ""
 
@@ -3078,7 +3144,7 @@ msgstr ""
 msgid "Test Connection"
 msgstr ""
 
-#: src/main.py:757
+#: src/main.py:789
 msgid ""
 "The configuration file was corrupt or unreadable and could not be loaded."
 "\n"
@@ -3090,7 +3156,7 @@ msgid ""
 "directory."
 msgstr ""
 
-#: src/main.py:750
+#: src/main.py:782
 #, python-brace-format
 msgid ""
 "The configuration file was corrupt or unreadable and could not be loaded."
@@ -3217,7 +3283,7 @@ msgstr ""
 msgid "Thursday"
 msgstr ""
 
-#: src/viewmodels/history_viewmodel.py:409
+#: src/viewmodels/history_viewmodel.py:489
 #, python-brace-format
 msgid "Time on page: {s:.1f} seconds"
 msgstr ""
@@ -3230,7 +3296,7 @@ msgstr ""
 msgid "Title"
 msgstr ""
 
-#: src/services/exporter.py:615
+#: src/services/exporter.py:620
 msgid "Title & URL"
 msgstr ""
 
@@ -3242,7 +3308,11 @@ msgstr ""
 msgid "Today"
 msgstr ""
 
-#: src/services/exporter.py:618
+#: src/views/settings/keybinding_section.py:106
+msgid "Toggle Bookmark"
+msgstr ""
+
+#: src/services/exporter.py:623
 msgid "Toggle Theme"
 msgstr ""
 
@@ -3250,7 +3320,7 @@ msgstr ""
 msgid "Top 10 domains"
 msgstr ""
 
-#: src/services/exporter.py:600
+#: src/services/exporter.py:605
 msgid "Total Items"
 msgstr ""
 
@@ -3264,6 +3334,10 @@ msgstr ""
 
 #: src/services/exporter.py:85 src/viewmodels/history_viewmodel.py:69
 msgid "Transition Type"
+msgstr ""
+
+#: src/views/settings/keybinding_section.py:99
+msgid "Trigger Sync"
 msgstr ""
 
 #: src/views/history_page.py:126
@@ -3359,7 +3433,7 @@ msgstr ""
 msgid "Unlock"
 msgstr ""
 
-#: src/services/webdav_sync.py:486 src/services/webdav_sync.py:495
+#: src/services/webdav_sync.py:493 src/services/webdav_sync.py:502
 #, python-brace-format
 msgid "Unsafe backup filename rejected: {filename}"
 msgstr ""
@@ -3380,12 +3454,12 @@ msgstr ""
 msgid "Upgrading database schema…"
 msgstr ""
 
-#: src/services/webdav_sync.py:371 src/services/webdav_sync.py:429
+#: src/services/webdav_sync.py:371 src/services/webdav_sync.py:436
 #, python-brace-format
 msgid "Upload failed: {error}"
 msgstr ""
 
-#: src/services/webdav_sync.py:419
+#: src/services/webdav_sync.py:417
 #, python-brace-format
 msgid "Upload successful: {filename} ({size} KB) — SHA-256 verified"
 msgstr ""
@@ -3415,7 +3489,7 @@ msgstr ""
 msgid "Used to identify this machine in multi-device history views."
 msgstr ""
 
-#: src/services/local_db.py:1719
+#: src/services/local_db.py:1731
 msgid "User data merge complete."
 msgstr ""
 
@@ -3453,7 +3527,7 @@ msgstr ""
 msgid "Verify the migration result"
 msgstr ""
 
-#: src/services/webdav_sync.py:534
+#: src/services/webdav_sync.py:541
 msgid "Verifying backup integrity (SHA-256)..."
 msgstr ""
 
@@ -3478,7 +3552,7 @@ msgstr ""
 msgid "View records for {date}"
 msgstr ""
 
-#: src/services/exporter.py:605
+#: src/services/exporter.py:610
 msgid "Virtual"
 msgstr ""
 
@@ -3490,12 +3564,12 @@ msgstr ""
 msgid "Visit Duration (s)"
 msgstr ""
 
-#: src/services/exporter.py:77 src/services/exporter.py:616
+#: src/services/exporter.py:77 src/services/exporter.py:621
 #: src/viewmodels/history_viewmodel.py:62
 msgid "Visit Time"
 msgstr ""
 
-#: src/viewmodels/history_viewmodel.py:390
+#: src/viewmodels/history_viewmodel.py:470
 #, python-brace-format
 msgid "Visited {count} times"
 msgstr ""
@@ -3542,7 +3616,7 @@ msgstr ""
 msgid "WebDAV not configured"
 msgstr ""
 
-#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:455
+#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:462
 msgid "WebDAV not configured or disabled"
 msgstr ""
 
@@ -3582,7 +3656,7 @@ msgid ""
 "runs silently in the system tray."
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:488
+#: src/views/settings/keybinding_section.py:489
 msgid "Works system-wide even when the app window is not focused."
 msgstr ""
 
@@ -3676,7 +3750,7 @@ msgstr ""
 msgid "e.g. My Laptop"
 msgstr ""
 
-#: src/services/exporter.py:609
+#: src/services/exporter.py:614
 msgid "entries"
 msgstr ""
 
@@ -3690,7 +3764,7 @@ msgstr ""
 msgid "none"
 msgstr ""
 
-#: src/services/exporter.py:608
+#: src/services/exporter.py:613
 msgid "of"
 msgstr ""
 
@@ -3698,7 +3772,7 @@ msgstr ""
 msgid "open"
 msgstr ""
 
-#: src/services/exporter.py:614
+#: src/services/exporter.py:619
 msgid "page"
 msgstr ""
 
@@ -3722,7 +3796,7 @@ msgstr ""
 msgid "visits"
 msgstr ""
 
-#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:452
+#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:459
 msgid "webdavclient3 is not installed."
 msgstr ""
 
@@ -3730,7 +3804,7 @@ msgstr ""
 msgid "webdavclient3 is not installed. Run: pip install webdavclient3"
 msgstr ""
 
-#: src/views/settings/keybinding_section.py:672
+#: src/views/settings/keybinding_section.py:673
 #, python-brace-format
 msgid "{action} [{scope}]"
 msgstr ""
@@ -3745,7 +3819,7 @@ msgstr ""
 msgid "{browser} extraction failed"
 msgstr ""
 
-#: src/main.py:959
+#: src/main.py:991
 #, python-brace-format
 msgid "{count} new history records added"
 msgstr ""
@@ -3858,7 +3932,7 @@ msgstr ""
 msgid "{total} records"
 msgstr ""
 
-#: src/main.py:811
+#: src/main.py:843
 #, python-brace-format
 msgid "{total} records in total"
 msgstr ""
@@ -3882,6 +3956,11 @@ msgstr ""
 msgid "⏳ Importing…"
 msgstr ""
 
+#: src/services/webdav_sync.py:422
+#, python-brace-format
+msgid "⚠ Could not delete {n} old backup(s): {files}"
+msgstr ""
+
 #: src/views/settings_page.py:319
 msgid "⚠ Failed to configure startup"
 msgstr ""
@@ -3902,7 +3981,7 @@ msgstr ""
 msgid "⚠ Unknown"
 msgstr ""
 
-#: src/services/local_db.py:1102
+#: src/services/local_db.py:1101
 msgid ""
 "⚠ WAL checkpoint partially blocked by active readers; VACUUM will handle "
 "remaining pages…"
@@ -3936,7 +4015,7 @@ msgstr ""
 msgid "✓ Full resync complete — {n} new records upserted."
 msgstr ""
 
-#: src/services/webdav_sync.py:581
+#: src/services/webdav_sync.py:588
 #, python-brace-format
 msgid "✓ Hash verified: {hash}..."
 msgstr ""

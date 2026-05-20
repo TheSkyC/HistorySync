@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 
 from src.utils.constants import DEFAULT_GLOBAL_HOTKEY, DEFAULT_KEYBINDINGS
 from src.utils.dialog_utils import exec_centered
-from src.utils.i18n import _
+from src.utils.i18n import N_, _
 from src.utils.icon_helper import get_icon
 from src.utils.theme_manager import ThemeManager
 from src.views.settings._label_utils import constrain_label_width
@@ -82,41 +82,42 @@ def _do_conflict(scope_a: str, scope_b: str) -> bool:
 
 
 # ── Action display names ──────────────────────────────────────────────────────
-# N_() is intentionally NOT used here because these labels are evaluated at
-# method call time (inside load()), not at module import time.
+# Strings are marked with N_() so pybabel can extract them at scan time.
+# Actual translation happens at display time via _() in _build_ui() and
+# _display_name_for().
 # Entries with key "__group__" are visual section headers, not real actions.
 
 _APP_ACTIONS: list[tuple[str, str]] = [
-    ("__group__", "Navigation"),
-    ("goto_dashboard", "Go to Dashboard"),
-    ("goto_history", "Go to History"),
-    ("goto_bookmarks", "Go to Bookmarks"),
-    ("goto_settings", "Go to Settings"),
-    ("goto_logs", "Go to Log Viewer"),
-    ("goto_stats", "Go to Statistics"),
-    ("__group__", "Global Actions"),
-    ("trigger_sync", "Trigger Sync"),
-    ("focus_search", "Focus Search"),
-    ("__group__", "History"),
-    ("delete_selected", "Delete Selected"),
-    ("history_open_selected", "Open in Browser"),
-    ("history_copy_url", "Copy URL"),
-    ("history_copy_title_url", "Copy Title + URL"),
-    ("history_toggle_bookmark", "Toggle Bookmark"),
-    ("history_add_note", "Add / Edit Note"),
-    ("history_open_export", "Export…"),
-    ("history_hide_selected", "Hide Selected"),
-    ("__group__", "Bookmarks"),
-    ("bm_open", "Open in Browser"),
-    ("bm_copy_url", "Copy URL"),
-    ("bm_delete", "Remove Bookmark"),
-    ("bm_add_note", "Add / Edit Note"),
-    ("bm_locate", "Locate in History"),
-    ("__group__", "Statistics"),
-    ("stats_prev", "Previous Period"),
-    ("stats_next", "Next Period"),
-    ("__group__", "Settings"),
-    ("settings_save", "Save Settings"),
+    ("__group__", N_("Navigation")),
+    ("goto_dashboard", N_("Go to Dashboard")),
+    ("goto_history", N_("Go to History")),
+    ("goto_bookmarks", N_("Go to Bookmarks")),
+    ("goto_settings", N_("Go to Settings")),
+    ("goto_logs", N_("Go to Log Viewer")),
+    ("goto_stats", N_("Go to Statistics")),
+    ("__group__", N_("Global Actions")),
+    ("trigger_sync", N_("Trigger Sync")),
+    ("focus_search", N_("Focus Search")),
+    ("__group__", N_("History")),
+    ("delete_selected", N_("Delete Selected")),
+    ("history_open_selected", N_("Open in Browser")),
+    ("history_copy_url", N_("Copy URL")),
+    ("history_copy_title_url", N_("Copy Title + URL")),
+    ("history_toggle_bookmark", N_("Toggle Bookmark")),
+    ("history_add_note", N_("Add / Edit Note")),
+    ("history_open_export", N_("Export…")),
+    ("history_hide_selected", N_("Hide Selected")),
+    ("__group__", N_("Bookmarks")),
+    ("bm_open", N_("Open in Browser")),
+    ("bm_copy_url", N_("Copy URL")),
+    ("bm_delete", N_("Remove Bookmark")),
+    ("bm_add_note", N_("Add / Edit Note")),
+    ("bm_locate", N_("Locate in History")),
+    ("__group__", N_("Statistics")),
+    ("stats_prev", N_("Previous Period")),
+    ("stats_next", N_("Next Period")),
+    ("__group__", N_("Settings")),
+    ("settings_save", N_("Save Settings")),
 ]
 
 
