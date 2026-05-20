@@ -112,9 +112,9 @@ class TestAppConfigPersistence:
 class TestGetFaviconDbPath:
     @pytest.fixture(autouse=True)
     def _patch_config_dirs(self, monkeypatch, tmp_path):
-        monkeypatch.setenv("APPDATA", str(tmp_path))
-        monkeypatch.setenv("HOME", str(tmp_path))
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.setattr("src.models.app_config._resolve_config_dir", lambda: tmp_path)
+        monkeypatch.setattr("src.models.app_config._resolve_data_dir", lambda: tmp_path)
+        monkeypatch.setattr("src.utils.security_utils.get_config_dir", lambda: tmp_path)
 
     def test_default_path_ends_with_favicons_db(self):
         """Default favicon DB path ends with favicons.db."""
@@ -178,9 +178,9 @@ class TestConfigResilience:
 class TestFreshMode:
     @pytest.fixture(autouse=True)
     def _patch_config_dirs(self, monkeypatch, tmp_path):
-        monkeypatch.setenv("APPDATA", str(tmp_path))
-        monkeypatch.setenv("HOME", str(tmp_path))
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.setattr("src.models.app_config._resolve_config_dir", lambda: tmp_path)
+        monkeypatch.setattr("src.models.app_config._resolve_data_dir", lambda: tmp_path)
+        monkeypatch.setattr("src.utils.security_utils.get_config_dir", lambda: tmp_path)
 
     def test_db_path_in_temp_dir(self):
         """Fresh mode DB path is inside the system temp directory."""
