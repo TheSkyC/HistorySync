@@ -83,7 +83,7 @@ class WebDavConfig:
     remote_path: str = WEBDAV_DEFAULT_REMOTE_PATH
     max_backups: int = WEBDAV_DEFAULT_MAX_BACKUPS
     verify_ssl: bool = True
-    auto_backup: bool = True
+    auto_backup: bool = False
     backup_favicons: bool = False
 
 
