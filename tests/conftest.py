@@ -179,3 +179,80 @@ def firefox_db_factory(tmp_path: Path):
         return path
 
     return _factory
+
+
+# ══════════════════════════════════════════════════════════════
+# Qt application (session-wide) and richer HistoryRecord factory
+# ══════════════════════════════════════════════════════════════
+#
+# These fixtures support the viewmodel / scheduler / webdav suites added
+# alongside the original contract tests.  They are *additive only* — every
+# pre-existing fixture above this block is left intact.
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    """Provide a process-wide QApplication for tests that touch QObjects.
+
+    Skipped if PySide6 is unavailable.  Most tests below construct QObject
+    instances (HistoryTableModel, Scheduler, …) and exercise signal slots
+    synchronously; instantiating QObjects without a QApplication works for
+    direct connections but emits warnings, so we own one for the whole
+    session.
+    """
+    pytest.importorskip("PySide6.QtWidgets")
+    from PySide6.QtCore import QCoreApplication
+    from PySide6.QtWidgets import QApplication
+
+    app = QCoreApplication.instance()
+    if app is None:
+        app = QApplication([])
+    yield app
+    # Do not call app.quit() — other tests in the session may still need it.
+
+
+def make_record_full(
+    *,
+    url: str = "https://example.com/",
+    title: str = "Example",
+    visit_time: int = 1_704_067_200,
+    visit_count: int = 1,
+    browser_type: str = "chrome",
+    profile_name: str = "Default",
+    metadata: str = "",
+    domain: str = "example.com",
+    typed_count: int | None = None,
+    first_visit_time: int | None = None,
+    transition_type: int | None = None,
+    visit_duration: float | None = None,
+    id: int | None = None,
+    device_id: int | None = None,
+):
+    """Construct a HistoryRecord with all optional fields exposed.
+
+    Unlike :func:`make_record`, this helper sets ``domain`` (used by the
+    viewmodel for the Domain column and favicon lookup) and surfaces every
+    field that the display-getter dispatch table can read.
+    """
+    return HistoryRecord(
+        url=url,
+        title=title,
+        visit_time=visit_time,
+        visit_count=visit_count,
+        browser_type=browser_type,
+        profile_name=profile_name,
+        metadata=metadata,
+        domain=domain,
+        typed_count=typed_count,
+        first_visit_time=first_visit_time,
+        transition_type=transition_type,
+        visit_duration=visit_duration,
+        id=id,
+        device_id=device_id,
+    )
+
+
+@pytest.fixture()
+def make_rec_full():
+    """Expose the rich :func:`make_record_full` factory as a pytest fixture."""
+    return make_record_full
