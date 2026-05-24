@@ -202,11 +202,12 @@ class TestSyncStateMachine:
         # Simulate the corner case where _running is somehow still True
         # when the QThread reports finished — the scheduler must self-heal.
         fake = _FakeQThread()
+        fake_worker = SimpleNamespace()
         scheduler._worker_thread = fake  # type: ignore[assignment]
-        scheduler._worker = SimpleNamespace()
+        scheduler._worker = fake_worker
         scheduler._running = True
 
-        scheduler._on_sync_thread_finished(fake)  # type: ignore[arg-type]
+        scheduler._on_sync_thread_finished(fake, fake_worker)  # type: ignore[arg-type]
 
         assert scheduler._running is False
         assert scheduler._worker_thread is None
@@ -223,7 +224,7 @@ class TestSyncStateMachine:
         scheduler._running = True
 
         # Slot called with a *different* thread → must early-return without mutating state.
-        scheduler._on_sync_thread_finished(other)  # type: ignore[arg-type]
+        scheduler._on_sync_thread_finished(other, SimpleNamespace())  # type: ignore[arg-type]
 
         assert scheduler._running is True
         assert scheduler._worker_thread is tracked
