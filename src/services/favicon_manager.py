@@ -302,13 +302,23 @@ class FaviconManager(QObject):
         worker.moveToThread(thread)
 
         thread.started.connect(worker.run)
-        worker.finished.connect(self._on_worker_finished)  # QueuedConnection (default): slot runs safely in main thread
+        # _on_worker_finished uses a QueuedConnection (default) so the slot
+        # runs safely in the main thread after the signal crosses thread boundaries.
+        worker.finished.connect(self._on_worker_finished)
         worker.finished.connect(thread.quit)
-        # Delete worker only after the thread has fully stopped — finished is
-        # emitted from inside run(), so the thread is still running at that point.
-        thread.finished.connect(worker.deleteLater)
-        thread.finished.connect(thread.deleteLater)
+
+        # worker.deleteLater() must be posted while the worker's thread event
+        # loop is still alive — i.e. connected to worker.finished, which is
+        # emitted from inside run() before thread.quit() is processed.
+        # thread.deleteLater() is posted from thread.finished, which fires in
+        # the main thread (the correct owner of the QThread object).
+        # The old code connected both to thread.finished: by that point the
+        # worker thread's event loop had already exited, so worker.deleteLater()
+        # was never processed and one FaviconWorker + one QThread were leaked
+        # per extraction cycle.
+        worker.finished.connect(worker.deleteLater)
         thread.finished.connect(self._on_thread_finished)
+        thread.finished.connect(thread.deleteLater)
 
         thread.start()
         log.info(

@@ -386,10 +386,25 @@ class Scheduler(QObject):
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        thread.finished.connect(lambda t=thread: self._on_sync_thread_finished(t))
-        # Delete worker only after the thread has fully stopped — finished/error are
-        # emitted from inside run(), so the thread is still running at that point.
-        thread.finished.connect(worker.deleteLater)
+
+        # Capture the exact thread/worker pair created in *this* call so
+        # that the cleanup slot can safely distinguish a stale callback (fired for
+        # an already-replaced pair) from the live one.  We no longer rely on
+        # self._worker_thread identity after _run_sync() has been called again.
+        thread.finished.connect(lambda t=thread, w=worker: self._on_sync_thread_finished(t, w))
+
+        # Use the canonical Qt cleanup order.
+        #   1. worker.deleteLater() is posted while the worker's thread is still
+        #      alive (connected to worker.finished, which fires in the worker thread
+        #      just before thread.quit() drains the event queue).
+        #   2. thread.deleteLater() is posted from thread.finished, which fires in
+        #      the main thread — the correct owner thread for the QThread object.
+        # The old pattern connected both to thread.finished, which meant
+        # worker.deleteLater() was posted to a thread whose event loop had already
+        # exited, so the deferred-delete event was never processed and the worker
+        # was leaked on every sync cycle.
+        worker.finished.connect(worker.deleteLater)
+        worker.error.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
 
         thread.start()
@@ -407,8 +422,17 @@ class Scheduler(QObject):
         self.sync_error.emit(msg)
 
     @Slot(QThread)
-    def _on_sync_thread_finished(self, thread: QThread) -> None:
+    def _on_sync_thread_finished(self, thread: QThread, worker: object) -> None:
+        # H2 fix: compare against the *captured* pair, not self._worker_thread.
+        # If trigger_now() was called quickly enough to start a new sync before
+        # this slot fires, self._worker_thread already points to the new thread;
+        # using the captured reference guarantees we only null out the slot
+        # corresponding to this specific finished thread.
         if thread is not self._worker_thread:
+            # Stale callback from a previous cycle — nothing to do; the new
+            # cycle's thread/worker are already stored in self._worker_thread /
+            # self._worker.
+            log.debug("Sync thread cleanup: stale callback ignored (thread already replaced)")
             return
         if self._running:
             log.warning("Sync thread finished but _running was still True... resetting.")
@@ -440,10 +464,12 @@ class Scheduler(QObject):
         worker.finished.connect(self._on_backup_finished)
         worker.finished.connect(thread.quit)
 
+        # H1 fix: same canonical cleanup order as _run_sync.
+        # worker.deleteLater() is posted while the worker's thread is still
+        # running (connected to worker.finished); thread.deleteLater() is
+        # posted from thread.finished which fires in the main thread.
+        worker.finished.connect(worker.deleteLater)
         thread.finished.connect(self._on_backup_thread_finished)
-        # Delete worker only after the thread has fully stopped — finished is
-        # emitted from inside run(), so the thread is still running at that point.
-        thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
         thread.start()
 
