@@ -210,7 +210,7 @@ markdown_extensions:
   - footnotes
 
 extra:
-  app_version: "1.3.1"
+  app_version: "1.3.2"
   gh_repo: "https://github.com/TheSkyC/HistorySync"
   social:
     - icon: fontawesome/brands/github
