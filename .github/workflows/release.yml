@@ -792,6 +792,7 @@ jobs:
     name: Upload to R2 Mirror
     needs: [setup, release]
     runs-on: ubuntu-latest
+    continue-on-error: true
     if: |
       startsWith(github.ref, 'refs/tags/') &&
       !contains(needs.setup.outputs.version_tag, 'alpha') &&
