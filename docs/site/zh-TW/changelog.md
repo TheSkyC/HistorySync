@@ -15,6 +15,29 @@ description: HistorySync 的版本歷程與重要變更。
 
 ---
 
+## [1.3.2] - 2026-05-25
+
+### 新增
+- 穩定版現在會額外鏡像到 R2，以提升發佈可用性。
+
+### 變更
+- 同步後自動備份現在預設關閉。
+
+### 修正
+- 修復了可能影響同步穩定性的排程器執行緒清理競態問題。
+- `hsync db normalize` 現在會在套用變更前要求明確確認。
+- CLI 同步現在能更可靠地清理資料庫資源。
+- 單執行個體 IPC 權杖現已按使用者帳號隔離。
+
+### 文件
+- 更新了文件站點的品牌樣式、聯絡資訊與本地化頁面。
+- 新增獨立的安全性政策文件。
+
+### 測試
+- 擴充了排程器、viewmodel 與 WebDAV 流程的自動化覆蓋。
+
+---
+
 ## [1.3.1] - 2026-05-19
 
 ### 修正
@@ -227,7 +250,8 @@ description: HistorySync 的版本歷程與重要變更。
 - 透過 HKDF-SHA256 與系統金鑰圈整合，為 WebDAV 憑證提供主密碼加密。
 - 提供 Windows 與 macOS 安裝套件。
 
-[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/TheSkyC/HistorySync/compare/v1.2.1...v1.2.2

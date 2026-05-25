@@ -15,6 +15,29 @@ Tous les changements notables sont documentés ici. Le format est basé sur [Kee
 
 ---
 
+## [1.3.2] - 2026-05-25
+
+### Ajouté
+- Les versions stables sont désormais également répliquées vers R2 pour une distribution plus résiliente.
+
+### Modifié
+- La sauvegarde automatique après synchronisation est désormais désactivée par défaut.
+
+### Corrigé
+- Correction d'une condition de concurrence dans le nettoyage des threads du planificateur pouvant affecter la stabilité de la synchronisation.
+- `hsync db normalize` demande désormais une confirmation explicite avant d'appliquer les changements.
+- La synchronisation CLI libère désormais les ressources de la base de données de manière plus fiable.
+- Les jetons IPC d'instance unique sont maintenant isolés par compte utilisateur.
+
+### Documentation
+- Mise à jour de l'identité visuelle du site de documentation, des informations de contact et des pages localisées.
+- Ajout d'une politique de sécurité dédiée.
+
+### Tests
+- Extension de la couverture automatisée pour le planificateur, les viewmodels et les flux WebDAV.
+
+---
+
 ## [1.3.1] - 2026-05-19
 
 ### Corrigé
@@ -227,7 +250,8 @@ Version stable initiale.
 - Chiffrement par mot de passe maître pour les identifiants WebDAV via HKDF-SHA256 et intégration au trousseau système.
 - Paquets Windows et macOS.
 
-[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/TheSkyC/HistorySync/compare/v1.2.1...v1.2.2

@@ -15,6 +15,29 @@ description: HistorySync のリリース履歴と主な変更点。
 
 ---
 
+## [1.3.2] - 2026-05-25
+
+### Added
+- 安定版リリースが R2 にもミラーされるようになり、配布の可用性が向上。
+
+### Changed
+- 同期後の自動バックアップはデフォルトで無効になった。
+
+### Fixed
+- 同期の安定性に影響しうるスケジューラのスレッドクリーンアップ競合を修正。
+- `hsync db normalize` は変更を適用する前に明示的な確認を求めるようになった。
+- CLI 同期でデータベースリソースをより確実に解放するように修正。
+- シングルインスタンス IPC トークンをユーザーアカウントごとに分離。
+
+### Docs
+- ドキュメントサイトのブランド、連絡先情報、各言語ページを更新。
+- 専用のセキュリティポリシーを追加。
+
+### Tests
+- スケジューラ、viewmodel、WebDAV フローの自動テストカバレッジを拡充。
+
+---
+
 ## [1.3.1] - 2026-05-19
 
 ### Fixed
@@ -227,7 +250,8 @@ description: HistorySync のリリース履歴と主な変更点。
 - HKDF-SHA256 とシステムキーチェーン統合による WebDAV 認証情報のマスターパスワード暗号化を追加しました。
 - Windows および macOS パッケージを提供しました。
 
-[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/TheSkyC/HistorySync/compare/v1.2.1...v1.2.2

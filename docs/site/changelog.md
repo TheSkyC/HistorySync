@@ -15,6 +15,29 @@ All notable changes are documented here. The format is based on [Keep a Changelo
 
 ---
 
+## [1.3.2] - 2026-05-25
+
+### Added
+- Stable releases are now mirrored to R2 for more resilient distribution.
+
+### Changed
+- Auto-backup after sync is now disabled by default.
+
+### Fixed
+- Fixed a scheduler thread-cleanup race that could affect sync stability.
+- `hsync db normalize` now requires explicit confirmation before applying changes.
+- CLI sync now cleans up database resources more reliably.
+- Single-instance IPC tokens are now isolated per user account.
+
+### Docs
+- Refreshed the documentation site branding, contact information, and localized pages.
+- Added a dedicated security policy.
+
+### Tests
+- Expanded automated coverage for scheduler, viewmodel, and WebDAV flows.
+
+---
+
 ## [1.3.1] - 2026-05-19
 
 ### Fixed
@@ -227,7 +250,8 @@ Initial stable release.
 - Master password encryption for WebDAV credentials via HKDF-SHA256 and system keyring integration.
 - Windows and macOS packages.
 
-[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/TheSkyC/HistorySync/compare/v1.2.1...v1.2.2

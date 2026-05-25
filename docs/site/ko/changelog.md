@@ -15,6 +15,29 @@ description: HistorySync의 릴리스 이력과 주요 변경 사항.
 
 ---
 
+## [1.3.2] - 2026-05-25
+
+### 추가됨
+- 안정 릴리스가 이제 R2에도 미러링되어 배포 가용성이 향상되었습니다.
+
+### 변경됨
+- 동기화 후 자동 백업이 이제 기본적으로 비활성화됩니다.
+
+### 수정됨
+- 동기화 안정성에 영향을 줄 수 있던 스케줄러 스레드 정리 경쟁 상태를 수정했습니다.
+- `hsync db normalize`는 변경을 적용하기 전에 이제 명시적 확인을 요구합니다.
+- CLI 동기화가 이제 데이터베이스 리소스를 더 안정적으로 정리합니다.
+- 단일 인스턴스 IPC 토큰이 이제 사용자 계정별로 분리됩니다.
+
+### 문서
+- 문서 사이트의 브랜딩, 연락처 정보, 현지화 페이지를 새로 고쳤습니다.
+- 전용 보안 정책 문서를 추가했습니다.
+
+### 테스트
+- 스케줄러, viewmodel, WebDAV 흐름에 대한 자동화 커버리지를 확장했습니다.
+
+---
+
 ## [1.3.1] - 2026-05-19
 
 ### 수정됨
@@ -227,7 +250,8 @@ description: HistorySync의 릴리스 이력과 주요 변경 사항.
 - HKDF-SHA256 및 시스템 키링 통합을 통한 WebDAV 자격 증명 마스터 비밀번호 암호화를 추가했습니다.
 - Windows 및 macOS 패키지를 제공했습니다.
 
-[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/TheSkyC/HistorySync/compare/v1.2.1...v1.2.2
