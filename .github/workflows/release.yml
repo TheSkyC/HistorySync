@@ -804,8 +804,10 @@ jobs:
     steps:
       - name: Install aws-cli
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y awscli
+          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip
+          sudo ./aws/install --update
+          aws --version
 
       - name: Download release artifacts
         uses: actions/download-artifact@v4
