@@ -130,7 +130,7 @@ HistorySync prend en charge un **mot de passe maître** optionnel qui verrouille
 
 **N'ouvrez pas de problème public GitHub pour les failles de sécurité.**
 
-Veuillez envoyer un e-mail à **0x4fe6@gmail.com** avec :
+Veuillez envoyer un e-mail à **security@historysync.app** avec :
 
 - Une description de la faille.
 - Les étapes pour reproduire.

@@ -1,8 +1,13 @@
 /* HistorySync docs - custom styles */
 
 :root {
-  --hs-accent: #409EFF;
-  --hs-hero-bg: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+  --hs-accent: #1a73e8;
+  --hs-hero-bg: linear-gradient(135deg, #f8faff 0%, #eef4ff 100%);
+  --hs-hero-border: rgba(26, 115, 232, 0.15);
+  --hs-hero-text: #1e293b;
+  --hs-hero-text-muted: #475569;
+  --hs-hero-inner-glow: rgba(255, 255, 255, 0.8);
+  --hs-hero-shadow: 0 10px 30px rgba(26, 115, 232, 0.08);
   --hs-card-bg: var(--md-default-bg-color);
   --hs-card-border: var(--md-default-fg-color--lightest);
   --hs-card-shadow-hover: rgba(0, 0, 0, 0.12);
@@ -10,7 +15,12 @@
 
 [data-md-color-scheme="slate"] {
   --hs-accent: #66b1ff;
-  --hs-hero-bg: linear-gradient(135deg, #162b4d 0%, #0a192f 100%);
+  --hs-hero-bg: linear-gradient(135deg, #0f172a 0%, #020617 100%);
+  --hs-hero-border: rgba(100, 149, 237, 0.15);
+  --hs-hero-text: #f8fafc;
+  --hs-hero-text-muted: #cbd5e1;
+  --hs-hero-inner-glow: rgba(255, 255, 255, 0.03);
+  --hs-hero-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
   --hs-card-bg: var(--md-default-bg-color);
   --hs-card-border: var(--md-default-fg-color--lightest);
   --hs-card-shadow-hover: rgba(0, 0, 0, 0.4);
@@ -19,26 +29,56 @@
 /* hero gradient banner on home page */
 .hs-hero {
   background: var(--hs-hero-bg);
-  border-radius: 16px;
-  padding: 2.5rem 1.5rem;
-  margin-bottom: 2rem;
-  color: #fff;
+  border: 1px solid var(--hs-hero-border);
+  border-radius: 20px;
+  padding: 3.5rem 2rem;
+  margin-bottom: 2.5rem;
+  color: var(--hs-hero-text);
   text-align: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 1px 0 var(--hs-hero-inner-glow), var(--hs-hero-shadow);
+  position: relative;
+  overflow: hidden;
 }
-.hs-hero h1 { 
-  color: #fff; 
-  margin: 0 0 0.8rem; 
-  font-size: 2.5rem; 
-  font-weight: 800;
-  letter-spacing: -0.5px;
+
+/* subtle background pattern */
+.hs-hero::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: radial-gradient(var(--hs-hero-border) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.6;
+  pointer-events: none;
 }
+.hs-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
 .hs-hero p { 
-  color: rgba(255, 255, 255, 0.9); 
+  color: var(--hs-hero-text-muted); 
   margin: 0 auto; 
   font-size: 1.15rem; 
   max-width: 650px;
   line-height: 1.6;
+}
+.hs-hero strong {
+  color: var(--hs-hero-text);
+  font-weight: 700;
+}
+.hs-hero > p:first-child {
+  margin-bottom: 1.5rem;
+}
+.hs-hero > p:first-child img {
+  display: inline-block;
+  width: 360px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 238 / 50; /* 提前预留准确的空间比例，彻底解决布局偏移(CLS)导致的抖动 */
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.06));
+}
+[data-md-color-scheme="slate"] .hs-hero > p:first-child img {
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
 }
 
 /* hero CTA buttons - flex row so long English labels don't stack */
@@ -46,40 +86,64 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
+  gap: 1rem;
+  margin-top: 2rem;
 }
 .hs-hero .md-button {
   margin-top: 0;
   margin-inline: 0;
-  font-weight: bold;
-  border-radius: 8px;
-  padding: 0.7rem 1.5rem;
-  transition: all 0.2s ease;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0.75rem 1.75rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 1rem;
   white-space: nowrap;
 }
 .hs-hero .md-button--primary {
-  background-color: #fff;
-  color: #1a73e8;
-  border-color: #fff;
+  background-color: var(--hs-accent);
+  color: #fff;
+  border-color: var(--hs-accent);
+  box-shadow: 0 4px 14px rgba(26, 115, 232, 0.3);
 }
 [data-md-color-scheme="slate"] .hs-hero .md-button--primary {
-  color: #162b4d;
+  color: #020617;
+  box-shadow: 0 4px 14px rgba(102, 177, 255, 0.2);
 }
 .hs-hero .md-button--primary:hover {
-  background-color: rgba(255, 255, 255, 0.9);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-.hs-hero .md-button:not(.md-button--primary) {
-  border-color: rgba(255, 255, 255, 0.6);
+  background-color: #1557b0;
+  border-color: #1557b0;
   color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(26, 115, 232, 0.4);
+}
+[data-md-color-scheme="slate"] .hs-hero .md-button--primary:hover {
+  background-color: #8ab4f8;
+  border-color: #8ab4f8;
+  color: #020617;
+  box-shadow: 0 6px 20px rgba(102, 177, 255, 0.3);
+}
+
+.hs-hero .md-button:not(.md-button--primary) {
+  background-color: rgba(255, 255, 255, 0.8);
+  border-color: var(--hs-hero-border);
+  color: var(--hs-hero-text);
+}
+[data-md-color-scheme="slate"] .hs-hero .md-button:not(.md-button--primary) {
+  background-color: rgba(30, 41, 59, 0.8);
+  color: var(--hs-hero-text);
 }
 .hs-hero .md-button:not(.md-button--primary):hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  border-color: #fff;
+  background-color: #fff;
+  border-color: var(--hs-accent);
+  color: var(--hs-accent);
   transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(26, 115, 232, 0.08);
+}
+[data-md-color-scheme="slate"] .hs-hero .md-button:not(.md-button--primary):hover {
+  background-color: #1e293b;
+  border-color: var(--hs-accent);
+  color: var(--hs-accent);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
 /* badge row */

@@ -340,7 +340,7 @@ This repository uses the DCO GitHub app to check every commit in every PR. If an
 
 If you discover a security issue (e.g., a path traversal in WebDAV sync, credential exposure), please report it privately by emailing the maintainer directly:
 
-📧 **0x4fe6@gmail.com**
+📧 **security@historysync.app**
 
 Include a description of the issue, steps to reproduce, and potential impact. You will receive a response within 72 hours. We will coordinate a fix and disclosure timeline with you.
 

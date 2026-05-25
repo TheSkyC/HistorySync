@@ -147,7 +147,7 @@ hsync -s --config-dir /data/config -q
 
 ### 我发现了安全漏洞，该怎么做？
 
-**请勿开公开 Issue。** 请直接发邮件至 **0x4fe6@gmail.com**，说明漏洞描述、复现步骤和潜在影响。72 小时内回复。
+**请勿开公开 Issue。** 请直接发邮件至 **security@historysync.app**，说明漏洞描述、复现步骤和潜在影响。72 小时内回复。
 
 ### 如何添加对新浏览器的支持？
 

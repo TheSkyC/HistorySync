@@ -215,7 +215,7 @@ git push --force-with-lease
 
 **Do not open a public issue for security vulnerabilities.**
 
-Report privately by emailing **0x4fe6@gmail.com**. Include a description, reproduction steps, and potential impact. You will receive a response within 72 hours.
+Report privately by emailing **security@historysync.app**. Include a description, reproduction steps, and potential impact. You will receive a response within 72 hours.
 
 ---
 

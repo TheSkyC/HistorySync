@@ -130,7 +130,7 @@ HistorySync supports an optional **master password** that locks the GUI. This is
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Please email **0x4fe6@gmail.com** with:
+Please email **security@historysync.app** with:
 
 - A description of the vulnerability.
 - Steps to reproduce.

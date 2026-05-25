@@ -1,6 +1,6 @@
 <div align="center">
 
-![HistorySync Logo](https://img.shields.io/badge/HistorySync-409EFF?style=for-the-badge&logo=sync)
+<img src="site/assets/historysync-banner.svg" alt="HistorySync banner" width="340" />
 
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/TheSkyC/HistorySync?style=flat-square)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
@@ -145,4 +145,5 @@ HistorySync 提供靈活的工作模式，您可以把它當作一個背景服�
 
 ## 📞 聯絡方式
 - 作者：骰子掷上帝 (TheSkyC)
-- 信箱：0x4fe6@gmail.com
+- 支援：support@historysync.app
+- 安全：security@historysync.app

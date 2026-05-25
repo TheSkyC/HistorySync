@@ -130,7 +130,7 @@ HistorySync 支持可选的**主密码**锁定 GUI，与上述 WebDAV 凭证加�
 
 **请勿为安全漏洞开公开 GitHub Issue。**
 
-请发送邮件至 **0x4fe6@gmail.com**，包含：
+请发送邮件至 **security@historysync.app**，包含：
 
 - 漏洞描述。
 - 复现步骤。

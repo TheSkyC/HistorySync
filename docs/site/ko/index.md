@@ -8,7 +8,9 @@ hide:
 
 <div class="hs-hero" markdown>
 
-# HistorySync
+<p>
+  <img src="../assets/historysync-banner.svg" alt="HistorySync banner" width="360">
+</p>
 
 **30개 이상의 브라우저를 위한 통합 기록 관리 및 클라우드 백업**
 

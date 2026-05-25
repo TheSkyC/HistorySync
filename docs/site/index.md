@@ -8,7 +8,9 @@ hide:
 
 <div class="hs-hero" markdown>
 
-# HistorySync
+<p>
+  <img src="assets/historysync-banner.svg" alt="HistorySync banner" width="360">
+</p>
 
 **Unified browser history management and cloud backup for 30+ browsers**
 

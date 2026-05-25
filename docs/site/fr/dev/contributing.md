@@ -215,7 +215,7 @@ git push --force-with-lease
 
 **N'ouvrez pas de problème public pour les failles de sécurité.**
 
-Signalez-les en privé en envoyant un e-mail à **0x4fe6@gmail.com**. Incluez une description, les étapes de reproduction et l'impact potentiel. Vous recevrez une réponse dans les 72 heures.
+Signalez-les en privé en envoyant un e-mail à **security@historysync.app**. Incluez une description, les étapes de reproduction et l'impact potentiel. Vous recevrez une réponse dans les 72 heures.
 
 ---
 

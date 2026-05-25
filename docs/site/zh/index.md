@@ -8,7 +8,9 @@ hide:
 
 <div class="hs-hero" markdown>
 
-# HistorySync
+<p>
+  <img src="../assets/historysync-banner.svg" alt="HistorySync banner" width="360">
+</p>
 
 **支持 30+ 浏览器的统一历史记录管理与云端备份**
 

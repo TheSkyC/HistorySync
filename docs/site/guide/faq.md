@@ -171,7 +171,7 @@ Use the **[GitHub Bug Report template](https://github.com/TheSkyC/HistorySync/is
 
 ### I found a security vulnerability — what should I do?
 
-**Do not open a public issue.** Email the maintainer directly at **0x4fe6@gmail.com** with a description, reproduction steps, and potential impact. You will receive a response within 72 hours.
+**Do not open a public issue.** Email **security@historysync.app** with a description, reproduction steps, and potential impact. You will receive a response within 72 hours.
 
 ### How do I add support for a new browser?
 

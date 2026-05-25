@@ -171,7 +171,7 @@ Utilisez le **[modèle de rapport de bug GitHub](https://github.com/TheSkyC/Hist
 
 ### J'ai trouvé une faille de sécurité — que dois-je faire ?
 
-**N'ouvrez pas de problème public.** Envoyez un e-mail directement au mainteneur à **0x4fe6@gmail.com** avec une description, les étapes de reproduction et l'impact potentiel. Vous recevrez une réponse dans les 72 heures.
+**N'ouvrez pas de problème public.** Envoyez un e-mail directement au mainteneur à **security@historysync.app** avec une description, les étapes de reproduction et l'impact potentiel. Vous recevrez une réponse dans les 72 heures.
 
 ### Comment ajouter la prise en charge d'un nouveau navigateur ?
 

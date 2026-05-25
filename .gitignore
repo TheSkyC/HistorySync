@@ -25,7 +25,7 @@ data/
 dist/
 build/
 *.egg-info/
-site/
+/site/
 
 # IDE & editor settings
 .vscode/

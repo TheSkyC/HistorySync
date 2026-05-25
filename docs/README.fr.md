@@ -1,6 +1,6 @@
 <div align="center">
 
-![HistorySync Logo](https://img.shields.io/badge/HistorySync-409EFF?style=for-the-badge&logo=sync)
+<img src="site/assets/historysync-banner.svg" alt="HistorySync banner" width="340" />
 
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/TheSkyC/HistorySync?style=flat-square)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
@@ -145,4 +145,5 @@ Ce projet est open-source sous la licence [Apache 2.0](../LICENSE), permettant u
 
 ## 📞 Contact
 - Auteur : TheSkyC
-- Email : 0x4fe6@gmail.com
+- Support : support@historysync.app
+- Sécurité : security@historysync.app
