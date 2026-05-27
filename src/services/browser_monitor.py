@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 from enum import Enum, auto
-from pathlib import Path
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from src.services.extractor_manager import ExtractorManager
+from src.services.extractors.base_extractor import get_db_max_mtime
 from src.services.local_db import LocalDatabase
 from src.utils.logger import get_logger
 
@@ -62,24 +62,12 @@ class BrowserMonitor(QObject):
         """Forces an immediate check (e.g., called after configuration changes in settings)."""
         self._check_statuses()
 
-    def _get_max_mtime(self, db_path: Path) -> float:
-        """Gets the maximum modification time of the database and its WAL/SHM files to account for SQLite's delayed disk writes."""
-        max_mtime = 0.0
-        for suffix in ("", "-wal", "-shm"):
-            p = db_path.with_name(db_path.name + suffix)
-            if p.exists():
-                try:
-                    max_mtime = max(max_mtime, p.stat().st_mtime)
-                except OSError:
-                    pass
-        return max_mtime
-
     def _check_statuses(self):
         new_statuses: dict[str, str] = {}
 
         stats = self._db.get_all_backup_stats()
-        # Map: (browser_type, profile_name) -> last_backup_time
-        last_sync_map = {(s.browser_type, s.profile_name): s.last_backup_time for s in stats}
+        # Map: (browser_type, profile_name) -> BackupStats
+        stat_map = {(s.browser_type, s.profile_name): s for s in stats}
 
         for bt, extractor in self._em.iter_all_extractors():
             if self._em.is_browser_disabled(bt):
@@ -108,14 +96,18 @@ class BrowserMonitor(QObject):
                 if not db_path.exists():
                     continue
 
-                last_sync = last_sync_map.get((bt, profile_name), 0)
-                if last_sync == 0:
+                stat = stat_map.get((bt, profile_name))
+                if stat is None or stat.last_backup_time == 0:
                     has_unsynced = True
                     break  # If any profile is unsynced, the entire browser is considered unsynced
 
-                mtime = self._get_max_mtime(db_path)
-                # Add a 2-second buffer to offset filesystem timestamp precision truncation
-                if mtime > last_sync + 2:
+                mtime = get_db_max_mtime(db_path)
+                if stat.last_db_mtime > 0:
+                    # Compare against the mtime snapshot taken at extraction time
+                    if mtime > stat.last_db_mtime + 2:
+                        has_needs_sync = True
+                # Fallback for rows written before last_db_mtime was introduced
+                elif mtime > stat.last_backup_time + 2:
                     has_needs_sync = True
 
             if has_unsynced:

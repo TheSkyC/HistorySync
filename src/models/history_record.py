@@ -89,5 +89,6 @@ class BackupStats:
     first_backup_time: int  # Timestamp of the first backup
     last_backup_time: int  # Timestamp of the last successful backup
     total_records_synced: int  # Cumulative number of records synced
+    last_db_mtime: float = 0.0  # db file mtime snapshot taken at extraction time
 
     id: int | None = field(default=None, compare=False)

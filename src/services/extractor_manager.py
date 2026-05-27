@@ -10,7 +10,7 @@ import threading
 import time
 
 from src.services.browser_defs import BUILTIN_BROWSERS, get_browser_def
-from src.services.extractors.base_extractor import BaseExtractor
+from src.services.extractors.base_extractor import BaseExtractor, get_db_max_mtime
 from src.services.extractors.chromium_extractor import ChromiumExtractor
 from src.services.extractors.firefox_extractor import FirefoxExtractor
 from src.services.local_db import LocalDatabase
@@ -18,6 +18,7 @@ from src.utils.logger import get_logger
 from src.utils.url_utils import normalize_domain
 
 log = get_logger("extractor_manager")
+
 
 _MAX_PARALLEL_WORKERS = 4
 
@@ -265,6 +266,13 @@ class ExtractorManager:
         if progress_callback:
             progress_callback(browser_type, "extracting", 0)
 
+        # Snapshot db file mtime per profile BEFORE extraction so the snapshot
+        # reflects the state we actually read, not a later write by the browser.
+        profile_mtime: dict[str, float] = {}
+        for profile_name, db_path in extractor.get_all_db_paths():
+            if db_path.exists():
+                profile_mtime[profile_name] = get_db_max_mtime(db_path)
+
         records = extractor.extract(since_map=since_map)
 
         # Stamp all records with this device's id
@@ -298,7 +306,9 @@ class ExtractorManager:
             profile_counts[r.profile_name] = profile_counts.get(r.profile_name, 0) + 1
 
         for profile_name, count in profile_counts.items():
-            self._db.update_backup_stats(browser_type, profile_name, count)
+            self._db.update_backup_stats(
+                browser_type, profile_name, count, db_mtime=profile_mtime.get(profile_name, 0.0)
+            )
 
         log.info(
             "Browser %s: extracted %d, inserted %d new",

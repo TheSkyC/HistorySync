@@ -241,19 +241,21 @@ class _HistoryMixin:
         browser_type: str,
         profile_name: str,
         records_synced: int,
+        db_mtime: float = 0.0,
     ) -> None:
         now = int(time.time())
         with self._conn() as conn:  # type: ignore[attr-defined]
             conn.execute(
                 """
                 INSERT INTO backup_stats
-                    (browser_type, profile_name, first_backup_time, last_backup_time, total_records_synced)
-                VALUES (?, ?, ?, ?, ?)
+                    (browser_type, profile_name, first_backup_time, last_backup_time, total_records_synced, last_db_mtime)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(browser_type, profile_name) DO UPDATE SET
                     last_backup_time     = excluded.last_backup_time,
+                    last_db_mtime        = excluded.last_db_mtime,
                     total_records_synced = total_records_synced + excluded.total_records_synced
             """,
-                (browser_type, profile_name, now, now, records_synced),
+                (browser_type, profile_name, now, now, records_synced, db_mtime),
             )
 
     # ═══════════════════════════════════════════════════════════
@@ -925,7 +927,7 @@ class _HistoryMixin:
         with self._conn(write=False, strong_read=True) as conn:  # type: ignore[attr-defined]
             rows = conn.execute("""
                 SELECT id, browser_type, profile_name,
-                       first_backup_time, last_backup_time, total_records_synced
+                       first_backup_time, last_backup_time, total_records_synced, last_db_mtime
                 FROM backup_stats ORDER BY last_backup_time DESC
             """).fetchall()
         return [
@@ -936,6 +938,7 @@ class _HistoryMixin:
                 first_backup_time=r["first_backup_time"],
                 last_backup_time=r["last_backup_time"],
                 total_records_synced=r["total_records_synced"],
+                last_db_mtime=r["last_db_mtime"],
             )
             for r in rows
         ]
