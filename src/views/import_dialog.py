@@ -9,7 +9,6 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QComboBox,
     QDialog,
     QFileDialog,
     QFrame,
@@ -392,7 +391,7 @@ class ImportDialog(QDialog):
             for col in (_COL_FORMAT, _COL_BROWSER):
                 w = self._table.cellWidget(row, col)
                 if w:
-                    cb = w.findChild(QComboBox)
+                    cb = w.findChild(StyledComboBox)
                     if cb:
                         cb.setStyleSheet(combo_style)
             w = self._table.cellWidget(row, _COL_PROFILE)
@@ -522,14 +521,14 @@ class ImportDialog(QDialog):
         self._import_btn.setEnabled(True)
 
     @staticmethod
-    def _repopulate_combo(combo: QComboBox, options: list[tuple[str, object]]):
+    def _repopulate_combo(combo: StyledComboBox, options: list[tuple[str, object]]):
         combo.blockSignals(True)
         combo.clear()
         for label, data in options:
             combo.addItem(label, data)
         combo.blockSignals(False)
 
-    def _make_browser_combo(self, db_type: DbType, palette: _Palette | None = None) -> QComboBox:
+    def _make_browser_combo(self, db_type: DbType, palette: _Palette | None = None) -> StyledComboBox:
         if db_type == DbType.FIREFOX:
             opts = [(name, bt) for bt, name in FIREFOX_BROWSER_OPTIONS]
         else:
@@ -558,13 +557,13 @@ class ImportDialog(QDialog):
             path = self._table.item(row, _COL_FILE).data(Qt.UserRole)
 
             fmt_w = self._table.cellWidget(row, _COL_FORMAT)
-            fmt_c: QComboBox = fmt_w.findChild(QComboBox)
+            fmt_c: StyledComboBox = fmt_w.findChild(StyledComboBox)
             db_type: DbType = fmt_c.currentData()
             if db_type == DbType.UNKNOWN:
                 continue
 
             brw_w = self._table.cellWidget(row, _COL_BROWSER)
-            brw_c: QComboBox = brw_w.findChild(QComboBox)
+            brw_c: StyledComboBox = brw_w.findChild(StyledComboBox)
 
             prf_w = self._table.cellWidget(row, _COL_PROFILE)
             prf_e: QLineEdit = prf_w.findChild(QLineEdit)
