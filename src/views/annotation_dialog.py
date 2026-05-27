@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -68,6 +69,7 @@ class AnnotationDialog(QDialog):
         layout.addWidget(buttons)
 
         self._editor.setFocus()
+        self._editor.moveCursor(QTextCursor.End)
 
     def get_note(self) -> str:
         return self._editor.toPlainText()

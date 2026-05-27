@@ -803,8 +803,8 @@ QGroupBox::title {
 }
 /* ── Bookmarks page ─────────────────────────────────── */
 QWidget#bm_sidebar {
-    background-color: #161b27;
-    border-right: 1px solid #252a36;
+    background-color: #141925;
+    border-right: 1px solid #242b39;
 }
 
 QListWidget#tag_list {
@@ -813,17 +813,18 @@ QListWidget#tag_list {
     outline: none;
 }
 QListWidget#tag_list::item {
-    padding: 6px 8px;
-    border-radius: 6px;
-    color: #8892a8;
+    padding: 8px 10px;
+    border-radius: 9px;
+    color: #95a0b8;
+    margin: 2px 0px;
 }
 QListWidget#tag_list::item:hover {
-    background: #252a36;
-    color: #c8d0e0;
+    background: #222a38;
+    color: #d7dfef;
 }
 QListWidget#tag_list::item:selected {
-    background: #2d3448;
-    color: #7c8cf8;
+    background: #202c43;
+    color: #a9c7ff;
 }
 
 QFrame#bookmark_card {
@@ -871,24 +872,45 @@ QPushButton#icon_btn:hover {
 }
 
 QPushButton#filter_chip {
-    background: #1c2130;
-    border: 1px solid #2d3448;
-    border-radius: 6px;
-    padding: 3px 12px;
-    color: #8892a8;
+    background: #1d2432;
+    border: 1px solid #2d3748;
+    border-radius: 11px;
+    padding: 5px 14px;
+    color: #9ba7bf;
+    font-weight: 500;
 }
 QPushButton#filter_chip:checked, QPushButton#filter_chip:hover {
-    background: #2d3448;
-    color: #7c8cf8;
-    border-color: #4a5580;
+    background: #23314b;
+    color: #a9c7ff;
+    border-color: #3b537d;
 }
 
 QLabel#sidebar_section_title {
-    color: #4a5068;
+    color: #647089;
     font-size: 11px;
     font-weight: 600;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+QFrame#hidden_mode_banner {
+    background: #2d2618;
+    border: 1px solid #7d6332;
+    border-radius: 10px;
+}
+
+QFrame#hidden_mode_banner QLabel {
+    background: transparent;
+}
+
+QListView#bookmark_list_view {
+    background: #171c27;
+    border: none;
+    outline: none;
+}
+
+QListView#bookmark_list_view::item {
+    background: transparent;
+    border: none;
 }
 
 /* ── Suggestion dropdown ─────────────────────────────── */

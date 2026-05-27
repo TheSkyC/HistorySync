@@ -24,6 +24,7 @@ import time
 import pytest
 
 from src.services.local_db import LocalDatabase
+from src.services.local_db.bookmarks import BookmarkPageFilter
 from tests.conftest import make_record
 
 # ══════════════════════════════════════════════════════════════
@@ -46,6 +47,36 @@ class TestSchema:
         with local_db._conn() as conn:
             tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
         assert "history_fts" in tables
+
+    def test_legacy_bookmarks_schema_migrates_host_column_before_indexes(self, tmp_path):
+        db_path = tmp_path / "legacy-bookmarks.db"
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.executescript(
+                """
+                CREATE TABLE bookmarks (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    url           TEXT    NOT NULL UNIQUE,
+                    title         TEXT    NOT NULL DEFAULT '',
+                    tags          TEXT    NOT NULL DEFAULT '',
+                    bookmarked_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+                    history_id    INTEGER
+                );
+                CREATE INDEX idx_bookmarks_url ON bookmarks(url);
+                CREATE INDEX idx_bookmarks_at ON bookmarks(bookmarked_at DESC);
+                """
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        with LocalDatabase(db_path) as db, db._conn() as conn2:
+            bookmark_cols = {row[1] for row in conn2.execute("PRAGMA table_info(bookmarks)").fetchall()}
+            bookmark_indexes = {row[1] for row in conn2.execute("PRAGMA index_list(bookmarks)").fetchall()}
+
+        assert "host" in bookmark_cols
+        assert "idx_bookmarks_host" in bookmark_indexes
+        assert "idx_bookmarks_at_id" in bookmark_indexes
 
 
 # ══════════════════════════════════════════════════════════════
@@ -470,6 +501,28 @@ class TestBookmarkCRUD:
     def test_update_bookmark_tags_nonexistent_returns_false(self, local_db):
         """update_bookmark_tags on nonexistent URL returns False."""
         assert local_db.update_bookmark_tags("https://nonexistent.com", ["tag"]) is False
+
+    def test_get_bookmark_for_filter_reflects_tag_updates(self, local_db):
+        local_db.add_bookmark("https://example.com", "Example", tags=["work"])
+        page_filter = BookmarkPageFilter(tag="work")
+
+        assert local_db.get_bookmark_for_filter("https://example.com", page_filter) is not None
+
+        local_db.update_bookmark_tags("https://example.com", ["personal"])
+
+        assert local_db.get_bookmark_for_filter("https://example.com", page_filter) is None
+
+    def test_get_bookmark_for_filter_reflects_annotation_updates(self, local_db):
+        local_db.add_bookmark("https://example.com", "Example", tags=[])
+        page_filter = BookmarkPageFilter(has_annotation=True)
+
+        assert local_db.get_bookmark_for_filter("https://example.com", page_filter) is None
+
+        local_db.upsert_annotation("https://example.com", "note")
+        assert local_db.get_bookmark_for_filter("https://example.com", page_filter) is not None
+
+        local_db.delete_annotation("https://example.com")
+        assert local_db.get_bookmark_for_filter("https://example.com", page_filter) is None
 
     def test_remove_writes_tombstone(self, local_db):
         """Removing bookmark writes to deleted_bookmarks."""
