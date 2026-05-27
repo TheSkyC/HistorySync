@@ -20,6 +20,21 @@ from src.utils.logger import get_logger
 log = get_logger("extractor")
 
 _BACKUP_TIMEOUT_SEC = 10
+
+
+def get_db_max_mtime(db_path: Path) -> float:
+    """Return the maximum mtime across db, -wal, and -shm files."""
+    max_mtime = 0.0
+    for suffix in ("", "-wal", "-shm"):
+        p = db_path.with_name(db_path.name + suffix)
+        if p.exists():
+            try:
+                max_mtime = max(max_mtime, p.stat().st_mtime)
+            except OSError:
+                pass
+    return max_mtime
+
+
 _LOCK_PROBE_TIMEOUT_SEC = 0.5  # Switch to file copy immediately if lock isn't acquired within 500ms
 
 

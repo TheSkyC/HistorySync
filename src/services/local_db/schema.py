@@ -70,6 +70,7 @@ class _SchemaMixin:
                     first_backup_time    INTEGER NOT NULL,
                     last_backup_time     INTEGER NOT NULL,
                     total_records_synced INTEGER NOT NULL DEFAULT 0,
+                    last_db_mtime        REAL    NOT NULL DEFAULT 0.0,
                     UNIQUE(browser_type, profile_name)
                 );
 
@@ -283,6 +284,14 @@ class _SchemaMixin:
                     "UPDATE bookmarks SET host = COALESCE(_extract_host(url), '') WHERE host = '' AND url != ''"
                 )
                 log.info("Schema migration: backfilled bookmarks.host for %d row(s)", unfilled)
+
+            # last_db_mtime column — stores the db file mtime snapshot taken at extraction time
+            # so BrowserMonitor can compare against it instead of wall-clock time.
+            try:
+                conn.execute("ALTER TABLE backup_stats ADD COLUMN last_db_mtime REAL NOT NULL DEFAULT 0.0")
+                log.info("Schema migration: added column backup_stats.last_db_mtime")
+            except sqlite3.OperationalError:
+                pass
 
     def _verify_fts_integrity(self) -> None:
         """Run an FTS5 integrity check on startup and auto-rebuild if corrupt.
