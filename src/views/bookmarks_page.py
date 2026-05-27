@@ -1,33 +1,67 @@
 # Copyright (c) 2026, TheSkyC
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Bookmark page rewritten on top of QListView + QStyledItemDelegate.
+
+Architecture overview
+---------------------
+
+Old (legacy):
+    QScrollArea + N QFrame "cards", each ~15 widgets, rebuilt on every page
+    show / filter change / mutation.  Memory and paint cost O(N).
+
+New (this module):
+    QListView (virtual scroll) + BookmarkDelegate (paints with QPainter)
+    + BookmarkListModel (keyset-paginated QAbstractListModel).  Memory and
+    paint cost O(visible rows) regardless of how many bookmarks exist.
+
+Public surface preserved
+------------------------
+
+The class signature, signals, and public methods stay 1:1 with the legacy
+page so MainWindow doesn't need any changes that depend on internals:
+
+    Signals:
+        navigate_to_history(BookmarkRecord, hidden_mode: bool)
+        bookmark_changed()                 -- emitted on local mutation
+    Methods:
+        refresh()
+        set_hidden_mode(enabled)
+        leave_hidden_mode()
+        apply_keybindings()
+        _focus_search()                    -- called by MainWindow
+        apply_external_bookmark_change()   -- NEW: called by MainWindow when
+                                              the change came from another page
+"""
+
 from __future__ import annotations
 
-from datetime import datetime
 import webbrowser
 
-from PySide6.QtCore import Qt, QThread, QTimer, Signal
-from PySide6.QtGui import QAction, QKeySequence, QShortcut
+from PySide6.QtCore import QEasingCurve, QEvent, QModelIndex, QObject, QPoint, Qt, QTimer, QVariantAnimation, Signal
+from PySide6.QtGui import QAction, QColor, QPalette, QShortcut
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
+    QListView,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
     QPushButton,
-    QScrollArea,
-    QSizePolicy,
     QSplitter,
     QVBoxLayout,
     QWidget,
 )
 
-from src.models.history_record import AnnotationRecord, BookmarkRecord
+from src.models.history_record import BookmarkRecord
 from src.services.local_db import LocalDatabase
+from src.services.local_db.bookmarks import BookmarkPageFilter
 from src.utils.dialog_utils import exec_centered
 from src.utils.i18n import _
 from src.utils.icon_helper import get_icon
@@ -36,488 +70,316 @@ from src.utils.search_parser import parse_query
 from src.utils.styled_menu import StyledMenu
 from src.utils.theme_manager import ThemeManager
 from src.views.annotation_dialog import AnnotationDialog
+from src.views.bookmark_delegate import BookmarkDelegate
+from src.views.bookmark_list_model import BookmarkListModel
 
 log = get_logger("view.bookmarks")
 
-_CHUNK_SIZE = 20
-_PAGE_SIZE = 50
+# ── Internal QListView subclass with per-card keyboard / hover handling ──────
 
 
-def _extract_domain(url: str) -> str:
-    """Extract the domain (netloc) from a given URL."""
-    try:
-        from urllib.parse import urlparse
+class _BookmarkListView(QListView):
+    """QListView wired up for bookmark-card UX.
 
-        return urlparse(url).netloc.lower()
-    except Exception:
-        return url.lower()
-
-
-# ===========================================================================
-# Background Workers
-# ===========================================================================
-
-
-class _LoadWorker(QThread):
-    """
-    Background thread that loads bookmarks, annotations, and tags.
-
-    Design Note:
-        Subclassing QThread (rather than using a QObject + moveToThread) keeps
-        the C++ object in the main thread. This ensures Python's reference
-        counting can never delete the C++ instance from the wrong thread,
-        preventing the 0xC0000005 access violation.
-
-    Signals:
-        result: Emits (bookmarks, annotations, tags). Named 'result' instead
-                of 'finished' to avoid shadowing QThread.finished.
-        error: Emits the error message as a string.
+    Adds:
+    - per-card keyboard shortcuts (Enter/Del/Ctrl+C/Ctrl+N/Ctrl+L) that
+      translate to the same action vocabulary as the delegate's button
+      clicks, so the page can route both via a single slot.
+    - mouse-hover tracking on the viewport that updates the delegate's
+      hovered-button state, so individual buttons can highlight.
     """
 
-    result = Signal(list, list, list)
-    error = Signal(str)
+    # Same vocabulary as BookmarkDelegate.action_requested.
+    action_triggered = Signal(str, object)  # (action, BookmarkRecord)
 
-    def __init__(self, db: LocalDatabase, tag: str, hidden_mode: bool = False, parent=None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
-        self._db = db
-        self._tag = tag
-        self._hidden_mode = hidden_mode
+        self.setMouseTracking(True)
+        self.viewport().setMouseTracking(True)
+        self._delegate: BookmarkDelegate | None = None
+        self._hovered_row: int = -1
+        self._hover_anims: dict[int, QVariantAnimation] = {}
+        self._suppress_next_release: bool = False
 
-    def run(self):
-        try:
-            bookmarks = self._db.get_all_bookmarks(tag=self._tag, hidden_mode=self._hidden_mode)
-            annotations = self._db.get_all_annotations()
-            tags = self._db.get_all_bookmark_tags()
-            self.result.emit(bookmarks, annotations, tags)
-        except Exception as exc:
-            log.exception("_LoadWorker.run failed")
-            self.error.emit(str(exc))
+    def set_delegate(self, delegate: BookmarkDelegate) -> None:
+        self._delegate = delegate
 
-
-class _TagRefreshWorker(QThread):
-    """Background thread that refreshes the tag list only."""
-
-    done = Signal(list)
-
-    def __init__(self, db: LocalDatabase, parent=None):
-        super().__init__(parent)
-        self._db = db
-
-    def run(self):
-        try:
-            self.done.emit(self._db.get_all_bookmark_tags())
-        except Exception:
-            log.exception("_TagRefreshWorker.run failed")
-            self.done.emit([])
-
-
-# ===========================================================================
-# Bookmark Card Widget
-# ===========================================================================
-
-
-class _BookmarkCard(QFrame):
-    """UI Widget representing a single bookmark card."""
-
-    open_requested = Signal(str)
-    edit_tags_requested = Signal(object)
-    add_note_requested = Signal(object)
-    remove_requested = Signal(object)
-    copy_url_requested = Signal(str)
-    locate_in_list_requested = Signal(object)
-    # Emitted when the card receives focus via click, so the page can track it
-    card_focused = Signal(object)  # emits self
-    # Emitted by arrow-key press so the page can shift focus to adjacent card
-    navigate_requested = Signal(object, int)  # (card, direction: -1 up / +1 down)
-
-    def __init__(self, bm: BookmarkRecord, annotation: AnnotationRecord | None, parent=None):
-        super().__init__(parent)
-        self.setObjectName("bookmark_card")
-        self.setFrameShape(QFrame.StyledPanel)
-        # Allow the card to receive keyboard focus via mouse click
-        self.setFocusPolicy(Qt.ClickFocus)
-
-        self._bm = bm
-        self._ann = annotation
-        self._note_frame: QFrame | None = None
-        self._note_lbl: QLabel | None = None
-
-        self._build()
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self._show_context_menu)
-
-    def _show_context_menu(self, pos):
-        menu = StyledMenu(self)
-
-        # Note: QAction.triggered emits checked(bool) as the first positional arg.
-        # Each lambda absorbs that arg (named `_`) so `bm` is never shadowed by True/False.
-        entries = [
-            ("corner-up-right", _("Open in Browser"), lambda _, bm=self._bm: self.open_requested.emit(bm.url)),
-            ("copy", _("Copy URL"), lambda _, bm=self._bm: self.copy_url_requested.emit(bm.url)),
-            None,
-            ("tag", _("Edit Tags"), lambda _, bm=self._bm: self.edit_tags_requested.emit(bm)),
-            ("edit-2", _("Edit Note"), lambda _, bm=self._bm: self.add_note_requested.emit(bm)),
-            None,
-            ("crosshair", _("Locate in History"), lambda _, bm=self._bm: self.locate_in_list_requested.emit(bm)),
-            None,
-            ("trash", _("Remove Bookmark"), lambda _, bm=self._bm: self.remove_requested.emit(bm)),
-        ]
-
-        for entry in entries:
-            if entry is None:
-                menu.addSeparator()
-            else:
-                icon_name, label, cb = entry
-                act = QAction(get_icon(icon_name), label, self)
-                act.triggered.connect(cb)
-                menu.addAction(act)
-
-        menu.exec(self.mapToGlobal(pos))
-
-    def _build(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(4)
-
-        # --- Top Row ---
-        top = QHBoxLayout()
-        top.setSpacing(6)
-
-        title_text = self._bm.title or self._bm.url
-        title_lbl = QLabel(f"<b>{title_text}</b>")
-        title_lbl.setWordWrap(True)
-        title_lbl.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
-        title_lbl.setCursor(Qt.PointingHandCursor)
-
-        # Capture bm by value so clicks still work after _bm is mutated
-        _url = self._bm.url
-
-        def _title_press(event, url=_url):
-            if event.button() == Qt.LeftButton:
-                self.open_requested.emit(url)
-            else:
-                QLabel.mousePressEvent(title_lbl, event)
-
-        title_lbl.mousePressEvent = _title_press
-        top.addWidget(title_lbl, 1)
-
-        # Note: QPushButton.clicked emits checked(bool) as the first positional arg.
-        # Use `_` to absorb it so `bm` always receives the BookmarkRecord snapshot.
-        _bm_snap = self._bm
-        btn_specs = [
-            ("corner-up-right", _("Open in browser"), lambda _, bm=_bm_snap: self.open_requested.emit(bm.url)),
-            ("tag", _("Edit tags"), lambda _, bm=_bm_snap: self.edit_tags_requested.emit(bm)),
-            ("edit-2", _("Edit note"), lambda _, bm=_bm_snap: self.add_note_requested.emit(bm)),
-            ("crosshair", _("Locate in History"), lambda _, bm=_bm_snap: self.locate_in_list_requested.emit(bm)),
-            ("trash", _("Remove bookmark"), lambda _, bm=_bm_snap: self.remove_requested.emit(bm)),
-        ]
-
-        for icon_name, tooltip, cb in btn_specs:
-            btn = QPushButton()
-            btn.setIcon(get_icon(icon_name))
-            btn.setToolTip(tooltip)
-            btn.setFixedSize(26, 26)
-            btn.setObjectName("icon_btn")
-            btn.clicked.connect(cb)
-            top.addWidget(btn)
-
-        layout.addLayout(top)
-
-        # --- URL ---
-        url_lbl = QLabel(self._bm.url)
-        url_lbl.setObjectName("muted")
-        url_lbl.setWordWrap(True)
-        url_lbl.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
-        url_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        url_lbl.setContextMenuPolicy(Qt.NoContextMenu)
-        layout.addWidget(url_lbl)
-
-        # --- Tags ---
-        self._tag_container = QWidget(self)
-        self._tag_container.setObjectName("tag_container")
-        self._tag_container.setAttribute(Qt.WA_TranslucentBackground)
-        self._rebuild_tags_widget()
-        layout.addWidget(self._tag_container)
-
-        # --- Note ---
-        note_text = (self._ann.note if (self._ann and self._ann.note) else "").strip()
-        if note_text:
-            self._insert_note_frame(note_text, layout)
-
-        # --- Footer ---
-        dt = datetime.fromtimestamp(self._bm.bookmarked_at).strftime("%Y-%m-%d %H:%M")
-        footer_lbl = QLabel(_("Bookmarked: {dt}").format(dt=dt))
-        footer_lbl.setObjectName("muted_small")
-        layout.addWidget(footer_lbl)
-
-    def _insert_note_frame(self, note: str, layout: QVBoxLayout):
-        note_frame = QFrame()
-        note_frame.setObjectName("note_frame")
-
-        nf_layout = QHBoxLayout(note_frame)
-        nf_layout.setContentsMargins(8, 4, 8, 4)
-
-        note_icon = QLabel()
-        note_icon.setPixmap(get_icon("message-square").pixmap(14, 14))
-        nf_layout.addWidget(note_icon)
-
-        note_lbl = QLabel(note)
-        note_lbl.setWordWrap(True)
-        note_lbl.setObjectName("note_text")
-        nf_layout.addWidget(note_lbl, 1)
-
-        layout.addWidget(note_frame)
-        self._note_frame = note_frame
-        self._note_lbl = note_lbl
-        # Click the note area to open the note editor
-        note_frame.setCursor(Qt.PointingHandCursor)
-        note_frame.mousePressEvent = lambda e, bm=self._bm: (
-            self.add_note_requested.emit(bm) if e.button() == Qt.LeftButton else None
+    def _animate_row_actions(self, row: int, start: float, end: float) -> None:
+        if self._delegate is None or row < 0:
+            return
+        existing = self._hover_anims.pop(row, None)
+        if existing is not None:
+            existing.stop()
+            existing.deleteLater()
+        anim = QVariantAnimation(self)
+        anim.setDuration(140)
+        anim.setEasingCurve(QEasingCurve.OutCubic)
+        anim.setStartValue(start)
+        anim.setEndValue(end)
+        anim.valueChanged.connect(
+            lambda value, target_row=row: self._delegate.set_action_opacity(target_row, float(value))
         )
+        anim.finished.connect(
+            lambda target_row=row, target=end, a=anim: self._on_hover_anim_finished(target_row, float(target), a)
+        )
+        self._hover_anims[row] = anim
+        anim.start()
 
-    def _rebuild_tags_widget(self):
-        layout = self._tag_container.layout()
-        if layout is None:
-            layout = QHBoxLayout(self._tag_container)
-            layout.setContentsMargins(0, 2, 0, 0)
-            layout.setSpacing(4)
+    def _stop_row_action_animation(self, row: int) -> None:
+        existing = self._hover_anims.pop(row, None)
+        if existing is not None:
+            existing.stop()
+            existing.deleteLater()
+
+    def _hide_row_actions_now(self, row: int) -> None:
+        if self._delegate is None or row < 0:
+            return
+        self._stop_row_action_animation(row)
+        self._delegate.clear_action_opacity(row)
+
+    def _on_hover_anim_finished(self, row: int, target: float, anim: QVariantAnimation) -> None:
+        if self._delegate is None:
+            return
+        current = self._hover_anims.get(row)
+        if current is not anim:
+            return
+        self._hover_anims.pop(row, None)
+        if target <= 0.0:
+            self._delegate.clear_action_opacity(row)
         else:
-            while layout.count():
-                item = layout.takeAt(0)
-                w = item.widget()
-                if w is not None:
-                    w.deleteLater()
+            self._delegate.set_action_opacity(row, target)
+        anim.deleteLater()
 
-        for tag in self._bm.tags:
-            chip = QLabel(f"#{tag}")
-            chip.setObjectName("inline_tag")
-            layout.addWidget(chip)
-
-        layout.addStretch()
-        self._tag_container.setVisible(bool(self._bm.tags))
-        # Click anywhere on the tag area to open the tag editor
-        self._tag_container.setCursor(Qt.PointingHandCursor)
-        self._tag_container.mousePressEvent = lambda e, bm=self._bm: (
-            self.edit_tags_requested.emit(bm) if e.button() == Qt.LeftButton else None
-        )
-
-    def _rebuild_tags(self):
-        self._rebuild_tags_widget()
-
-    def update_note(self, ann: AnnotationRecord | None):
-        self._ann = ann
-        note_text = (ann.note if ann and ann.note else "").strip()
-
-        if self._note_frame is not None:
-            if note_text:
-                self._note_lbl.setText(note_text)
+    def _set_hovered_row(self, row: int) -> None:
+        if row == self._hovered_row:
+            return
+        previous = self._hovered_row
+        self._hovered_row = row
+        if row >= 0:
+            stale_rows = [anim_row for anim_row in self._hover_anims if anim_row != row]
+            for stale_row in stale_rows:
+                self._stop_row_action_animation(stale_row)
+            self._delegate.clear_action_opacities_except({row})
+        if previous >= 0:
+            if row >= 0:
+                self._hide_row_actions_now(previous)
             else:
-                self.layout().removeWidget(self._note_frame)
-                self._note_frame.deleteLater()
-                self._note_frame = None
-                self._note_lbl = None
-        elif note_text:
-            self._insert_note_frame(note_text, self.layout())
+                self._animate_row_actions(previous, self._delegate.action_opacity_for_row(previous), 0.0)
+        if row >= 0:
+            self._animate_row_actions(row, self._delegate.action_opacity_for_row(row), 1.0)
 
-    # ── Focus / keyboard handling ─────────────────────────────
+    def reset_hover_state(self) -> None:
+        for anim in self._hover_anims.values():
+            anim.stop()
+            anim.deleteLater()
+        self._hover_anims.clear()
+        self._hovered_row = -1
+        if self._delegate is not None:
+            self._delegate.set_hover(-1, -1)
+            self._delegate.clear_all_action_opacities()
+        self.viewport().unsetCursor()
 
-    def mousePressEvent(self, event):
-        """Claim keyboard focus when the card is clicked."""
-        super().mousePressEvent(event)
-        self.setFocus()
-        self.card_focused.emit(self)
+    # ── Hover ─────────────────────────────────────────────
 
-    def focusInEvent(self, event):
-        """Highlight the card border when it has keyboard focus."""
-        super().focusInEvent(event)
-        self.setStyleSheet("QFrame#bookmark_card { border: 2px solid palette(highlight); }")
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)
+        if self._delegate is None:
+            return
+        pos = self._delegate._event_point(event)
+        idx = self.indexAt(pos)
+        row = idx.row() if idx.isValid() else -1
+        self._set_hovered_row(row)
+        button_index = -1
+        if idx.isValid():
+            layout = self._delegate.layout_for_row(idx.row())
+            if layout is not None:
+                for i, br in enumerate(layout.button_rects):
+                    if br.contains(pos):
+                        button_index = i
+                        break
+                self._update_cursor_for_layout(pos, layout, row)
+        else:
+            self.viewport().unsetCursor()
+        self._delegate.set_hover(row, button_index)
 
-    def focusOutEvent(self, event):
-        """Restore default card style when focus is lost."""
-        super().focusOutEvent(event)
-        self.setStyleSheet("")
+    def _update_cursor_for_layout(self, pos: QPoint, layout, row: int) -> None:
+        clickable = False
+        if row == self._hovered_row:
+            clickable = any(rect.contains(pos) for rect in layout.button_rects)
+        if not clickable:
+            clickable = any(hit.rect.contains(pos) for hit in layout.hit_boxes)
+        if clickable:
+            self.viewport().setCursor(Qt.PointingHandCursor)
+        else:
+            self.viewport().unsetCursor()
+
+    def mouseReleaseEvent(self, event):
+        if self._suppress_next_release:
+            self._suppress_next_release = False
+            event.accept()
+            return
+        if self._delegate is not None and event.button() == Qt.LeftButton:
+            pos = self._delegate._event_point(event)
+            idx = self.indexAt(pos)
+            if idx.isValid():
+                bm = idx.data(BookmarkListModel.BookmarkRole)
+                if bm is not None:
+                    layout = self._delegate.layout_for_row(idx.row())
+                    if layout is None:
+                        super().mouseReleaseEvent(event)
+                        return
+                    for hit in layout.hit_boxes:
+                        if hit.rect.contains(pos):
+                            self.action_triggered.emit(hit.name, bm)
+                            event.accept()
+                            return
+        super().mouseReleaseEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        if self._delegate is not None and event.button() == Qt.LeftButton:
+            pos = self._delegate._event_point(event)
+            idx = self.indexAt(pos)
+            if idx.isValid():
+                layout = self._delegate.layout_for_row(idx.row())
+                if layout is not None and any(hit.rect.contains(pos) for hit in layout.hit_boxes):
+                    self._suppress_next_release = True
+                    event.accept()
+                    return
+        super().mouseDoubleClickEvent(event)
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        if self._delegate is not None:
+            self._set_hovered_row(-1)
+            self._delegate.set_hover(-1, -1)
+            self.viewport().unsetCursor()
+
+    def closeEvent(self, event):
+        for anim in self._hover_anims.values():
+            anim.stop()
+            anim.deleteLater()
+        self._hover_anims.clear()
+        super().closeEvent(event)
+
+    def viewportEvent(self, event):
+        handled = super().viewportEvent(event)
+        if event.type() == QEvent.HoverLeave and self._delegate is not None:
+            self._set_hovered_row(-1)
+            self._delegate.set_hover(-1, -1)
+            self.viewport().unsetCursor()
+        return handled
+
+    # ── Keyboard shortcuts on the focused row ─────────────
 
     def keyPressEvent(self, event):
-        """Handle keyboard shortcuts while the card has focus."""
-        key = event.key()
-        mods = event.modifiers()
-        if key in (Qt.Key_Return, Qt.Key_Enter):
-            self.open_requested.emit(self._bm.url)
-            event.accept()
-        elif key == Qt.Key_Delete:
-            self.remove_requested.emit(self._bm)
-            event.accept()
-        elif key == Qt.Key_C and mods & Qt.ControlModifier:
-            self.copy_url_requested.emit(self._bm.url)
-            event.accept()
-        elif key == Qt.Key_N and mods & Qt.ControlModifier:
-            self.add_note_requested.emit(self._bm)
-            event.accept()
-        elif key == Qt.Key_L and mods & Qt.ControlModifier:
-            self.locate_in_list_requested.emit(self._bm)
-            event.accept()
-        elif key == Qt.Key_Up:
-            self.navigate_requested.emit(self, -1)
-            event.accept()
-        elif key == Qt.Key_Down:
-            self.navigate_requested.emit(self, +1)
-            event.accept()
-        else:
-            super().keyPressEvent(event)
-
-    def disconnect_all(self):
-        """
-        Sever all outbound signals before the card is deleted.
-
-        Qt's deleteLater() is asynchronous. If a mouse event (e.g., a click
-        still in the input queue) is processed between the Python-side
-        'deleteLater()' call and the actual C++ destruction, Qt will try to
-        emit a signal through the partially alive object. This corrupts memory
-        and causes a 0xC0000005 crash on Windows.
-
-        Disconnecting here is synchronous and immediate, preventing any signals
-        from firing after we've decided to remove the card.
-        """
-        signals = [
-            self.open_requested,
-            self.copy_url_requested,
-            self.edit_tags_requested,
-            self.add_note_requested,
-            self.remove_requested,
-            self.locate_in_list_requested,
-            self.card_focused,
-            self.navigate_requested,
-            self.customContextMenuRequested,
-        ]
-        for sig in signals:
-            try:
-                sig.disconnect()
-            except RuntimeError:
-                pass
+        idx = self.currentIndex()
+        if idx.isValid():
+            bm = idx.data(BookmarkListModel.BookmarkRole)
+            if bm is not None:
+                key = event.key()
+                mods = event.modifiers()
+                if key in (Qt.Key_Return, Qt.Key_Enter):
+                    self.action_triggered.emit("open", bm)
+                    event.accept()
+                    return
+                if key == Qt.Key_Delete:
+                    self.action_triggered.emit("remove", bm)
+                    event.accept()
+                    return
+                if key == Qt.Key_C and mods & Qt.ControlModifier:
+                    self.action_triggered.emit("copy_url", bm)
+                    event.accept()
+                    return
+                if key == Qt.Key_N and mods & Qt.ControlModifier:
+                    self.action_triggered.emit("edit_note", bm)
+                    event.accept()
+                    return
+                if key == Qt.Key_L and mods & Qt.ControlModifier:
+                    self.action_triggered.emit("locate", bm)
+                    event.accept()
+                    return
+        super().keyPressEvent(event)
 
 
-# ===========================================================================
-# Main Page
-# ===========================================================================
+# ── BookmarksPage ────────────────────────────────────────────────────────────
 
 
 class BookmarksPage(QWidget):
-    """
-    Bookmark management page.
+    """Bookmark management page using virtual-scroll QListView + delegate.
 
-    Crash Fixes Implemented:
-        1. Timer Signal Accumulation (RuntimeError / double-fire):
-           The render timer slot is connected ONCE at construction. A generation
-           counter guards against stale ticks.
-        2. Use-After-Free on Card Deletion (0xC0000005):
-           `_BookmarkCard.disconnect_all()` severs outbound signals before
-           `deleteLater()` is called, preventing pending OS events from triggering
-           signals on destroyed C++ objects.
-        3. Thread Race on `_all_bookmarks`:
-           `_load_generation` is bumped BEFORE the old worker is abandoned.
-           In-flight callbacks see a stale generation and return safely.
-        4. Worker/Thread Ownership (0xC0000005):
-           Workers subclass QThread directly (not QObject + moveToThread), keeping
-           the C++ object in the main thread. Finished callbacks use identity
-           checks to only clear references for their own worker.
-        5. deleteLater() on a Running QThread (0xC0000409 STATUS_STACK_BUFFER_OVERRUN):
-           Previously, `deleteLater()` was called unconditionally. Since `_LoadWorker`
-           has no event loop, `quit()` is a no-op. The main thread would process the
-           deferred-delete while the worker was still executing `run()`, destroying
-           the C++ base object under the thread.
-           Fix: Connect `finished -> deleteLater` so C++ is destroyed only after exit.
-        6. Batch Card Deletion Layout Thrashing (O(n²) + reentrant events):
-           Calling `removeWidget()` in a loop triggers full layout recalculations
-           and repaints per removal.
-           Fix: Wrap `_clear_cards()` with `setUpdatesEnabled(False/True)`.
-
-    Performance Fixes Implemented:
-        1. O(1) card lookup via `_card_index` dict (was O(n) linear scan).
-        2. Count label computed from source-of-truth lists after mutation.
+    Compared to the legacy QScrollArea+QFrame implementation, this version:
+    - Allocates O(visible rows) widgets instead of O(N) cards.
+    - Pushes ALL filtering (tag / keyword / has_note / hidden_mode / dates /
+      domain / excludes) into SQL via BookmarkPageFilter; no Python-side
+      linear scan of records on every keystroke.
+    - Drops the showEvent/hideEvent destroy-and-rebuild pattern: the model
+      stays alive across visibility transitions so re-opening the page is
+      instantaneous.
+    - Replaces the ad-hoc render generation counter / chunked QTimer
+      rendering with the model's built-in fetchMore / generation guard.
     """
 
-    navigate_to_history = Signal(object, bool)
+    # Public signals — same shape as the legacy class so MainWindow doesn't
+    # need to know we rewrote anything.
+    navigate_to_history = Signal(object, bool)  # (BookmarkRecord, hidden_mode)
     bookmark_changed = Signal()
+
+    # Search debounce delay in ms — matches the legacy 200 ms behaviour.
+    _SEARCH_DEBOUNCE_MS = 200
 
     def __init__(self, db: LocalDatabase, config=None, parent=None):
         super().__init__(parent)
         self._db = db
-        self._config = config  # AppConfig; may be None in test contexts
+        self._config = config
+
+        # Filter state — assembled into a BookmarkPageFilter on every change.
         self._active_tag: str = ""
         self._show_annotated_only: bool = False
         self._search_text: str = ""
         self._hidden_mode: bool = False
 
-        self._cards: list[_BookmarkCard] = []
-        self._card_index: dict[str, _BookmarkCard] = {}  # url -> card (O(1) lookup)
-        self._focused_card: _BookmarkCard | None = None  # card with keyboard focus
+        # Page-level shortcuts (currently empty; reserved for forward compat).
+        self._page_shortcuts: list[QShortcut] = []
 
-        self._pending_bms: list[tuple] = []
-        self._render_queue: list[tuple] = []
-
-        # Connected ONCE - never rewired
-        self._render_timer = QTimer(self)
-        self._render_timer.setInterval(16)
-        self._render_timer.timeout.connect(self._on_render_tick)
-
-        self._load_generation: int = 0
-        self._render_generation: int = 0
-
+        # Search debounce timer — fires once after the user stops typing.
         self._search_timer = QTimer(self)
         self._search_timer.setSingleShot(True)
-        self._search_timer.setInterval(200)
-        self._search_timer.timeout.connect(self._rebuild_cards_from_cache)
+        self._search_timer.setInterval(self._SEARCH_DEBOUNCE_MS)
+        self._search_timer.timeout.connect(self._on_search_timer)
 
-        self._worker: _LoadWorker | None = None
-        self._tag_worker: _TagRefreshWorker | None = None
-
-        self._all_bookmarks: list[BookmarkRecord] = []
-        self._annotations: dict[str, AnnotationRecord] = {}
-        self._all_tags: list[str] = []
-
-        self._page_shortcuts: list[QShortcut] = []
+        # Model + delegate — created BEFORE _build_ui so wiring is simple.
+        self._model = BookmarkListModel(self._db, parent=self)
+        self._model.loading_changed.connect(self._on_loading_changed)
+        self._model.total_count_changed.connect(self._on_total_count_changed)
+        self._model.tags_changed.connect(self._on_tags_changed)
 
         self._build_ui()
         self._setup_shortcuts()
-        self._start_load()
+
+        # Wire up theme handling (the delegate also handles its own cache
+        # invalidation; we just nudge the QListWidget tag sidebar).
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
 
-    def hideEvent(self, event):
-        """Clear all card widgets when the page is hidden."""
-        super().hideEvent(event)
-        self._stop_render()
-        self._clear_cards()
-        self._pending_bms.clear()
+        # Initial load — kicks off both the first page fetch and the count
+        # query.  Does NOT block the constructor; results arrive on signals.
+        self._reload_with_current_filter()
+        self._model.refresh_tags()
 
-    def showEvent(self, event):
-        """Reload bookmarks from the database each time the page becomes visible."""
-        super().showEvent(event)
-        self._start_load()
+    # ── UI construction ───────────────────────────────────────
 
-    def _on_theme_changed(self, _theme: str) -> None:
-        """Re-polish the tag list after a theme switch.
-
-        Card widgets are destroyed while the page is hidden (see hideEvent),
-        so app.setStyleSheet() no longer iterates over them.  The only extra
-        work needed here is to nudge the QListWidget's style so its item
-        colours pick up the new palette correctly.
-        """
-        style = self._tag_list.style()
-        style.unpolish(self._tag_list)
-        style.polish(self._tag_list)
-        self._tag_list.viewport().update()
-
-    # --- UI Setup ---
-
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
         splitter = QSplitter(Qt.Horizontal)
         splitter.setHandleWidth(1)
+        splitter.addWidget(self._build_sidebar())
+        splitter.addWidget(self._build_main_area())
+        splitter.setSizes([180, 600])
+        root.addWidget(splitter)
 
-        # Sidebar
+    def _build_sidebar(self) -> QWidget:
         sidebar = QWidget()
         sidebar.setObjectName("bm_sidebar")
         sidebar.setFixedWidth(180)
@@ -535,15 +397,18 @@ class BookmarksPage(QWidget):
         self._tag_list.currentRowChanged.connect(self._on_tag_selected)
         sb_layout.addWidget(self._tag_list, 1)
 
-        splitter.addWidget(sidebar)
+        # Initial sidebar state: just "All Bookmarks" until tags load.
+        self._populate_tag_sidebar([])
 
-        # Main Area
+        return sidebar
+
+    def _build_main_area(self) -> QWidget:
         main_area = QWidget()
         ma_layout = QVBoxLayout(main_area)
         ma_layout.setContentsMargins(12, 12, 12, 12)
         ma_layout.setSpacing(8)
 
-        # Toolbar
+        # Toolbar: search + has-note toggle.
         bar = QHBoxLayout()
         self._search_edit = QLineEdit()
         self._search_edit.setPlaceholderText(_("Search bookmarks… (tag:work, after:2024-01-01, has:note)"))
@@ -566,13 +431,9 @@ class BookmarksPage(QWidget):
 
         ma_layout.addLayout(bar)
 
-        # Hidden mode banner (shown only when in hidden mode)
+        # Hidden-mode banner (shown only when hidden mode is on).
         self._hidden_banner = QFrame()
         self._hidden_banner.setObjectName("hidden_mode_banner")
-        self._hidden_banner.setStyleSheet(
-            "QFrame#hidden_mode_banner { background: rgba(255,140,0,0.15);"
-            " border: 1px solid rgba(255,140,0,0.5); border-radius: 4px; }"
-        )
         banner_layout = QHBoxLayout(self._hidden_banner)
         banner_layout.setContentsMargins(10, 4, 10, 4)
         banner_icon = QLabel()
@@ -584,336 +445,84 @@ class BookmarksPage(QWidget):
         self._hidden_banner.hide()
         ma_layout.addWidget(self._hidden_banner)
 
-        self._count_lbl = QLabel()
+        # Count label (Loading… until count_ready arrives).
+        self._count_lbl = QLabel(_("Loading…"))
         self._count_lbl.setObjectName("muted")
         ma_layout.addWidget(self._count_lbl)
 
-        # Scroll Area
-        self._scroll_area = QScrollArea()
-        self._scroll_area.setWidgetResizable(True)
-        self._scroll_area.setFrameShape(QFrame.NoFrame)
+        # The bookmark list view — the centrepiece of the rewrite.
+        self._view = _BookmarkListView()
+        self._view.setObjectName("bookmark_list_view")
+        self._view.setModel(self._model)
+        self._delegate = BookmarkDelegate(self._view)
+        self._view.setItemDelegate(self._delegate)
+        self._view.set_delegate(self._delegate)
+        self._model.modelAboutToBeReset.connect(self._view.reset_hover_state)
+        self._model.rowsAboutToBeRemoved.connect(lambda *_args: self._view.reset_hover_state())
+        self._view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self._view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._view.setUniformItemSizes(False)
+        self._view.setSpacing(4)
+        self._view.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._view.setSelectionBehavior(QAbstractItemView.SelectItems)
+        self._view.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._view.setFrameShape(QFrame.NoFrame)
+        self._view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._view.customContextMenuRequested.connect(self._show_context_menu)
+        self._apply_view_palette()
 
-        # Disable horizontal scrollbar: Long URLs inside cards would expand horizontally.
-        # Setting to AlwaysOff forces content to wrap within the available width.
-        self._scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # A resize on the viewport invalidates per-width sizeHint cache so
+        # rows wrap correctly to the new available width.
+        self._view.viewport().installEventFilter(self)
 
-        self._cards_container = QWidget()
-        self._cards_layout = QVBoxLayout(self._cards_container)
-        self._cards_layout.setContentsMargins(0, 0, 0, 0)
-        self._cards_layout.setSpacing(8)
-        self._cards_layout.setSizeConstraint(QVBoxLayout.SetMinimumSize)
+        # Wire delegate / view actions to the same dispatcher.
+        self._view.action_triggered.connect(self._on_card_action)
+        self._view.doubleClicked.connect(self._on_double_clicked)
 
-        # addStretch keeps cards compactly stacked at the top, preventing them
-        # from stretching to fill the window when there are few bookmarks.
-        self._cards_layout.addStretch(1)
+        ma_layout.addWidget(self._view, 1)
 
-        self._scroll_area.setWidget(self._cards_container)
-        ma_layout.addWidget(self._scroll_area, 1)
+        return main_area
 
-        self._load_more_btn = QPushButton()
-        self._load_more_btn.setObjectName("filter_chip")
-        self._load_more_btn.hide()
-        self._load_more_btn.clicked.connect(self._load_next_page)
-        ma_layout.addWidget(self._load_more_btn)
+    # ── Filter assembly ───────────────────────────────────────
 
-        splitter.addWidget(main_area)
-        splitter.setSizes([180, 600])
-        root.addWidget(splitter)
-
-    # --- Background Load ---
-
-    def _stop_render(self):
-        """Stop the render timer and advance the generation counter."""
-        self._render_timer.stop()
-        self._render_queue.clear()
-        self._render_generation += 1
-
-    def _start_load(self):
-        self._stop_render()
-
-        # Bump generation BEFORE quit() so any in-flight result callback sees
-        # a stale gen and exits without touching shared state.
-        self._load_generation += 1
-        gen = self._load_generation
-
-        # Because _LoadWorker IS the QThread (lives in the main thread), calling
-        # isRunning() is always safe — there's no risk of a deleted C++ object.
-        if self._worker is not None:
-            if self._worker.isRunning():
-                # Keep a strong Python ref in the closure until finished; a
-                # direct connection to the C++ deleteLater slot is not enough
-                # to prevent the wrapper from being GC'd while run() is active.
-                self._worker.finished.connect(lambda w=self._worker: w.deleteLater())
-            else:
-                # Thread already finished — safe to delete immediately.
-                self._worker.deleteLater()
-            self._worker = None
-
-        self._count_lbl.setText(_("Loading…"))
-
-        worker = _LoadWorker(
-            self._db, "", hidden_mode=self._hidden_mode, parent=self
-        )  # tag filtering is done client-side
-        worker.result.connect(lambda bms, anns, tags: self._on_load_finished(bms, anns, tags, gen))
-        worker.error.connect(lambda e: log.error("Bookmark load error: %s", e))
-
-        # Only clear the ref when THIS specific worker finishes, not a future one.
-        worker.finished.connect(lambda w=worker: self._clear_load_worker_ref(w))
-
-        self._worker = worker
-        worker.start()
-
-    def _clear_load_worker_ref(self, w: _LoadWorker):
-        if self._worker is w:
-            self._worker = None
-
-    def _on_load_finished(
-        self,
-        bookmarks: list[BookmarkRecord],
-        annotations: list[AnnotationRecord],
-        tags: list[str],
-        gen: int,
-    ):
-        if gen != self._load_generation:
-            return
-        self._all_bookmarks = bookmarks
-        self._annotations = {ann.url: ann for ann in annotations}
-        self._all_tags = tags
-        # If the page is hidden, skip rendering — showEvent will call _start_load()
-        # again when the window reopens, so no data is lost.
-        if not self.isVisible():
-            return
-        self._rebuild_tag_sidebar_from_cache()
-        self._rebuild_cards_from_cache()
-
-    # --- Tag Sidebar ---
-
-    def _rebuild_tag_sidebar_from_cache(self):
-        self._tag_list.blockSignals(True)
-        self._tag_list.clear()
-
-        all_item = QListWidgetItem(get_icon("bookmark"), _("All Bookmarks"))
-        all_item.setData(Qt.UserRole, "")
-        self._tag_list.addItem(all_item)
-
-        for tag in self._all_tags:
-            item = QListWidgetItem(get_icon("tag"), f"#{tag}")
-            item.setData(Qt.UserRole, tag)
-            self._tag_list.addItem(item)
-
-        for i in range(self._tag_list.count()):
-            if self._tag_list.item(i).data(Qt.UserRole) == self._active_tag:
-                self._tag_list.setCurrentRow(i)
-                break
-        else:
-            self._tag_list.setCurrentRow(0)
-
-        self._tag_list.blockSignals(False)
-
-    # --- Filtering ---
-
-    def _filter_bookmarks(self) -> list:
+    def _build_filter(self) -> BookmarkPageFilter:
+        """Translate the live UI state into a BookmarkPageFilter."""
         query = parse_query(self._search_text)
+        # bookmark_tag from search query overrides sidebar selection (matches legacy behaviour).
         effective_tag = query.bookmark_tag if query.bookmark_tag else self._active_tag
+        has_ann = self._show_annotated_only or query.has_annotation
+        return BookmarkPageFilter(
+            tag=effective_tag,
+            keyword=query.keyword,
+            title_only=query.title_only,
+            url_only=query.url_only,
+            has_annotation=has_ann,
+            excludes=tuple(query.excludes),
+            domains=tuple(query.domains),
+            after=query.after,
+            before=query.before,
+            hidden_mode=self._hidden_mode,
+        )
 
-        annotated_urls: set[str] | None = None
-        if self._show_annotated_only or query.has_annotation:
-            annotated_urls = {url for url, ann in self._annotations.items() if ann.note}
+    def _reload_with_current_filter(self) -> None:
+        self._model.reset_filter(self._build_filter())
 
-        keyword = query.keyword.lower()
-        filtered = []
+    # ── Search / filter input handlers ────────────────────────
 
-        for bm in self._all_bookmarks:
-            if effective_tag and effective_tag not in bm.tags:
-                continue
-            if annotated_urls is not None and bm.url not in annotated_urls:
-                continue
-            if query.domains:
-                bm_domain = _extract_domain(bm.url)
-                if not any(d.lower() in bm_domain for d in query.domains):
-                    continue
-            if query.after:
-                after_ts = int(datetime(query.after.year, query.after.month, query.after.day).timestamp())
-                if bm.bookmarked_at < after_ts:
-                    continue
-            if query.before:
-                before_ts = int(
-                    datetime(query.before.year, query.before.month, query.before.day, 23, 59, 59).timestamp()
-                )
-                if bm.bookmarked_at > before_ts:
-                    continue
-            if keyword:
-                match_title = keyword in (bm.title or "").lower()
-                match_url = keyword in bm.url.lower()
-                match_tag = any(keyword in t.lower() for t in bm.tags)
-                if query.title_only:
-                    if not match_title:
-                        continue
-                elif query.url_only:
-                    if not match_url:
-                        continue
-                elif not (match_title or match_url or match_tag):
-                    continue
-            if query.excludes:
-                combined = ((bm.title or "") + " " + bm.url).lower()
-                if any(ex.lower() in combined for ex in query.excludes):
-                    continue
+    def _on_search_changed(self, text: str) -> None:
+        self._search_text = text
+        self._search_timer.start()
 
-            filtered.append((bm, self._annotations.get(bm.url)))
+    def _on_search_timer(self) -> None:
+        self._reload_with_current_filter()
 
-        return filtered
+    def _set_annotated_filter(self, only_annotated: bool) -> None:
+        self._show_annotated_only = only_annotated
+        self._btn_all.setChecked(not only_annotated)
+        self._btn_has_note.setChecked(only_annotated)
+        self._reload_with_current_filter()
 
-    # --- Chunked Card Rendering ---
-
-    def _delete_card(self, card: _BookmarkCard):
-        """
-        Disconnect all signals then schedule C++ deletion.
-
-        This is the ONLY safe way to remove a card. Calling deleteLater()
-        without disconnecting first leaves pending OS events that can be
-        delivered to the dying C++ object, causing 0xC0000005 crashes.
-
-        Note: card.hide() is intentionally omitted here. When called from
-        _clear_cards(), the container already has updates disabled.
-        """
-        card.disconnect_all()
-        self._cards_layout.removeWidget(card)
-        card.deleteLater()
-
-    def _clear_cards(self):
-        """
-        Clear all cards safely.
-
-        Disables repaints for the entire batch so Qt does not fire a layout
-        recalculation (and potentially a reentrant paintEvent) for every
-        individual removeWidget() call.
-        """
-        self._focused_card = None  # stale reference - card is being destroyed
-        self._cards_container.setUpdatesEnabled(False)
-        try:
-            for card in self._cards:
-                self._delete_card(card)
-            self._cards.clear()
-            self._card_index.clear()
-        finally:
-            self._cards_container.setUpdatesEnabled(True)
-
-    def _rebuild_cards_from_cache(self):
-        self._stop_render()
-        self._clear_cards()
-        self._pending_bms.clear()
-
-        rgen = self._render_generation  # already bumped by _stop_render()
-
-        filtered = self._filter_bookmarks()
-        total = len(filtered)
-
-        first_page = filtered[:_PAGE_SIZE]
-        self._pending_bms = filtered[_PAGE_SIZE:]
-
-        self._render_queue = list(first_page)
-        self._count_lbl.setText(_("{n} bookmarks").format(n=total))
-        self._update_load_more_btn(total)
-
-        if self._render_queue:
-            # singleShot(0) defers until the event loop has processed the
-            # deleteLater() calls issued by _clear_cards() above.
-            QTimer.singleShot(0, lambda: self._render_chunk(rgen))
-
-    def _on_render_tick(self):
-        """Timer slot — connected once at construction, never rewired."""
-        self._render_chunk(self._render_generation)
-
-    def _render_chunk(self, rgen: int):
-        if rgen != self._render_generation:
-            self._render_timer.stop()
-            return
-        if not self._render_queue:
-            self._render_timer.stop()
-            return
-
-        batch = self._render_queue[:_CHUNK_SIZE]
-        self._render_queue = self._render_queue[_CHUNK_SIZE:]
-
-        for bm, ann in batch:
-            card = self._make_card(bm, ann)
-            # Insert before the stretch (which is always the last item)
-            # to keep cards compactly stacked at the top.
-            self._cards_layout.insertWidget(self._cards_layout.count() - 1, card)
-            self._cards.append(card)
-            self._card_index[bm.url] = card
-
-        if self._render_queue:
-            if not self._render_timer.isActive():
-                self._render_timer.start()
-        else:
-            self._render_timer.stop()
-
-    # --- Pagination ---
-
-    def _load_next_page(self):
-        if not self._pending_bms:
-            return
-        page = self._pending_bms[:_PAGE_SIZE]
-        self._pending_bms = self._pending_bms[_PAGE_SIZE:]
-        self._render_queue.extend(page)
-
-        if not self._render_timer.isActive():
-            self._render_timer.start()
-
-        total = len(self._cards) + len(self._render_queue) + len(self._pending_bms)
-        self._update_load_more_btn(total)
-
-    def _update_load_more_btn(self, total: int):
-        remaining = len(self._pending_bms)
-        if remaining > 0:
-            shown = len(self._cards) + len(self._render_queue)
-            self._load_more_btn.setText(
-                _("Load {n} more…").format(n=min(_PAGE_SIZE, remaining)) + f"  ({shown}/{total})"
-            )
-            self._load_more_btn.show()
-        else:
-            self._load_more_btn.hide()
-
-    # --- Card Factory ---
-
-    def _make_card(self, bm: BookmarkRecord, ann: AnnotationRecord | None) -> _BookmarkCard:
-        card = _BookmarkCard(bm, ann, parent=self._cards_container)
-        card.open_requested.connect(self._open_url)
-        card.copy_url_requested.connect(lambda u: QApplication.clipboard().setText(u))
-        card.edit_tags_requested.connect(self._edit_tags)
-        card.add_note_requested.connect(self._edit_note)
-        card.remove_requested.connect(self._remove_bookmark)
-        card.locate_in_list_requested.connect(self._locate_in_history)
-        card.card_focused.connect(self._on_card_focused)
-        card.navigate_requested.connect(self._on_card_navigate)
-        return card
-
-    def _on_card_focused(self, card: _BookmarkCard) -> None:
-        """Track which card currently holds keyboard focus."""
-        self._focused_card = card
-
-    def _on_card_navigate(self, card: _BookmarkCard, direction: int) -> None:
-        """Move keyboard focus to the adjacent card (direction: -1 up, +1 down)."""
-        try:
-            idx = self._cards.index(card)
-        except ValueError:
-            return
-        new_idx = max(0, min(len(self._cards) - 1, idx + direction))
-        if new_idx == idx:
-            return
-        target = self._cards[new_idx]
-        target.setFocus()
-        self._focused_card = target
-        # Scroll the target into view
-        self._scroll_area.ensureWidgetVisible(target)
-
-    def _find_card(self, url: str) -> _BookmarkCard | None:
-        return self._card_index.get(url)
-
-    # --- Event Handlers ---
-
-    def _on_tag_selected(self, row: int):
+    def _on_tag_selected(self, row: int) -> None:
         if row < 0:
             return
         item = self._tag_list.item(row)
@@ -921,31 +530,86 @@ class BookmarksPage(QWidget):
         if new_tag == self._active_tag:
             return
         self._active_tag = new_tag
-        # If we already have the full bookmark list cached, filter client-side
-        # immediately without a DB round-trip. This eliminates the UI freeze
-        # caused by issuing a new _LoadWorker every time the user clicks a tag.
-        if self._all_bookmarks:
-            self._rebuild_cards_from_cache()
+        self._reload_with_current_filter()
+
+    # ── Tag sidebar ───────────────────────────────────────────
+
+    def _populate_tag_sidebar(self, tags: list[str]) -> None:
+        """Rebuild the tag QListWidget while preserving the active selection."""
+        self._tag_list.blockSignals(True)
+        self._tag_list.clear()
+
+        all_item = QListWidgetItem(get_icon("bookmark"), _("All Bookmarks"))
+        all_item.setData(Qt.UserRole, "")
+        self._tag_list.addItem(all_item)
+
+        for tag in tags:
+            item = QListWidgetItem(get_icon("tag"), f"#{tag}")
+            item.setData(Qt.UserRole, tag)
+            self._tag_list.addItem(item)
+
+        # Restore selection on the active tag (or fall back to "All").
+        target_row = 0
+        for i in range(self._tag_list.count()):
+            if self._tag_list.item(i).data(Qt.UserRole) == self._active_tag:
+                target_row = i
+                break
+        self._tag_list.setCurrentRow(target_row)
+        self._tag_list.blockSignals(False)
+
+    def _on_tags_changed(self, tags: list) -> None:
+        self._populate_tag_sidebar(list(tags))
+
+    # ── Model state handlers ──────────────────────────────────
+
+    def _on_loading_changed(self, loading: bool) -> None:
+        if loading:
+            self._count_lbl.setText(_("Loading…"))
         else:
-            self._start_load()
+            # When loading ends, render the count we last received from the
+            # count worker.  total_count_changed may have arrived before the
+            # final loading_changed(False), in which case _on_total_count_changed
+            # already set the label; calling it again is idempotent.
+            self._on_total_count_changed(self._model.total_count)
 
-    def _on_search_changed(self, text: str):
-        self._search_text = text
-        self._search_timer.start()
+    def _on_total_count_changed(self, n: int) -> None:
+        if self._model.is_loading:
+            return
+        self._count_lbl.setText(_("{n} bookmarks").format(n=n))
 
-    def _set_annotated_filter(self, only_annotated: bool):
-        self._show_annotated_only = only_annotated
-        self._btn_all.setChecked(not only_annotated)
-        self._btn_has_note.setChecked(only_annotated)
-        self._rebuild_cards_from_cache()
+    # ── Card action dispatch ──────────────────────────────────
 
-    def _open_url(self, url: str):
+    def _on_card_action(self, action: str, bm: BookmarkRecord) -> None:
+        """Single dispatcher for every clickable / keyboard-triggered action."""
+        if action in ("open", "title"):
+            self._open_url(bm.url)
+        elif action in ("edit_tags", "tag_area"):
+            self._edit_tags(bm)
+        elif action in ("edit_note", "note"):
+            self._edit_note(bm)
+        elif action == "locate":
+            self._locate_in_history(bm)
+        elif action == "remove":
+            self._remove_bookmark(bm)
+        elif action == "copy_url":
+            QApplication.clipboard().setText(bm.url)
+        else:
+            log.debug("Unknown bookmark action: %s", action)
+
+    def _on_double_clicked(self, idx: QModelIndex) -> None:
+        bm = idx.data(BookmarkListModel.BookmarkRole)
+        if bm is not None:
+            self._open_url(bm.url)
+
+    # ── Mutations (DB writes + optimistic model updates) ──────
+
+    def _open_url(self, url: str) -> None:
         try:
             webbrowser.open(url)
         except Exception:
-            pass
+            log.exception("Failed to open URL")
 
-    def _edit_tags(self, bm: BookmarkRecord):
+    def _edit_tags(self, bm: BookmarkRecord) -> None:
         current = ", ".join(bm.tags)
         text, ok = QInputDialog.getText(
             self,
@@ -956,55 +620,37 @@ class BookmarksPage(QWidget):
         )
         if not ok:
             return
-
         tags = [t.strip() for t in text.split(",") if t.strip()]
-        self._db.update_bookmark_tags(bm.url, tags)
-        self.bookmark_changed.emit()
-
         old_tags = set(bm.tags)
         new_tags = set(tags)
-        bm.tags = tags
-
-        for cached_bm in self._all_bookmarks:
-            if cached_bm.url == bm.url:
-                cached_bm.tags = tags
-                break
-
-        card = self._find_card(bm.url)
-        if card is not None:
-            card._bm = bm
-            card._rebuild_tags()
-
+        try:
+            self._db.update_bookmark_tags(bm.url, tags)
+        except Exception:
+            log.exception("update_bookmark_tags failed")
+            return
+        self._model.refresh_loaded_url(bm.url)
+        self.bookmark_changed.emit()
         if old_tags != new_tags:
-            self._refresh_tags_only()
+            self._model.refresh_tags()
 
-    def _edit_note(self, bm: BookmarkRecord):
+    def _edit_note(self, bm: BookmarkRecord) -> None:
         existing = self._db.get_annotation(bm.url)
         dlg = AnnotationDialog(bm.url, bm.title or bm.url, existing, parent=self)
         if not exec_centered(dlg, self):
             return
-
         note = dlg.get_note()
-        if note.strip():
-            ann = self._db.upsert_annotation(bm.url, note)
-        else:
-            self._db.delete_annotation(bm.url)
-            ann = None
-
+        try:
+            if note.strip():
+                self._db.upsert_annotation(bm.url, note)
+            else:
+                self._db.delete_annotation(bm.url)
+        except Exception:
+            log.exception("annotation write failed")
+            return
+        self._model.refresh_loaded_url(bm.url)
         self.bookmark_changed.emit()
 
-        if ann:
-            self._annotations[bm.url] = ann
-        else:
-            self._annotations.pop(bm.url, None)
-
-        card = self._find_card(bm.url)
-        if card is not None:
-            card.update_note(ann)
-        elif self._show_annotated_only:
-            self._rebuild_cards_from_cache()
-
-    def _remove_bookmark(self, bm: BookmarkRecord):
+    def _remove_bookmark(self, bm: BookmarkRecord) -> None:
         reply = QMessageBox.question(
             self,
             _("Remove Bookmark"),
@@ -1014,97 +660,115 @@ class BookmarksPage(QWidget):
         )
         if reply != QMessageBox.Yes:
             return
-
-        self._db.remove_bookmark(bm.url)
-
-        # Invalidate any _LoadWorker that is still running (e.g. one launched by
-        # showEvent just before the user clicked Delete).  Without this bump the
-        # worker's _on_load_finished callback would overwrite _all_bookmarks with
-        # stale data that still contains the just-deleted bookmark, making it
-        # reappear as soon as the thread finishes.
-        self._load_generation += 1
-
+        try:
+            self._db.remove_bookmark(bm.url)
+        except Exception:
+            log.exception("remove_bookmark failed")
+            return
+        self._model.remove_url(bm.url)
         self.bookmark_changed.emit()
+        self._model.refresh_tags()
 
-        self._all_bookmarks = [b for b in self._all_bookmarks if b.url != bm.url]
-        self._annotations.pop(bm.url, None)
-        self._pending_bms = [(b, a) for b, a in self._pending_bms if b.url != bm.url]
-        self._render_queue = [(b, a) for b, a in self._render_queue if b.url != bm.url]
-
-        card = self._find_card(bm.url)
-        if card is not None:
-            self._cards.remove(card)
-            del self._card_index[bm.url]
-            self._delete_card(card)  # disconnect then deleteLater
-
-        total = len(self._cards) + len(self._render_queue) + len(self._pending_bms)
-        self._count_lbl.setText(_("{n} bookmarks").format(n=total))
-        self._update_load_more_btn(total)
-
-        self._refresh_tags_only()
-
-    def _locate_in_history(self, bm: BookmarkRecord):
+    def _locate_in_history(self, bm: BookmarkRecord) -> None:
         self.navigate_to_history.emit(bm, self._hidden_mode)
 
-    # --- Tag Refresh ---
+    # ── Context menu ──────────────────────────────────────────
 
-    def _refresh_tags_only(self):
-        if self._tag_worker is not None and self._tag_worker.isRunning():
-            return  # already in flight; its result will be applied shortly
+    def _show_context_menu(self, pos: QPoint) -> None:
+        idx = self._view.indexAt(pos)
+        if not idx.isValid():
+            return
+        bm = idx.data(BookmarkListModel.BookmarkRole)
+        if bm is None:
+            return
+        menu = StyledMenu(self)
+        entries = [
+            ("corner-up-right", _("Open in Browser"), lambda _bm=bm: self._open_url(_bm.url)),
+            ("copy", _("Copy URL"), lambda _bm=bm: QApplication.clipboard().setText(_bm.url)),
+            None,
+            ("tag", _("Edit Tags"), lambda _bm=bm: self._edit_tags(_bm)),
+            ("edit-2", _("Edit Note"), lambda _bm=bm: self._edit_note(_bm)),
+            None,
+            ("crosshair", _("Locate in History"), lambda _bm=bm: self._locate_in_history(_bm)),
+            None,
+            ("trash", _("Remove Bookmark"), lambda _bm=bm: self._remove_bookmark(_bm)),
+        ]
+        for entry in entries:
+            if entry is None:
+                menu.addSeparator()
+                continue
+            icon_name, label, cb = entry
+            act = QAction(get_icon(icon_name), label, self)
+            # QAction.triggered emits checked(bool) as its first arg; absorb it.
+            act.triggered.connect(lambda _checked=False, _cb=cb: _cb())
+            menu.addAction(act)
+        menu.exec(self._view.viewport().mapToGlobal(pos))
 
-        worker = _TagRefreshWorker(self._db, parent=self)
-        worker.done.connect(self._apply_refreshed_tags)
-        worker.finished.connect(lambda w=worker: self._clear_tag_worker_ref(w))
+    # ── Theme handling ────────────────────────────────────────
 
-        # Schedule C++ deletion once the thread exits so we don't accumulate
-        # finished-but-not-deleted QThread children on the page widget.
-        worker.finished.connect(lambda w=worker: w.deleteLater())
+    def _on_theme_changed(self, _resolved: str) -> None:
+        self._apply_view_palette()
+        # Tag list — re-polish so its item palette refreshes (matches legacy).
+        style = self._tag_list.style()
+        style.unpolish(self._tag_list)
+        style.polish(self._tag_list)
+        self._tag_list.viewport().update()
+        # Bookmark list — delegate already cleared its cache on the same
+        # signal, so we just nudge the viewport to repaint.
+        self._view.viewport().update()
 
-        self._tag_worker = worker
-        worker.start()
+    def _apply_view_palette(self) -> None:
+        """Keep the bookmark list palette aligned with the active theme.
 
-    def _clear_tag_worker_ref(self, w: _TagRefreshWorker):
-        if self._tag_worker is w:
-            self._tag_worker = None
+        The delegate paints card backgrounds itself, but Qt still feeds the
+        delegate the view palette. On some Windows style/theme combinations,
+        QListView keeps a light Base/Highlight palette even after the app QSS
+        switches to dark, which makes selected cards appear white. Override the
+        list palette explicitly so the delegate always sees the correct colors.
+        """
+        pal = QPalette(self._view.palette())
+        is_dark = ThemeManager.instance().current == "dark"
+        if is_dark:
+            base = QColor("#171c27")
+            alt = QColor("#1d2432")
+            text = QColor("#d7dfef")
+            mid = QColor("#394355")
+            highlight = QColor("#2a4268")
+            highlighted_text = QColor("#dce8ff")
+        else:
+            base = QColor("#f6f8fc")
+            alt = QColor("#e8eef8")
+            text = QColor("#1f2937")
+            mid = QColor("#c7d2e3")
+            highlight = QColor("#dbe7fb")
+            highlighted_text = QColor("#1d4ed8")
 
-    def _apply_refreshed_tags(self, tags: list[str]):
-        self._all_tags = tags
-        self._rebuild_tag_sidebar_from_cache()
+        pal.setColor(QPalette.Base, base)
+        pal.setColor(QPalette.AlternateBase, alt)
+        pal.setColor(QPalette.Text, text)
+        pal.setColor(QPalette.WindowText, text)
+        pal.setColor(QPalette.Mid, mid)
+        pal.setColor(QPalette.Highlight, highlight)
+        pal.setColor(QPalette.HighlightedText, highlighted_text)
+        self._view.setPalette(pal)
+        self._view.viewport().setPalette(pal)
 
-    # --- Keyboard shortcuts ---
+    # ── Keyboard shortcuts ────────────────────────────────────
 
     def _setup_shortcuts(self) -> None:
-        """Register page-level keyboard shortcuts from config.
+        """Page-level shortcuts (currently empty; kept for forward-compat).
 
-        All shortcuts use Qt.WidgetWithChildrenShortcut so they only fire when
-        this page (or one of its children) has focus, preventing cross-page
-        conflicts when multiple pages are instantiated.
-
-        Note: card-level actions (Return, Del, Ctrl+C, Ctrl+N, Ctrl+L) are
-        handled directly in _BookmarkCard.keyPressEvent when a card is focused.
-        Ctrl+F is handled by MainWindow global focus_search to avoid duplicate
-        registrations that can become ambiguous in Qt shortcut dispatch.
+        Per-card shortcuts (Enter, Del, Ctrl+C/N/L) live in
+        :class:`_BookmarkListView.keyPressEvent` so they only fire when the
+        list view itself has focus, preventing cross-page conflicts.
         """
         for sc in self._page_shortcuts:
             sc.setEnabled(False)
             sc.deleteLater()
         self._page_shortcuts.clear()
 
-        kb = self._config.keybindings.app if self._config else {}
-
-        def _bind(key: str, fallback: str, slot) -> None:
-            seq = kb.get(key, fallback)
-            if not seq:
-                return
-            sc = QShortcut(QKeySequence(seq), self)
-            sc.setContext(Qt.WidgetWithChildrenShortcut)
-            sc.activated.connect(slot)
-            self._page_shortcuts.append(sc)
-
-        # No page-level Ctrl+F binding: handled globally by MainWindow.
-
     def apply_keybindings(self) -> None:
-        """Re-apply keyboard shortcuts after config change."""
+        """Re-apply keyboard shortcuts after a settings change."""
         self._setup_shortcuts()
 
     def _focus_search(self) -> None:
@@ -1112,25 +776,61 @@ class BookmarksPage(QWidget):
         self._search_edit.setFocus()
         self._search_edit.selectAll()
 
-    # --- Public API ---
+    # ── Viewport eventFilter (resize → invalidate sizeHint cache) ──
 
-    def refresh(self):
-        """Public method to trigger a full refresh of the bookmarks data."""
-        self._start_load()
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        if obj is self._view.viewport() and event.type() == QEvent.Resize:
+            # Width changed → cached sizeHints (keyed by width) are stale.
+            # The delegate's cache also keys on width so most entries stay
+            # fresh, but we still poke the layout to re-query.
+            self._delegate.invalidate_cache()
+            self._view.scheduleDelayedItemsLayout()
+        return super().eventFilter(obj, event)
+
+    # ── Public API ────────────────────────────────────────────
+
+    def refresh(self) -> None:
+        """Reload bookmarks (and tags) from the database with the active filter.
+
+        Cheap with the new model: a single keyset page + a count query.
+        Called by MainWindow on relevant external events.
+        """
+        self._model.refresh()
+        self._model.refresh_tags()
+
+    def apply_external_bookmark_change(self, changes: list[tuple[str, str]] | None = None) -> None:
+        """Slot called by MainWindow when another page mutates a bookmark.
+
+        When callers provide exact changed URLs, update only those rows so
+        scroll position and selection survive cross-page bookmark toggles.
+        Older callers may still omit *changes*, in which case we fall back to
+        a full refresh.
+        """
+        if not changes:
+            self.refresh()
+            return
+        for action, url in changes:
+            self._model.sync_external_change(action, url)
+        self._model.refresh_tags()
 
     def set_hidden_mode(self, enabled: bool) -> None:
-        """Switch between normal and hidden-record bookmark views.
-
-        In normal mode bookmarks pointing to hidden URLs/domains are invisible.
-        In hidden mode *only* those bookmarks are shown, mirroring the history
-        page behaviour.
-        """
+        """Switch between normal and hidden-record bookmark views."""
         if self._hidden_mode == enabled:
             return
         self._hidden_mode = enabled
         self._hidden_banner.setVisible(enabled)
-        self._start_load()
+        self._reload_with_current_filter()
 
     def leave_hidden_mode(self) -> None:
         """Return to normal mode (no-op if already in normal mode)."""
         self.set_hidden_mode(False)
+
+    # ── Lifecycle ─────────────────────────────────────────────
+
+    def closeEvent(self, event):
+        # Wait for in-flight workers so we don't leave QThreads dangling.
+        try:
+            self._model.shutdown()
+        except Exception:
+            log.exception("model.shutdown() raised")
+        super().closeEvent(event)

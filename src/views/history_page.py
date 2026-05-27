@@ -801,12 +801,15 @@ class BookmarkBadgeDelegate(QStyledItemDelegate):
         db = page._vm._db
         if db.is_bookmarked(record.url):
             db.remove_bookmark(record.url)
+            bookmark_action = "removed"
         else:
             db.add_bookmark(record.url, record.title or record.url, [], history_id=record.id)
+            bookmark_action = "added"
 
         # Refresh badge cache
         page._vm.table_model.invalidate_badge_cache(page._table)
         page.bookmark_changed.emit()
+        page.bookmark_changes.emit([(bookmark_action, record.url)])
 
     def _handle_annotation_click(self, index):
         """Open annotation edit dialog."""
@@ -2027,6 +2030,7 @@ class HistoryPage(QWidget):
     delete_records_requested = Signal(list)  # list of record IDs
     unhide_records_requested = Signal(list)  # list of record IDs to unhide
     bookmark_changed = Signal()  # emitted after any add/remove bookmark action
+    bookmark_changes = Signal(list)  # emitted with (action, url) entries from history-page bookmark actions
 
     _BUBBLE_SETTLE_TICKS = 3
 
@@ -3774,18 +3778,24 @@ class HistoryPage(QWidget):
 
     def _toggle_bookmark(self, selected_records, primary, multi):
         db = self._vm._db
+        changes: list[tuple[str, str]] = []
         if multi:
             for r in selected_records:
                 if not db.is_bookmarked(r.url):
                     db.add_bookmark(r.url, r.title or r.url, [], history_id=r.id)
+                    changes.append(("added", r.url))
         elif db.is_bookmarked(primary.url):
             db.remove_bookmark(primary.url)
+            changes.append(("removed", primary.url))
         else:
             db.add_bookmark(primary.url, primary.title or primary.url, [], history_id=primary.id)
+            changes.append(("added", primary.url))
 
         # Refresh badge cache to show/hide bookmark icons
         self._vm.table_model.invalidate_badge_cache(self._table)
         self.bookmark_changed.emit()
+        if changes:
+            self.bookmark_changes.emit(changes)
 
     def _edit_annotation(self, record):
         db = self._vm._db

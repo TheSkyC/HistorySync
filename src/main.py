@@ -531,7 +531,7 @@ def _gui_main(args: argparse.Namespace) -> None:
     """Normal GUI startup flow."""
     import logging as _logging
 
-    from PySide6.QtCore import Qt, QTimer
+    from PySide6.QtCore import Qt, QTimer, qInstallMessageHandler
     from PySide6.QtGui import QFont
     from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
@@ -550,11 +550,22 @@ def _gui_main(args: argparse.Namespace) -> None:
     from src.views.main_window import MainWindow
     from src.views.tray_icon import TrayIcon
 
+    _previous_qt_message_handler = None
+
+    def _qt_message_filter(_msg_type, _context, message):
+        text = str(message).strip()
+        if text == "qt.svg: link # is undefined!":
+            return
+        if _previous_qt_message_handler is not None:
+            _previous_qt_message_handler(_msg_type, _context, message)
+
     # ── 1. Logging ───────────────────────────────────────────────────────────
     log_dir = get_log_dir()
     setup_logger(log_dir, level=_logging.DEBUG if args.debug else _logging.INFO)
     log = get_logger("main")
     log.warning("HistorySync starting up  args=%s", vars(args))
+
+    _previous_qt_message_handler = qInstallMessageHandler(_qt_message_filter)
 
     # ── 1a. Legacy migration detection (before AppConfig.load) ───────────────
     # We need a minimal QApplication to show dialogs, so we set it up early

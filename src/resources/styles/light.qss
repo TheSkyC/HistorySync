@@ -805,8 +805,8 @@ QGroupBox::title {
 
 /* ── Bookmarks page ─────────────────────────────────── */
 QWidget#bm_sidebar {
-    background-color: #f5f6fa;
-    border-right: 1px solid #e0e4ef;
+    background-color: #eef2f8;
+    border-right: 1px solid #d8e0ec;
 }
 
 QListWidget#tag_list {
@@ -815,17 +815,18 @@ QListWidget#tag_list {
     outline: none;
 }
 QListWidget#tag_list::item {
-    padding: 6px 8px;
-    border-radius: 6px;
-    color: #5a6070;
+    padding: 8px 10px;
+    border-radius: 9px;
+    color: #556074;
+    margin: 2px 0px;
 }
 QListWidget#tag_list::item:hover {
-    background: #e8eaf2;
-    color: #2c3050;
+    background: #dde7f5;
+    color: #22314d;
 }
 QListWidget#tag_list::item:selected {
-    background: #dde0f5;
-    color: #4a5580;
+    background: #cfdcf2;
+    color: #1d4ed8;
 }
 
 QFrame#bookmark_card {
@@ -873,23 +874,45 @@ QPushButton#icon_btn:hover {
 }
 
 QPushButton#filter_chip {
-    background: #f5f6fa;
-    border: 1px solid #d0d4e8;
-    border-radius: 6px;
-    padding: 3px 12px;
-    color: #5a6070;
+    background: #f7f9fc;
+    border: 1px solid #d6dfed;
+    border-radius: 11px;
+    padding: 5px 14px;
+    color: #556074;
+    font-weight: 500;
 }
 QPushButton#filter_chip:checked, QPushButton#filter_chip:hover {
-    background: #dde0f5;
-    color: #4a5580;
-    border-color: #9fa8da;
+    background: #dbe7fb;
+    color: #1d4ed8;
+    border-color: #9bb7ee;
 }
 
 QLabel#sidebar_section_title {
-    color: #9098b0;
+    color: #7a869d;
     font-size: 11px;
     font-weight: 600;
-    letter-spacing: 1px;
+    letter-spacing: 0.8px;
+}
+
+QFrame#hidden_mode_banner {
+    background: #fff4df;
+    border: 1px solid #f1c980;
+    border-radius: 10px;
+}
+
+QFrame#hidden_mode_banner QLabel {
+    background: transparent;
+}
+
+QListView#bookmark_list_view {
+    background: #f6f8fc;
+    border: none;
+    outline: none;
+}
+
+QListView#bookmark_list_view::item {
+    background: transparent;
+    border: none;
 }
 
 /* ── Suggestion dropdown ─────────────────────────────── */

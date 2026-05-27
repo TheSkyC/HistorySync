@@ -97,8 +97,10 @@ class _ConnectionMixin:
             conn.execute(f"PRAGMA mmap_size={mmap_size}")
             conn.execute("PRAGMA temp_store=MEMORY")
             conn.commit()
-            conn.create_function("_extract_host", 1, _extract_url_host)
-            conn.create_function("REGEXP", 2, lambda pat, text: bool(re.search(pat, text or "", re.IGNORECASE)))
+            conn.create_function("_extract_host", 1, _extract_url_host, deterministic=True)
+            conn.create_function(
+                "REGEXP", 2, lambda pat, text: bool(re.search(pat, text or "", re.IGNORECASE)), deterministic=True
+            )
             self._pconn = conn
         if not self._schema_initialized:
             self._schema_initialized = True  # set before calling to prevent re-entry
@@ -159,8 +161,10 @@ class _ConnectionMixin:
             )
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA temp_store=MEMORY")
-            conn.create_function("_extract_host", 1, _extract_url_host)
-            conn.create_function("REGEXP", 2, lambda pat, text: bool(re.search(pat, text or "", re.IGNORECASE)))
+            conn.create_function("_extract_host", 1, _extract_url_host, deterministic=True)
+            conn.create_function(
+                "REGEXP", 2, lambda pat, text: bool(re.search(pat, text or "", re.IGNORECASE)), deterministic=True
+            )
             self._ro_conn = conn
         return self._ro_conn
 

@@ -257,7 +257,7 @@ class MainWindow(QMainWindow):
             self._page_history.hide_domain_requested.connect(self._on_hide_domain)
             self._page_history.blacklist_domain_requested.connect(self._on_blacklist_domain)
             self._page_history.unhide_records_requested.connect(self._on_unhide_records)
-            self._page_history.bookmark_changed.connect(self._on_bookmark_changed)
+            self._page_history.bookmark_changes.connect(self._on_bookmark_changes_external)
 
         elif index == PAGE_BOOKMARKS and self._page_bookmarks is None:
             from src.views.bookmarks_page import BookmarksPage
@@ -434,12 +434,29 @@ class MainWindow(QMainWindow):
         log.info("Domain blacklisted: %s", domain)
 
     def _on_bookmark_changed(self):
-        """Refresh history badge cache and bookmarks page when bookmarks are modified."""
+        """Refresh history badge cache and bookmarks page when bookmarks are modified.
+
+        With the virtualized BookmarksPage, internal mutations on the page
+        already update the model optimistically -- calling refresh() here
+        would re-query SQL and clobber selection / scroll state for no
+        visible change.  We therefore only refresh the BOOKMARKS page when
+        the change originated elsewhere (signalled by `from_external`); the
+        history badge cache is invalidated unconditionally because the
+        history page never updates it itself.
+        """
         if self._page_history is not None:
             self._page_history._vm.table_model.invalidate_badge_cache(self._page_history._table)
             self._page_history._vm._refresh_tag_list()
+
+    def _on_bookmark_changed_external(self):
+        """Bookmark mutated by history page -- refresh shared bookmark caches."""
+        self._on_bookmark_changed()
+
+    def _on_bookmark_changes_external(self, changes: list[tuple[str, str]]):
+        """Bookmark URLs mutated by history page -- update bookmarks incrementally."""
+        self._on_bookmark_changed()
         if self._page_bookmarks is not None:
-            self._page_bookmarks.refresh()
+            self._page_bookmarks.apply_external_bookmark_change(changes)
 
     # ── Window events ─────────────────────────────────────────
 

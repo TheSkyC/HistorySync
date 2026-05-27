@@ -116,10 +116,15 @@ class _SchemaMixin:
                     title         TEXT    NOT NULL DEFAULT '',
                     tags          TEXT    NOT NULL DEFAULT '',
                     bookmarked_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
-                    history_id    INTEGER
+                    history_id    INTEGER,
+                    -- Materialised hostname extracted from `url` so visibility filters
+                    -- against hidden_domains are pure SQL with no Python-UDF callbacks.
+                    -- Populated synchronously by add_bookmark / update_bookmark_tags;
+                    -- backfilled for existing rows by _migrate_schema.
+                    host          TEXT    NOT NULL DEFAULT ''
                 );
-                CREATE INDEX IF NOT EXISTS idx_bookmarks_url ON bookmarks(url);
-                CREATE INDEX IF NOT EXISTS idx_bookmarks_at  ON bookmarks(bookmarked_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_bookmarks_url  ON bookmarks(url);
+                CREATE INDEX IF NOT EXISTS idx_bookmarks_at   ON bookmarks(bookmarked_at DESC);
 
                 CREATE TABLE IF NOT EXISTS bookmark_tags (
                     bookmark_id  INTEGER NOT NULL REFERENCES bookmarks(id) ON DELETE CASCADE,
@@ -257,6 +262,27 @@ class _SchemaMixin:
                 )
                 """
             )
+
+            # bookmarks.host column + supporting indexes — added so visibility
+            # filtering against hidden_domains and keyset pagination can run
+            # entirely in SQL without per-row Python UDF callbacks.
+            try:
+                conn.execute("ALTER TABLE bookmarks ADD COLUMN host TEXT NOT NULL DEFAULT ''")
+                log.info("Schema migration: added column bookmarks.host")
+            except sqlite3.OperationalError:
+                # Column already exists.
+                pass
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_bookmarks_host ON bookmarks(host)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_bookmarks_at_id ON bookmarks(bookmarked_at DESC, id DESC)")
+            # One-shot backfill: populate host for any rows still empty.
+            # Uses the registered _extract_host UDF so the result matches the
+            # value written by add_bookmark / update_bookmark_tags.
+            unfilled = conn.execute("SELECT COUNT(*) FROM bookmarks WHERE host = '' AND url != ''").fetchone()[0]
+            if unfilled:
+                conn.execute(
+                    "UPDATE bookmarks SET host = COALESCE(_extract_host(url), '') WHERE host = '' AND url != ''"
+                )
+                log.info("Schema migration: backfilled bookmarks.host for %d row(s)", unfilled)
 
     def _verify_fts_integrity(self) -> None:
         """Run an FTS5 integrity check on startup and auto-rebuild if corrupt.
