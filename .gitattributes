@@ -49,8 +49,10 @@
 *.jpg  binary
 *.jpeg binary
 *.gif  binary
-*.svg  binary
 *.icns binary
+
+# SVG (XML text)
+*.svg  text eol=lf
 
 # Binary: fonts
 *.ttf   binary
