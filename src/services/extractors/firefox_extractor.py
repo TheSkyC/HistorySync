@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import sqlite3
 
 from src.models.history_record import HistoryRecord
@@ -31,8 +32,8 @@ class FirefoxExtractor(BaseExtractor):
       - visit_duration   Always None for Firefox (not tracked)
     """
 
-    def __init__(self, defn: BrowserDef):
-        super().__init__(defn)
+    def __init__(self, defn: BrowserDef, custom_db_path: Path | None = None):
+        super().__init__(defn, custom_db_path)
 
     def _extract_from_db(
         self,

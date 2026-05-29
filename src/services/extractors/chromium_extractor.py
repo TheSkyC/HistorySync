@@ -7,7 +7,7 @@ from pathlib import Path
 import sqlite3
 
 from src.models.history_record import HistoryRecord
-from src.services.browser_defs import BrowserDef, make_custom_chromium_def
+from src.services.browser_defs import BrowserDef, create_custom_browser_def
 from src.services.extractors.base_extractor import BaseExtractor
 from src.utils.logger import get_logger
 
@@ -70,8 +70,8 @@ class ChromiumExtractor(BaseExtractor):
             display_name: UI display name.
             db_path:      Direct path to the History database file.
         """
-        defn = make_custom_chromium_def(browser_type, display_name, db_path.parent)
-        return cls(defn, custom_db_path=db_path)
+        defn = create_custom_browser_def(browser_type, display_name, db_path, engine="chromium")
+        return cls(defn)
 
     def _extract_from_db(
         self,

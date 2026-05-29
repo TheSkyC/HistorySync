@@ -744,6 +744,7 @@ def _cmd_status(config, args: argparse.Namespace) -> int:
 
 
 def _cmd_sync(config, args: argparse.Namespace) -> int:
+    from src.services.browser_defs import register_config_browsers
     from src.services.extractor_manager import ExtractorManager
     from src.services.local_db import LocalDatabase
     from src.utils.logger import get_logger
@@ -760,20 +761,17 @@ def _cmd_sync(config, args: argparse.Namespace) -> int:
     with LocalDatabase(db_path) as db:
         disabled = list(config.extractor.disabled_browsers)
         blacklist = list(config.privacy.blacklisted_domains)
-        manager = ExtractorManager(db=db, disabled_browsers=disabled, blacklisted_domains=blacklist)
-
-        for browser_type, path_str in config.extractor.custom_paths.items():
-            if not path_str:
-                continue
-            p = Path(path_str)
-            if not p.exists():
-                _warn(f"Custom path for '{browser_type}' not found, skipping: {p}")
-                log.warning("Custom path missing: %s → %s", browser_type, p)
-                continue
-            try:
-                manager.register_custom_path(browser_type, browser_type, p)
-            except Exception as exc:
-                _warn(f"Could not register custom browser '{browser_type}': {exc}")
+        register_config_browsers(
+            learned_browsers=config.extractor.learned_browsers,
+            custom_browsers=config.extractor.custom_browsers,
+        )
+        manager = ExtractorManager(
+            db=db,
+            disabled_browsers=disabled,
+            blacklisted_domains=blacklist,
+            learned_browsers=config.extractor.learned_browsers,
+            custom_paths=config.extractor.get_custom_path_map(),
+        )
 
         all_registered = manager.get_all_registered()
         available = manager.get_available_browsers()

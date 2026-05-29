@@ -19,8 +19,10 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from src.services.browser_defs import DirectPathBrowserDef, get_browser_def, unregister_browser_def
 from src.services.extractor_manager import ExtractorManager
 from src.services.extractors.chromium_extractor import ChromiumExtractor
+from src.services.extractors.firefox_extractor import FirefoxExtractor
 from tests.conftest import make_record
 
 # ══════════════════════════════════════════════════════════════
@@ -159,6 +161,16 @@ class TestDisabledBrowsers:
         assert results == {}
         mock_ext.extract.assert_not_called()
 
+    def test_builtin_disabled_at_init_is_exposed_via_disabled_browsers(self, local_db):
+        em = ExtractorManager(local_db, disabled_browsers=["chrome"])
+
+        assert em.get_disabled_browsers()["chrome"] == "Google Chrome"
+
+    def test_builtin_disabled_at_init_is_saved_for_reenable(self, local_db):
+        em = ExtractorManager(local_db, disabled_browsers=["chrome"])
+
+        assert "chrome" in em._saved_extractors
+
 
 # ══════════════════════════════════════════════════════════════
 # update_config hot-reload
@@ -199,23 +211,108 @@ class TestUpdateConfig:
         assert isinstance(em._registry["chrome"], ChromiumExtractor)
 
 
+class TestLearnedBrowsers:
+    def test_init_registers_persisted_learned_browser(self, local_db):
+        learned = {
+            "detected_demo": {
+                "display_name": "Detected Demo",
+                "engine": "chromium",
+                "data_dir": "C:/tmp/detected_demo/User Data",
+            }
+        }
+
+        em = ExtractorManager(local_db, learned_browsers=learned)
+
+        assert "detected_demo" in em._registry
+        assert em.get_all_registered()["detected_demo"] == "Detected Demo"
+        assert get_browser_def("detected_demo") is not None
+        unregister_browser_def("detected_demo")
+
+    def test_update_config_removes_deleted_learned_browser(self, local_db):
+        learned = {
+            "detected_demo": {
+                "display_name": "Detected Demo",
+                "engine": "chromium",
+                "data_dir": "C:/tmp/detected_demo/User Data",
+            }
+        }
+        em = ExtractorManager(local_db, learned_browsers=learned)
+        assert "detected_demo" in em._registry
+
+        em.update_config(disabled_browsers=[], learned_browsers={})
+
+        assert "detected_demo" not in em._registry
+        assert get_browser_def("detected_demo") is None
+        unregister_browser_def("detected_demo")
+
+    def test_disabled_learned_browser_reenables_from_saved_runtime(self, local_db):
+        learned = {
+            "detected_demo": {
+                "display_name": "Detected Demo",
+                "engine": "chromium",
+                "data_dir": "C:/tmp/detected_demo/User Data",
+            }
+        }
+
+        em = ExtractorManager(local_db, disabled_browsers=["detected_demo"], learned_browsers=learned)
+        assert "detected_demo" not in em._registry
+        assert "detected_demo" in em._saved_extractors
+
+        em.update_config(disabled_browsers=[], learned_browsers=learned)
+
+        assert "detected_demo" in em._registry
+        unregister_browser_def("detected_demo")
+
+
 # ══════════════════════════════════════════════════════════════
 # custom_paths
 # ══════════════════════════════════════════════════════════════
 
 
 class TestCustomPaths:
+    def test_builtin_firefox_custom_path_uses_firefox_extractor(self, local_db, tmp_path):
+        from tests.conftest import create_firefox_db
+
+        db = tmp_path / "places.sqlite"
+        create_firefox_db(db, [("https://mozilla.org", "Mozilla", 1_700_000_000_000_000, 1, "")])
+
+        em = ExtractorManager(local_db, custom_paths={"firefox": str(db)})
+
+        assert "firefox" in em._registry
+        assert isinstance(em._registry["firefox"], FirefoxExtractor)
+        assert isinstance(get_browser_def("firefox"), DirectPathBrowserDef)
+        assert get_browser_def("firefox").engine == "firefox"
+
     def test_init_registers_valid_path(self, local_db, tmp_path):
+        from src.services.browser_defs import create_custom_browser_def, register_custom_browser
         from src.services.extractors.chromium_extractor import unix_to_chromium_time
         from tests.conftest import create_chromium_db
 
         db = tmp_path / "History"
         create_chromium_db(db, [("https://example.com", "Example", unix_to_chromium_time(1_700_000_000), 1)])
+        register_custom_browser(create_custom_browser_def("my_browser", "My Browser", db))
 
         em = ExtractorManager(local_db, custom_paths={"my_browser": str(db)})
 
         assert "my_browser" in em._registry
         assert isinstance(em._registry["my_browser"], ChromiumExtractor)
+        assert get_browser_def("my_browser") is not None
+
+    def test_refresh_browser_display_name_uses_latest_browser_def(self, local_db, tmp_path):
+        from src.services.browser_defs import create_custom_browser_def, register_custom_browser
+        from src.services.extractors.chromium_extractor import unix_to_chromium_time
+        from tests.conftest import create_chromium_db
+
+        db = tmp_path / "History"
+        create_chromium_db(db, [("https://example.com", "Example", unix_to_chromium_time(1_700_000_000), 1)])
+        register_custom_browser(create_custom_browser_def("portable", "Portable", db))
+        em = ExtractorManager(local_db, custom_paths={"portable": str(db)})
+
+        register_custom_browser(create_custom_browser_def("portable", "Renamed Portable", db))
+        em.refresh_browser_display_name("portable")
+
+        assert em.get_all_registered()["portable"] == "Renamed Portable"
+        assert em._registry["portable"].display_name == "Renamed Portable"
 
     def test_init_skips_missing_path(self, local_db, tmp_path):
         missing = str(tmp_path / "nonexistent" / "History")
@@ -236,6 +333,7 @@ class TestCustomPaths:
 
         assert "portable_chrome" in em._registry
         assert isinstance(em._registry["portable_chrome"], ChromiumExtractor)
+        assert get_browser_def("portable_chrome") is not None
 
     def test_update_config_removes_deleted_path(self, local_db, tmp_path):
         from src.services.extractors.chromium_extractor import unix_to_chromium_time
@@ -250,6 +348,31 @@ class TestCustomPaths:
         em.update_config(disabled_browsers=[], custom_paths={})
 
         assert "old_browser" not in em._registry
+        assert get_browser_def("old_browser") is None
+
+    def test_update_config_removing_builtin_override_restores_builtin_browser(self, local_db, tmp_path):
+        from src.services.extractors.chromium_extractor import unix_to_chromium_time
+        from tests.conftest import create_chromium_db
+
+        db = tmp_path / "History"
+        create_chromium_db(db, [("https://builtin.com", "Builtin", unix_to_chromium_time(1_700_000_000), 1)])
+
+        em = ExtractorManager(local_db, custom_paths={"chrome": str(db)})
+
+        assert isinstance(get_browser_def("chrome"), DirectPathBrowserDef)
+
+        em.update_config(disabled_browsers=[], custom_paths={})
+
+        assert "chrome" in em._registry
+        assert not isinstance(get_browser_def("chrome"), DirectPathBrowserDef)
+
+    def test_update_config_invalid_builtin_override_restores_builtin_browser(self, local_db, tmp_path):
+        db = tmp_path / "missing" / "History"
+
+        em = ExtractorManager(local_db, custom_paths={"chrome": str(db)})
+
+        assert "chrome" in em._registry
+        assert not isinstance(get_browser_def("chrome"), DirectPathBrowserDef)
 
     def test_update_config_replaces_changed_path(self, local_db, tmp_path):
         from src.services.extractors.chromium_extractor import unix_to_chromium_time
@@ -323,15 +446,28 @@ class TestCustomPathDisableReEnable:
         assert "portable" in em._registry
 
     def test_reenable_after_restart_uses_custom_paths(self, local_db, tmp_path):
-        # Simulate restart: _saved_extractors is empty, but _custom_paths is populated.
+        # Simulate restart: the disabled browser keeps its configured path and can be rebuilt.
         db = self._make_db(tmp_path)
         em = ExtractorManager(local_db, custom_paths={"portable": str(db)}, disabled_browsers=["portable"])
         assert "portable" not in em._registry
-        assert em._saved_extractors.get("portable") is None  # nothing was saved at init
 
         em.update_config(disabled_browsers=[])
         assert "portable" in em._registry
         assert isinstance(em._registry["portable"], ChromiumExtractor)
+
+    def test_reenable_builtin_firefox_custom_path_uses_firefox_extractor(self, local_db, tmp_path):
+        from tests.conftest import create_firefox_db
+
+        db = tmp_path / "places.sqlite"
+        create_firefox_db(db, [("https://mozilla.org", "Mozilla", 1_700_000_000_000_000, 1, "")])
+
+        em = ExtractorManager(local_db, custom_paths={"firefox": str(db)}, disabled_browsers=["firefox"])
+        assert "firefox" not in em._registry
+
+        em.update_config(disabled_browsers=[])
+
+        assert "firefox" in em._registry
+        assert isinstance(em._registry["firefox"], FirefoxExtractor)
 
     def test_reenable_warns_when_path_gone(self, local_db, tmp_path):
         db = self._make_db(tmp_path)
@@ -342,3 +478,14 @@ class TestCustomPathDisableReEnable:
         em.update_config(disabled_browsers=[])
         # Should not crash, and should not add a broken extractor
         assert "portable" not in em._registry
+
+    def test_reenable_builtin_with_missing_custom_path_restores_builtin_registry(self, local_db, tmp_path):
+        missing = tmp_path / "missing" / "History"
+        em = ExtractorManager(local_db, custom_paths={"chrome": str(missing)}, disabled_browsers=["chrome"])
+
+        assert "chrome" not in em._registry
+
+        em.update_config(disabled_browsers=[])
+
+        assert "chrome" in em._registry
+        assert isinstance(em._registry["chrome"], ChromiumExtractor)

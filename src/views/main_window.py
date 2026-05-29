@@ -206,6 +206,7 @@ class MainWindow(QMainWindow):
         vm.browser_status_changed.connect(self._on_browser_status_changed)
         vm.records_deleted.connect(self._on_records_deleted)
         vm.domain_blacklisted.connect(self._on_domain_blacklisted)
+        vm.config_changed.connect(self._on_config_changed)
         # backup_finished → settings page is guarded in _on_backup_finished
         vm.backup_finished.connect(self._on_backup_finished)
         vm.open_settings_requested.connect(lambda: (self.show_and_raise(), self._switch_page(PAGE_SETTINGS)))
@@ -217,6 +218,7 @@ class MainWindow(QMainWindow):
         self._page_dashboard.redetect_browsers_requested.connect(vm.force_redetect_browsers)
         self._page_dashboard.learned_browsers_added.connect(vm.on_learned_browsers_added)
         self._page_dashboard.browser_remove_requested.connect(vm.on_browser_remove)
+        self._page_dashboard.browser_renamed.connect(vm.on_browser_rename)
         self._page_dashboard.view_history_requested.connect(self._on_view_browser_history)
         # HistoryPage / SettingsPage / LogViewerPage signals are wired up in
         # _switch_page() the first time those pages are created.
@@ -389,6 +391,11 @@ class MainWindow(QMainWindow):
     def _on_settings_saved(self):
         self._status_bar.showMessage(_("Settings saved"), 3000)
         self._vm.history_vm.set_hidden_ids(self._vm.get_hidden_ids())
+
+    def _on_config_changed(self):
+        self._page_dashboard.refresh_from_config(self._vm._config)
+        if self._page_settings is not None:
+            self._page_settings.refresh_from_config()
 
     def _on_view_browser_history(self, browser_type: str):
         self._switch_page(PAGE_HISTORY)  # creates page if needed

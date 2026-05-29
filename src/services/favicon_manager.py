@@ -207,7 +207,8 @@ class FaviconManager(QObject):
         # Holds the FaviconExtractorManager registry instead of a bare list
         self._ext_manager = FaviconExtractorManager(
             disabled_browsers=config.extractor.disabled_browsers,
-            custom_paths=config.extractor.custom_paths,
+            learned_browsers=config.extractor.learned_browsers,
+            custom_paths=config.extractor.get_custom_path_map(),
         )
 
         self._local_db: LocalDatabase | None = None
@@ -378,7 +379,8 @@ class FaviconManager(QObject):
         self._config = config
         self._ext_manager.update_config(
             disabled_browsers=config.extractor.disabled_browsers,
-            custom_paths=config.extractor.custom_paths,
+            learned_browsers=config.extractor.learned_browsers,
+            custom_paths=config.extractor.get_custom_path_map(),
         )
         log.info(
             "FaviconManager: config updated via FaviconExtractorManager, %d extractors registered",

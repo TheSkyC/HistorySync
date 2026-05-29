@@ -109,6 +109,33 @@ class BrowserDef:
                 yield "Default", db
 
 
+@dataclass(frozen=True, kw_only=True)
+class DirectPathBrowserDef(BrowserDef):
+    """Browser definition backed by a direct History DB path supplied by the user."""
+
+    _history_db_path: Path = field(compare=False, hash=False, repr=False)
+    _favicon_db_path: Path | None = field(default=None, compare=False, hash=False, repr=False)
+
+    def iter_history_db_paths(self, custom_db_path: Path | None = None) -> Iterator[tuple[str, Path]]:
+        yield "custom", custom_db_path or self._history_db_path
+
+    def iter_favicon_db_paths(self) -> Iterator[tuple[str, Path]]:
+        if self.engine == "safari":
+            return
+        favicon_path = self._favicon_db_path or (self._history_db_path.parent / "Favicons")
+        if favicon_path.exists():
+            yield "custom", favicon_path
+
+    def is_history_available(self, custom_db_path: Path | None = None) -> bool:
+        return (custom_db_path or self._history_db_path).exists()
+
+    def is_favicon_available(self) -> bool:
+        if self.engine == "safari":
+            return False
+        favicon_path = self._favicon_db_path or (self._history_db_path.parent / "Favicons")
+        return favicon_path.exists()
+
+
 @dataclass(frozen=True)
 class CustomFilenameBrowserDef(BrowserDef):
     """Chromium-based browser whose history DB uses a non-standard filename (e.g. 'History2')."""
@@ -490,6 +517,65 @@ def make_custom_chromium_def(
     )
 
 
+def create_custom_browser_def(
+    browser_type: str,
+    display_name: str,
+    path: str | Path,
+    engine: Engine = "chromium",
+) -> BrowserDef:
+    """Create a user-managed browser definition backed by a direct history DB path."""
+    path_obj = Path(path) if isinstance(path, str) else path
+    return DirectPathBrowserDef(
+        browser_type=browser_type,
+        display_name=display_name,
+        engine=engine,
+        _data_dirs=(path_obj.parent,),
+        _history_db_path=path_obj,
+        _favicon_db_path=_infer_custom_favicon_db_path(path_obj, engine),
+    )
+
+
+def _infer_custom_favicon_db_path(history_db_path: Path, engine: Engine) -> Path | None:
+    """Infer the favicon DB path for a direct-path browser override.
+
+    Chromium stores favicons beside ``History`` as ``Favicons``.
+    Firefox stores them as sibling ``favicons.sqlite`` next to ``places.sqlite``.
+    Safari favicon extraction is not currently supported, so it resolves to None.
+    """
+    if engine == "chromium":
+        return history_db_path.parent / "Favicons"
+    if engine == "firefox":
+        return history_db_path.with_name("favicons.sqlite")
+    return None
+
+
+def infer_browser_engine_from_path(
+    history_db_path: str | Path,
+    browser_type: str | None = None,
+    fallback: Engine = "chromium",
+) -> Engine:
+    """Infer the browser engine from a direct history DB path.
+
+    Runtime and built-in browser definitions take priority. For ad-hoc custom
+    IDs that have no known definition yet, fall back to filename heuristics so
+    common Firefox/Safari history DBs are not silently treated as Chromium.
+    """
+    if browser_type:
+        builtin = get_builtin_browser_def(browser_type)
+        if builtin is not None:
+            return builtin.engine
+        defn = get_browser_def(browser_type)
+        if defn is not None:
+            return defn.engine
+
+    filename = (Path(history_db_path) if isinstance(history_db_path, str) else history_db_path).name.lower()
+    if filename == "places.sqlite":
+        return "firefox"
+    if filename == "history.db":
+        return "safari"
+    return fallback
+
+
 # ── Built-in Browser List ─────────────────────────────────────
 
 BUILTIN_BROWSERS: list[BrowserDef] = [
@@ -537,11 +623,33 @@ BUILTIN_BROWSERS: list[BrowserDef] = [
     _make_def("quark", "Quark Browser", "chromium"),
 ]
 
-BROWSER_DEF_MAP: dict[str, BrowserDef] = {d.browser_type: d for d in BUILTIN_BROWSERS}
+_BUILTIN_BROWSER_DEF_MAP: dict[str, BrowserDef] = {d.browser_type: d for d in BUILTIN_BROWSERS}
+
+BROWSER_DEF_MAP: dict[str, BrowserDef] = dict(_BUILTIN_BROWSER_DEF_MAP)
 
 
 def get_browser_def(browser_type: str) -> BrowserDef | None:
     return BROWSER_DEF_MAP.get(browser_type)
+
+
+def get_builtin_browser_def(browser_type: str) -> BrowserDef | None:
+    """Return the built-in definition for *browser_type*, if one exists."""
+    return _BUILTIN_BROWSER_DEF_MAP.get(browser_type)
+
+
+def resolve_browser_engine(browser_type: str, fallback: Engine = "chromium") -> Engine:
+    """Resolve the most appropriate engine for *browser_type*.
+
+    Built-in definitions take priority so custom overrides of a built-in browser
+    keep the browser's native engine instead of silently defaulting to Chromium.
+    """
+    builtin = get_builtin_browser_def(browser_type)
+    if builtin is not None:
+        return builtin.engine
+    defn = get_browser_def(browser_type)
+    if defn is not None:
+        return defn.engine
+    return fallback
 
 
 def create_learned_browser_def(
@@ -576,6 +684,63 @@ def register_learned_browser(browser_def: BrowserDef) -> None:
     """
     BROWSER_DEF_MAP[browser_def.browser_type] = browser_def
     log.info("Registered learned browser: %s (%s)", browser_def.display_name, browser_def.browser_type)
+
+
+def register_custom_browser(browser_def: BrowserDef) -> None:
+    """Register a user-managed custom-path browser definition to the global map."""
+    BROWSER_DEF_MAP[browser_def.browser_type] = browser_def
+    log.info("Registered custom browser: %s (%s)", browser_def.display_name, browser_def.browser_type)
+
+
+def unregister_browser_def(browser_type: str) -> None:
+    """Remove a runtime browser definition or restore the built-in definition."""
+    builtin = get_builtin_browser_def(browser_type)
+    if builtin is not None:
+        BROWSER_DEF_MAP[browser_type] = builtin
+        return
+    BROWSER_DEF_MAP.pop(browser_type, None)
+
+
+def reconcile_config_browsers(learned_browsers: dict | None = None, custom_browsers: dict | None = None) -> None:
+    """Make the global browser map exactly match the persisted config state."""
+    normalized_learned = {bt: info for bt, info in (learned_browsers or {}).items() if isinstance(info, dict)}
+    normalized_custom = {
+        bt: info for bt, info in (custom_browsers or {}).items() if isinstance(info, dict) and info.get("path", "")
+    }
+    desired_runtime = set(normalized_learned) | set(normalized_custom)
+    existing_runtime = set(BROWSER_DEF_MAP) - set(_BUILTIN_BROWSER_DEF_MAP)
+
+    for browser_type in sorted(existing_runtime - desired_runtime):
+        unregister_browser_def(browser_type)
+
+    for browser_type, info in normalized_custom.items():
+        try:
+            browser_def = create_custom_browser_def(
+                browser_type=browser_type,
+                display_name=info.get("display_name", browser_type),
+                path=info.get("path", ""),
+                engine=info.get("engine", "chromium"),
+            )
+            register_custom_browser(browser_def)
+        except Exception as exc:
+            log.warning("Could not register custom browser '%s': %s", browser_type, exc)
+
+    for browser_type, info in normalized_learned.items():
+        try:
+            browser_def = create_learned_browser_def(
+                browser_type=browser_type,
+                display_name=info.get("display_name", browser_type),
+                engine=info.get("engine", "chromium"),
+                data_dir=info.get("data_dir", ""),
+            )
+            register_learned_browser(browser_def)
+        except Exception as exc:
+            log.warning("Could not register learned browser '%s': %s", browser_type, exc)
+
+
+def register_config_browsers(learned_browsers: dict | None = None, custom_browsers: dict | None = None) -> None:
+    """Register persisted user-managed browsers into the global browser map."""
+    reconcile_config_browsers(learned_browsers=learned_browsers, custom_browsers=custom_browsers)
 
 
 def get_all_known_data_dirs() -> set[str]:

@@ -214,7 +214,7 @@ class SettingsPage(QWidget):
         self._sec_privacy.configure_hidden_domains_requested.connect(self._on_configure_hidden_domains)
 
         # Custom paths
-        self._sec_paths.refresh_paths(cfg.extractor.custom_paths)
+        self._sec_paths.refresh_paths(cfg.extractor.get_custom_path_map())
         self._sec_paths.add_path_requested.connect(self._on_add_custom_path)
         self._sec_paths.remove_path_requested.connect(self._on_remove_custom_path)
 
@@ -621,15 +621,15 @@ class SettingsPage(QWidget):
 
     def _on_add_custom_path(self, browser_type: str, path: str):
         cfg = self._vm.get_config()
-        cfg.extractor.custom_paths[browser_type] = path
+        cfg.extractor.set_custom_browser(browser_type, path)
         self._vm.save(cfg)
-        self._sec_paths.refresh_paths(cfg.extractor.custom_paths)
+        self._sec_paths.refresh_paths(cfg.extractor.get_custom_path_map())
 
     def _on_remove_custom_path(self, browser_type: str):
         cfg = self._vm.get_config()
-        cfg.extractor.custom_paths.pop(browser_type, None)
+        cfg.extractor.remove_custom_browser(browser_type)
         self._vm.save(cfg)
-        self._sec_paths.refresh_paths(cfg.extractor.custom_paths)
+        self._sec_paths.refresh_paths(cfg.extractor.get_custom_path_map())
 
     # ── Import handler ────────────────────────────────────────
 
@@ -656,8 +656,14 @@ class SettingsPage(QWidget):
     # ── VM signal handlers ────────────────────────────────────
 
     def _on_saved(self):
+        cfg = self._vm.get_config()
+        self._sec_paths.refresh_paths(cfg.extractor.get_custom_path_map())
         self._set_status(_("✓ Saved"), "success")
         self.saved.emit()
+
+    def refresh_from_config(self):
+        cfg = self._vm.get_config()
+        self._sec_paths.refresh_paths(cfg.extractor.get_custom_path_map())
 
     def _on_font_config_changed(self) -> None:
         """Called when user accepts FontDialog — marks the page as having unsaved changes."""

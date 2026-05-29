@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import sqlite3
 
 from src.models.history_record import HistoryRecord
@@ -22,6 +23,9 @@ class SafariExtractor(BaseExtractor):
     Table layout: history_visits JOIN history_items.
     visit_time is a CoreData timestamp (seconds since 2001-01-01).
     """
+
+    def __init__(self, defn, custom_db_path: Path | None = None):
+        super().__init__(defn, custom_db_path)
 
     def _extract_from_db(
         self,
