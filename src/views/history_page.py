@@ -1555,7 +1555,12 @@ class _ScrollTimeBubble(QWidget):
         sb_global_x = sb.mapToGlobal(QPoint(0, 0)).x()
         page_global = page.mapToGlobal(QPoint(0, 0))
 
-        self._target_x = sb_global_x - self.width() - 8
+        # Prefer right side of scrollbar; fall back to left if it would overflow the screen.
+        screen = sb.screen()
+        screen_right = screen.geometry().right() if screen else sb_global_x + sb.width() + self.width() + 8
+        right_x = sb_global_x + sb.width() + 8
+        left_x = sb_global_x - self.width() - 8
+        self._target_x = right_x if right_x + self.width() <= screen_right else left_x
         raw_y = thumb_global_y - self.height() // 2
         # Clamp to the page widget's global rect so the bubble never floats
         # outside the visible history panel.
