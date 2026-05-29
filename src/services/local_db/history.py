@@ -474,8 +474,8 @@ class _HistoryMixin:
 
         # ── Common filter conditions ───────────────────────────
         if browser_type:
-            extra_conditions.append("h.browser_type = ?")
-            params.append(browser_type)
+            extra_conditions.append("LOWER(h.browser_type) = ?")
+            params.append(browser_type.lower())
         if date_from is not None:
             extra_conditions.append("h.visit_time >= ?")
             params.append(date_from)
