@@ -197,3 +197,148 @@ class TestUpdateConfig:
         em = ExtractorManager(local_db, disabled_browsers=["chrome"])
         em.update_config(disabled_browsers=[])
         assert isinstance(em._registry["chrome"], ChromiumExtractor)
+
+
+# ══════════════════════════════════════════════════════════════
+# custom_paths
+# ══════════════════════════════════════════════════════════════
+
+
+class TestCustomPaths:
+    def test_init_registers_valid_path(self, local_db, tmp_path):
+        from src.services.extractors.chromium_extractor import unix_to_chromium_time
+        from tests.conftest import create_chromium_db
+
+        db = tmp_path / "History"
+        create_chromium_db(db, [("https://example.com", "Example", unix_to_chromium_time(1_700_000_000), 1)])
+
+        em = ExtractorManager(local_db, custom_paths={"my_browser": str(db)})
+
+        assert "my_browser" in em._registry
+        assert isinstance(em._registry["my_browser"], ChromiumExtractor)
+
+    def test_init_skips_missing_path(self, local_db, tmp_path):
+        missing = str(tmp_path / "nonexistent" / "History")
+        em = ExtractorManager(local_db, custom_paths={"ghost": missing})
+        assert "ghost" not in em._registry
+
+    def test_update_config_adds_new_path(self, local_db, tmp_path):
+        from src.services.extractors.chromium_extractor import unix_to_chromium_time
+        from tests.conftest import create_chromium_db
+
+        db = tmp_path / "History"
+        create_chromium_db(db, [("https://new.com", "New", unix_to_chromium_time(1_700_000_000), 1)])
+
+        em = ExtractorManager(local_db)
+        assert "portable_chrome" not in em._registry
+
+        em.update_config(disabled_browsers=[], custom_paths={"portable_chrome": str(db)})
+
+        assert "portable_chrome" in em._registry
+        assert isinstance(em._registry["portable_chrome"], ChromiumExtractor)
+
+    def test_update_config_removes_deleted_path(self, local_db, tmp_path):
+        from src.services.extractors.chromium_extractor import unix_to_chromium_time
+        from tests.conftest import create_chromium_db
+
+        db = tmp_path / "History"
+        create_chromium_db(db, [("https://old.com", "Old", unix_to_chromium_time(1_700_000_000), 1)])
+
+        em = ExtractorManager(local_db, custom_paths={"old_browser": str(db)})
+        assert "old_browser" in em._registry
+
+        em.update_config(disabled_browsers=[], custom_paths={})
+
+        assert "old_browser" not in em._registry
+
+    def test_update_config_replaces_changed_path(self, local_db, tmp_path):
+        from src.services.extractors.chromium_extractor import unix_to_chromium_time
+        from tests.conftest import create_chromium_db
+
+        db1 = tmp_path / "History1"
+        db2 = tmp_path / "History2"
+        create_chromium_db(db1, [("https://v1.com", "V1", unix_to_chromium_time(1_700_000_000), 1)])
+        create_chromium_db(db2, [("https://v2.com", "V2", unix_to_chromium_time(1_700_000_001), 1)])
+
+        em = ExtractorManager(local_db, custom_paths={"my_browser": str(db1)})
+        extractor_v1 = em._registry["my_browser"]
+
+        em.update_config(disabled_browsers=[], custom_paths={"my_browser": str(db2)})
+
+        assert "my_browser" in em._registry
+        assert em._registry["my_browser"] is not extractor_v1
+
+    def test_update_config_none_does_not_clear_existing(self, local_db, tmp_path):
+        from src.services.extractors.chromium_extractor import unix_to_chromium_time
+        from tests.conftest import create_chromium_db
+
+        db = tmp_path / "History"
+        create_chromium_db(db, [("https://keep.com", "Keep", unix_to_chromium_time(1_700_000_000), 1)])
+
+        em = ExtractorManager(local_db, custom_paths={"keep_browser": str(db)})
+        assert "keep_browser" in em._registry
+
+        # Passing custom_paths=None means "no change" - existing registrations must survive
+        em.update_config(disabled_browsers=[], custom_paths=None)
+
+        assert "keep_browser" in em._registry
+
+    def test_custom_path_extractor_extracts_records(self, local_db, tmp_path):
+        from src.services.extractors.chromium_extractor import unix_to_chromium_time
+        from tests.conftest import create_chromium_db
+
+        db = tmp_path / "History"
+        create_chromium_db(db, [("https://portable.com", "Portable", unix_to_chromium_time(1_700_000_000), 1)])
+
+        em = ExtractorManager(local_db, custom_paths={"portable": str(db)})
+        results = em.run_extraction(["portable"])
+
+        assert results.get("portable") == 1
+        assert local_db.get_total_count() == 1
+
+
+# ══════════════════════════════════════════════════════════════
+# disable / re-enable custom-path browsers
+# ══════════════════════════════════════════════════════════════
+
+
+class TestCustomPathDisableReEnable:
+    def _make_db(self, tmp_path, name="History"):
+        from src.services.extractors.chromium_extractor import unix_to_chromium_time
+        from tests.conftest import create_chromium_db
+
+        db = tmp_path / name
+        create_chromium_db(db, [("https://portable.com", "P", unix_to_chromium_time(1_700_000_000), 1)])
+        return db
+
+    def test_disable_then_reenable_same_session(self, local_db, tmp_path):
+        db = self._make_db(tmp_path)
+        em = ExtractorManager(local_db, custom_paths={"portable": str(db)})
+        assert "portable" in em._registry
+
+        em.update_config(disabled_browsers=["portable"])
+        assert "portable" not in em._registry
+
+        em.update_config(disabled_browsers=[])
+        assert "portable" in em._registry
+
+    def test_reenable_after_restart_uses_custom_paths(self, local_db, tmp_path):
+        # Simulate restart: _saved_extractors is empty, but _custom_paths is populated.
+        db = self._make_db(tmp_path)
+        em = ExtractorManager(local_db, custom_paths={"portable": str(db)}, disabled_browsers=["portable"])
+        assert "portable" not in em._registry
+        assert em._saved_extractors.get("portable") is None  # nothing was saved at init
+
+        em.update_config(disabled_browsers=[])
+        assert "portable" in em._registry
+        assert isinstance(em._registry["portable"], ChromiumExtractor)
+
+    def test_reenable_warns_when_path_gone(self, local_db, tmp_path):
+        db = self._make_db(tmp_path)
+        em = ExtractorManager(local_db, custom_paths={"portable": str(db)}, disabled_browsers=["portable"])
+
+        db.unlink()  # simulate the file being deleted
+
+        em.update_config(disabled_browsers=[])
+        # Should not crash, and should not add a broken extractor
+        assert "portable" not in em._registry

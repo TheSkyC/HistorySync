@@ -50,6 +50,7 @@ class ExtractorManager:
         filtered_url_prefixes: list[str] | None = None,
         learned_browsers: dict | None = None,
         device_id: int | None = None,
+        custom_paths: dict[str, str] | None = None,
     ):
         self._db = db
         self._disabled: set[str] = set(disabled_browsers or [])
@@ -64,8 +65,11 @@ class ExtractorManager:
         self._filtered_url_prefixes: tuple[str, ...] = tuple(
             filtered_url_prefixes if filtered_url_prefixes is not None else DEFAULT_FILTERED_URL_PREFIXES
         )
+        # Track registered custom paths for diff-based hot-reload
+        self._custom_paths: dict[str, str] = {}
         self._register_builtin()
         self._register_learned(learned_browsers or {})
+        self._apply_custom_paths(custom_paths or {})
 
     # ── Registry ──────────────────────────────────────────────
 
@@ -119,6 +123,38 @@ class ExtractorManager:
         with self._config_lock:
             self._registry.pop(browser_type, None)
 
+    def _apply_custom_paths(self, custom_paths: dict[str, str]) -> None:
+        """Register/unregister custom-path extractors based on a diff against the current state.
+
+        Must be called with _config_lock NOT held (it calls register() which acquires it).
+        """
+        new_paths = {bt: p for bt, p in custom_paths.items() if p}
+
+        # Remove paths that were deleted or whose path changed
+        for bt in list(self._custom_paths):
+            if bt not in new_paths or self._custom_paths[bt] != new_paths[bt]:
+                self.unregister(bt)
+                log.info("ExtractorManager: removed custom path for '%s'", bt)
+
+        # Add new or changed paths
+        for bt, path_str in new_paths.items():
+            if self._custom_paths.get(bt) == path_str:
+                continue
+            if bt in self._disabled:
+                # Browser is currently disabled; record the path but don't register yet.
+                # Re-enable via update_config() will pick it up from _custom_paths.
+                log.info("ExtractorManager: custom path for '%s' stored but browser is disabled", bt)
+                continue
+            db_path = Path(path_str)
+            if not db_path.is_file():
+                log.warning("ExtractorManager: custom path for '%s' not found: %s", bt, path_str)
+                continue
+            display_name = bt.replace("_", " ").title()
+            self.register_custom_path(bt, display_name, db_path)
+            log.info("ExtractorManager: registered custom path for '%s': %s", bt, path_str)
+
+        self._custom_paths = dict(new_paths)
+
     # ── Hot-reload ────────────────────────────────────────────
 
     def update_config(
@@ -126,6 +162,7 @@ class ExtractorManager:
         disabled_browsers: list[str],
         blacklisted_domains: list[str] | None = None,
         filtered_url_prefixes: list[str] | None = None,
+        custom_paths: dict[str, str] | None = None,
     ) -> None:
         new_disabled = set(disabled_browsers)
 
@@ -141,6 +178,17 @@ class ExtractorManager:
                 if bt in self._saved_extractors:
                     self._registry[bt] = self._saved_extractors.pop(bt)
                     log.info("ExtractorManager: re-enabled '%s' (restored saved extractor)", bt)
+                elif bt in self._custom_paths:
+                    # Custom-path browsers are not in BROWSER_DEF_MAP; rebuild from stored path.
+                    path_str = self._custom_paths[bt]
+                    db_path = Path(path_str)
+                    if db_path.is_file():
+                        display_name = bt.replace("_", " ").title()
+                        extractor = ChromiumExtractor.for_custom_path(bt, display_name, db_path)
+                        self._registry[bt] = extractor
+                        log.info("ExtractorManager: re-enabled custom path '%s'", bt)
+                    else:
+                        log.warning("ExtractorManager: cannot re-enable '%s', path missing: %s", bt, path_str)
                 else:
                     defn = get_browser_def(bt)
                     if defn is not None:
@@ -155,6 +203,10 @@ class ExtractorManager:
             if filtered_url_prefixes is not None:
                 self._filtered_url_prefixes = tuple(filtered_url_prefixes)
                 log.info("ExtractorManager: updated filtered_url_prefixes (%d entries)", len(filtered_url_prefixes))
+
+        # _apply_custom_paths calls register() which acquires _config_lock, so run outside the lock
+        if custom_paths is not None:
+            self._apply_custom_paths(custom_paths)
 
     def set_blacklisted_domains(self, domains: list[str]) -> None:
         with self._config_lock:
