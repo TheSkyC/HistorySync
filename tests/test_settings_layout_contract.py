@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-pytest.importorskip("PySide6.QtWidgets")
+pytest.importorskip("PySide6.QtWidgets", exc_type=ImportError)
 
 from PySide6.QtWidgets import QApplication, QSizePolicy
 
@@ -36,6 +36,7 @@ def test_settings_labels_use_constrained_width_policy() -> None:
 
     labels = [
         webdav._next_backup_lbl,
+        webdav._password_status_lbl,
         webdav._status_lbl,
         webdav._hash_info_lbl,
         startup._status_lbl,
