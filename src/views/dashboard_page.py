@@ -873,10 +873,8 @@ class BrowserSettingsDialog(QDialog):
         cb_layout.addStretch()  # absorb extra vertical space so items stay compact
 
         # Replace the scroll area's widget
-        old_widget = self._scroll_area.widget()
+        # QScrollArea.setWidget() takes ownership and deletes the old widget automatically.
         self._scroll_area.setWidget(inner)
-        if old_widget:
-            old_widget.deleteLater()
 
     def _on_cb_toggled(self, browser_type: str, checked: bool) -> None:
         """Update the status dot when a checkbox is toggled."""
