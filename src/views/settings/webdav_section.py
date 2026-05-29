@@ -109,6 +109,8 @@ class WebDavSection(QWidget):
         self._user.setPlaceholderText(_("Username:").rstrip(":"))
 
         self._password = PasswordEdit()
+        self._password.set_hide_toggle_when_empty(True)
+        self._password.textChanged.connect(self._update_password_status)
 
         self._path = QLineEdit()
         self._path.setPlaceholderText(WEBDAV_DEFAULT_REMOTE_PATH)
@@ -131,6 +133,11 @@ class WebDavSection(QWidget):
         form.addRow(_("Server URL:"), self._url)
         form.addRow(_("Username:"), self._user)
         form.addRow(_("Password:"), self._password)
+
+        self._password_status_lbl = constrain_label_width(QLabel(""))
+        self._password_status_lbl.setObjectName("muted")
+        self._password_status_lbl.setVisible(False)
+        form.addRow("", self._password_status_lbl)
 
         self._password_warning_lbl = QLabel(_("Password could not be decrypted. Please re-enter it."))
         self._password_warning_lbl.setStyleSheet("color: #e07b00;")
@@ -249,6 +256,7 @@ class WebDavSection(QWidget):
             else:
                 self._password.setPlaceholderText(_("Enter WebDAV password"))
         self._password_warning_lbl.setVisible(decrypt_failed)
+        self._update_password_status()
         self._path.setText(cfg.webdav.remote_path)
         self._max_backups_spin.setValue(cfg.webdav.max_backups)
         self._verify_ssl_cb.setChecked(cfg.webdav.verify_ssl)
@@ -301,6 +309,25 @@ class WebDavSection(QWidget):
         self._test_btn.setEnabled(enabled)
         self._backup_btn.setEnabled(enabled)
         self._restore_btn.setEnabled(enabled)
+
+    def _update_password_status(self):
+        text = self._password.text()
+        warning_visible = not self._password_warning_lbl.isHidden()
+        placeholder = self._password.placeholderText()
+
+        self._password.refresh_toggle_visibility()
+
+        if text:
+            status = _("Saving will replace the currently saved password.")
+        elif warning_visible:
+            status = _("The saved password could not be loaded. Enter a new password to replace it.")
+        elif placeholder == _("Leave blank to keep saved password"):
+            status = _("Saved in the system keyring. Leave blank to keep the current password.")
+        else:
+            status = _("Enter a password to save it in the system keyring.")
+
+        self._password_status_lbl.setText(status)
+        self._password_status_lbl.setVisible(bool(status))
 
     def on_action_progress(self, msg: str):
         self.set_status(msg, "muted")

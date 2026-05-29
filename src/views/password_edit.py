@@ -134,6 +134,7 @@ class PasswordEdit(QLineEdit):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._hide_toggle_when_empty = False
 
         self.setEchoMode(QLineEdit.Password)
         self.setInputMethodHints(
@@ -145,6 +146,19 @@ class PasswordEdit(QLineEdit):
         self._toggle_button.set_checked_silent(False)
         self._toggle_button.setToolTip(_("Show Password"))
         self._toggle_button.clicked.connect(self._on_toggle)
+        self.textChanged.connect(self._update_toggle_visibility)
+        self._update_toggle_visibility()
+
+    def set_hide_toggle_when_empty(self, hide_when_empty: bool) -> None:
+        """Optionally hide the eye button when the field has no text."""
+        self._hide_toggle_when_empty = hide_when_empty
+        self._update_toggle_visibility()
+
+    def hide_toggle_when_empty(self) -> bool:
+        return self._hide_toggle_when_empty
+
+    def refresh_toggle_visibility(self) -> None:
+        self._update_toggle_visibility()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -170,3 +184,8 @@ class PasswordEdit(QLineEdit):
 
         self.setCursorPosition(cursor_pos)
         self.setFocus()
+
+    @Slot()
+    def _update_toggle_visibility(self):
+        should_show = not self._hide_toggle_when_empty or bool(self.text())
+        self._toggle_button.setVisible(should_show)
