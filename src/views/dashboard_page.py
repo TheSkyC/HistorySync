@@ -164,6 +164,7 @@ _STATUS_META_DARK: dict[str, tuple[str, str, str]] = {
     "NOT_SYNCED": (N_("Not synced"), "#8b949e", "#252830"),
     "SYNCING": (N_("Syncing..."), "#58a6ff", "#152038"),
     "NOT_FOUND": (N_("Not found"), "#4a5068", "#1e2028"),
+    "DISABLED": (N_("Sync disabled"), "#4a5068", "#1e2028"),
 }
 
 _STATUS_META_LIGHT: dict[str, tuple[str, str, str]] = {
@@ -172,6 +173,7 @@ _STATUS_META_LIGHT: dict[str, tuple[str, str, str]] = {
     "NOT_SYNCED": (N_("Not synced"), "#6b7280", "#f3f4f6"),
     "SYNCING": (N_("Syncing..."), "#2563eb", "#dbeafe"),
     "NOT_FOUND": (N_("Not found"), "#9ca3af", "#f3f4f6"),
+    "DISABLED": (N_("Sync disabled"), "#9ca3af", "#f3f4f6"),
 }
 
 
@@ -1081,7 +1083,8 @@ class DashboardPage(QWidget):
             self._disabled_browsers = set(disabled_browsers)
 
         detected = {bt: s for bt, s in statuses.items() if s != "NOT_FOUND"}
-        self._card_browsers.set_value(str(len(detected)))
+        # Count only active (non-disabled) browsers for the summary card
+        self._card_browsers.set_value(str(sum(1 for s in detected.values() if s != "DISABLED")))
 
         # Remove cards for browsers no longer detected
         to_remove = [bt for bt in self._browser_cards if bt not in detected]

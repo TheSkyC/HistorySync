@@ -241,6 +241,20 @@ class ExtractorManager:
     def is_browser_disabled(self, browser_type: str) -> bool:
         return browser_type in self._disabled
 
+    def get_disabled_browsers(self) -> dict[str, str]:
+        """Return display names for all disabled browsers.
+
+        Covers browsers saved in _saved_extractors (disabled mid-session) and
+        custom-path browsers that were disabled at startup (only in _custom_paths).
+        """
+        result: dict[str, str] = {}
+        for bt in self._disabled:
+            if bt in self._saved_extractors:
+                result[bt] = self._saved_extractors[bt].display_name
+            elif bt in self._custom_paths:
+                result[bt] = bt.replace("_", " ").title()
+        return result
+
     # ── Extraction ────────────────────────────────────────────
 
     def run_extraction(

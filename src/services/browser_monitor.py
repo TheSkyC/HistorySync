@@ -21,6 +21,7 @@ class BrowserSyncStatus(Enum):
     NEEDS_SYNC = auto()
     UP_TO_DATE = auto()
     SYNCING = auto()
+    DISABLED = auto()
 
 
 class BrowserMonitor(QObject):
@@ -116,6 +117,11 @@ class BrowserMonitor(QObject):
                 new_statuses[bt] = BrowserSyncStatus.NEEDS_SYNC.name
             else:
                 new_statuses[bt] = BrowserSyncStatus.UP_TO_DATE.name
+
+        # Disabled browsers are absent from _registry (iter_all_extractors skips them).
+        # Emit DISABLED so the dashboard can still render their cards with a toggle option.
+        for bt in self._em.get_disabled_browsers():
+            new_statuses[bt] = BrowserSyncStatus.DISABLED.name
 
         if new_statuses != self._current_statuses:
             self._current_statuses = new_statuses
