@@ -37,6 +37,14 @@ from src.utils.theme_manager import ThemeManager
 log = get_logger("view.dashboard")
 
 
+def _find_dashboard_page(widget: QWidget | None):
+    while widget is not None:
+        if isinstance(widget, DashboardPage):
+            return widget
+        widget = widget.parentWidget()
+    return None
+
+
 # ── Flow layout ────────────────────────────────────────────────
 
 
@@ -202,6 +210,7 @@ class BrowserCard(QFrame):
     view_history_requested = Signal(str)
     sync_toggle_requested = Signal(str, bool)  # (browser_type, enabled)
     browser_remove_requested = Signal(str, bool)  # (browser_type, clear_data)
+    browser_rename_requested = Signal(str, str)  # (browser_type, display_name)
 
     # Windows browser registry paths and common install locations
     _WINDOWS_BROWSERS: dict[str, list[str]] = {
@@ -462,6 +471,22 @@ class BrowserCard(QFrame):
     def _on_theme_changed(self, _theme: str):
         self._apply_status()
 
+    def _is_user_managed_browser(self) -> bool:
+        from src.services.browser_defs import DirectPathBrowserDef, get_browser_def
+
+        dashboard = _find_dashboard_page(self)
+        if dashboard is None:
+            return False
+
+        config = dashboard._config
+        browser_def = get_browser_def(self._browser_type)
+        return (
+            self._browser_type in config.extractor.learned_browsers
+            or self._browser_type in config.extractor.custom_browsers
+            or self._browser_type in config.extractor.custom_paths
+            or isinstance(browser_def, DirectPathBrowserDef)
+        )
+
     def _build_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 14, 14, 12)
@@ -549,6 +574,7 @@ class BrowserCard(QFrame):
 
     def _show_context_menu(self, _pos):
         menu = StyledMenu(self)
+        is_user_managed = self._is_user_managed_browser()
 
         # Non-interactive header showing browser name
         header_action = menu.addAction(self._display_name)
@@ -580,7 +606,7 @@ class BrowserCard(QFrame):
         copy_action = menu.addAction(get_icon("copy", 14), _("Copy Browser Name"))
         copy_action.triggered.connect(self._copy_name)
 
-        if self._browser_type.startswith("detected_"):
+        if is_user_managed:
             menu.addSeparator()
             rename_action = menu.addAction(get_icon("pencil", 14), _("Rename Browser"))
             rename_action.triggered.connect(self._on_rename)
@@ -600,6 +626,14 @@ class BrowserCard(QFrame):
         self._sync_enabled = enabled
         self._apply_status()
 
+    def sync_display_name(self, display_name: str):
+        if display_name == self._display_name:
+            return
+        self._display_name = display_name
+        self._name_label.setText(display_name)
+        if self._icon_label.pixmap() is None:
+            self._icon_label.setText(display_name[:1].upper())
+
     def _copy_name(self):
         from PySide6.QtWidgets import QApplication
 
@@ -609,36 +643,18 @@ class BrowserCard(QFrame):
         """Rename the browser."""
         from PySide6.QtWidgets import QInputDialog
 
-        from src.models.app_config import AppConfig
-        from src.services.browser_defs import create_learned_browser_def, register_learned_browser
-
         new_name, ok = QInputDialog.getText(
             self, _("Rename Browser"), _("Enter new name for {}:").format(self._display_name), text=self._display_name
         )
 
         if ok and new_name and new_name != self._display_name:
-            # Update configuration
-            config = AppConfig.load()
-            if self._browser_type in config.extractor.learned_browsers:
-                config.extractor.learned_browsers[self._browser_type]["display_name"] = new_name
-                config.save()
-
-                # Update browser definition
-                info = config.extractor.learned_browsers[self._browser_type]
-                browser_def = create_learned_browser_def(
-                    browser_type=self._browser_type,
-                    display_name=new_name,
-                    engine=info.get("engine", "chromium"),
-                    data_dir=info.get("data_dir", ""),
-                )
-                register_learned_browser(browser_def)
-
-                # Update UI
-                self._display_name = new_name
-                self._name_label.setText(new_name)
+            dashboard = _find_dashboard_page(self)
+            if dashboard is None:
+                return
+            self.browser_rename_requested.emit(self._browser_type, new_name)
 
     def _on_remove_browser(self):
-        """Remove a browser added via deep scan from the configuration."""
+        """Remove a user-managed browser from the configuration."""
         from PySide6.QtWidgets import QCheckBox, QDialogButtonBox, QLabel, QVBoxLayout
 
         dlg = QDialog(self)
@@ -655,7 +671,7 @@ class BrowserCard(QFrame):
         title_lbl.setStyleSheet("font-size: 13px;")
         layout.addWidget(title_lbl)
 
-        info_lbl = QLabel(_("This browser was added via deep scan. Removing it will stop HistorySync from syncing it."))
+        info_lbl = QLabel(_("This browser was added by the user. Removing it will stop HistorySync from syncing it."))
         info_lbl.setWordWrap(True)
         info_lbl.setStyleSheet("font-size: 11px; color: #888;")
         layout.addWidget(info_lbl)
@@ -921,8 +937,8 @@ class BrowserSettingsDialog(QDialog):
 
     def _on_browsers_added(self, browsers):
         """Add browsers discovered during the scan."""
-        self._populate_browsers()
         self.browsers_discovered.emit(browsers)
+        self._populate_browsers()
 
     def _on_accept(self):
         # Emit changes for each browser whose state differs from original
@@ -948,9 +964,13 @@ class DashboardPage(QWidget):
     redetect_browsers_requested = Signal()
     learned_browsers_added = Signal(list)  # list[DetectedBrowser] — Newly discovered browsers from deep scan
     browser_remove_requested = Signal(str, bool)  # (browser_type, clear_data)
+    browser_renamed = Signal(str, str)  # (browser_type, display_name)
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        from src.models.app_config import AppConfig
+
+        self._config = AppConfig.load()
         self._init_ui()
         self._browser_cards: dict[str, BrowserCard] = {}
         self._disabled_browsers: set[str] = set()
@@ -1102,9 +1122,11 @@ class DashboardPage(QWidget):
                 card.view_history_requested.connect(self._on_view_history)
                 card.sync_toggle_requested.connect(self.browser_sync_toggle_requested)
                 card.browser_remove_requested.connect(self._on_browser_remove)
+                card.browser_rename_requested.connect(self._on_browser_rename)
                 self._browser_cards[bt] = card
             card = self._browser_cards[bt]
             card.set_sync_enabled(bt not in self._disabled_browsers)
+            card.sync_display_name(display_names.get(bt, bt.title()))
             card.update_status(status_name)
 
         self._relayout_cards()
@@ -1112,6 +1134,9 @@ class DashboardPage(QWidget):
         has_detected = len(detected) > 0
         self._empty_state.setVisible(not has_detected)
         self._cards_container.setVisible(has_detected)
+
+    def refresh_from_config(self, config):
+        self._config = config
 
     def _relayout_cards(self):
         # Remove all items from the flow layout without destroying widgets
@@ -1129,22 +1154,18 @@ class DashboardPage(QWidget):
     # ── Per-browser actions ────────────────────────────────────
 
     def _on_browser_remove(self, browser_type: str, clear_data: bool):
-        """Handle request to remove a deep-scanned browser from the configuration."""
-        from src.models.app_config import AppConfig
-        from src.services.browser_defs import BROWSER_DEF_MAP
-
-        # Remove from configuration
-        config = AppConfig.load()
-        config.extractor.learned_browsers.pop(browser_type, None)
-        if browser_type in config.extractor.disabled_browsers:
-            config.extractor.disabled_browsers.remove(browser_type)
-        config.save()
-
-        # Remove from global browser definition map
-        BROWSER_DEF_MAP.pop(browser_type, None)
-
+        """Handle request to remove a user-managed browser from the configuration."""
         # Forward to ViewModel for processing (clear data, refresh state, etc.)
         self.browser_remove_requested.emit(browser_type, clear_data)
+
+    def _on_browser_rename(self, browser_type: str, display_name: str):
+        self.browser_renamed.emit(browser_type, display_name)
+
+    def _sync_card_runtime_name(self, browser_type: str, display_name: str):
+        card = self._browser_cards.get(browser_type)
+        if card is None:
+            return
+        card.sync_display_name(display_name)
 
     def _on_browser_settings(self):
         """Open the browser sync settings dialog."""

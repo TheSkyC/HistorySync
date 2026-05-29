@@ -9,7 +9,16 @@ from pathlib import Path
 import threading
 import time
 
-from src.services.browser_defs import BUILTIN_BROWSERS, get_browser_def
+from src.services.browser_defs import (
+    BUILTIN_BROWSERS,
+    create_custom_browser_def,
+    create_learned_browser_def,
+    get_browser_def,
+    get_builtin_browser_def,
+    register_custom_browser,
+    register_learned_browser,
+    unregister_browser_def,
+)
 from src.services.extractors.base_extractor import BaseExtractor, get_db_max_mtime
 from src.services.extractors.chromium_extractor import ChromiumExtractor
 from src.services.extractors.firefox_extractor import FirefoxExtractor
@@ -34,6 +43,18 @@ def _make_extractor(defn) -> BaseExtractor:
 
         return SafariExtractor(defn)
     return FirefoxExtractor(defn)
+
+
+def _make_custom_path_extractor(
+    browser_type: str,
+    display_name: str,
+    db_path: Path,
+    engine: str = "chromium",
+) -> BaseExtractor:
+    """Factory for direct-path custom browser extractors across all engines."""
+    browser_def = create_custom_browser_def(browser_type, display_name, db_path, engine=engine)
+    register_custom_browser(browser_def)
+    return _make_extractor(browser_def)
 
 
 class ExtractorManager:
@@ -65,10 +86,11 @@ class ExtractorManager:
         self._filtered_url_prefixes: tuple[str, ...] = tuple(
             filtered_url_prefixes if filtered_url_prefixes is not None else DEFAULT_FILTERED_URL_PREFIXES
         )
+        self._learned_browsers: dict[str, dict] = {}
         # Track registered custom paths for diff-based hot-reload
         self._custom_paths: dict[str, str] = {}
         self._register_builtin()
-        self._register_learned(learned_browsers or {})
+        self._reconcile_learned_browsers(learned_browsers or {})
         self._apply_custom_paths(custom_paths or {})
 
     # ── Registry ──────────────────────────────────────────────
@@ -76,35 +98,53 @@ class ExtractorManager:
     def _register_builtin(self) -> None:
         for defn in BUILTIN_BROWSERS:
             if defn.browser_type in self._disabled:
+                self._saved_extractors[defn.browser_type] = _make_extractor(defn)
                 continue
             self._registry[defn.browser_type] = _make_extractor(defn)
 
-    def _register_learned(self, learned_browsers: dict) -> None:
-        """Registers browsers discovered from smart scanning."""
-        from src.services.browser_defs import create_learned_browser_def, register_learned_browser
+    def _make_learned_extractor(self, browser_type: str, info: dict) -> BaseExtractor:
+        browser_def = create_learned_browser_def(
+            browser_type=browser_type,
+            display_name=info.get("display_name", "Unknown Browser"),
+            engine=info.get("engine", "chromium"),
+            data_dir=info.get("data_dir", ""),
+        )
+        register_learned_browser(browser_def)
+        return _make_extractor(browser_def)
 
-        for browser_type, info in learned_browsers.items():
-            if browser_type in self._disabled:
+    def _reconcile_learned_browsers(self, learned_browsers: dict) -> None:
+        """Apply add/update/remove diffs for smart-scanned browsers."""
+        normalized = {bt: info for bt, info in learned_browsers.items() if isinstance(info, dict)}
+
+        removed = set(self._learned_browsers) - set(normalized)
+        if removed:
+            with self._config_lock:
+                for bt in removed:
+                    self._registry.pop(bt, None)
+                    self._saved_extractors.pop(bt, None)
+                    unregister_browser_def(bt)
+            for bt in sorted(removed):
+                log.info("ExtractorManager: removed learned browser '%s'", bt)
+
+        changed_or_added = {bt for bt, info in normalized.items() if self._learned_browsers.get(bt) != info}
+        for bt in sorted(changed_or_added):
+            info = normalized[bt]
+            try:
+                extractor = self._make_learned_extractor(bt, info)
+            except Exception as exc:
+                log.error("Failed to register learned browser %s: %s", bt, exc)
                 continue
 
-            try:
-                # Create browser definition
-                browser_def = create_learned_browser_def(
-                    browser_type=browser_type,
-                    display_name=info.get("display_name", "Unknown Browser"),
-                    engine=info.get("engine", "chromium"),
-                    data_dir=info.get("data_dir", ""),
-                )
+            with self._config_lock:
+                if bt in self._disabled:
+                    self._saved_extractors[bt] = extractor
+                    self._registry.pop(bt, None)
+                else:
+                    self._registry[bt] = extractor
+                    self._saved_extractors.pop(bt, None)
+            log.info("ExtractorManager: registered learned browser '%s'", bt)
 
-                # Register to the global mapping table
-                register_learned_browser(browser_def)
-
-                # Create extractor
-                self._registry[browser_type] = _make_extractor(browser_def)
-                log.info("Registered learned browser: %s", browser_def.display_name)
-
-            except Exception as e:
-                log.error("Failed to register learned browser %s: %s", browser_type, e)
+        self._learned_browsers = dict(normalized)
 
     def register(self, extractor: BaseExtractor) -> None:
         with self._config_lock:
@@ -113,11 +153,42 @@ class ExtractorManager:
 
     def register_new_learned(self, learned_browsers: dict) -> None:
         """Registers newly discovered browsers at runtime."""
-        self._register_learned(learned_browsers)
+        merged = dict(self._learned_browsers)
+        merged.update(learned_browsers)
+        self._reconcile_learned_browsers(merged)
 
-    def register_custom_path(self, browser_type: str, display_name: str, db_path: Path) -> None:
-        extractor = ChromiumExtractor.for_custom_path(browser_type, display_name, db_path)
+    def register_custom_path(self, browser_type: str, display_name: str, db_path: Path, engine: str) -> None:
+        extractor = _make_custom_path_extractor(browser_type, display_name, db_path, engine=engine)
         self.register(extractor)
+
+    def _restore_builtin_browser(
+        self,
+        browser_type: str,
+        *,
+        target_disabled: bool | None = None,
+        lock_held: bool = False,
+    ) -> None:
+        """Restore a built-in browser after removing a custom path override."""
+        builtin_def = get_builtin_browser_def(browser_type)
+        unregister_browser_def(browser_type)
+        if builtin_def is None:
+            return
+        extractor = _make_extractor(builtin_def)
+        is_disabled = browser_type in self._disabled if target_disabled is None else target_disabled
+
+        def _apply() -> None:
+            if is_disabled:
+                self._saved_extractors[browser_type] = extractor
+                self._registry.pop(browser_type, None)
+                return
+            self._registry[browser_type] = extractor
+            self._saved_extractors.pop(browser_type, None)
+
+        if lock_held:
+            _apply()
+        else:
+            with self._config_lock:
+                _apply()
 
     def unregister(self, browser_type: str) -> None:
         with self._config_lock:
@@ -134,23 +205,35 @@ class ExtractorManager:
         for bt in list(self._custom_paths):
             if bt not in new_paths or self._custom_paths[bt] != new_paths[bt]:
                 self.unregister(bt)
+                with self._config_lock:
+                    self._saved_extractors.pop(bt, None)
+                if bt not in new_paths:
+                    self._restore_builtin_browser(bt, target_disabled=bt in self._disabled)
                 log.info("ExtractorManager: removed custom path for '%s'", bt)
 
         # Add new or changed paths
         for bt, path_str in new_paths.items():
             if self._custom_paths.get(bt) == path_str:
                 continue
-            if bt in self._disabled:
-                # Browser is currently disabled; record the path but don't register yet.
-                # Re-enable via update_config() will pick it up from _custom_paths.
-                log.info("ExtractorManager: custom path for '%s' stored but browser is disabled", bt)
-                continue
             db_path = Path(path_str)
             if not db_path.is_file():
                 log.warning("ExtractorManager: custom path for '%s' not found: %s", bt, path_str)
+                with self._config_lock:
+                    self._saved_extractors.pop(bt, None)
+                self._restore_builtin_browser(bt, target_disabled=bt in self._disabled)
                 continue
-            display_name = bt.replace("_", " ").title()
-            self.register_custom_path(bt, display_name, db_path)
+            defn = get_browser_def(bt)
+            engine = defn.engine if defn is not None else "chromium"
+            if bt in self._disabled:
+                # Browser is currently disabled; keep a fresh extractor ready for re-enable.
+                display_name = defn.display_name if defn is not None else bt.replace("_", " ").title()
+                extractor = _make_custom_path_extractor(bt, display_name, db_path, engine=engine)
+                with self._config_lock:
+                    self._saved_extractors[bt] = extractor
+                log.info("ExtractorManager: custom path for '%s' stored but browser is disabled", bt)
+                continue
+            display_name = defn.display_name if defn is not None else bt.replace("_", " ").title()
+            self.register_custom_path(bt, display_name, db_path, engine=engine)
             log.info("ExtractorManager: registered custom path for '%s': %s", bt, path_str)
 
         self._custom_paths = dict(new_paths)
@@ -162,6 +245,7 @@ class ExtractorManager:
         disabled_browsers: list[str],
         blacklisted_domains: list[str] | None = None,
         filtered_url_prefixes: list[str] | None = None,
+        learned_browsers: dict | None = None,
         custom_paths: dict[str, str] | None = None,
     ) -> None:
         new_disabled = set(disabled_browsers)
@@ -175,20 +259,25 @@ class ExtractorManager:
 
             newly_enabled = self._disabled - new_disabled
             for bt in newly_enabled:
-                if bt in self._saved_extractors:
-                    self._registry[bt] = self._saved_extractors.pop(bt)
-                    log.info("ExtractorManager: re-enabled '%s' (restored saved extractor)", bt)
-                elif bt in self._custom_paths:
+                if bt in self._custom_paths:
                     # Custom-path browsers are not in BROWSER_DEF_MAP; rebuild from stored path.
                     path_str = self._custom_paths[bt]
                     db_path = Path(path_str)
                     if db_path.is_file():
-                        display_name = bt.replace("_", " ").title()
-                        extractor = ChromiumExtractor.for_custom_path(bt, display_name, db_path)
+                        defn = get_browser_def(bt)
+                        display_name = defn.display_name if defn is not None else bt.replace("_", " ").title()
+                        engine = defn.engine if defn is not None else "chromium"
+                        extractor = _make_custom_path_extractor(bt, display_name, db_path, engine=engine)
                         self._registry[bt] = extractor
+                        self._saved_extractors.pop(bt, None)
                         log.info("ExtractorManager: re-enabled custom path '%s'", bt)
                     else:
+                        self._saved_extractors.pop(bt, None)
+                        self._restore_builtin_browser(bt, target_disabled=False, lock_held=True)
                         log.warning("ExtractorManager: cannot re-enable '%s', path missing: %s", bt, path_str)
+                elif bt in self._saved_extractors:
+                    self._registry[bt] = self._saved_extractors.pop(bt)
+                    log.info("ExtractorManager: re-enabled '%s' (restored saved extractor)", bt)
                 else:
                     defn = get_browser_def(bt)
                     if defn is not None:
@@ -205,6 +294,8 @@ class ExtractorManager:
                 log.info("ExtractorManager: updated filtered_url_prefixes (%d entries)", len(filtered_url_prefixes))
 
         # _apply_custom_paths calls register() which acquires _config_lock, so run outside the lock
+        if learned_browsers is not None:
+            self._reconcile_learned_browsers(learned_browsers)
         if custom_paths is not None:
             self._apply_custom_paths(custom_paths)
 
@@ -226,7 +317,11 @@ class ExtractorManager:
         return [bt for bt, ext in self._registry.items() if ext.is_available()]
 
     def get_all_registered(self) -> dict[str, str]:
-        return {bt: ext.display_name for bt, ext in self._registry.items()}
+        result: dict[str, str] = {}
+        for bt, ext in self._registry.items():
+            defn = get_browser_def(bt)
+            result[bt] = defn.display_name if defn is not None else ext.display_name
+        return result
 
     def iter_all_extractors(self) -> Iterator[tuple[str, BaseExtractor]]:
         return iter(self._registry.items())
@@ -238,6 +333,17 @@ class ExtractorManager:
                 self._registry.pop(browser_type)
                 log.info("Unregistered browser extractor: %s", browser_type)
 
+    def refresh_browser_display_name(self, browser_type: str) -> None:
+        """Synchronize an existing extractor's display name from BrowserDef."""
+        defn = get_browser_def(browser_type)
+        if defn is None:
+            return
+        with self._config_lock:
+            extractor = self._registry.get(browser_type) or self._saved_extractors.get(browser_type)
+            if extractor is None:
+                return
+            extractor._defn = defn
+
     def is_browser_disabled(self, browser_type: str) -> bool:
         return browser_type in self._disabled
 
@@ -245,14 +351,15 @@ class ExtractorManager:
         """Return display names for all disabled browsers.
 
         Covers browsers saved in _saved_extractors (disabled mid-session) and
-        custom-path browsers that were disabled at startup (only in _custom_paths).
+        custom/learned browsers remembered in config.
         """
         result: dict[str, str] = {}
         for bt in self._disabled:
             if bt in self._saved_extractors:
                 result[bt] = self._saved_extractors[bt].display_name
-            elif bt in self._custom_paths:
-                result[bt] = bt.replace("_", " ").title()
+            elif bt in self._custom_paths or bt in self._learned_browsers or get_builtin_browser_def(bt) is not None:
+                defn = get_browser_def(bt)
+                result[bt] = defn.display_name if defn is not None else bt.replace("_", " ").title()
         return result
 
     # ── Extraction ────────────────────────────────────────────

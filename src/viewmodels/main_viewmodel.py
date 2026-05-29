@@ -8,6 +8,15 @@ import sys
 from PySide6.QtCore import QObject, Signal, Slot
 
 from src.models.app_config import AppConfig
+from src.services.browser_defs import (
+    create_custom_browser_def,
+    create_learned_browser_def,
+    get_builtin_browser_def,
+    register_config_browsers,
+    register_custom_browser,
+    register_learned_browser,
+    unregister_browser_def,
+)
 from src.services.browser_monitor import BrowserMonitor
 from src.services.device_manager import ensure_local_device
 from src.services.extractor_manager import ExtractorManager
@@ -32,6 +41,7 @@ class MainViewModel(QObject):
     browser_status_changed = Signal(dict, dict)
     startup_status_changed = Signal(bool)
     backup_finished = Signal(bool, str)  # success, message
+    config_changed = Signal()
 
     # Privacy signals
     records_deleted = Signal(int)  # n records deleted
@@ -60,13 +70,18 @@ class MainViewModel(QObject):
         )
         self._webdav.set_local_db(self._db)
         self._webdav.set_device_id(self._local_device_id)
+        register_config_browsers(
+            learned_browsers=config.extractor.learned_browsers,
+            custom_browsers=config.extractor.custom_browsers,
+        )
         self._em = ExtractorManager(
             self._db,
             disabled_browsers=config.extractor.disabled_browsers,
             blacklisted_domains=config.privacy.blacklisted_domains,
             filtered_url_prefixes=config.privacy.filtered_url_prefixes,
+            learned_browsers=config.extractor.learned_browsers,
             device_id=self._local_device_id,
-            custom_paths=config.extractor.custom_paths,
+            custom_paths=config.extractor.get_custom_path_map(),
         )
 
         self._scheduler = Scheduler(self._em, self._webdav, parent=self)
@@ -278,27 +293,16 @@ class MainViewModel(QObject):
         elif browser_type not in disabled:
             disabled.append(browser_type)
         self._config.extractor.disabled_browsers = disabled
-        self._em.update_config(
-            disabled,
-            blacklisted_domains=self._config.privacy.blacklisted_domains,
-            filtered_url_prefixes=self._config.privacy.filtered_url_prefixes,
-        )
+        self._apply_browser_runtime_from_config(force_monitor=True)
         try:
             self._config.save()
         except Exception as exc:
             log.warning("Failed to save browser sync state: %s", exc)
         log.info("Browser '%s' sync set to: %s", browser_type, "enabled" if enabled else "disabled")
-        if self._monitor is not None:
-            self._monitor.force_check()
 
     def reload_extractor_config(self) -> None:
         """Reapply extractor config (disabled_browsers, etc.) after wizard completion."""
-        self._em.update_config(
-            self._config.extractor.disabled_browsers,
-            blacklisted_domains=self._config.privacy.blacklisted_domains,
-            filtered_url_prefixes=self._config.privacy.filtered_url_prefixes,
-            custom_paths=self._config.extractor.custom_paths,
-        )
+        self._apply_browser_runtime_from_config(force_monitor=True)
         log.info("Extractor config reloaded after wizard")
 
     def force_redetect_browsers(self) -> None:
@@ -344,28 +348,26 @@ class MainViewModel(QObject):
 
         self._config.save()
 
-        self._em.register_new_learned(new_entries)
-        if self._monitor is not None:
-            self._monitor.force_check()
+        self._apply_browser_runtime_from_config(force_monitor=True)
+        self.config_changed.emit()
         log.info("Learned browsers added at runtime: %s", list(new_entries.keys()))
 
     def on_browser_remove(self, browser_type: str, clear_data: bool) -> None:
         """Handle user request to remove a learned browser from dashboard context menu.
 
         Process:
-        1. Remove from in-memory config (View layer already called config.save())
-        2. Unregister extractor from ExtractorManager (if supported)
+        1. Remove from in-memory config and persist it
+        2. Unregister extractor from ExtractorManager
         3. If clear_data=True, delete all history records for this browser from local DB
         4. Trigger BrowserMonitor to refresh dashboard cards
         """
-        # Sync in-memory config (View layer already called config.save())
         self._config.extractor.learned_browsers.pop(browser_type, None)
-        if browser_type in self._config.extractor.disabled_browsers:
+        self._config.extractor.remove_custom_browser(browser_type)
+        if browser_type in self._config.extractor.disabled_browsers and get_builtin_browser_def(browser_type) is None:
             self._config.extractor.disabled_browsers.remove(browser_type)
-
-        # Unregister from ExtractorManager (if interface exists)
-        if hasattr(self._em, "unregister_browser"):
-            self._em.unregister_browser(browser_type)
+        self._config.save()
+        unregister_browser_def(browser_type)
+        self._apply_browser_runtime_from_config(force_monitor=True)
 
         # Optional: clear history records from database
         if clear_data:
@@ -375,10 +377,74 @@ class MainViewModel(QObject):
             except Exception as exc:
                 log.warning("Could not delete history for %s: %s", browser_type, exc)
 
+        if self.history_vm is not None:
+            self.history_vm.refresh()
+            self.history_vm._refresh_browser_list()
+
         # Refresh dashboard cards
-        if self._monitor is not None:
-            self._monitor.force_check()
+        self.browser_status_changed.emit(self._monitor_status_snapshot(), self._em.get_all_registered())
+        self.config_changed.emit()
         log.info("Browser removed from config: %s (clear_data=%s)", browser_type, clear_data)
+
+    def on_browser_rename(self, browser_type: str, display_name: str) -> None:
+        """Rename a user-managed browser and refresh runtime state."""
+        if browser_type in self._config.extractor.learned_browsers:
+            info = self._config.extractor.learned_browsers[browser_type]
+            info["display_name"] = display_name
+            browser_def = create_learned_browser_def(
+                browser_type=browser_type,
+                display_name=display_name,
+                engine=info.get("engine", "chromium"),
+                data_dir=info.get("data_dir", ""),
+            )
+            register_learned_browser(browser_def)
+        elif (
+            browser_type in self._config.extractor.custom_browsers
+            or browser_type in self._config.extractor.custom_paths
+        ):
+            self._config.extractor.rename_custom_browser(browser_type, display_name)
+            info = self._config.extractor.custom_browsers[browser_type]
+            browser_def = create_custom_browser_def(
+                browser_type=browser_type,
+                display_name=display_name,
+                path=info.get("path", ""),
+                engine=info.get("engine", "chromium"),
+            )
+            register_custom_browser(browser_def)
+        else:
+            log.warning("Cannot rename unmanaged browser: %s", browser_type)
+            return
+
+        self._config.save()
+        if hasattr(self._em, "refresh_browser_display_name"):
+            self._em.refresh_browser_display_name(browser_type)
+        self._apply_browser_runtime_from_config(force_monitor=True)
+        self.browser_status_changed.emit(self._monitor_status_snapshot(), self._em.get_all_registered())
+        self.config_changed.emit()
+        log.info("Browser renamed: %s -> %s", browser_type, display_name)
+
+    def _monitor_status_snapshot(self) -> dict:
+        if self._monitor is None:
+            return {}
+        return dict(getattr(self._monitor, "_current_statuses", {}))
+
+    def _apply_browser_runtime_from_config(self, force_monitor: bool = False) -> None:
+        """Reconcile browser-related runtime services from the current config."""
+        register_config_browsers(
+            learned_browsers=self._config.extractor.learned_browsers,
+            custom_browsers=self._config.extractor.custom_browsers,
+        )
+        self._em.update_config(
+            self._config.extractor.disabled_browsers,
+            blacklisted_domains=self._config.privacy.blacklisted_domains,
+            filtered_url_prefixes=self._config.privacy.filtered_url_prefixes,
+            learned_browsers=self._config.extractor.learned_browsers,
+            custom_paths=self._config.extractor.get_custom_path_map(),
+        )
+        if self._favicon_manager is not None:
+            self._favicon_manager.update_config(self._config)
+        if force_monitor and self._monitor is not None:
+            self._monitor.force_check()
 
     def get_total_count(self) -> int:
         return self._db.get_total_count()
@@ -532,18 +598,10 @@ class MainViewModel(QObject):
         # the live AppConfig so legacy ENC: ciphertext can still be migrated
         # transparently after the user re-saves settings.
         self._webdav.set_password_resolver(config.resolve_webdav_password)
-        self._em.update_config(
-            config.extractor.disabled_browsers,
-            blacklisted_domains=config.privacy.blacklisted_domains,
-            filtered_url_prefixes=config.privacy.filtered_url_prefixes,
-            custom_paths=config.extractor.custom_paths,
-        )
-        if self._favicon_manager is not None:
-            self._favicon_manager.update_config(config)
-        if self._monitor is not None:
-            self._monitor.force_check()
+        self._apply_browser_runtime_from_config(force_monitor=True)
         # Reload hidden IDs from DB — combine URL-level and domain-level hidden sets.
         self._refresh_hidden_ids()
+        self.config_changed.emit()
         log.info("Config saved and applied")
 
     def set_launch_on_startup(self, enabled: bool) -> bool:

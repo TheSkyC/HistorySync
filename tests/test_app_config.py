@@ -109,6 +109,110 @@ class TestAppConfigPersistence:
         cfg.db_path = "/custom/path/my.db"
         assert cfg.get_db_path() == Path("/custom/path/my.db")
 
+    def test_custom_browser_roundtrip(self, tmp_path: Path):
+        cfg = AppConfig()
+        cfg.extractor.set_custom_browser("portable_chrome", "C:/Portable/History", display_name="Portable Chrome")
+        cfg.save()
+
+        loaded = AppConfig.load()
+        assert loaded.extractor.get_custom_path_map()["portable_chrome"] == "C:/Portable/History"
+        assert loaded.extractor.custom_browsers["portable_chrome"]["display_name"] == "Portable Chrome"
+
+    def test_builtin_custom_browser_defaults_to_builtin_display_name(self, tmp_path: Path):
+        cfg = AppConfig()
+        cfg.extractor.set_custom_browser("chrome", "C:/Portable/History")
+        cfg.save()
+
+        loaded = AppConfig.load()
+        assert loaded.extractor.custom_browsers["chrome"]["display_name"] == "Google Chrome"
+
+    def test_builtin_firefox_custom_browser_defaults_to_builtin_engine(self, tmp_path: Path):
+        cfg = AppConfig()
+        cfg.extractor.set_custom_browser("firefox", "C:/Portable/places.sqlite")
+        cfg.save()
+
+        loaded = AppConfig.load()
+        assert loaded.extractor.custom_browsers["firefox"]["engine"] == "firefox"
+
+    def test_arbitrary_firefox_custom_browser_infers_engine_from_path(self, tmp_path: Path):
+        cfg = AppConfig()
+        cfg.extractor.set_custom_browser(
+            "portable_firefox", "C:/Portable/places.sqlite", display_name="Portable Firefox"
+        )
+        cfg.save()
+
+        loaded = AppConfig.load()
+        assert loaded.extractor.custom_browsers["portable_firefox"]["engine"] == "firefox"
+
+    def test_arbitrary_safari_custom_browser_infers_engine_from_path(self, tmp_path: Path):
+        cfg = AppConfig()
+        cfg.extractor.set_custom_browser("portable_safari", "C:/Portable/History.db", display_name="Portable Safari")
+        cfg.save()
+
+        loaded = AppConfig.load()
+        assert loaded.extractor.custom_browsers["portable_safari"]["engine"] == "safari"
+
+    def test_updating_custom_browser_path_reinfers_engine_from_new_path(self, tmp_path: Path):
+        cfg = AppConfig()
+        cfg.extractor.set_custom_browser("portable", "C:/Portable/History", display_name="Portable")
+        cfg.extractor.set_custom_browser("portable", "C:/Portable/places.sqlite")
+
+        assert cfg.extractor.custom_browsers["portable"]["engine"] == "firefox"
+
+    def test_legacy_custom_paths_migrates_to_custom_browsers(self, tmp_path: Path):
+        raw = {
+            "extractor": {
+                "custom_paths": {"portable": "C:/Portable/History"},
+                "disabled_browsers": [],
+                "learned_browsers": {},
+            }
+        }
+        (tmp_path / "config.json").write_text(json.dumps(raw), encoding="utf-8")
+
+        loaded = AppConfig.load()
+        assert loaded.extractor.custom_browsers["portable"]["path"] == "C:/Portable/History"
+        assert loaded.extractor.get_custom_path_map()["portable"] == "C:/Portable/History"
+
+    def test_legacy_builtin_custom_path_migrates_with_builtin_display_name(self, tmp_path: Path):
+        raw = {
+            "extractor": {
+                "custom_paths": {"chrome": "C:/Portable/History"},
+                "disabled_browsers": [],
+                "learned_browsers": {},
+            }
+        }
+        (tmp_path / "config.json").write_text(json.dumps(raw), encoding="utf-8")
+
+        loaded = AppConfig.load()
+        assert loaded.extractor.custom_browsers["chrome"]["display_name"] == "Google Chrome"
+
+    def test_legacy_firefox_custom_path_migrates_with_builtin_engine(self, tmp_path: Path):
+        raw = {
+            "extractor": {
+                "custom_paths": {"firefox": "C:/Portable/places.sqlite"},
+                "disabled_browsers": [],
+                "learned_browsers": {},
+            }
+        }
+        (tmp_path / "config.json").write_text(json.dumps(raw), encoding="utf-8")
+
+        loaded = AppConfig.load()
+        assert loaded.extractor.custom_browsers["firefox"]["display_name"] == "Mozilla Firefox"
+        assert loaded.extractor.custom_browsers["firefox"]["engine"] == "firefox"
+
+    def test_legacy_arbitrary_firefox_custom_path_migrates_with_path_inferred_engine(self, tmp_path: Path):
+        raw = {
+            "extractor": {
+                "custom_paths": {"portable_firefox": "C:/Portable/places.sqlite"},
+                "disabled_browsers": [],
+                "learned_browsers": {},
+            }
+        }
+        (tmp_path / "config.json").write_text(json.dumps(raw), encoding="utf-8")
+
+        loaded = AppConfig.load()
+        assert loaded.extractor.custom_browsers["portable_firefox"]["engine"] == "firefox"
+
 
 class TestGetFaviconDbPath:
     @pytest.fixture(autouse=True)

@@ -103,6 +103,7 @@ class ExtractorConfig:
     custom_paths: dict = field(default_factory=dict)
     disabled_browsers: list = field(default_factory=list)
     learned_browsers: dict = field(default_factory=dict)  # Browsers discovered by smart scan
+    custom_browsers: dict = field(default_factory=dict)
     # learned_browsers format:
     # {
     #   "detected_liebao": {
@@ -113,6 +114,100 @@ class ExtractorConfig:
     #     "profiles": ["Default", "Profile 1"]
     #   }
     # }
+
+    def get_custom_path_map(self) -> dict[str, str]:
+        """Return a browser_type -> history db path mapping for runtime components.
+
+        Supports both the legacy ``custom_paths`` format and the new
+        ``custom_browsers`` records introduced for richer UI behavior.
+        """
+        result: dict[str, str] = {}
+        for browser_type, path in self.custom_paths.items():
+            if path:
+                result[browser_type] = path
+        for browser_type, entry in self.custom_browsers.items():
+            if not isinstance(entry, dict):
+                continue
+            path = entry.get("path", "")
+            if path:
+                result[browser_type] = path
+        return result
+
+    def _resolve_default_display_name(self, browser_type: str, fallback: str | None = None) -> str:
+        """Resolve a stable display name for a custom browser entry."""
+        if fallback:
+            return fallback
+
+        entry = self.custom_browsers.get(browser_type)
+        if isinstance(entry, dict):
+            display_name = entry.get("display_name", "")
+            if display_name:
+                return display_name
+
+        try:
+            from src.services.browser_defs import get_browser_def, get_builtin_browser_def
+
+            defn = get_builtin_browser_def(browser_type) or get_browser_def(browser_type)
+        except Exception:
+            defn = None
+
+        if defn is not None and getattr(defn, "display_name", ""):
+            return defn.display_name
+        return browser_type
+
+    def _resolve_default_engine(
+        self,
+        browser_type: str,
+        fallback: str = "chromium",
+        path_override: str | None = None,
+    ) -> str:
+        """Resolve the most appropriate engine for a custom browser entry."""
+        entry = self.custom_browsers.get(browser_type)
+        path = path_override or ""
+        if isinstance(entry, dict):
+            engine = entry.get("engine", "")
+            if engine and not path_override:
+                return engine
+            if not path:
+                path = entry.get("path", "")
+        if not path:
+            path = self.custom_paths.get(browser_type, "")
+
+        try:
+            from src.services.browser_defs import infer_browser_engine_from_path, resolve_browser_engine
+
+            if path:
+                return infer_browser_engine_from_path(path, browser_type=browser_type, fallback=fallback)
+            return resolve_browser_engine(browser_type, fallback=fallback)
+        except Exception:
+            return fallback
+
+    def set_custom_browser(self, browser_type: str, path: str, display_name: str | None = None) -> None:
+        """Upsert a custom browser record and keep legacy custom_paths in sync."""
+        entry = dict(self.custom_browsers.get(browser_type, {}))
+        entry["path"] = path
+        entry["display_name"] = self._resolve_default_display_name(browser_type, fallback=display_name)
+        entry["engine"] = self._resolve_default_engine(
+            browser_type,
+            fallback=entry.get("engine", "chromium"),
+            path_override=path,
+        )
+        entry["source"] = "custom_path"
+        self.custom_browsers[browser_type] = entry
+        self.custom_paths[browser_type] = path
+
+    def remove_custom_browser(self, browser_type: str) -> None:
+        self.custom_browsers.pop(browser_type, None)
+        self.custom_paths.pop(browser_type, None)
+
+    def rename_custom_browser(self, browser_type: str, display_name: str) -> None:
+        entry = dict(self.custom_browsers.get(browser_type, {}))
+        entry["display_name"] = display_name
+        entry["engine"] = self._resolve_default_engine(browser_type, fallback=entry.get("engine", "chromium"))
+        entry["source"] = "custom_path"
+        if "path" not in entry:
+            entry["path"] = self.custom_paths.get(browser_type, "")
+        self.custom_browsers[browser_type] = entry
 
 
 BUILTIN_SEARCH_ENGINES: list[tuple[str, str]] = [
@@ -554,6 +649,19 @@ class AppConfig:
             cfg.extractor = ExtractorConfig(
                 **{k: v for k, v in d["extractor"].items() if k in ExtractorConfig.__dataclass_fields__}
             )
+            if cfg.extractor.custom_paths:
+                for browser_type, path in cfg.extractor.custom_paths.items():
+                    if not path:
+                        continue
+                    entry = cfg.extractor.custom_browsers.get(browser_type)
+                    if not isinstance(entry, dict):
+                        entry = {}
+                    entry.setdefault("display_name", cfg.extractor._resolve_default_display_name(browser_type))
+                    entry.setdefault("engine", cfg.extractor._resolve_default_engine(browser_type))
+                    entry.setdefault("source", "custom_path")
+                    entry["path"] = path
+                    cfg.extractor.custom_browsers[browser_type] = entry
+                cfg.extractor.custom_paths = cfg.extractor.get_custom_path_map()
         if "privacy" in d:
             cfg.privacy = PrivacyConfig(
                 **{k: v for k, v in d["privacy"].items() if k in PrivacyConfig.__dataclass_fields__}
