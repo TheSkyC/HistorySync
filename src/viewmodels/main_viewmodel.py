@@ -66,6 +66,7 @@ class MainViewModel(QObject):
             blacklisted_domains=config.privacy.blacklisted_domains,
             filtered_url_prefixes=config.privacy.filtered_url_prefixes,
             device_id=self._local_device_id,
+            custom_paths=config.extractor.custom_paths,
         )
 
         self._scheduler = Scheduler(self._em, self._webdav, parent=self)
@@ -296,6 +297,7 @@ class MainViewModel(QObject):
             self._config.extractor.disabled_browsers,
             blacklisted_domains=self._config.privacy.blacklisted_domains,
             filtered_url_prefixes=self._config.privacy.filtered_url_prefixes,
+            custom_paths=self._config.extractor.custom_paths,
         )
         log.info("Extractor config reloaded after wizard")
 
@@ -534,6 +536,7 @@ class MainViewModel(QObject):
             config.extractor.disabled_browsers,
             blacklisted_domains=config.privacy.blacklisted_domains,
             filtered_url_prefixes=config.privacy.filtered_url_prefixes,
+            custom_paths=config.extractor.custom_paths,
         )
         if self._favicon_manager is not None:
             self._favicon_manager.update_config(config)
