@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLayout,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -487,6 +488,21 @@ class BrowserCard(QFrame):
             or isinstance(browser_def, DirectPathBrowserDef)
         )
 
+    def _is_builtin_custom_override(self) -> bool:
+        from src.services.browser_defs import DirectPathBrowserDef, get_browser_def, get_builtin_browser_def
+
+        dashboard = _find_dashboard_page(self)
+        if dashboard is None:
+            return False
+
+        config = dashboard._config
+        browser_def = get_browser_def(self._browser_type)
+        return get_builtin_browser_def(self._browser_type) is not None and (
+            self._browser_type in config.extractor.custom_browsers
+            or self._browser_type in config.extractor.custom_paths
+            or isinstance(browser_def, DirectPathBrowserDef)
+        )
+
     def _build_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 14, 14, 12)
@@ -681,6 +697,43 @@ class BrowserCard(QFrame):
         clear_cb.setStyleSheet("font-size: 12px; color: #e05252;")
         layout.addWidget(clear_cb)
 
+        clear_delete_confirmed = {"value": False}
+
+        def _show_builtin_override_delete_warning(parent: QWidget) -> bool:
+            dashboard = _find_dashboard_page(self)
+            estimated = dashboard.estimate_browser_record_count(self._browser_type) if dashboard is not None else 0
+            reply = QMessageBox.warning(
+                parent,
+                _("Delete Synced History?"),
+                _(
+                    "This browser is a built-in browser with a custom path override.\n\n"
+                    "Deleting synced history here will remove all local history records for "
+                    "“{browser}”, not just records imported from the custom path.\n\n"
+                    "Estimated records to delete: {count}\n\n"
+                    "Do you want to continue?"
+                ).format(browser=self._display_name, count=f"{estimated:,}"),
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            return reply == QMessageBox.Yes
+
+        def _on_clear_data_toggled(checked: bool) -> None:
+            if not self._is_builtin_custom_override():
+                clear_delete_confirmed["value"] = False
+                return
+            if not checked:
+                clear_delete_confirmed["value"] = False
+                return
+            if _show_builtin_override_delete_warning(dlg):
+                clear_delete_confirmed["value"] = True
+                return
+            clear_delete_confirmed["value"] = False
+            clear_cb.blockSignals(True)
+            clear_cb.setChecked(False)
+            clear_cb.blockSignals(False)
+
+        clear_cb.toggled.connect(_on_clear_data_toggled)
+
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.button(QDialogButtonBox.Ok).setText(_("Remove"))
         buttons.button(QDialogButtonBox.Ok).setStyleSheet(
@@ -693,6 +746,10 @@ class BrowserCard(QFrame):
 
         if exec_centered(dlg, self) == QDialog.Accepted:
             clear_data = clear_cb.isChecked()
+            if clear_data and self._is_builtin_custom_override() and not clear_delete_confirmed["value"]:
+                if not _show_builtin_override_delete_warning(dlg):
+                    return
+                clear_delete_confirmed["value"] = True
             self.browser_remove_requested.emit(self._browser_type, clear_data)
 
     @property
@@ -971,6 +1028,7 @@ class DashboardPage(QWidget):
         from src.models.app_config import AppConfig
 
         self._config = AppConfig.load()
+        self._main_vm = None
         self._init_ui()
         self._browser_cards: dict[str, BrowserCard] = {}
         self._disabled_browsers: set[str] = set()
@@ -1137,6 +1195,17 @@ class DashboardPage(QWidget):
 
     def refresh_from_config(self, config):
         self._config = config
+
+    def bind_main_vm(self, main_vm) -> None:
+        self._main_vm = main_vm
+
+    def estimate_browser_record_count(self, browser_type: str) -> int:
+        if self._main_vm is None:
+            return 0
+        try:
+            return self._main_vm._db.get_filtered_count(browser_type=browser_type)
+        except Exception:
+            return 0
 
     def _relayout_cards(self):
         # Remove all items from the flow layout without destroying widgets

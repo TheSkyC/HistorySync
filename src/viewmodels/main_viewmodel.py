@@ -17,16 +17,13 @@ from src.services.browser_defs import (
     register_learned_browser,
     unregister_browser_def,
 )
-from src.services.browser_monitor import BrowserMonitor
 from src.services.device_manager import ensure_local_device
 from src.services.extractor_manager import ExtractorManager
-from src.services.favicon_manager import FaviconManager
 from src.services.local_db import LocalDatabase
 from src.services.scheduler import Scheduler, StartupManager
 from src.services.webdav_sync import SyncStatus, WebDavSyncService
 from src.utils.i18n import _
 from src.utils.logger import get_logger
-from src.viewmodels.history_viewmodel import HistoryViewModel
 
 log = get_logger("viewmodel.main")
 
@@ -97,6 +94,10 @@ class MainViewModel(QObject):
             self.history_vm = None
         else:
             self._gui_initialized = True
+            from src.services.browser_monitor import BrowserMonitor
+            from src.services.favicon_manager import FaviconManager
+            from src.viewmodels.history_viewmodel import HistoryViewModel
+
             self._favicon_manager = FaviconManager(config, parent=self)
             self._favicon_manager.set_local_db(self._db)
             self._monitor = BrowserMonitor(self._em, self._db, parent=self)
@@ -161,6 +162,10 @@ class MainViewModel(QObject):
         self._gui_initialized = True
         log.info("lazy_gui: initializing GUI subsystems on first window open")
         visible_columns = self._config.ui.visible_columns if hasattr(self._config, "ui") else None
+        from src.services.browser_monitor import BrowserMonitor
+        from src.services.favicon_manager import FaviconManager
+        from src.viewmodels.history_viewmodel import HistoryViewModel
+
         self._favicon_manager = FaviconManager(self._config, parent=self)
         self._favicon_manager.set_local_db(self._db)
         self.history_vm = HistoryViewModel(self._db, self._favicon_manager, visible_columns, parent=self)

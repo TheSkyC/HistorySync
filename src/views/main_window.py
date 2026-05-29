@@ -128,6 +128,7 @@ class MainWindow(QMainWindow):
         # Only the first-visible page is built eagerly; the rest use cheap
         # placeholder QWidgets so Qt has no widget tree to polish at show().
         self._page_dashboard = DashboardPage()
+        self._page_dashboard.bind_main_vm(self._vm)
         self._stack.addWidget(self._page_dashboard)  # index 0
 
         # Placeholders occupy the correct stack indices until first access.

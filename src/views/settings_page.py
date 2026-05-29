@@ -627,6 +627,18 @@ class SettingsPage(QWidget):
 
     def _on_remove_custom_path(self, browser_type: str):
         cfg = self._vm.get_config()
+        reply = QMessageBox.question(
+            self,
+            _("Delete Custom Path"),
+            _(
+                "Remove the custom history path for “{browser}” from settings?\n\n"
+                "This only removes the path override. No synced history records will be deleted."
+            ).format(browser=browser_type),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
         cfg.extractor.remove_custom_browser(browser_type)
         self._vm.save(cfg)
         self._sec_paths.refresh_paths(cfg.extractor.get_custom_path_map())
