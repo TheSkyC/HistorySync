@@ -279,6 +279,23 @@ class TestGetRecords:
         assert all(r.browser_type == "chrome" for r in rows)
         assert len(rows) == 1
 
+    def test_browser_filter_case_insensitive(self, local_db):
+        # Custom-path browsers may be stored with mixed case (e.g. "RunningCheeseChrome")
+        # while the search parser lowercases the token. The filter must match regardless.
+        local_db.upsert_records(
+            [
+                make_record(url="https://portable.com", browser_type="RunningCheeseChrome"),
+                make_record(url="https://other.com", browser_type="chrome"),
+            ]
+        )
+        rows = local_db.get_records(browser_type="runningcheesechrome")
+        assert len(rows) == 1
+        assert rows[0].url == "https://portable.com"
+
+        # Also works when query case matches storage case
+        rows2 = local_db.get_records(browser_type="RunningCheeseChrome")
+        assert len(rows2) == 1
+
     def test_date_from_filter(self, local_db):
         local_db.upsert_records(
             [
