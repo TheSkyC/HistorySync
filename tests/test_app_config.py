@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import threading
 import unittest.mock
 
 import pytest
@@ -370,3 +371,267 @@ class TestSessionEndGuard:
         assert (tmp_path / "config.json").exists()
         loaded = AppConfig.load()
         assert loaded.window_width == 7777
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Plan A: WebDAV password lives in the OS keyring (via SecretStore), never in
+# config.json.  These tests pin the new contract:
+#   - to_dict() never emits plaintext or freshly-encrypted ciphertext.
+#   - from_dict() does NOT decrypt at load time (no synchronous keyring hit).
+#   - Legacy ENC: ciphertext is preserved on save until migrated.
+#   - apply_webdav_password() writes through SecretStore.
+#   - resolve_webdav_password() resolves lazily and migrates ENC: on first use.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestWebDavPasswordPlanA:
+    """to_dict / from_dict no longer touch keyring or encrypt."""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_secret_store(self, monkeypatch, tmp_path):
+        """Force SecretStore to use the file fallback under tmp_path."""
+        # Re-route config dir so secrets.json is sandboxed.
+        monkeypatch.setattr("src.utils.path_helper.get_config_dir", lambda: tmp_path)
+        # Make SecretStore think keyring is unavailable so we test the
+        # keyring-free path deterministically.
+        from src.utils.secret_store import get_secret_store
+
+        store = get_secret_store()
+        monkeypatch.setattr(store, "_probe_keyring", lambda: None)
+        # Wipe any lingering fallback file from previous tests.
+        fallback = tmp_path / "secrets.json"
+        if fallback.exists():
+            fallback.unlink()
+        yield store
+        if fallback.exists():
+            fallback.unlink()
+
+    def test_to_dict_strips_plaintext_password(self):
+        cfg = AppConfig()
+        cfg.webdav.password = "plaintext-do-not-persist"
+        d = cfg.to_dict()
+        assert d["webdav"]["password"] == ""
+
+    def test_to_dict_does_not_invoke_encrypt(self, monkeypatch):
+        """Plan A removes the encrypt path; calling encrypt_text would be a regression."""
+        called = {"n": 0}
+
+        def _trip(*args, **kwargs):
+            called["n"] += 1
+            raise AssertionError("to_dict() must not call encrypt_text")
+
+        monkeypatch.setattr("src.utils.security_utils.encrypt_text", _trip)
+        cfg = AppConfig()
+        cfg.webdav.password = "anything"
+        cfg.to_dict()
+        assert called["n"] == 0
+
+    def test_to_dict_preserves_legacy_ciphertext_until_migrated(self):
+        """Unmigrated ENC: payload survives a save so the user can still recover."""
+        cfg = AppConfig()
+        cfg._webdav_password_ciphertext = "ENC:legacypayload"
+        d = cfg.to_dict()
+        assert d["webdav"]["password"] == "ENC:legacypayload"
+
+    def test_from_dict_does_not_decrypt(self, monkeypatch):
+        """from_dict must not call decrypt_text — that is the whole point of Plan A.
+
+        Regression guard: the previous implementation decrypted at load time,
+        which forced a synchronous keyring access on every startup.
+        """
+
+        def _trip(*args, **kwargs):
+            raise AssertionError("from_dict() must not call decrypt_text")
+
+        monkeypatch.setattr("src.utils.security_utils.decrypt_text", _trip)
+        d = {"webdav": {"password": "ENC:something", "url": "https://x"}}
+        cfg = AppConfig.from_dict(d)
+        assert cfg.webdav.password == ""  # never populated from disk
+        assert cfg._webdav_password_ciphertext == "ENC:something"
+
+    def test_from_dict_classifies_plaintext_legacy_password(self):
+        """A plaintext password that slipped onto disk lands in the in-memory cache."""
+        d = {"webdav": {"password": "plain-from-old-build", "url": "https://x"}}
+        cfg = AppConfig.from_dict(d)
+        # Plaintext is not put back into webdav.password on load (keeps the
+        # Plan A invariant: webdav.password is only populated by user input
+        # or by resolve_webdav_password()).
+        assert cfg.webdav.password == ""
+        assert cfg._webdav_password_cache == "plain-from-old-build"
+        # And it is not treated as legacy ENC: ciphertext.
+        assert cfg._webdav_password_ciphertext == ""
+
+    def test_resolve_uses_in_memory_first(self):
+        cfg = AppConfig()
+        cfg.webdav.password = "in-memory"
+        assert cfg.resolve_webdav_password() == "in-memory"
+
+    def test_resolve_uses_cache_when_in_memory_empty(self):
+        cfg = AppConfig()
+        cfg._webdav_password_cache = "from-cache"
+        assert cfg.resolve_webdav_password() == "from-cache"
+        # And the resolved value is now also reflected on webdav.password.
+        assert cfg.webdav.password == "from-cache"
+
+    def test_resolve_reads_from_secret_store(self):
+        from src.utils.secret_store import WEBDAV_PASSWORD_KEY, get_secret_store
+
+        get_secret_store().set(WEBDAV_PASSWORD_KEY, "from-store")
+        cfg = AppConfig()
+        assert cfg.resolve_webdav_password() == "from-store"
+
+    def test_resolve_migrates_legacy_ciphertext_once(self, monkeypatch):
+        from src.utils.secret_store import WEBDAV_PASSWORD_KEY, get_secret_store
+
+        cfg = AppConfig()
+        cfg._webdav_password_ciphertext = "ENC:legacy"
+        # Stub decrypt so we don't depend on master-key state.
+        monkeypatch.setattr("src.utils.security_utils.decrypt_text", lambda _: "migrated")
+
+        assert cfg.resolve_webdav_password() == "migrated"
+        # The ciphertext field must be cleared after a successful migration so
+        # to_dict() stops re-emitting it.
+        assert cfg._webdav_password_ciphertext == ""
+        assert get_secret_store().get(WEBDAV_PASSWORD_KEY) == "migrated"
+        # A subsequent to_dict() therefore strips the password entirely.
+        assert cfg.to_dict()["webdav"]["password"] == ""
+
+    def test_resolve_failure_preserves_ciphertext_for_retry(self, monkeypatch):
+        """A failed migration must preserve the legacy ciphertext for retry."""
+        from src.utils.security_utils import DecryptionError
+
+        cfg = AppConfig()
+        cfg._webdav_password_ciphertext = "ENC:tampered"
+
+        def _boom(_):
+            raise DecryptionError("HMAC verification failed")
+
+        monkeypatch.setattr("src.utils.security_utils.decrypt_text", _boom)
+        assert cfg.resolve_webdav_password() == ""
+        assert cfg._webdav_password_decryption_failed is True
+        assert cfg._webdav_password_ciphertext == "ENC:tampered"
+        assert cfg.to_dict()["webdav"]["password"] == "ENC:tampered"
+
+    def test_resolve_success_clears_previous_failure_flag(self, monkeypatch):
+        from src.utils.secret_store import WEBDAV_PASSWORD_KEY, get_secret_store
+
+        cfg = AppConfig()
+        cfg._webdav_password_ciphertext = "ENC:legacy"
+        cfg._webdav_password_decryption_failed = True
+        monkeypatch.setattr("src.utils.security_utils.decrypt_text", lambda _: "migrated")
+
+        assert cfg.resolve_webdav_password() == "migrated"
+        assert cfg._webdav_password_decryption_failed is False
+        assert get_secret_store().get(WEBDAV_PASSWORD_KEY) == "migrated"
+
+    def test_resolve_failure_is_idempotent(self, monkeypatch):
+        from src.utils.security_utils import DecryptionError
+
+        cfg = AppConfig()
+        cfg._webdav_password_ciphertext = "ENC:stable"
+
+        def _boom(_):
+            raise DecryptionError("HMAC verification failed")
+
+        monkeypatch.setattr("src.utils.security_utils.decrypt_text", _boom)
+
+        assert cfg.resolve_webdav_password() == ""
+        assert cfg.resolve_webdav_password() == ""
+        assert cfg._webdav_password_ciphertext == "ENC:stable"
+
+    def test_repeated_resolve_after_failure_does_not_hit_store(self, monkeypatch):
+        from src.utils.secret_store import get_secret_store
+
+        cfg = AppConfig()
+        store = get_secret_store()
+        call_count = {"n": 0}
+
+        def _counted_get(_key):
+            call_count["n"] += 1
+
+        monkeypatch.setattr(store, "get", _counted_get)
+        cfg.resolve_webdav_password()
+        cfg.resolve_webdav_password()
+        cfg.resolve_webdav_password()
+        assert call_count["n"] == 1
+
+    def test_apply_password_re_enables_store_lookup(self, monkeypatch):
+        from src.utils.secret_store import get_secret_store
+
+        cfg = AppConfig()
+        store = get_secret_store()
+        call_count = {"n": 0}
+
+        def _counted_get(_key):
+            call_count["n"] += 1
+
+        monkeypatch.setattr(store, "get", _counted_get)
+        cfg.resolve_webdav_password()
+        assert cfg._webdav_password_unavailable_this_session is True
+        cfg.apply_webdav_password("new")
+        cfg.webdav.password = ""
+        cfg._webdav_password_cache = ""
+        cfg.resolve_webdav_password()
+        assert call_count["n"] == 2
+
+    def test_resolve_is_thread_safe(self, monkeypatch):
+        from src.utils.secret_store import get_secret_store
+
+        cfg = AppConfig()
+        store = get_secret_store()
+        call_count = {"n": 0}
+        started = threading.Event()
+        release = threading.Event()
+
+        def _slow_get(_key):
+            call_count["n"] += 1
+            started.set()
+            release.wait(timeout=1)
+
+        monkeypatch.setattr(store, "get", _slow_get)
+
+        results: list[str] = []
+
+        def _worker() -> None:
+            results.append(cfg.resolve_webdav_password())
+
+        threads = [threading.Thread(target=_worker) for _ in range(4)]
+        threads[0].start()
+        assert started.wait(timeout=1)
+        for thread in threads[1:]:
+            thread.start()
+        release.set()
+        for thread in threads:
+            thread.join()
+
+        assert results == ["", "", "", ""]
+        assert call_count["n"] == 1
+
+    def test_apply_webdav_password_persists_to_store(self):
+        from src.utils.secret_store import WEBDAV_PASSWORD_KEY, get_secret_store
+
+        cfg = AppConfig()
+        cfg.apply_webdav_password("new-password")
+        assert get_secret_store().get(WEBDAV_PASSWORD_KEY) == "new-password"
+        assert cfg.webdav.password == "new-password"
+        # A pending legacy ciphertext is superseded by the explicit write.
+        assert cfg._webdav_password_ciphertext == ""
+
+    def test_apply_empty_clears_stored_password(self):
+        from src.utils.secret_store import WEBDAV_PASSWORD_KEY, get_secret_store
+
+        store = get_secret_store()
+        store.set(WEBDAV_PASSWORD_KEY, "going-away")
+        cfg = AppConfig()
+        cfg.apply_webdav_password("")
+        assert store.get(WEBDAV_PASSWORD_KEY) is None
+        assert cfg.webdav.password == ""
+
+    def test_save_does_not_write_password_to_config_json(self, tmp_path):
+        """End-to-end: a saved config.json never carries the WebDAV password."""
+        cfg = AppConfig()
+        cfg.webdav.url = "https://dav.example"
+        cfg.webdav.password = "in-memory-only"
+        cfg.save()
+        raw = (tmp_path / "config.json").read_text(encoding="utf-8")
+        assert "in-memory-only" not in raw

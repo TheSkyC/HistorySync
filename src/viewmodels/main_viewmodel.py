@@ -53,7 +53,11 @@ class MainViewModel(QObject):
         db_path = config.get_db_path()
         self._db = LocalDatabase(db_path, headless=headless)
         self._local_device_id: int = ensure_local_device(config, self._db)
-        self._webdav = WebDavSyncService(config.webdav, db_path)
+        self._webdav = WebDavSyncService(
+            config.webdav,
+            db_path,
+            password_resolver=config.resolve_webdav_password,
+        )
         self._webdav.set_local_db(self._db)
         self._webdav.set_device_id(self._local_device_id)
         self._em = ExtractorManager(
@@ -522,6 +526,10 @@ class MainViewModel(QObject):
             last_backup_ts=config.last_backup_ts,
         )
         self._webdav.update_config(config.webdav)
+        # The persistent WebDavSyncService keeps its lazy resolver wired to
+        # the live AppConfig so legacy ENC: ciphertext can still be migrated
+        # transparently after the user re-saves settings.
+        self._webdav.set_password_resolver(config.resolve_webdav_password)
         self._em.update_config(
             config.extractor.disabled_browsers,
             blacklisted_domains=config.privacy.blacklisted_domains,

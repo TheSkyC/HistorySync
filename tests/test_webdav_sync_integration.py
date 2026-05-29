@@ -51,6 +51,22 @@ from src.services.webdav_sync import (
 )
 from src.utils.constants import DB_FILENAME, FAVICON_DB_FILENAME
 
+
+def test_resolve_password_does_not_double_query_when_resolver_present(monkeypatch):
+    from src.utils.secret_store import get_secret_store
+
+    store = get_secret_store()
+    store_call_count = {"n": 0}
+
+    def _counted_get(_key):
+        store_call_count["n"] += 1
+
+    monkeypatch.setattr(store, "get", _counted_get)
+    result = WebDavSyncService._resolve_password(resolver=lambda: "")
+    assert result == ""
+    assert store_call_count["n"] == 0
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # Fake WebDAV client
 # ──────────────────────────────────────────────────────────────────────────

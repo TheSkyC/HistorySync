@@ -216,7 +216,7 @@ class TestRestoreBehavior:
         calls: dict[str, object] = {}
 
         class _FakeSvc:
-            def __init__(self, _wdav_cfg, _db_path):
+            def __init__(self, _wdav_cfg, _db_path, **_kwargs):
                 pass
 
             def list_backups(self):
@@ -262,7 +262,7 @@ class TestRestoreBehavior:
         calls: dict[str, object] = {}
 
         class _FakeSvc:
-            def __init__(self, _wdav_cfg, _db_path):
+            def __init__(self, _wdav_cfg, _db_path, **_kwargs):
                 pass
 
             def list_backups(self):

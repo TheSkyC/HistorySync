@@ -120,7 +120,17 @@ class SettingsViewModel(QObject):
         except RuntimeError:
             pass
 
-        svc = WebDavSyncService(wd_config, self._main_vm._db.db_path)
+        # The action-scoped service uses whatever password the user just typed
+        # (carried in ``wd_config.password``); when the field was left blank
+        # the resolver pulls the saved credential from the OS keyring so the
+        # user does not have to retype it on every Test/Backup click.
+        _vm_config = getattr(self._main_vm, "_config", None)
+        _resolver = getattr(_vm_config, "resolve_webdav_password", None)
+        svc = WebDavSyncService(
+            wd_config,
+            self._main_vm._db.db_path,
+            password_resolver=_resolver,
+        )
         svc.set_local_db(self._main_vm._db)
         _device_id = getattr(self._main_vm, "_local_device_id", None)
         if _device_id is not None:

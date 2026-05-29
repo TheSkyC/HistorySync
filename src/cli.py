@@ -889,7 +889,11 @@ def _cmd_backup(config, args: argparse.Namespace) -> int:
         _hint("Run  hsync -s  first to create the database.")
         return 1
 
-    service = WebDavSyncService(config.webdav, db_path)
+    service = WebDavSyncService(
+        config.webdav,
+        db_path,
+        password_resolver=getattr(config, "resolve_webdav_password", None),
+    )
 
     favicon_cache_dir: Path | None = None
     favicon_db_path = config.get_favicon_db_path()
@@ -1586,7 +1590,11 @@ def _cmd_restore(config, args: argparse.Namespace) -> int:
         return 1
 
     db_path = config.get_db_path()
-    service = WebDavSyncService(config.webdav, db_path)
+    service = WebDavSyncService(
+        config.webdav,
+        db_path,
+        password_resolver=getattr(config, "resolve_webdav_password", None),
+    )
 
     # List backups
     if not quiet:
