@@ -216,8 +216,39 @@ class WebDavSection(QWidget):
 
         self._url.setText(cfg.webdav.url)
         self._user.setText(cfg.webdav.username)
-        self._password.setText(cfg.webdav.password)
-        self._password_warning_lbl.setVisible(getattr(cfg, "_webdav_password_decryption_failed", False))
+        # Plan A: never restore the password into the input field.  The plain
+        # text never round-trips through config.json, and re-fetching it from
+        # the OS keyring just to display "••••" would prompt the user to
+        # unlock the keyring on every settings open — exactly the autostart
+        # pain we removed.  Instead, leave the field empty and use the
+        # placeholder to communicate "leave blank to keep the saved password,
+        # type a new one to replace it".
+        self._password.clear()
+        decrypt_failed = bool(getattr(cfg, "_webdav_password_decryption_failed", False))
+        if decrypt_failed:
+            self._password.setPlaceholderText(_("Re-enter password"))
+        else:
+            # Determine whether *something* is on file (keyring entry, in-memory
+            # cache from this session, or legacy ENC: ciphertext awaiting
+            # migration).  ``has`` only probes the keyring — it never decrypts
+            # the legacy payload — so calling it here does not trigger a
+            # prompt.  ``_webdav_password_ciphertext`` covers the
+            # not-yet-migrated case.
+            has_saved = bool(getattr(cfg, "_webdav_password_cache", "")) or bool(
+                getattr(cfg, "_webdav_password_ciphertext", "")
+            )
+            if not has_saved:
+                try:
+                    from src.utils.secret_store import WEBDAV_PASSWORD_KEY, get_secret_store
+
+                    has_saved = get_secret_store().has(WEBDAV_PASSWORD_KEY)
+                except Exception:
+                    has_saved = False
+            if has_saved:
+                self._password.setPlaceholderText(_("Leave blank to keep saved password"))
+            else:
+                self._password.setPlaceholderText(_("Enter WebDAV password"))
+        self._password_warning_lbl.setVisible(decrypt_failed)
         self._path.setText(cfg.webdav.remote_path)
         self._max_backups_spin.setValue(cfg.webdav.max_backups)
         self._verify_ssl_cb.setChecked(cfg.webdav.verify_ssl)

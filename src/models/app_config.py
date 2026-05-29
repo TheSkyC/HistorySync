@@ -8,6 +8,7 @@ import json
 import logging
 import os
 from pathlib import Path
+import threading
 
 from src.utils.constants import (
     CONFIG_BACKUP_FILENAME,
@@ -268,10 +269,31 @@ class AppConfig:
     _fresh_tmp_dir: object = field(default=None, init=False, repr=False, compare=False)
     # Set to backup path (str) when config was corrupt; "" if backup also failed; None = no error
     _load_error: str | None = field(default=None, init=False, repr=False, compare=False)
-    # WebDAV password decryption failure: original ciphertext preserved here so it is not
-    # overwritten on the next config save before the user has a chance to re-enter the password.
+    # ── Legacy WebDAV-password ciphertext preservation ────────────────────────
+    # Older releases stored the WebDAV password as an ``ENC:<base64>`` payload
+    # in ``config.json``.  Plan A moves the secret to the OS keyring (via
+    # ``SecretStore``) and tries to migrate on first use.  Until that migration
+    # lands successfully we keep the original ciphertext in this in-memory
+    # field so :meth:`to_dict` can write it back to disk verbatim — without it,
+    # a single save between load and the user opening the WebDAV settings
+    # would silently erase the saved password.
+    #
+    # ``_webdav_password_decryption_failed`` is a UX flag: set on permanent
+    # decryption failure (HMAC mismatch, corrupt payload) so the settings page
+    # can prompt "Password could not be decrypted. Please re-enter it."  It is
+    # **not** set merely because keyring access was deferred.
     _webdav_password_ciphertext: str = field(default="", init=False, repr=False, compare=False)
     _webdav_password_decryption_failed: bool = field(default=False, init=False, repr=False, compare=False)
+    # In-memory cache of the resolved plaintext for the current process only.
+    # Populated by :meth:`resolve_webdav_password` after a keyring lookup or a
+    # successful legacy migration; never written to disk.
+    _webdav_password_cache: str = field(default="", init=False, repr=False, compare=False)
+    # Session-level negative cache: once a keyring lookup fails in this
+    # process, later resolve attempts return "" without re-querying it.
+    _webdav_password_unavailable_this_session: bool = field(default=False, init=False, repr=False, compare=False)
+    # Serialise concurrent resolve attempts so only one thread can touch the
+    # keyring and any others observe the resulting cache state.
+    _webdav_resolve_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False, compare=False)
 
     def get_db_path(self) -> Path:
         """Return the database file path."""
@@ -316,16 +338,149 @@ class AppConfig:
                 pass
             self._fresh_tmp_dir = None
 
+    # ── WebDAV password: lazy keyring-backed resolution ─────────────────────
+    #
+    # The ``WebDavConfig.password`` field is plaintext-only and should be
+    # populated from one of two sources:
+    #
+    # 1. The user typed it into the settings UI this session (lives only in
+    #    ``self.webdav.password`` and ``self._webdav_password_cache``).
+    # 2. A previous session saved it to the OS keyring under
+    #    ``WEBDAV_PASSWORD_KEY`` (resolved on demand by
+    #    :meth:`resolve_webdav_password`).
+    #
+    # Persistence to disk goes via :meth:`apply_webdav_password`, which writes
+    # to the keyring (or its file fallback) — never to ``config.json``.
+
+    def apply_webdav_password(self, password: str) -> None:
+        """Persist ``password`` for the WebDAV server through the secret store.
+
+        Empty / blank passwords clear the stored secret instead of writing it,
+        so re-saving an empty WebDAV form removes the credential cleanly.
+        Idempotent.
+
+        Side effects:
+        - Updates ``self.webdav.password`` so the in-memory config matches
+          what callers will subsequently see.
+        - Clears ``self._webdav_password_ciphertext`` and the failure flag
+          when the new value is non-empty (a successful overwrite supersedes
+          any unmigrated legacy payload).
+        """
+        from src.utils.secret_store import WEBDAV_PASSWORD_KEY, get_secret_store
+
+        store = get_secret_store()
+        password = password or ""
+
+        if password:
+            try:
+                store.set(WEBDAV_PASSWORD_KEY, password)
+            except Exception as exc:
+                logging.getLogger(__name__).warning("Could not persist WebDAV password to secret store: %s", exc)
+            # In-memory truth tracks what the caller just provided.
+            self._webdav_password_cache = password
+            self._webdav_password_ciphertext = ""
+            self._webdav_password_decryption_failed = False
+            self._webdav_password_unavailable_this_session = False
+        else:
+            try:
+                store.delete(WEBDAV_PASSWORD_KEY)
+            except Exception as exc:
+                logging.getLogger(__name__).debug("Could not delete WebDAV password from secret store: %s", exc)
+            self._webdav_password_cache = ""
+            self._webdav_password_ciphertext = ""
+            self._webdav_password_decryption_failed = False
+            self._webdav_password_unavailable_this_session = False
+
+        self.webdav.password = password
+
+    def resolve_webdav_password(self) -> str:
+        """Return the WebDAV password, fetching from keyring on first use.
+
+        Resolution order:
+
+        1. ``self.webdav.password`` — populated by the settings UI when the
+           user typed a password this session.
+        2. In-memory cache from a previous resolve / from a plaintext-on-disk
+           legacy config that was loaded earlier in the process.
+        3. Secret store (OS keyring, with file fallback) under
+           ``WEBDAV_PASSWORD_KEY``.
+        4. Legacy ``ENC:`` ciphertext from ``config.json``.  Decrypted once;
+           on success the plaintext is migrated into the secret store and the
+           ciphertext field is cleared so the next ``save()`` strips it.
+
+        Returns ``""`` when no password is available (or migration failed
+        permanently — the UI flag is set in that case).  Never raises:
+        callers wire this into network-bound code paths and a missing
+        password should surface as an authentication error from the server,
+        not as an exception here.
+        """
+        with self._webdav_resolve_lock:
+            if self.webdav.password:
+                return self.webdav.password
+            if self._webdav_password_cache:
+                self.webdav.password = self._webdav_password_cache
+                return self._webdav_password_cache
+            if self._webdav_password_unavailable_this_session:
+                return ""
+
+            from src.utils.secret_store import WEBDAV_PASSWORD_KEY, get_secret_store
+
+            log = logging.getLogger(__name__)
+            store = get_secret_store()
+            try:
+                stored = store.get(WEBDAV_PASSWORD_KEY)
+            except Exception as exc:
+                log.warning("WebDAV password lookup failed: %s", exc)
+                stored = None
+            if stored:
+                self._webdav_password_cache = stored
+                self.webdav.password = stored
+                self._webdav_password_decryption_failed = False
+                self._webdav_password_unavailable_this_session = False
+                # A successful keyring read means any leftover legacy ciphertext
+                # is now redundant; clear it so the next save() drops it.
+                if self._webdav_password_ciphertext:
+                    self._webdav_password_ciphertext = ""
+                return stored
+
+            if self._webdav_password_ciphertext:
+                from src.utils.secret_store import migrate_legacy_ciphertext
+
+                try:
+                    plaintext = migrate_legacy_ciphertext(WEBDAV_PASSWORD_KEY, self._webdav_password_ciphertext)
+                except Exception as exc:
+                    # Keep the legacy ciphertext intact so transient failures
+                    # (locked keyring, missing secret.key during migration, user
+                    # dismissed unlock) remain retryable on the next access.
+                    log.warning("Legacy WebDAV password could not be decrypted (will retry on next access): %s", exc)
+                    self._webdav_password_decryption_failed = True
+                    self._webdav_password_unavailable_this_session = True
+                    return ""
+                if plaintext:
+                    self._webdav_password_cache = plaintext
+                    self.webdav.password = plaintext
+                    self._webdav_password_decryption_failed = False
+                    self._webdav_password_unavailable_this_session = False
+                    # Clear the ciphertext so to_dict() stops re-emitting it,
+                    # but only if the secret store actually accepted the value.
+                    if store.has(WEBDAV_PASSWORD_KEY):
+                        self._webdav_password_ciphertext = ""
+                    return plaintext
+
+            self._webdav_password_unavailable_this_session = True
+            return ""
+
     def to_dict(self) -> dict:
         webdav_dict = asdict(self.webdav)
 
-        if webdav_dict.get("password"):
-            from src.utils.security_utils import encrypt_text
-
-            webdav_dict["password"] = encrypt_text(webdav_dict["password"])
-        elif self._webdav_password_ciphertext:
-            # Decryption failed on load and the user has not re-entered the password yet;
-            # write back the original ciphertext so it is not silently erased.
+        # Plan A: WebDAV password lives in the OS keyring (via SecretStore),
+        # never in config.json.  We always strip it from the serialised dict.
+        # The single exception is preserving an unmigrated legacy ``ENC:``
+        # ciphertext: until the next successful keyring read decrypts and
+        # migrates it, dropping it would silently erase the user's saved
+        # password.
+        webdav_dict["password"] = ""
+        if self._webdav_password_ciphertext:
             webdav_dict["password"] = self._webdav_password_ciphertext
 
         return {
@@ -359,18 +514,36 @@ class AppConfig:
         cfg = cls()
         if "webdav" in d:
             webdav_data = {k: v for k, v in d["webdav"].items() if k in WebDavConfig.__dataclass_fields__}
-            if webdav_data.get("password"):
-                try:
-                    from src.utils.security_utils import DecryptionError, decrypt_text
+            raw_password = webdav_data.get("password", "")
+            if raw_password:
+                # Plan A: never decrypt during load — that would force a
+                # synchronous keyring access on every startup (the original
+                # source of the Linux autostart prompt).  Instead, classify
+                # the persisted value:
+                #
+                # - ``ENC:<base64>``: legacy ciphertext from before the
+                #   keyring-direct migration.  Stash it for to_dict() to
+                #   re-emit; defer decryption until something actually
+                #   needs the plaintext (resolve_webdav_password()).
+                # - any other non-empty value: a plaintext password that
+                #   slipped through (very old config, manual edit, or a
+                #   migration that completed mid-write).  Hand it to the
+                #   secret store on the next write path; for now keep it in
+                #   memory but never put it back into config.json.
+                from src.utils.constants import ENCRYPTION_PREFIX
 
-                    webdav_data["password"] = decrypt_text(webdav_data["password"])
-                except DecryptionError as e:
-                    logging.getLogger(__name__).warning(
-                        "WebDAV password decryption failed, preserving ciphertext to prevent data loss: %s", e
-                    )
-                    cfg._webdav_password_ciphertext = webdav_data["password"]
-                    cfg._webdav_password_decryption_failed = True
-                    webdav_data["password"] = ""
+                if raw_password.startswith(ENCRYPTION_PREFIX):
+                    cfg._webdav_password_ciphertext = raw_password
+                else:
+                    # Plaintext-on-disk: set the in-memory cache so the
+                    # current session works, and remember the value so a
+                    # subsequent save() can move it into the secret store.
+                    cfg._webdav_password_cache = raw_password
+                    cfg._webdav_password_ciphertext = ""
+            # The on-disk value never reaches WebDavConfig.password — that
+            # field is reserved for plaintext supplied at runtime (e.g. from
+            # the settings UI).
+            webdav_data["password"] = ""
             cfg.webdav = WebDavConfig(**webdav_data)
 
         if "scheduler" in d:

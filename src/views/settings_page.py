@@ -298,6 +298,20 @@ class SettingsPage(QWidget):
         cfg.scheduler.auto_backup_interval_hours = self._sec_webdav.get_backup_interval_hours()
         cfg.webdav = self._sec_webdav.get_webdav_config()
 
+        # WebDAV password lives in the OS keyring (via SecretStore) — never in
+        # config.json.  Only persist when the user typed something this round:
+        # an empty form field means "keep the saved credential", not "delete
+        # it" (otherwise editing any unrelated setting would wipe the saved
+        # password since the input is no longer pre-filled on load).
+        _new_webdav_password = cfg.webdav.password
+        if _new_webdav_password:
+            cfg.apply_webdav_password(_new_webdav_password)
+        else:
+            # Strip empty plaintext from the persisted config and rely on the
+            # existing keyring entry (if any).  resolve_webdav_password() will
+            # fetch it on demand.
+            cfg.webdav.password = ""
+
         from src.services.scheduler import StartupManager
 
         want_startup = self._sec_startup.get_launch_on_startup()

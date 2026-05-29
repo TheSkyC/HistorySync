@@ -120,7 +120,13 @@ def _sha256_bytes(data: bytes) -> str:
 
 
 class WebDavSyncService:
-    def __init__(self, config: WebDavConfig, db_path: Path):
+    def __init__(
+        self,
+        config: WebDavConfig,
+        db_path: Path,
+        *,
+        password_resolver: Callable[[], str] | None = None,
+    ):
         self._config = config
         self._db_path = db_path
         self._lock = threading.Lock()
@@ -129,6 +135,13 @@ class WebDavSyncService:
         self._local_db: LocalDatabase | None = None  # set by caller for FTS ops
         self._device_id: int | None = None  # set by caller for last_sync_at tracking
         self._resumable = ResumableTransfer()  # resumable transfer coordinator
+        # Optional callback returning the WebDAV password.  Used when the
+        # config object's plaintext password is empty (Plan A: passwords live
+        # in the OS keyring, not in config.json).  Typically wired to
+        # ``AppConfig.resolve_webdav_password`` so legacy ``ENC:`` ciphertext
+        # is migrated transparently on first use.  ``None`` means "fall back
+        # to a direct SecretStore lookup".
+        self._password_resolver: Callable[[], str] | None = password_resolver
 
     @property
     def status(self) -> SyncStatus:
@@ -161,6 +174,18 @@ class WebDavSyncService:
         with self._lock:
             self._config = config
         self._set_status(SyncStatus.IDLE)
+
+    def set_password_resolver(self, resolver: Callable[[], str] | None) -> None:
+        """Install (or clear) the lazy password resolver.
+
+        Called by orchestration code that holds the live ``AppConfig``: it
+        wires :meth:`AppConfig.resolve_webdav_password` here so per-action
+        sync runs can fetch the password from the OS keyring (or trigger a
+        legacy ``ENC:`` migration) instead of relying on a plaintext copy
+        in :class:`WebDavConfig`.
+        """
+        with self._lock:
+            self._password_resolver = resolver
 
     def set_local_db(self, db: LocalDatabase) -> None:
         """Provide a LocalDatabase reference so sync/restore can manage FTS."""
@@ -728,6 +753,14 @@ class WebDavSyncService:
             username = self._config.username
             password = self._config.password
             verify_ssl = self._config.verify_ssl
+            resolver = self._password_resolver
+        # Lazy resolution: when the in-memory config has no plaintext password
+        # (the common case after Plan A — config.json no longer carries it),
+        # ask the resolver / OS keyring for it.  This is the *only* moment a
+        # WebDAV operation touches the keyring; on Linux it means the user is
+        # never prompted at app startup, only when an actual sync/test runs.
+        if not password:
+            password = self._resolve_password(resolver)
         options = {
             "webdav_hostname": url,
             "webdav_login": username,
@@ -739,6 +772,34 @@ class WebDavSyncService:
         if not verify_ssl:
             log.warning("SSL certificate verification is disabled - connection is vulnerable to MITM attacks")
         return client
+
+    @staticmethod
+    def _resolve_password(resolver: Callable[[], str] | None) -> str:
+        """Fetch the WebDAV password lazily.
+
+        When a resolver is provided, it is the single source of truth. Falling
+        back to SecretStore after it already returned "" would re-query the same
+        keyring entry and duplicate unlock prompts when the user cancels.
+
+        The direct SecretStore path is reserved for callers without an
+        ``AppConfig`` in scope.
+
+        Never raises: a missing password surfaces later as an authentication
+        error from the WebDAV server, which is the more accurate signal.
+        """
+        if resolver is not None:
+            try:
+                return resolver() or ""
+            except Exception as exc:
+                log.warning("WebDAV password resolver failed: %s", exc)
+                return ""
+        try:
+            from src.utils.secret_store import WEBDAV_PASSWORD_KEY, get_secret_store
+
+            return get_secret_store().get(WEBDAV_PASSWORD_KEY) or ""
+        except Exception as exc:
+            log.warning("WebDAV password fallback lookup failed: %s", exc)
+            return ""
 
     @staticmethod
     def _normalise_path(path: str) -> str:
