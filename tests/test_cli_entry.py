@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import builtins
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -288,3 +290,25 @@ class TestRestoreBehavior:
         assert calls["db_path"] == db_path
         assert calls["replaced_path"] == downloaded
         assert calls["restore_kwargs"]["backup_filename"] == "history_1700000001.zip"
+
+
+def test_webdav_sync_module_imports_without_webdav3(monkeypatch):
+    """Optional WebDAV dependency must not break module import or monkeypatching."""
+    original_import = builtins.__import__
+
+    def _fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name.startswith("webdav3"):
+            raise ModuleNotFoundError("No module named 'webdav3'")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", _fake_import)
+    monkeypatch.delitem(sys.modules, "src.services.webdav_sync", raising=False)
+    monkeypatch.delitem(sys.modules, "src.services.webdav_resumable", raising=False)
+
+    from src.services import webdav_sync
+
+    service = webdav_sync.WebDavSyncService(
+        SimpleNamespace(enabled=True, url="", username="", password="", verify_ssl=True),
+        Path("dummy.db"),
+    )
+    assert service._resumable is None

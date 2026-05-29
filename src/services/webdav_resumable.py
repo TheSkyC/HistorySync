@@ -16,8 +16,7 @@ from pathlib import Path
 import threading
 import time
 from typing import TYPE_CHECKING
-
-from webdav3.urn import Urn
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from webdav3.client import Client
@@ -30,6 +29,16 @@ log = get_logger("webdav_resumable")
 DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024
 # Checkpoint save interval (every 10 MB downloaded)
 CHECKPOINT_INTERVAL = 10 * 1024 * 1024
+
+
+def _quote_remote_path(remote_path: str) -> str:
+    """Quote a WebDAV path lazily so this module remains importable without webdav3."""
+    try:
+        from webdav3.urn import Urn
+
+        return Urn(remote_path).quote()
+    except ModuleNotFoundError:
+        return quote(remote_path, safe="/%")
 
 
 class ResumableDownloadState:
@@ -236,8 +245,6 @@ class ResumableTransfer:
             self._active_transfers[remote_path] = state
 
         try:
-            urn = Urn(remote_path)
-
             # Download with Range support
             with local_path.open("ab") as dst:
                 bytes_downloaded = state.downloaded_bytes
@@ -251,7 +258,7 @@ class ResumableTransfer:
                     try:
                         response = client.execute_request(
                             "download",
-                            urn.quote(),
+                            _quote_remote_path(remote_path),
                             headers_ext=[f"Range: {range_header}"],
                         )
                         if bytes_downloaded > 0 and response.status_code != 206:

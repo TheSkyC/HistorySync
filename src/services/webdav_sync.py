@@ -20,9 +20,9 @@ import zipfile
 
 if TYPE_CHECKING:
     from src.services.local_db import LocalDatabase
+    from src.services.webdav_resumable import ResumableTransfer
 
 from src.models.app_config import WebDavConfig
-from src.services.webdav_resumable import ResumableTransfer
 from src.utils.constants import (
     DB_FILENAME,
     FAVICON_DB_FILENAME,
@@ -134,7 +134,7 @@ class WebDavSyncService:
         self._last_result: SyncResult | None = None
         self._local_db: LocalDatabase | None = None  # set by caller for FTS ops
         self._device_id: int | None = None  # set by caller for last_sync_at tracking
-        self._resumable = ResumableTransfer()  # resumable transfer coordinator
+        self._resumable: ResumableTransfer | None = None
         # Optional callback returning the WebDAV password.  Used when the
         # config object's plaintext password is empty (Plan A: passwords live
         # in the OS keyring, not in config.json).  Typically wired to
@@ -194,6 +194,14 @@ class WebDavSyncService:
     def set_device_id(self, device_id: int) -> None:
         """Provide the local device_id so last_sync_at is updated after backup."""
         self._device_id = device_id
+
+    def _get_resumable(self) -> ResumableTransfer:
+        """Create the resumable helper lazily so optional WebDAV deps stay optional."""
+        if self._resumable is None:
+            from src.services.webdav_resumable import ResumableTransfer
+
+            self._resumable = ResumableTransfer()
+        return self._resumable
 
     @staticmethod
     def _make_percent_progress_callback(
@@ -386,7 +394,7 @@ class WebDavSyncService:
             )
 
             try:
-                self._resumable.upload_resumable(
+                self._get_resumable().upload_resumable(
                     client,
                     Path(tmp_zip_path),
                     remote_file,
@@ -547,7 +555,7 @@ class WebDavSyncService:
             )
 
             try:
-                self._resumable.download_resumable(
+                self._get_resumable().download_resumable(
                     client,
                     remote_file,
                     Path(tmp_download_path),
