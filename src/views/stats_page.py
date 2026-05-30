@@ -81,6 +81,27 @@ _MONTH_NAMES = [
     N_("December"),
 ]
 
+
+def _format_date_localized(d: datetime.date, fmt: str) -> str:
+    """Format a *datetime.date* using the app's i18n locale.
+
+    Unlike ``strftime``, which honours the process / system locale, this
+    helper always uses the gettext translation tables so the output matches
+    the language the user selected inside the application.
+
+    Supported directives: ``%b`` (abbreviated month), ``%B`` (full month),
+    ``%d`` (zero-padded day), ``%Y`` (4-digit year).
+    """
+    month_full = _(_MONTH_NAMES[d.month - 1])
+    month_abbr = month_full[:3]
+    result = fmt
+    result = result.replace("%B", month_full)
+    result = result.replace("%b", month_abbr)
+    result = result.replace("%d", f"{d.day:02d}")
+    result = result.replace("%Y", str(d.year))
+    return result
+
+
 # ── Colour palettes ─────────────────────────────────────────────────────────
 
 # Per-theme heatmap colour ramps  (background → max-activity)
@@ -342,7 +363,7 @@ class _HeatmapPopup(QWidget):
             import datetime as _dt
 
             d = _dt.date.fromisoformat(self._date_str)
-            friendly = d.strftime("%b %d, %Y")
+            friendly = _format_date_localized(d, "%b %d, %Y")
         except ValueError:
             friendly = self._date_str
 
@@ -605,24 +626,23 @@ class HeatmapWidget(QWidget):
 
         # ── Month labels ────────────────────────────────────────────────
         p.setPen(QPen(_text_muted()))
-        month_starts: list[tuple[int, str]] = []  # (col_index, abbr)
+        month_starts: list[tuple[int, int, str]] = []  # (col_index, month_num, abbr)
         for m in range(1, 13):
             first = datetime.date(year, m, 1)
             if first > dec31:
                 break
             days_from_jan1 = (first - jan1).days
             col = (start_weekday + days_from_jan1) // 7
-            abbr = calendar.month_abbr[m]
-            month_starts.append((col, abbr))
+            abbr = _(_MONTH_NAMES[m - 1])[:3]
+            month_starts.append((col, m, abbr))
 
         # Draw month labels (skip if too close to previous)
         prev_x = -99
         muted = _text_muted()
         muted_dim = QColor(muted.red(), muted.green(), muted.blue(), 80 if self._highlight_month else 255)
-        for col, abbr in month_starts:
+        for col, m_num, abbr in month_starts:
             x = self.LEFT_MARGIN + col * self.STEP
             if x - prev_x >= 28:
-                m_num = calendar.month_abbr[:].index(abbr) if abbr in calendar.month_abbr else 0
                 if self._highlight_month and m_num == self._highlight_month:
                     p.setPen(QPen(_accent()))
                     font_bold = QFont(font_small)
@@ -750,7 +770,7 @@ class HeatmapWidget(QWidget):
             return
         try:
             d = datetime.date.fromisoformat(date_str)
-            friendly = d.strftime("%B %d, %Y")
+            friendly = _format_date_localized(d, "%B %d, %Y")
         except ValueError:
             friendly = date_str
         menu = StyledMenu(self)
@@ -2026,7 +2046,7 @@ class StatsPage(QWidget):
             peak_val = stats_daily[peak_date]
             try:
                 d = datetime.date.fromisoformat(peak_date)
-                peak_str = d.strftime("%b %d")
+                peak_str = _format_date_localized(d, "%b %d")
             except ValueError:
                 peak_str = peak_date
             self._stat_peak.set_value(f"{peak_val:,}  ({peak_str})")
