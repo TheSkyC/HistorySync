@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QEvent, QTimer
 from PySide6.QtGui import QColor, QFont, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -63,19 +63,18 @@ class LogViewerPage(QWidget):
         self._log_file = log_dir / LOG_FILENAME
         self._last_pos = 0
         self._auto_scroll = True
-        self._paused = True  # Default to paused — start only when user requests
+        self._paused = False  # User's explicit pause preference (via button)
 
         self._init_ui()
 
         self._refresh_timer = QTimer(self)
         self._refresh_timer.setInterval(_REFRESH_INTERVAL_MS)
         self._refresh_timer.timeout.connect(self._refresh_log)
-        # Timer starts only when user clicks Resume — default is paused
 
-        # Sync pause button UI to match default paused state
-        self._pause_btn.setChecked(True)
-        self._pause_btn.setText(_("Resume"))
-        self._pause_btn.setIcon(get_icon("play"))
+        # Pause button reflects user preference - not paused by default
+        self._pause_btn.setChecked(False)
+        self._pause_btn.setText(_("Pause"))
+        self._pause_btn.setIcon(get_icon("pause"))
 
         # Re-color logs when theme changes
         ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
@@ -89,6 +88,25 @@ class LogViewerPage(QWidget):
         if not self._log_loaded:
             self._log_loaded = True
             self._load_full_log()
+        # Resume tailing when user navigates back to this page (unless they
+        # explicitly paused it).
+        if not self._paused:
+            self._refresh_timer.start()
+
+    def hideEvent(self, event):
+        """Stop tailing when the page is no longer visible (user switched away)."""
+        self._refresh_timer.stop()
+        super().hideEvent(event)
+
+    def changeEvent(self, event: QEvent):
+        """Pause tailing when the window is minimised to save resources."""
+        if event.type() == QEvent.WindowStateChange:
+            window = self.window()
+            if window is not None and window.isMinimized():
+                self._refresh_timer.stop()
+            elif not self._paused and self.isVisible():
+                self._refresh_timer.start()
+        super().changeEvent(event)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -249,6 +267,10 @@ class LogViewerPage(QWidget):
         """Append only new lines since last read."""
         if self._paused or not self._log_file.exists():
             return
+        # Skip refresh when the window is minimised (saves CPU/disk I/O).
+        window = self.window()
+        if window is not None and window.isMinimized():
+            return
         try:
             size = self._log_file.stat().st_size
             if size < self._last_pos:
@@ -335,13 +357,16 @@ class LogViewerPage(QWidget):
         self._load_full_log()
 
     def _toggle_pause(self, paused: bool):
+        """Handle the user explicitly toggling pause/resume via the button."""
         self._paused = paused
         if paused:
             self._refresh_timer.stop()
             self._pause_btn.setText(_("Resume"))
             self._pause_btn.setIcon(get_icon("play"))
         else:
-            self._refresh_timer.start()
+            # Only start the timer if the page is currently visible.
+            if self.isVisible():
+                self._refresh_timer.start()
             self._pause_btn.setText(_("Pause"))
             self._pause_btn.setIcon(get_icon("pause"))
 
