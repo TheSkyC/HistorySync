@@ -102,7 +102,7 @@ def _base_pixmap(light: bool) -> QPixmap:
 
 
 def _render_syncing(base: QPixmap, angle_deg: float, light: bool) -> QPixmap:
-    accent = QColor("#2563eb") if light else QColor("#3DB8EE")
+    accent = QColor("#60A5FA") if light else QColor("#3DB8EE")
 
     # Copy the cached base so we don't mutate it
     px = base.copy()
