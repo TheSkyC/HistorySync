@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import sqlite3
 
+from src.services.local_db._helpers import _escape_like
 from src.utils.logger import get_logger
 from src.utils.url_utils import normalize_domain
 
@@ -310,7 +311,7 @@ class _HiddenMixin:
             rows = conn.execute("SELECT id FROM domains WHERE host = ?", (domain_norm,)).fetchall()
         else:
             rows = conn.execute(
-                "SELECT id FROM domains WHERE host = ? OR host LIKE ?",
-                (domain_norm, "%." + domain_norm),
+                "SELECT id FROM domains WHERE host = ? OR host LIKE ? ESCAPE '\\'",
+                (domain_norm, "%." + _escape_like(domain_norm)),
             ).fetchall()
         return [r[0] for r in rows]

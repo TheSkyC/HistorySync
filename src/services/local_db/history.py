@@ -1011,8 +1011,8 @@ class _HistoryMixin:
         if not domain_norm:
             return []
         rows = conn.execute(
-            "SELECT id FROM domains WHERE host = ? OR host LIKE ?",
-            (domain_norm, "%." + domain_norm),
+            "SELECT id FROM domains WHERE host = ? OR host LIKE ? ESCAPE '\\'",
+            (domain_norm, "%." + _pkg._escape_like(domain_norm)),
         ).fetchall()
         return [r[0] for r in rows]
 

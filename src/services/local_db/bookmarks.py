@@ -62,7 +62,7 @@ _VIS_HIDDEN_FALSE_SQL = (
     "  SELECT 1 FROM hidden_domains hd"
     "  WHERE (hd.subdomain_only = 1 AND b.host = hd.domain)"
     "     OR (hd.subdomain_only = 0 AND"
-    "         (b.host = hd.domain OR b.host LIKE '%.' || hd.domain)))"
+    "         (b.host = hd.domain OR b.host LIKE '%.' || REPLACE(REPLACE(hd.domain, '%', '\\%'), '_', '\\_') ESCAPE '\\')))"
 )
 _VIS_HIDDEN_TRUE_SQL = (
     "(EXISTS (SELECT 1 FROM hidden_records hr WHERE hr.url = b.url)"
@@ -70,7 +70,7 @@ _VIS_HIDDEN_TRUE_SQL = (
     "  SELECT 1 FROM hidden_domains hd"
     "  WHERE (hd.subdomain_only = 1 AND b.host = hd.domain)"
     "     OR (hd.subdomain_only = 0 AND"
-    "         (b.host = hd.domain OR b.host LIKE '%.' || hd.domain))))"
+    "         (b.host = hd.domain OR b.host LIKE '%.' || REPLACE(REPLACE(hd.domain, '%', '\\%'), '_', '\\_') ESCAPE '\\'))))"
 )
 
 
