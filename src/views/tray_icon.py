@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import math
-import sys
 
 from PySide6.QtCore import QObject, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
@@ -273,6 +272,7 @@ class TrayIcon(QObject):
         self.quit_requested.emit()
 
     def _on_activated(self, reason: QSystemTrayIcon.ActivationReason):
-        # macOS does not fire DoubleClick; use Trigger (single click) there instead.
-        if reason == QSystemTrayIcon.DoubleClick or (sys.platform == "darwin" and reason == QSystemTrayIcon.Trigger):
+        # macOS and many Linux desktop environments do not reliably fire
+        # DoubleClick; use Trigger (single left-click) to open the window.
+        if reason in (QSystemTrayIcon.DoubleClick, QSystemTrayIcon.Trigger):
             self.open_requested.emit()
