@@ -7,31 +7,61 @@
 argcomplete==3.6.3
     # via -r requirements.txt
 certifi==2026.2.25
-    # via requests
+    # via
+    #   -r requirements.txt
+    #   requests
+cffi==2.0.0
+    # via
+    #   -r requirements.txt
+    #   cryptography
 charset-normalizer==3.4.6
-    # via requests
-colorama==0.4.6
-    # via pytest
+    # via
+    #   -r requirements.txt
+    #   requests
 coverage[toml]==7.13.5
     # via pytest-cov
-idna==3.11
-    # via requests
+cryptography==48.0.0
+    # via
+    #   -r requirements.txt
+    #   secretstorage
+evdev==1.9.3
+    # via
+    #   -r requirements.txt
+    #   pynput
+idna==3.15
+    # via
+    #   -r requirements.txt
+    #   requests
 iniconfig==2.3.0
     # via pytest
 jaraco-classes==3.4.0
-    # via keyring
+    # via
+    #   -r requirements.txt
+    #   keyring
 jaraco-context==6.1.2
-    # via keyring
+    # via
+    #   -r requirements.txt
+    #   keyring
 jaraco-functools==4.4.0
-    # via keyring
+    # via
+    #   -r requirements.txt
+    #   keyring
+jeepney==0.9.0
+    # via
+    #   -r requirements.txt
+    #   keyring
+    #   secretstorage
 keyring==25.7.0
     # via
     #   -r requirements-test.in
     #   -r requirements.txt
-lxml==6.0.2
-    # via webdavclient3
+lxml==6.1.0
+    # via
+    #   -r requirements.txt
+    #   webdavclient3
 more-itertools==10.8.0
     # via
+    #   -r requirements.txt
     #   jaraco-classes
     #   jaraco-functools
 packaging==26.0
@@ -42,6 +72,10 @@ pluggy==1.6.0
     #   pytest-cov
 psutil==7.2.2
     # via -r requirements.txt
+pycparser==3.0
+    # via
+    #   -r requirements.txt
+    #   cffi
 pygments==2.19.2
     # via pytest
 pynput==1.8.1
@@ -49,35 +83,51 @@ pynput==1.8.1
 pyside6==6.11.0
     # via -r requirements.txt
 pyside6-addons==6.11.0
-    # via pyside6
+    # via
+    #   -r requirements.txt
+    #   pyside6
 pyside6-essentials==6.11.0
     # via
+    #   -r requirements.txt
     #   pyside6
     #   pyside6-addons
-pytest==9.0.2
+pytest==9.0.3
     # via
     #   -r requirements-test.in
     #   pytest-cov
 pytest-cov==7.1.0
     # via -r requirements-test.in
 python-dateutil==2.9.0.post0
-    # via webdavclient3
-pywin32-ctypes==0.2.3
-    # via keyring
-requests==2.32.5
     # via
     #   -r requirements.txt
     #   webdavclient3
+python-xlib==0.33
+    # via
+    #   -r requirements.txt
+    #   pynput
+requests==2.33.0
+    # via
+    #   -r requirements.txt
+    #   webdavclient3
+secretstorage==3.5.0
+    # via
+    #   -r requirements.txt
+    #   keyring
 shiboken6==6.11.0
     # via
+    #   -r requirements.txt
     #   pyside6
     #   pyside6-addons
     #   pyside6-essentials
 six==1.17.0
     # via
+    #   -r requirements.txt
     #   pynput
     #   python-dateutil
-urllib3==2.6.3
-    # via requests
+    #   python-xlib
+urllib3==2.7.0
+    # via
+    #   -r requirements.txt
+    #   requests
 webdavclient3==3.14.7
     # via -r requirements.txt

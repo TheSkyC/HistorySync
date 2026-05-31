@@ -14,6 +14,10 @@ certifi==2026.2.25
     # via
     #   -r requirements.txt
     #   requests
+cffi==2.0.0
+    # via
+    #   -r requirements.txt
+    #   cryptography
 cfgv==3.5.0
     # via pre-commit
 charset-normalizer==3.4.6
@@ -22,20 +26,23 @@ charset-normalizer==3.4.6
     #   requests
 click==8.3.1
     # via pip-tools
-colorama==0.4.6
+cryptography==48.0.0
     # via
-    #   build
-    #   click
-    #   pytest
+    #   -r requirements.txt
+    #   secretstorage
 distlib==0.4.0
     # via virtualenv
+evdev==1.9.3
+    # via
+    #   -r requirements.txt
+    #   pynput
 filelock==3.29.0
     # via
     #   python-discovery
     #   virtualenv
 identify==2.6.19
     # via pre-commit
-idna==3.11
+idna==3.15
     # via
     #   -r requirements.txt
     #   requests
@@ -53,9 +60,14 @@ jaraco-functools==4.4.0
     # via
     #   -r requirements.txt
     #   keyring
+jeepney==0.9.0
+    # via
+    #   -r requirements.txt
+    #   keyring
+    #   secretstorage
 keyring==25.7.0
     # via -r requirements.txt
-lxml==6.0.2
+lxml==6.1.0
     # via
     #   -r requirements.txt
     #   webdavclient3
@@ -73,8 +85,6 @@ packaging==26.0
     #   pyinstaller-hooks-contrib
     #   pytest
     #   wheel
-pefile==2024.8.26
-    # via pyinstaller
 pip-tools==7.5.3
     # via -r requirements-dev.in
 platformdirs==4.9.6
@@ -87,6 +97,10 @@ pre-commit==4.6.0
     # via -r requirements-dev.in
 psutil==7.2.2
     # via -r requirements.txt
+pycparser==3.0
+    # via
+    #   -r requirements.txt
+    #   cffi
 pygments==2.19.2
     # via pytest
 pyinstaller==6.19.0
@@ -110,7 +124,7 @@ pyside6-essentials==6.11.0
     #   -r requirements.txt
     #   pyside6
     #   pyside6-addons
-pytest==9.0.2
+pytest==9.0.3
     # via -r requirements-dev.in
 python-dateutil==2.9.0.post0
     # via
@@ -118,19 +132,22 @@ python-dateutil==2.9.0.post0
     #   webdavclient3
 python-discovery==1.2.2
     # via virtualenv
-pywin32-ctypes==0.2.3
+python-xlib==0.33
     # via
     #   -r requirements.txt
-    #   keyring
-    #   pyinstaller
+    #   pynput
 pyyaml==6.0.3
     # via pre-commit
-requests==2.32.5
+requests==2.33.0
     # via
     #   -r requirements.txt
     #   webdavclient3
 ruff==0.15.7
     # via -r requirements-dev.in
+secretstorage==3.5.0
+    # via
+    #   -r requirements.txt
+    #   keyring
 shiboken6==6.11.0
     # via
     #   -r requirements.txt
@@ -142,7 +159,8 @@ six==1.17.0
     #   -r requirements.txt
     #   pynput
     #   python-dateutil
-urllib3==2.6.3
+    #   python-xlib
+urllib3==2.7.0
     # via
     #   -r requirements.txt
     #   requests
