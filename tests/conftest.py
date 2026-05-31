@@ -19,6 +19,34 @@ from src.models.history_record import HistoryRecord
 from src.services.local_db import LocalDatabase
 
 # ══════════════════════════════════════════════════════════════
+# Session-level config isolation
+# ══════════════════════════════════════════════════════════════
+# All tests MUST use a sandboxed config directory so they never
+# read from or write to the user's real config.json.  We pre-seed
+# ``_runtime_paths`` before any test runs.
+# Tests that need a *different* config dir for a specific
+# save/load test can monkeypatch ``_resolve_config_dir``
+# individually (see test_app_config.py).
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _isolate_config_dir(tmp_path_factory: pytest.TempPathFactory) -> None:
+    """Redirect all config/data resolution to a session-scoped temp directory."""
+    root = tmp_path_factory.mktemp("config_sandbox")
+    from src.utils import path_helper
+
+    path_helper.set_runtime_paths(config_dir=root, data_dir=root)
+
+
+@pytest.fixture(autouse=True)
+def _no_session_end_flag() -> None:
+    """Ensure ``_session_ending`` is reset between tests so save() works normally."""
+    from src.models import app_config
+
+    app_config._session_state["ending"] = False
+
+
+# ══════════════════════════════════════════════════════════════
 # Temporary directory / file fixtures
 # ══════════════════════════════════════════════════════════════
 

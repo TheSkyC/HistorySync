@@ -8,6 +8,7 @@ import json
 import logging
 import os
 from pathlib import Path
+import shutil
 import threading
 
 from src.utils.constants import (
@@ -20,6 +21,8 @@ from src.utils.constants import (
     DEFAULT_SYNC_INTERVAL_HOURS,
     DEFAULT_WINDOW_HEIGHT,
     DEFAULT_WINDOW_WIDTH,
+    UPDATE_MIRROR_AUTO,
+    UPDATE_POLICY_NOTIFY_DOWNLOAD,
     WEBDAV_DEFAULT_MAX_BACKUPS,
     WEBDAV_DEFAULT_REMOTE_PATH,
 )
@@ -59,6 +62,10 @@ def _resolve_data_dir() -> Path:
 # A mutable container is used so module-level state can be flipped without
 # triggering ruff's PLW0603 (no `global` statement required).
 _session_state: dict = {"ending": False}
+
+# Serialise all save() calls so back-to-back writes (e.g. settings change +
+# sync-finished callback) cannot interleave their two-step rename sequences.
+_save_lock = threading.Lock()
 
 
 def mark_session_ending() -> None:
@@ -333,6 +340,43 @@ class KeybindingsConfig:
 
 
 @dataclass
+class UpdateConfig:
+    """Online-update preferences plus learned source-reachability state.
+
+    User-facing fields (``auto_check_enabled``, ``channel``, ``policy``,
+    ``prefer_mirror``) are edited from the Settings "Updates" card.  The
+    remaining fields are bookkeeping the update service maintains itself:
+    when the last check happened, which version the user has already seen or
+    skipped, and which metadata/download source last succeeded (so a network
+    where GitHub is slow does not pay the timeout penalty on every launch).
+    """
+
+    # ── User-facing preferences ──────────────────────────────
+    auto_check_enabled: bool = True
+    channel: str = "stable"  # one of UPDATE_CHANNELS
+    policy: str = UPDATE_POLICY_NOTIFY_DOWNLOAD  # one of UPDATE_POLICIES
+    prefer_mirror: str = UPDATE_MIRROR_AUTO  # one of UPDATE_MIRROR_MODES
+    reminder_frequency: str = "always"  # "always" | "weekly" | "never"
+
+    # ── Service-managed state (not directly user-editable) ───
+    last_check_ts: int = 0  # epoch seconds of the last successful check
+    last_seen_version: str = ""  # newest version most recently surfaced via automatic reminder
+    last_seen_ts: int = 0  # epoch seconds when the automatic reminder last surfaced
+    skipped_version: str = ""  # version the user explicitly chose to skip
+    suppress_banner_until_ts: int = 0  # temporary "remind me later" suppression window for update banners
+    suppressed_banner_version: str = ""  # version tied to the temporary suppression window
+    suppress_install_until_ts: int = 0  # temporary deferral window for auto-install on quit
+    suppressed_install_version: str = ""  # version tied to the install deferral window
+    last_good_metadata_source: str = ""  # "dl" | "github"
+    last_good_metadata_source_ts: int = 0  # when the metadata-source memory was last confirmed
+    last_good_download_source: str = ""  # "mirror" | "dl" | "github"
+    last_good_download_source_ts: int = 0  # when the download-source memory was last confirmed
+    # Legacy shared timestamp kept for backward compatibility with older config
+    # files. New code prefers the source-specific timestamps above.
+    last_good_source_ts: int = 0  # when the learned sources were last confirmed
+
+
+@dataclass
 class AppConfig:
     webdav: WebDavConfig = field(default_factory=WebDavConfig)
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
@@ -343,6 +387,7 @@ class AppConfig:
     overlay: OverlayConfig = field(default_factory=OverlayConfig)
     search_engine: SearchEngineConfig = field(default_factory=SearchEngineConfig)
     keybindings: KeybindingsConfig = field(default_factory=KeybindingsConfig)
+    updater: UpdateConfig = field(default_factory=UpdateConfig)
     window_x: int = -1
     window_y: int = -1
     window_width: int = DEFAULT_WINDOW_WIDTH
@@ -589,6 +634,7 @@ class AppConfig:
             "overlay": asdict(self.overlay),
             "search_engine": asdict(self.search_engine),
             "keybindings": asdict(self.keybindings),
+            "updater": asdict(self.updater),
             "window_x": self.window_x,
             "window_y": self.window_y,
             "window_width": self.window_width,
@@ -688,6 +734,10 @@ class AppConfig:
                 app=merged_app,
                 global_overlay=kb_data.get("global_overlay", DEFAULT_GLOBAL_HOTKEY),
             )
+        if "updater" in d and isinstance(d["updater"], dict):
+            cfg.updater = UpdateConfig(
+                **{k: v for k, v in d["updater"].items() if k in UpdateConfig.__dataclass_fields__}
+            )
         for key in (
             "window_x",
             "window_y",
@@ -713,7 +763,17 @@ class AppConfig:
         config_dir = _resolve_config_dir()
         config_file = config_dir / CONFIG_FILENAME
         backup_file = config_dir / CONFIG_BACKUP_FILENAME
+        tmp_file = config_dir / f"{CONFIG_FILENAME}.tmp"
         config_dir.mkdir(parents=True, exist_ok=True)
+
+        # Clean up any orphaned tmp file from a crashed save so the next
+        # save's ``open("w")`` doesn't pick up stale data (harmless, but
+        # leaving it around is untidy and confuses manual inspection).
+        try:
+            tmp_file.unlink(missing_ok=True)
+        except OSError:
+            pass
+
         if not config_file.exists():
             # Primary missing — try the last-good backup before giving up.
             if backup_file.exists():
@@ -722,7 +782,22 @@ class AppConfig:
                     with backup_file.open(encoding="utf-8") as f:
                         cfg = cls.from_dict(json.load(f))
                     # Restore backup as primary so subsequent saves work normally.
-                    backup_file.replace(config_file)
+                    # If the atomic rename fails (AV lock, pending journal ops
+                    # after a power-loss reboot, etc.), fall back to a copy.
+                    try:
+                        backup_file.replace(config_file)
+                    except OSError as _restore_exc:
+                        logging.getLogger(__name__).warning(
+                            "Config restore rename failed (%s); falling back to copy", _restore_exc
+                        )
+                        try:
+                            shutil.copy2(backup_file, config_file)
+                        except OSError as _copy_exc:
+                            logging.getLogger(__name__).warning(
+                                "Config restore copy also failed (%s); keeping recovered config in memory only",
+                                _copy_exc,
+                            )
+                            cfg._load_error = str(backup_file)
                     return cfg
                 except (json.JSONDecodeError, OSError):
                     pass
@@ -738,17 +813,34 @@ class AppConfig:
                 try:
                     with backup_file.open(encoding="utf-8") as f:
                         cfg = cls.from_dict(json.load(f))
+                except (json.JSONDecodeError, OSError):
+                    log.warning("Backup '%s' also unreadable; starting with defaults.", backup_file)
+                    cfg = None
+
+                if cfg is not None:
+                    # We successfully read the backup.  Now try to restore it
+                    # as the primary.  If any rename step fails, we still
+                    # return the recovered config — the data is good even if
+                    # the on-disk housekeeping didn't complete.
                     bak_corrupt = config_file.with_suffix(".json.bak")
                     try:
                         config_file.replace(bak_corrupt)
                     except OSError:
                         bak_corrupt = None
-                    backup_file.replace(config_file)
+                    try:
+                        backup_file.replace(config_file)
+                    except OSError as _restore_exc:
+                        log.warning("Config restore rename failed (%s); falling back to copy", _restore_exc)
+                        try:
+                            shutil.copy2(backup_file, config_file)
+                        except OSError as _copy_exc:
+                            log.warning(
+                                "Config restore copy also failed (%s); keeping recovered config in memory only",
+                                _copy_exc,
+                            )
                     log.warning("Recovered config from backup. Corrupt file backed up to '%s'.", bak_corrupt)
                     cfg._load_error = str(bak_corrupt) if bak_corrupt else ""
                     return cfg
-                except (json.JSONDecodeError, OSError):
-                    log.warning("Backup '%s' also unreadable; starting with defaults.", backup_file)
 
             bak_file = config_file.with_suffix(".json.bak")
             try:
@@ -785,6 +877,11 @@ class AppConfig:
             # on-disk file from the most recent interactive save is still good.
             return
 
+        with _save_lock:
+            self._save_impl()
+
+    def _save_impl(self) -> None:
+        """Internal save implementation — caller must hold ``_save_lock``."""
         config_dir = _resolve_config_dir()
         config_file = config_dir / CONFIG_FILENAME
         backup_file = config_dir / CONFIG_BACKUP_FILENAME

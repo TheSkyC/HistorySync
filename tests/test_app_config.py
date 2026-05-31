@@ -739,3 +739,105 @@ class TestWebDavPasswordPlanA:
         cfg.save()
         raw = (tmp_path / "config.json").read_text(encoding="utf-8")
         assert "in-memory-only" not in raw
+
+
+class TestUpdateConfigSerialization:
+    """UpdateConfig round-trip through to_dict / from_dict."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_config_dirs(self, monkeypatch, tmp_path):
+        monkeypatch.setattr("src.models.app_config._resolve_config_dir", lambda: tmp_path)
+        monkeypatch.setattr("src.models.app_config._resolve_data_dir", lambda: tmp_path)
+        monkeypatch.setattr("src.utils.security_utils.get_config_dir", lambda: tmp_path)
+
+    def test_defaults(self):
+        cfg = AppConfig()
+        assert cfg.updater.auto_check_enabled is True
+        assert cfg.updater.channel == "stable"
+        assert cfg.updater.policy == "notify_download"
+        assert cfg.updater.prefer_mirror == "auto"
+        assert cfg.updater.reminder_frequency == "always"
+        assert cfg.updater.last_check_ts == 0
+        assert cfg.updater.last_seen_ts == 0
+        assert cfg.updater.skipped_version == ""
+        assert cfg.updater.suppress_banner_until_ts == 0
+        assert cfg.updater.suppressed_banner_version == ""
+        assert cfg.updater.suppress_install_until_ts == 0
+        assert cfg.updater.suppressed_install_version == ""
+        assert cfg.updater.last_good_metadata_source == ""
+        assert cfg.updater.last_good_metadata_source_ts == 0
+        assert cfg.updater.last_good_download_source == ""
+        assert cfg.updater.last_good_download_source_ts == 0
+        assert cfg.updater.last_good_source_ts == 0
+
+    def test_roundtrip(self, tmp_path: Path):
+        cfg = AppConfig()
+        cfg.updater.auto_check_enabled = False
+        cfg.updater.channel = "beta"
+        cfg.updater.policy = "auto_install"
+        cfg.updater.prefer_mirror = "on"
+        cfg.updater.reminder_frequency = "weekly"
+        cfg.updater.last_check_ts = 1700000000
+        cfg.updater.last_seen_ts = 1700000001
+        cfg.updater.skipped_version = "1.5.0"
+        cfg.updater.suppress_banner_until_ts = 1700001234
+        cfg.updater.suppressed_banner_version = "1.5.0"
+        cfg.updater.suppress_install_until_ts = 1700002234
+        cfg.updater.suppressed_install_version = "1.5.0"
+        cfg.updater.last_good_metadata_source = "github"
+        cfg.updater.last_good_metadata_source_ts = 1700000050
+        cfg.updater.last_good_download_source = "mirror"
+        cfg.updater.last_good_download_source_ts = 1700000101
+        cfg.updater.last_good_source_ts = 1700000100
+        cfg.save()
+
+        loaded = AppConfig.load()
+        assert loaded.updater.auto_check_enabled is False
+        assert loaded.updater.channel == "beta"
+        assert loaded.updater.policy == "auto_install"
+        assert loaded.updater.prefer_mirror == "on"
+        assert loaded.updater.reminder_frequency == "weekly"
+        assert loaded.updater.last_check_ts == 1700000000
+        assert loaded.updater.last_seen_ts == 1700000001
+        assert loaded.updater.skipped_version == "1.5.0"
+        assert loaded.updater.suppress_banner_until_ts == 1700001234
+        assert loaded.updater.suppressed_banner_version == "1.5.0"
+        assert loaded.updater.suppress_install_until_ts == 1700002234
+        assert loaded.updater.suppressed_install_version == "1.5.0"
+        assert loaded.updater.last_good_metadata_source == "github"
+        assert loaded.updater.last_good_metadata_source_ts == 1700000050
+        assert loaded.updater.last_good_download_source == "mirror"
+        assert loaded.updater.last_good_download_source_ts == 1700000101
+        assert loaded.updater.last_good_source_ts == 1700000100
+
+    def test_missing_updater_key_uses_defaults(self, tmp_path: Path):
+        """Old config files without 'updater' key load cleanly with defaults."""
+        raw = {"config_version": 2, "language": "en_US", "theme": "dark"}
+        (tmp_path / "config.json").write_text(json.dumps(raw), encoding="utf-8")
+        loaded = AppConfig.load()
+        assert loaded.updater.auto_check_enabled is True
+        assert loaded.updater.channel == "stable"
+
+    def test_partial_updater_key_merges_with_defaults(self, tmp_path: Path):
+        """Partial updater dict fills missing fields with defaults."""
+        raw = {"config_version": 2, "updater": {"channel": "nightly", "last_check_ts": 999}}
+        (tmp_path / "config.json").write_text(json.dumps(raw), encoding="utf-8")
+        loaded = AppConfig.load()
+        assert loaded.updater.channel == "nightly"
+        assert loaded.updater.last_check_ts == 999
+        assert loaded.updater.auto_check_enabled is True  # default
+
+    def test_to_dict_includes_updater(self):
+        cfg = AppConfig()
+        cfg.updater.channel = "beta"
+        d = cfg.to_dict()
+        assert "updater" in d
+        assert d["updater"]["channel"] == "beta"
+
+    def test_unknown_fields_in_updater_ignored(self, tmp_path: Path):
+        """Future fields in the updater section don't crash from_dict."""
+        raw = {"config_version": 2, "updater": {"channel": "stable", "future_field": True}}
+        (tmp_path / "config.json").write_text(json.dumps(raw), encoding="utf-8")
+        loaded = AppConfig.load()
+        assert loaded.updater.channel == "stable"
+        assert not hasattr(loaded.updater, "future_field")

@@ -609,6 +609,25 @@ def _build_parser() -> argparse.ArgumentParser:
     for p in (p_cls, p_cgt, p_cst):
         _add_global_args(p)
 
+    # --- update ---------------------------------------------------------------
+    update_p = subs.add_parser(
+        "update",
+        help="Check for application updates",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Check if a newer version of HistorySync is available for your platform.\n\n"
+            "Examples:\n"
+            "  hsync update                     # check for updates (human-readable)\n"
+            "  hsync update --json              # output update info as JSON\n"
+            "  hsync update --channel beta      # check the beta channel\n"
+        ),
+    )
+    update_p.add_argument("--json", action="store_true", help="Emit JSON instead of human-readable text")
+    update_p.add_argument(
+        "--channel", metavar="CH", default="", help="Override update channel (stable | beta | nightly)"
+    )
+    _add_global_args(update_p)
+
     # ── Shell completion ──────────────────────────────────────────────────────
     _setup_shell_completion(parser)
 
@@ -1907,6 +1926,114 @@ def _cmd_config_set(config, args: argparse.Namespace) -> int:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Update check
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def _cmd_update(config, args: argparse.Namespace) -> int:
+    """Check for updates from the dl API (or GitHub fallback) and report."""
+    import json as _json
+
+    from src.services.update_fetch import fetch_latest, metadata_source_order
+    from src.services.update_models import api_locale
+    from src.utils.constants import APP_VERSION
+    from src.utils.install_context import detect_install_context
+    from src.utils.version_utils import is_newer
+
+    quiet = getattr(args, "quiet", False)
+    emit_json = getattr(args, "json", False)
+    channel = getattr(args, "channel", "") or config.updater.channel or "stable"
+    context = detect_install_context()
+    locale = api_locale(config.language or "en_US")
+    source_order = metadata_source_order(config.updater)
+
+    if not quiet and not emit_json:
+        _section("Update Check")
+        _info(f"Current version:  {_bold(APP_VERSION)}")
+        _info(f"Channel:          {channel}")
+        _info(f"Platform:         {context.platform} / {context.arch} / {context.kind}")
+        print()
+
+    try:
+        info, source, error = fetch_latest(
+            context,
+            channel,
+            locale,
+            APP_VERSION,
+            source_order,
+        )
+    except Exception as exc:
+        if emit_json:
+            print(_json.dumps({"error": str(exc)}))
+        else:
+            _err(f"Update check failed: {exc}")
+        return 1
+
+    if info is None:
+        if emit_json:
+            print(_json.dumps({"error": error or "No update source reachable"}))
+        else:
+            _err(error or "Could not reach any update source.")
+        return 1
+
+    # Persist the successful source
+    import time as _time
+
+    config.updater.last_check_ts = int(_time.time())
+    config.updater.last_good_metadata_source = source
+    config.updater.last_good_source_ts = config.updater.last_check_ts
+    try:
+        config.save()
+    except Exception:
+        pass
+
+    newer = is_newer(info.release.version, APP_VERSION)
+
+    if emit_json:
+        result = {
+            "current_version": APP_VERSION,
+            "latest_version": info.release.version,
+            "channel": info.release.channel,
+            "update_available": newer,
+            "published_at": info.release.published_at,
+            "notes_url": info.release.notes_url,
+            "source": info.source,
+        }
+        if info.asset is not None:
+            result["asset"] = {
+                "filename": info.asset.filename,
+                "size_bytes": info.asset.size_bytes,
+                "url": info.asset.url_download or info.asset.url_direct,
+            }
+        print(_json.dumps(result, indent=2))
+        return 0
+
+    if newer:
+        _ok(f"New version available: {_bold(info.release.version)} (published {info.release.published_at[:10]})")
+        if info.release.summary:
+            _info("")
+            _info(info.release.summary[:200])
+        if info.release.changelog:
+            _info("")
+            for entry in info.release.changelog[:8]:
+                icon = {"feature": "+", "fix": "*", "performance": "^"}.get(entry.entry_type, "-")
+                scope = f"[{entry.scope}] " if entry.scope else ""
+                _info(f"  {icon} {scope}{entry.title}")
+            if len(info.release.changelog) > 8:
+                _info(f"  ... and {len(info.release.changelog) - 8} more")
+        _info("")
+        if info.asset is not None:
+            _hint(f"Download: {info.asset.url_download or info.asset.url_direct}")
+        elif info.release.notes_url:
+            _hint(f"Release page: {info.release.notes_url}")
+    else:
+        _ok(f"You are running the latest version ({APP_VERSION}).")
+        _info(f"(checked via {source})")
+
+    return 0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Interactive mode
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -2027,6 +2154,9 @@ def _dispatch(config, args: argparse.Namespace, parser: argparse.ArgumentParser)
             return dispatch[cfg_cmd](config, args)
         _err(f"Unknown config command: {cfg_cmd}")
         return 2
+
+    if subcommand == "update":
+        return _cmd_update(config, args)
 
     if getattr(args, "interactive", False):
         return _cmd_interactive(config, parser)

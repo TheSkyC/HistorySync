@@ -847,11 +847,22 @@ def _gui_main(args: argparse.Namespace) -> None:
     tray.sync_requested.connect(main_vm.trigger_sync)
     tray.quit_requested.connect(lambda: _quit(main_vm, log))
 
+    # Wire update-service quit request (installer needs us to exit)
+    main_vm.update_quit_requested.connect(lambda: _quit(main_vm, log))
+
     main_vm.sync_started.connect(lambda: tray.set_syncing(True))
     main_vm.sync_finished.connect(lambda n: _on_tray_sync_done(tray, n))
     main_vm.sync_error.connect(lambda msg: _on_tray_sync_error(tray, msg))
     main_vm.stats_updated.connect(
         lambda total, __: tray.set_status(_("{total} records in total").format(total=f"{total:,}"))
+    )
+
+    # Tray notification for updates
+    main_vm.update_available.connect(
+        lambda info: tray.show_notification(
+            _("Update Available"),
+            _("HistorySync {version} is available.").format(version=info.release.version),
+        )
     )
 
     # ── 8. Display strategy ──────────────────────────────────────────────────
@@ -864,11 +875,15 @@ def _gui_main(args: argparse.Namespace) -> None:
         )
         # Arm scheduler only — window and GUI subsystems built on first tray click.
         QTimer.singleShot(0, main_vm.start_lazy_gui)
+        # Schedule auto update check (respects back-off, fresh mode, etc.)
+        main_vm.schedule_auto_update_check()
     else:
         _get_or_create_window().show()
         # Pre-warm overlay so the first Ctrl+Shift+H is instant.
         if config.overlay.enabled:
             QTimer.singleShot(3000, main_vm.ensure_overlay)
+        # Schedule auto update check
+        main_vm.schedule_auto_update_check()
 
     # ── 8a. First-run wizard ─────────────────────────────────────────────────
     if not config.first_run_completed:
@@ -895,6 +910,9 @@ def _gui_main(args: argparse.Namespace) -> None:
             # first-run), so start_scheduler() here is safe to call exactly once.
             main_vm.start_scheduler()
             log.info("First-run wizard: scheduler started")
+
+            # Schedule auto update check now that first_run_completed is True.
+            main_vm.schedule_auto_update_check()
 
             # If user checked "sync immediately", trigger sync after a short delay
             if wizard.should_sync_on_finish:
@@ -1026,6 +1044,20 @@ def _quit(main_vm=None, log=None):
     # Idempotent: tray-quit + aboutToQuit both call us; do real teardown once.
     if getattr(_quit, "_already_ran", False):
         return
+
+    if main_vm is not None and getattr(_quit, "_preparing_update", False) is False:
+        _quit._preparing_update = True
+        try:
+            if not main_vm.prepare_update_for_quit():
+                log.info("Update handoff started during quit; deferring remaining shutdown work")
+                # Mark as already-ran so that if quit_requested fires again
+                # (via the deferred QTimer in prepare_update_for_quit) or
+                # aboutToQuit re-enters, we short-circuit immediately.
+                _quit._already_ran = True
+                return
+        finally:
+            _quit._preparing_update = False
+
     _quit._already_ran = True
 
     log.warning("HistorySync shutting down")
@@ -1051,6 +1083,8 @@ def _quit(main_vm=None, log=None):
             main_vm._scheduler.shutdown(timeout_ms=SCHEDULER_SHUTDOWN_TIMEOUT_MS)
             if main_vm._favicon_manager is not None:
                 main_vm._favicon_manager.shutdown(timeout_ms=FAVICON_MANAGER_SHUTDOWN_TIMEOUT_MS)
+            # Cancel any in-flight update download so the thread exits cleanly.
+            main_vm.shutdown_update_service()
         except Exception as exc:
             log.warning("Error during shutdown: %s", exc)
         # Close the DB explicitly so SQLite performs a final WAL checkpoint
