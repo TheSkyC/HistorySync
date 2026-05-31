@@ -36,6 +36,7 @@ max-statements = 200
 "main.py" = ["E402"]
 "cli.py" = ["T201", "PLW0603"]
 "src/services/mock_data_generator.py" = ["T201"]
+"src/services/update_debug.py" = ["PLW0603"]
 "tests/*.py" = ["E402"]
 
 [lint.mccabe]

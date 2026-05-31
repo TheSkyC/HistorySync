@@ -27,6 +27,20 @@ from src.utils.logger import get_logger
 
 log = get_logger("viewmodel.main")
 
+# Lazy import guard: the update service is only constructed if the subsystem is
+# active (not fresh/mock mode).  The import itself is cheap — no network at
+# import time.
+_UpdateServiceCls: type | None = None
+
+
+def _get_update_service_cls():
+    global _UpdateServiceCls  # noqa: PLW0603 — intentional lazy-init cache
+    if _UpdateServiceCls is None:
+        from src.services.update_service import UpdateService
+
+        _UpdateServiceCls = UpdateService
+    return _UpdateServiceCls
+
 
 class MainViewModel(QObject):
     sync_started = Signal()
@@ -48,6 +62,18 @@ class MainViewModel(QObject):
 
     # Overlay signal
     open_settings_requested = Signal()
+
+    # Update signals
+    update_available = Signal(object)  # UpdateInfo
+    update_not_available = Signal(object)  # UpdateInfo (up-to-date or gated)
+    update_check_failed = Signal(str)
+    update_download_started = Signal()
+    update_download_progress = Signal(int, int)  # received, total
+    update_download_finished = Signal(str)  # local path
+    update_download_failed = Signal(str)
+    update_download_cancelled = Signal()
+    update_quit_requested = Signal()  # installer needs app to exit
+    update_config_save_failed = Signal(str)  # config.save() failed in update service
 
     def __init__(self, config: AppConfig, parent=None, headless: bool = False, lazy_gui: bool = False):
         super().__init__(parent)
@@ -112,6 +138,25 @@ class MainViewModel(QObject):
         # system tray.
         self._window_ever_shown: bool = False
         self._pending_favicon_browsers: list[str] | None = None
+
+        # ── Update service ────────────────────────────────────────────────────
+        from src.services.update_service import is_update_subsystem_active
+
+        if is_update_subsystem_active(config):
+            UpdateService = _get_update_service_cls()
+            self._update_service = UpdateService(config, parent=self)
+            self._update_service.update_available.connect(self.update_available)
+            self._update_service.update_not_available.connect(self.update_not_available)
+            self._update_service.check_failed.connect(self.update_check_failed)
+            self._update_service.download_started.connect(self.update_download_started)
+            self._update_service.download_progress.connect(self.update_download_progress)
+            self._update_service.download_finished.connect(self.update_download_finished)
+            self._update_service.download_failed.connect(self.update_download_failed)
+            self._update_service.download_cancelled.connect(self.update_download_cancelled)
+            self._update_service.quit_requested.connect(self.update_quit_requested)
+            self._update_service.config_save_failed.connect(self.update_config_save_failed)
+        else:
+            self._update_service = None
 
     def start(self) -> None:
         """Start all subsystems.  On first-run, call start_ui() now and
@@ -729,3 +774,108 @@ class MainViewModel(QObject):
             self._db.get_total_count(),
             self._db.get_last_sync_time(),
         )
+
+    # ── Update operations ─────────────────────────────────────
+
+    @property
+    def update_service(self):
+        """Return the UpdateService instance, or None if the subsystem is inactive."""
+        return self._update_service
+
+    def check_for_updates(self, manual: bool = False) -> None:
+        """Trigger an update check (manual or automatic)."""
+        if self._update_service is None:
+            return
+        self._update_service.check_async(manual=manual)
+
+    def schedule_auto_update_check(self) -> None:
+        """Schedule an automatic update check if conditions are met.
+
+        Called once after startup / first-run-wizard completion.  Respects
+        auto_check_enabled, the back-off interval, fresh mode, and first-run
+        state.
+        """
+        if self._update_service is None:
+            return
+        if not self._config.first_run_completed:
+            return
+        if not self._update_service.should_auto_check():
+            log.debug("Auto update check: conditions not met, skipping")
+            return
+        from PySide6.QtCore import QTimer
+
+        from src.utils.constants import UPDATE_STARTUP_CHECK_DELAY_MS
+
+        QTimer.singleShot(UPDATE_STARTUP_CHECK_DELAY_MS, self._do_auto_check)
+
+    def _do_auto_check(self) -> None:
+        if self._update_service is not None and self._update_service.should_auto_check():
+            log.info("Auto update check: firing")
+            self._update_service.check_async(manual=False)
+
+    def download_update(self) -> None:
+        """Start downloading the latest detected update."""
+        if self._update_service is None:
+            return
+        if not self._update_service.should_offer_download():
+            log.info("Update policy is notify-only; suppressing in-app download")
+            return
+        info = self._update_service.pending_update()
+        if info is None:
+            info = self._update_service.latest_update
+        if info is None:
+            return
+        self._update_service.download_async(info)
+
+    def can_download_update(self) -> bool:
+        if self._update_service is None:
+            return False
+        return self._update_service.should_offer_download()
+
+    def should_auto_apply_update_on_quit(self) -> bool:
+        if self._update_service is None:
+            return False
+        return self._update_service.should_apply_on_quit()
+
+    def prepare_update_for_quit(self) -> bool:
+        if self._update_service is None:
+            return True
+        return self._update_service.prepare_update_for_quit()
+
+    def cancel_update_download(self) -> None:
+        if self._update_service is not None:
+            self._update_service.cancel_download()
+
+    def skip_update_version(self, version: str) -> None:
+        if self._update_service is not None:
+            self._update_service.skip_version(version)
+
+    def apply_update(self, path: str) -> bool:
+        """Apply a downloaded update artifact based on the install context."""
+        if self._update_service is None:
+            return False
+        from src.utils.install_context import (
+            APPLY_OPEN_FILE,
+            APPLY_REVEAL,
+            APPLY_RUN_INSTALLER,
+        )
+
+        strategy = self._update_service.context.apply_strategy
+        if strategy == APPLY_RUN_INSTALLER:
+            return self._update_service.run_installer(path)
+        if strategy == APPLY_OPEN_FILE:
+            return self._update_service.open_artifact(path)
+        if strategy == APPLY_REVEAL:
+            self._update_service.reveal_artifact(path)
+            return True
+        # APPLY_OPEN_URL or unknown: open the release page in the browser
+        self._update_service.open_release_page(self._update_service.latest_update)
+        return True
+
+    def open_update_release_page(self) -> None:
+        if self._update_service is not None:
+            self._update_service.open_release_page(self._update_service.latest_update)
+
+    def shutdown_update_service(self) -> None:
+        if self._update_service is not None:
+            self._update_service.shutdown()

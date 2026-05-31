@@ -62,7 +62,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-test.txt
+          pip install -r requirements-test.txt
 
       # Run with the same flags as test.yml so the release gate has identical
       # rigour to the CI gate. Diverging flags risk a test passing here but

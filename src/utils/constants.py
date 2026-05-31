@@ -166,3 +166,56 @@ def qt_keyseq_to_pynput(seq: str) -> str:
         else:
             result.append(p.lower())
     return "+".join(result)
+
+
+# ── Online update / release metadata (dl API) ─────────────────────────────────
+
+# Base URL of the dl metadata API.  See the dl API documentation for the full
+# contract (GET /latest, /downloads/:version/:assetId, /changelog, ...).
+UPDATE_API_BASE_URL = "https://dl.historysync.app/api/v1"
+
+# Source repository, used to build the GitHub Releases fallback when the dl API
+# itself is unreachable (e.g. Cloudflare blocked on some networks).
+UPDATE_GITHUB_REPO = "TheSkyC/HistorySync"
+UPDATE_GITHUB_LATEST_API = "https://api.github.com/repos/TheSkyC/HistorySync/releases/latest"
+UPDATE_GITHUB_RELEASES_API = "https://api.github.com/repos/TheSkyC/HistorySync/releases"
+UPDATE_RELEASES_PAGE = "https://github.com/TheSkyC/HistorySync/releases/latest"
+
+# Release channels exposed to the client (dl API ``channel`` values).
+UPDATE_CHANNELS = ("stable", "beta", "nightly")
+
+# Update policies (how an available update is applied).
+UPDATE_POLICY_NOTIFY_ONLY = "notify_only"  # surface the update, never download automatically
+UPDATE_POLICY_NOTIFY_DOWNLOAD = "notify_download"  # default: prompt; download on user confirmation
+UPDATE_POLICY_AUTO_INSTALL = "auto_install"  # download in background, apply on next quit (opt-in)
+UPDATE_POLICIES = (UPDATE_POLICY_NOTIFY_ONLY, UPDATE_POLICY_NOTIFY_DOWNLOAD, UPDATE_POLICY_AUTO_INSTALL)
+
+# Mirror preference for the *download* source (not the metadata API).
+UPDATE_MIRROR_AUTO = "auto"  # decide from local signals (system/app language) + learned source
+UPDATE_MIRROR_ON = "on"  # always try mirrors first
+UPDATE_MIRROR_OFF = "off"  # always go straight to the canonical (GitHub) source
+UPDATE_MIRROR_MODES = (UPDATE_MIRROR_AUTO, UPDATE_MIRROR_ON, UPDATE_MIRROR_OFF)
+
+# Minimum seconds between *automatic* update checks (manual checks ignore this).
+UPDATE_CHECK_INTERVAL_SEC = 24 * 3600
+
+# Delay after GUI startup before the first automatic check fires, so the check
+# never competes with window construction or the first-run wizard.
+UPDATE_STARTUP_CHECK_DELAY_MS = 30_000
+
+# HTTP timeouts for metadata requests: (connect, read) seconds.
+UPDATE_HTTP_CONNECT_TIMEOUT = 6.0
+UPDATE_HTTP_READ_TIMEOUT = 20.0
+
+# Short connect timeout used when probing whether a download source is reachable.
+UPDATE_SOURCE_PROBE_TIMEOUT = 5.0
+
+# How long a remembered "last good source" stays trusted before it is re-probed.
+UPDATE_SOURCE_MEMORY_TTL_SEC = 7 * 24 * 3600
+
+# Streaming download chunk size (bytes).
+UPDATE_DOWNLOAD_CHUNK_SIZE = 256 * 1024
+
+# Subdirectory (under the app data dir) where downloaded update artifacts and
+# their resume checkpoints are staged.
+UPDATE_DOWNLOAD_DIR_NAME = "updates"
