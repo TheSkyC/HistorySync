@@ -11,12 +11,13 @@ from PySide6.QtWidgets import QGraphicsOpacityEffect, QWidget
 class StyledComboBox(QWidget):
     """Fully custom-drawn ComboBox with rounded corners and fade animation."""
 
+    itemActivated = Signal(int)
     currentIndexChanged = Signal(int)
     currentTextChanged = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._items = []  # List of (text, data) tuples
+        self._items = []  # List of (text, data, icon, enabled) tuples
         self._current_index = -1
         self._popup = None
         self._hovered = False
@@ -47,7 +48,7 @@ class StyledComboBox(QWidget):
             text = text_or_icon
             item_data = text_or_data
 
-        self._items.append((text, item_data, icon))
+        self._items.append((text, item_data, icon, True))
         if self._current_index == -1:
             self._current_index = 0
         self.update()
@@ -73,7 +74,7 @@ class StyledComboBox(QWidget):
 
     def setCurrentIndex(self, index: int):
         """Set current index."""
-        if 0 <= index < len(self._items) and index != self._current_index:
+        if 0 <= index < len(self._items) and self._items[index][3] and index != self._current_index:
             old_text = self.currentText()
             self._current_index = index
             new_text = self.currentText()
@@ -120,6 +121,32 @@ class StyledComboBox(QWidget):
                 return i
         return -1
 
+    def isItemEnabled(self, index: int) -> bool:
+        """Return whether the item at index is enabled."""
+        if 0 <= index < len(self._items):
+            return self._items[index][3]
+        return False
+
+    def setItemEnabled(self, index: int, enabled: bool) -> None:
+        """Enable or disable an item."""
+        if not 0 <= index < len(self._items):
+            return
+        text, item_data, icon, _ = self._items[index]
+        self._items[index] = (text, item_data, icon, enabled)
+        if not enabled and self._current_index == index:
+            fallback_index = self._find_next_enabled_index(index)
+            if fallback_index != -1:
+                self.setCurrentIndex(fallback_index)
+            else:
+                self._current_index = -1
+        self.update()
+
+    def _find_next_enabled_index(self, start_index: int = 0) -> int:
+        for index, item in enumerate(self._items):
+            if index != start_index and item[3]:
+                return index
+        return -1
+
     def setMinimumWidth(self, width: int):
         """Set minimum width."""
         super().setMinimumWidth(width)
@@ -127,6 +154,33 @@ class StyledComboBox(QWidget):
     def blockSignals(self, block: bool) -> bool:
         """Block signals."""
         return super().blockSignals(block)
+
+    def showPopup(self) -> None:
+        """Show the popup list programmatically."""
+        self._show_popup()
+
+    def showPopupAt(self, pos: QPoint, width: int | None = None) -> None:
+        """Show the popup list at an explicit global position."""
+        if not self._items:
+            return
+
+        if self._popup is None:
+            self._popup = _ComboPopup(self)
+            self._popup.item_clicked.connect(self._on_item_clicked)
+
+        self._popup.set_items(self._items, self._current_index)
+        self._popup.move(pos)
+        self._popup.setFixedWidth(width or self.width())
+        self._popup.show()
+
+    def hidePopup(self) -> None:
+        """Hide the popup list programmatically."""
+        if self._popup:
+            self._popup.hide()
+
+    def isPopupVisible(self) -> bool:
+        """Return whether the popup list is currently visible."""
+        return bool(self._popup and self._popup.isVisible())
 
     # ── Events ────────────────────────────────────────────────────
 
@@ -189,7 +243,7 @@ class StyledComboBox(QWidget):
 
         # Draw icon and text
         if 0 <= self._current_index < len(self._items):
-            text, _, icon = self._items[self._current_index]
+            text, _, icon, _ = self._items[self._current_index]
             x_offset = 12
 
             # Draw icon if present
@@ -214,24 +268,13 @@ class StyledComboBox(QWidget):
 
     def _show_popup(self):
         """Show the popup menu."""
-        if not self._items:
-            return
-
-        if self._popup is None:
-            self._popup = _ComboPopup(self)
-            self._popup.item_clicked.connect(self._on_item_clicked)
-
-        self._popup.set_items(self._items, self._current_index)
-
-        # Position popup below the combo box
-        pos = self.mapToGlobal(QPoint(0, self.height() + 2))
-        self._popup.move(pos)
-        self._popup.setFixedWidth(self.width())
-        self._popup.show()
+        self.showPopupAt(self.mapToGlobal(QPoint(0, self.height() + 2)), self.width())
 
     def _on_item_clicked(self, index: int):
         """Handle item selection."""
-        self.setCurrentIndex(index)
+        self.itemActivated.emit(index)
+        if self.isItemEnabled(index):
+            self.setCurrentIndex(index)
         if self._popup:
             self._popup.hide()
 
@@ -325,7 +368,7 @@ class _ComboPopup(QWidget):
                 return
 
             index = y // self._item_height
-            if 0 <= index < len(self._items):
+            if 0 <= index < len(self._items) and self._items[index][3]:
                 self.item_clicked.emit(index)
 
     def wheelEvent(self, event):
@@ -343,17 +386,19 @@ class _ComboPopup(QWidget):
     def keyPressEvent(self, event):
         """Handle keyboard navigation."""
         if event.key() == Qt.Key_Up:
-            if self._hovered_index > 0:
-                self._hovered_index -= 1
+            next_index = self._find_enabled_index(self._hovered_index, -1)
+            if next_index != -1:
+                self._hovered_index = next_index
                 self._ensure_visible(self._hovered_index)
                 self.update()
         elif event.key() == Qt.Key_Down:
-            if self._hovered_index < len(self._items) - 1:
-                self._hovered_index += 1
+            next_index = self._find_enabled_index(self._hovered_index, 1)
+            if next_index != -1:
+                self._hovered_index = next_index
                 self._ensure_visible(self._hovered_index)
                 self.update()
         elif event.key() in (Qt.Key_Return, Qt.Key_Enter):
-            if 0 <= self._hovered_index < len(self._items):
+            if 0 <= self._hovered_index < len(self._items) and self._items[self._hovered_index][3]:
                 self.item_clicked.emit(self._hovered_index)
         elif event.key() == Qt.Key_Escape:
             self.hide()
@@ -378,6 +423,14 @@ class _ComboPopup(QWidget):
 
         max_scroll = max(0, self._total_height - self.height())
         self._scroll_offset = max(0, min(max_scroll, self._scroll_offset))
+
+    def _find_enabled_index(self, current_index: int, direction: int) -> int:
+        index = current_index + direction
+        while 0 <= index < len(self._items):
+            if self._items[index][3]:
+                return index
+            index += direction
+        return -1
 
     def focusOutEvent(self, event):
         """Close popup when focus is lost."""
@@ -422,7 +475,7 @@ class _ComboPopup(QWidget):
         # Draw items
         for i in range(first_visible, last_visible):
             item = self._items[i]
-            text, _, icon = item
+            text, _, icon, enabled = item
             y = 4 + i * self._item_height - self._scroll_offset
             item_rect = QRect(4, y, self.width() - 8, self._item_height)
 
@@ -431,7 +484,7 @@ class _ComboPopup(QWidget):
                 continue
 
             # Draw item background
-            if i == self._hovered_index:
+            if enabled and i == self._hovered_index:
                 item_path = QPainterPath()
                 item_path.addRoundedRect(item_rect, 5, 5)
                 painter.fillPath(item_path, hover_color if i != self._current_index else selected_color)
@@ -448,6 +501,6 @@ class _ComboPopup(QWidget):
                 icon.paint(painter, item_rect.x() + x_offset, icon_y, icon_size, icon_size)
                 x_offset += icon_size + 6
 
-            painter.setPen(text_color)
+            painter.setPen(text_color if enabled else QColor("#6b7280" if not is_dark else "#5a6170"))
             text_rect = item_rect.adjusted(x_offset, 0, -8, 0)
             painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, text)
