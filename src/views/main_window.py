@@ -26,6 +26,7 @@ from src.viewmodels.main_viewmodel import MainViewModel
 from src.viewmodels.settings_viewmodel import SettingsViewModel
 from src.views.dashboard_page import DashboardPage
 from src.views.nav_widgets import NavButton, ThemeButton
+from src.views.update_banner import UpdateBanner
 
 log = get_logger("view.main_window")
 
@@ -73,7 +74,18 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(0)
 
         main_layout.addWidget(self._build_sidebar())
-        main_layout.addWidget(self._build_page_stack(), 1)
+        # Right column: floating update banner anchor + page stack
+        right_col = QVBoxLayout()
+        right_col.setContentsMargins(0, 0, 0, 0)
+        right_col.setSpacing(0)
+
+        self._update_banner = UpdateBanner()
+        right_col.addWidget(self._update_banner)
+        page_stack = self._build_page_stack()
+        self._update_banner.set_anchor_widget(page_stack)
+        right_col.addWidget(page_stack, 1)
+
+        main_layout.addLayout(right_col, 1)
 
         self._status_bar = QStatusBar()
         self._status_bar.setSizeGripEnabled(False)
@@ -211,6 +223,15 @@ class MainWindow(QMainWindow):
         # backup_finished → settings page is guarded in _on_backup_finished
         vm.backup_finished.connect(self._on_backup_finished)
         vm.open_settings_requested.connect(lambda: (self.show_and_raise(), self._switch_page(PAGE_SETTINGS)))
+
+        # Update banner signals
+        vm.update_available.connect(self._on_update_available)
+        vm.update_download_finished.connect(self._on_update_download_finished)
+        self._update_banner.view_details_requested.connect(self._show_update_dialog)
+        self._update_banner.remind_later_requested.connect(self._on_update_banner_remind_later)
+        self._update_banner.skip_version_requested.connect(self._on_update_banner_skip_version)
+        self._update_banner.open_preferences_requested.connect(self._open_update_preferences)
+        self._update_banner.dismissed.connect(self._on_update_banner_dismissed)
 
         # DashboardPage is always eager — connect directly.
         self._page_dashboard.sync_requested.connect(vm.trigger_sync)
@@ -467,6 +488,153 @@ class MainWindow(QMainWindow):
             self._page_bookmarks.apply_external_bookmark_change(changes)
 
     # ── Window events ─────────────────────────────────────────
+
+    # ── Update UI handlers ────────────────────────────────────
+
+    def _on_update_available(self, info) -> None:
+        """Show the update banner when a newer release is detected."""
+        self._update_banner.show_update_available(info.release.version)
+
+    def _on_update_download_finished(self, path: str) -> None:
+        """Switch the banner to "ready to install" state."""
+        svc = self._vm.update_service
+        info = svc.latest_update if svc else None
+        version = info.release.version if info else ""
+        if svc is not None and version and svc.is_banner_suppressed(version):
+            log.info("Update %s downloaded, but ready banner remains suppressed", version)
+            return
+        self._update_banner.show_update_ready(version)
+
+    def _on_update_banner_dismissed(self) -> None:
+        """Banner was closed by the user; nothing else to do."""
+        pass
+
+    def _on_update_banner_remind_later(self) -> None:
+        self._defer_current_update_for_week()
+
+    def _on_update_banner_skip_version(self) -> None:
+        svc = self._vm.update_service
+        if svc is None:
+            return
+        info = svc.pending_update() or svc.latest_update
+        if info is None:
+            return
+        self._vm.skip_update_version(info.release.version)
+        self._update_banner.hide_banner()
+
+    def _open_update_preferences(self) -> None:
+        self.show_and_raise()
+        self._switch_page(PAGE_SETTINGS)
+        if self._page_settings is not None:
+            self._page_settings.open_update_preferences()
+
+    def _defer_current_update_for_week(self) -> None:
+        svc = self._vm.update_service
+        if svc is None:
+            return
+        info = svc.pending_update() or svc.latest_update
+        if info is None:
+            return
+        svc.remind_later_for_week(info.release.version)
+
+    def _show_update_dialog(self) -> None:
+        """Open the update detail dialog."""
+        from src.utils.dialog_utils import exec_centered
+        from src.views.dialogs.update_dialog import UpdateDialog
+
+        svc = self._vm.update_service
+        if svc is None:
+            return
+        info = svc.pending_update() or svc.latest_update
+        if info is None:
+            # No info cached — show checking state in the banner, then trigger
+            # a manual check.  One-shot signal handlers will either open the
+            # dialog on success or restore the banner on failure.
+            self._update_banner.show_checking()
+
+            def _on_result(info_or_msg, *, is_error=False):
+                try:
+                    main_vm.update_available.disconnect(_on_available)
+                    main_vm.update_not_available.disconnect(_on_not_available)
+                    main_vm.update_check_failed.disconnect(_on_failed)
+                except RuntimeError:
+                    pass
+                if is_error or not getattr(info_or_msg, "is_update_available", False):
+                    self._update_banner.hide_banner()
+                else:
+                    self._show_update_dialog()
+
+            def _on_available(info):
+                _on_result(info)
+
+            def _on_not_available(info):
+                _on_result(info)
+
+            def _on_failed(msg):
+                _on_result(msg, is_error=True)
+
+            main_vm = self._vm
+            main_vm.update_available.connect(_on_available)
+            main_vm.update_not_available.connect(_on_not_available)
+            main_vm.update_check_failed.connect(_on_failed)
+            main_vm.check_for_updates(manual=True)
+            return
+
+        can_self_update = svc.context.can_self_update
+        allow_download = self._vm.can_download_update()
+        dlg = UpdateDialog(info, can_self_update=can_self_update, allow_download=allow_download, parent=self)
+
+        # If update is not actually newer, mark as up-to-date
+        if not info.is_update_available:
+            dlg.set_up_to_date()
+        elif not allow_download:
+            dlg.set_notify_only()
+
+        # Wire download signals to the dialog (tracked for cleanup)
+        conns: list[tuple] = []
+
+        def _connect(sig, slot):
+            sig.connect(slot)
+            conns.append((sig, slot))
+
+        _connect(self._vm.update_download_started, lambda: dlg.set_downloading(True))
+        _connect(self._vm.update_download_progress, dlg.on_download_progress)
+        _connect(self._vm.update_download_finished, lambda path: dlg.set_download_finished(True))
+        _connect(self._vm.update_download_failed, lambda msg: dlg.set_download_finished(False, msg))
+
+        def _cleanup():
+            for sig, slot in conns:
+                try:
+                    sig.disconnect(slot)
+                except RuntimeError:
+                    pass
+
+        dlg.finished.connect(_cleanup)
+
+        # Wire dialog actions
+        dlg.update_requested.connect(self._on_update_dialog_action)
+        dlg.skip_requested.connect(self._vm.skip_update_version)
+        dlg.skip_requested.connect(lambda _v: self._update_banner.hide_banner())
+        dlg.remind_later.connect(self._defer_current_update_for_week)
+        dlg.view_release_requested.connect(
+            lambda url: svc.open_browser_download(url) if url else svc.open_release_page(info)
+        )
+
+        exec_centered(dlg, self)
+
+    def _on_update_dialog_action(self) -> None:
+        """User clicked 'Update Now' / 'Install Now' in the dialog."""
+        svc = self._vm.update_service
+        if svc is None:
+            return
+        if not self._vm.can_download_update():
+            svc.open_release_page(svc.latest_update)
+            return
+        downloaded_path = svc.active_downloaded_path()
+        if downloaded_path is not None:
+            self._vm.apply_update(str(downloaded_path))
+            return
+        self._vm.download_update()
 
     def show_and_raise(self):
         self.showNormal()

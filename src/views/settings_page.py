@@ -46,6 +46,7 @@ from src.views.settings.scheduler_section import SchedulerSection
 from src.views.settings.search_engine_section import SearchEngineSection
 from src.views.settings.security_section import SecuritySection
 from src.views.settings.startup_section import StartupSection
+from src.views.settings.update_section import UpdateSection
 from src.views.settings.webdav_section import WebDavSection
 
 log = get_logger("view.settings")
@@ -93,6 +94,7 @@ class SettingsPage(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._scroll_area = scroll
 
         content = QWidget()
         self._content_layout = QVBoxLayout(content)
@@ -114,6 +116,8 @@ class SettingsPage(QWidget):
         self._sec_search_engine = SearchEngineSection()
         self._sec_keybinding = KeybindingSection()
 
+        self._sec_update = UpdateSection()
+
         self._add_card(_("LANGUAGE"), self._sec_language)
         self._add_card(_("AUTO SYNC"), self._sec_scheduler)
         self._add_card(_("STARTUP SETTINGS"), self._sec_startup)
@@ -128,6 +132,7 @@ class SettingsPage(QWidget):
         self._add_card(_("QUICK ACCESS OVERLAY"), self._sec_overlay)
         self._add_card(_("SEARCH ENGINE"), self._sec_search_engine)
         self._add_card(_("KEYBOARD SHORTCUTS"), self._sec_keybinding)
+        self._add_card(_("SOFTWARE UPDATES"), self._sec_update)
 
         self._content_layout.addStretch()
         scroll.setWidget(content)
@@ -247,6 +252,16 @@ class SettingsPage(QWidget):
         # Keybindings - connect the button to open the dialog
         self._sec_keybinding.configure_requested.connect(self._open_keybinding_dialog)
 
+        # Updates
+        self._sec_update.load(cfg)
+        self._sec_update.check_now_requested.connect(self._on_check_for_updates)
+        self._sec_update.preferences_changed.connect(self._persist_update_preferences)
+        # Disable auto-install if install cannot self-update
+        svc = getattr(self._vm._main_vm, "update_service", None)
+        if svc is not None:
+            self._sec_update.set_can_self_update(svc.context.can_self_update)
+            self._sec_update.load(self._vm.get_config())
+
         # Devices
         self._load_devices()
         self._sec_devices.rename_requested.connect(self._on_device_rename)
@@ -349,9 +364,45 @@ class SettingsPage(QWidget):
         # Search engine
         cfg.search_engine = self._sec_search_engine.get_search_engine_config()
 
+        # Updates
+        self._apply_update_preferences(cfg)
+
         self._vm.save(cfg)
+        self._sync_update_service_preferences(cfg.updater.reminder_frequency)
         self._compute_next_times()
         self._update_countdowns()
+
+    def open_update_preferences(self) -> None:
+        """Open and immediately persist the dedicated update-preferences dialog."""
+        self._sec_update.open_preferences()
+
+    def _persist_update_preferences(self) -> None:
+        """Persist only the update-preferences subsection."""
+        cfg = self._vm.get_config()
+        self._apply_update_preferences(cfg)
+        self._vm.save(cfg)
+        self._sync_update_service_preferences(cfg.updater.reminder_frequency)
+        self._sec_update.load(cfg)
+        self._set_status(_("Update preferences saved"), "success")
+
+    def _apply_update_preferences(self, cfg) -> None:
+        cfg.updater.auto_check_enabled = self._sec_update.get_auto_check_enabled()
+        cfg.updater.channel = self._sec_update.get_channel()
+        cfg.updater.policy = self._sec_update.get_policy()
+        cfg.updater.prefer_mirror = self._sec_update.get_prefer_mirror()
+        cfg.updater.reminder_frequency = self._sec_update.get_reminder_frequency()
+        if self._sec_update.should_reset_skip_version():
+            cfg.updater.skipped_version = ""
+
+    def _sync_update_service_preferences(self, reminder_frequency: str) -> None:
+        svc = getattr(self._vm._main_vm, "update_service", None)
+        if svc is None:
+            return
+        svc.set_reminder_frequency(reminder_frequency)
+        if self._sec_update.should_reset_skip_version():
+            svc.clear_skip()
+            svc.clear_reminder_state()
+            svc.clear_banner_suppression()
 
     # ── Countdown ─────────────────────────────────────────────
 
@@ -618,6 +669,93 @@ class SettingsPage(QWidget):
             cfg.keybindings = dlg._accepted_config
             self._vm.save(cfg)
             self._set_status(_("Keyboard shortcuts saved"), "success")
+
+    # ── Update handlers ───────────────────────────────────────
+
+    def _on_check_for_updates(self) -> None:
+        """Handle 'Check for Updates' button in the settings update section."""
+        main_vm = self._vm._main_vm
+        svc = getattr(main_vm, "update_service", None)
+        if svc is None:
+            self._sec_update.set_status(_("Update system is not available in this mode."), "warning")
+            return
+
+        saved_pos = self._save_scroll_position()
+        self._sec_update.set_checking(True)
+        self._restore_scroll_position(saved_pos)
+
+        # Track connections so they can be cleaned up if the settings page is
+        # destroyed before the check completes.
+        conns: list[tuple] = []
+
+        def _on_available(info):
+            self._sec_update.set_checking(False)
+            self._sec_update.set_status(_("New version {v} is available!").format(v=info.release.version), "success")
+            self._restore_scroll_position(self._save_scroll_position())
+            _disconnect()
+
+        def _on_not_available(info):
+            self._sec_update.set_checking(False)
+            svc_local = getattr(main_vm, "update_service", None)
+            if info.is_update_available and svc_local is not None:
+                version = info.release.version
+                if svc_local.is_version_skipped(version):
+                    text = _("Version {v} is available but currently skipped.").format(v=version)
+                    level = "warning"
+                else:
+                    text = _("Version {v} is available but not being surfaced automatically.").format(v=version)
+                    level = "warning"
+            else:
+                text = _("You are running the latest version.")
+                level = "success"
+            self._sec_update.set_status(text, level)
+            self._restore_scroll_position(self._save_scroll_position())
+            _disconnect()
+
+        def _on_failed(msg):
+            self._sec_update.set_checking(False)
+            self._sec_update.set_status(_("Check failed: {msg}").format(msg=msg), "error")
+            self._restore_scroll_position(self._save_scroll_position())
+            _disconnect()
+
+        cleanup_state = {"done": False}
+
+        def _disconnect():
+            if cleanup_state["done"]:
+                return
+            cleanup_state["done"] = True
+            try:
+                self.destroyed.disconnect(_disconnect)
+            except (RuntimeError, TypeError):
+                pass
+            for sig, slot in conns:
+                try:
+                    sig.disconnect(slot)
+                except (RuntimeError, TypeError):
+                    pass
+            conns.clear()
+
+        conns.append((main_vm.update_available, _on_available))
+        conns.append((main_vm.update_not_available, _on_not_available))
+        conns.append((main_vm.update_check_failed, _on_failed))
+
+        main_vm.update_available.connect(_on_available)
+        main_vm.update_not_available.connect(_on_not_available)
+        main_vm.update_check_failed.connect(_on_failed)
+
+        # If the settings page is destroyed before any signal fires, clean up.
+        self.destroyed.connect(_disconnect)
+
+        main_vm.check_for_updates(manual=True)
+
+    def _save_scroll_position(self) -> int:
+        """Snapshot the current vertical scroll position of the settings area."""
+        return self._scroll_area.verticalScrollBar().value()
+
+    def _restore_scroll_position(self, pos: int) -> None:
+        """Restore the vertical scroll position after the next event-loop tick."""
+        sb = self._scroll_area.verticalScrollBar()
+        QTimer.singleShot(0, lambda: sb.setValue(pos))
 
     def _on_add_custom_path(self, browser_type: str, path: str):
         cfg = self._vm.get_config()
