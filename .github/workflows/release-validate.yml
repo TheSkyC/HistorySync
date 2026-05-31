@@ -1,9 +1,27 @@
-name: Build and Release HistorySync
+name: Release Validate
 
 on:
+  pull_request:
+    branches: ["**"]
+    paths:
+      - '.github/workflows/release.yml'
+      - '.github/workflows/release-validate.yml'
+      - 'app.spec'
+      - 'requirements*.txt'
+      - 'requirements*.in'
+      - 'src/services/update_*.py'
+      - 'src/utils/install_context.py'
+      - 'src/main.py'
+      - 'src/cli.py'
+      - 'src/resources/icons/app-icon.png'
   push:
-    tags:
-      - 'v*.*.*'
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   APP_NAME: HistorySync
@@ -13,19 +31,19 @@ env:
   PYTHON_BUILD_VERSION: '3.12'
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-# ═══════════════════════════════════════════════════════════════════════════════
 jobs:
 
-  # ── 0. Version ──────────────────────────────────────────────────────────────
   # Extracts a clean tag (vX.Y.Z) and bare number (X.Y.Z) from the git ref and
   # exposes them as outputs for every downstream job.
-  # ────────────────────────────────────────────────────────────────────────────
+  # Also emits a matrix JSON: PR events run only the default-validation platforms;
+  # push/dispatch runs the full matrix.
   setup:
     name: Parse Version
     runs-on: ubuntu-latest
     outputs:
       version_tag: ${{ steps.ver.outputs.tag }}
       version_num: ${{ steps.ver.outputs.num }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,19 +51,30 @@ jobs:
         id: ver
         shell: bash
         run: |
-          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then
-            echo "::error::release.yml only supports tag refs (expected refs/tags/v*)."
-            exit 1
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            # pull_request / branch push / workflow_dispatch: synthesise a dev version
+            TAG="v0.0.0-dev.$(git rev-parse --short HEAD)"
           fi
-          TAG="$GITHUB_REF_NAME"
           NUM="${TAG#v}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "num=${NUM}"  >> "$GITHUB_OUTPUT"
           echo "::notice title=Version::Building ${TAG} (${NUM})"
 
-  # ── 1. Test gate ─────────────────────────────────────────────────────────────
+      - name: Build platform matrix
+        id: matrix
+        shell: bash
+        run: |
+          FULL='{"include":[{"platform_name":"windows-x64","os_image":"windows-latest","python_arch":"x86_64-pc-windows-msvc","arch_display":"x64","validate_default":true},{"platform_name":"windows-arm64","os_image":"windows-11-arm","python_arch":"aarch64-pc-windows-msvc","arch_display":"arm64","validate_default":false},{"platform_name":"linux-x64","os_image":"ubuntu-22.04","python_arch":"x86_64-unknown-linux-gnu","arch_display":"x86_64","deb_arch":"amd64","rpm_arch":"x86_64","validate_default":true},{"platform_name":"linux-arm64","os_image":"ubuntu-24.04-arm","python_arch":"aarch64-unknown-linux-gnu","arch_display":"arm64","deb_arch":"arm64","rpm_arch":"aarch64","validate_default":false},{"platform_name":"macos-arm64","os_image":"macos-15","python_arch":"aarch64-apple-darwin","arch_display":"arm64","validate_default":true},{"platform_name":"macos-x64","os_image":"macos-15-intel","python_arch":"x86_64-apple-darwin","arch_display":"x64","validate_default":false}]}'
+          PR_ONLY='{"include":[{"platform_name":"windows-x64","os_image":"windows-latest","python_arch":"x86_64-pc-windows-msvc","arch_display":"x64","validate_default":true},{"platform_name":"linux-x64","os_image":"ubuntu-22.04","python_arch":"x86_64-unknown-linux-gnu","arch_display":"x86_64","deb_arch":"amd64","rpm_arch":"x86_64","validate_default":true},{"platform_name":"macos-arm64","os_image":"macos-15","python_arch":"aarch64-apple-darwin","arch_display":"arm64","validate_default":true}]}'
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "matrix=${PR_ONLY}" >> "$GITHUB_OUTPUT"
+          else
+            echo "matrix=${FULL}" >> "$GITHUB_OUTPUT"
+          fi
+
   # All build jobs depend on this passing; a red test suite blocks the release.
-  # ────────────────────────────────────────────────────────────────────────────
   test:
     name: Run Tests
     runs-on: ubuntu-latest
@@ -75,15 +104,9 @@ jobs:
             --cov-report=xml:coverage.xml \
             -q --tb=short
 
-  # ── 2. Build ─────────────────────────────────────────────────────────────────
-  # Matrix:
-  #   windows-x64    →  setup.exe (Inno Setup)  +  portable .zip
-  #   windows-arm64  →  setup.exe (Inno Setup)  +  portable .zip
-  #   linux-x64      →  .AppImage  +  .deb  +  .rpm  +  .tar.gz
-  #   linux-arm64    →  .AppImage  +  .deb  +  .rpm  +  .tar.gz
-  #   macos-arm64    →  .dmg  (native Apple Silicon runner)
-  #   macos-x64      →  .dmg  (native Intel runner)
-  # ────────────────────────────────────────────────────────────────────────────
+  # Matrix (PR): windows-x64, linux-x64, macos-arm64 (validate_default platforms only)
+  # Matrix (push/dispatch): all six platforms
+  # The setup job emits the correct JSON for each event type.
   build:
     name: Build · ${{ matrix.platform_name }}
     needs: [setup, test]
@@ -95,50 +118,11 @@ jobs:
       HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # ── Windows x64 ────────────────────────────────────────────────────
-          - platform_name: windows-x64
-            os_image: windows-latest
-            python_arch: x86_64-pc-windows-msvc
-            arch_display: x64
-
-          - platform_name: windows-arm64
-            os_image: windows-11-arm
-            python_arch: aarch64-pc-windows-msvc
-            arch_display: arm64
-
-          # ── Linux x64 ──────────────────────────────────────────────────────
-          # ubuntu-22.04: older GLIBC (2.35) = wider distro compatibility
-          - platform_name: linux-x64
-            os_image: ubuntu-22.04
-            python_arch: x86_64-unknown-linux-gnu
-            arch_display: x86_64
-            deb_arch: amd64
-            rpm_arch: x86_64
-
-          - platform_name: linux-arm64
-            os_image: ubuntu-24.04-arm
-            python_arch: aarch64-unknown-linux-gnu
-            arch_display: arm64
-            deb_arch: arm64
-            rpm_arch: aarch64
-
-          # ── macOS ARM64 (Apple Silicon) ────────────────────────────────────
-          - platform_name: macos-arm64
-            os_image: macos-15           # Apple Silicon native runner
-            python_arch: aarch64-apple-darwin
-            arch_display: arm64
-
-          - platform_name: macos-x64
-            os_image: macos-15-intel
-            python_arch: x86_64-apple-darwin
-            arch_display: x64
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
 
     steps:
       - uses: actions/checkout@v4
 
-      # ── Python build environment ──────────────────────────────────────────
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_BUILD_VERSION }}
@@ -159,7 +143,6 @@ jobs:
           pip install pyinstaller
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # ── Standalone Python runtime (Windows only) ──────────────────────────
       # On Linux / macOS PyInstaller bundles a complete runtime on its own.
       # On Windows we replace the bundled vcruntime + Python DLLs with the
       # known-good indygreg standalone build to avoid MSVC dependency issues.
@@ -184,17 +167,15 @@ jobs:
           curl -fsSL "$URL" -o runtime.tar.gz
           tar -xzf runtime.tar.gz && mv python python_minimal
 
-      # ── PyInstaller build ─────────────────────────────────────────────────
       # app.spec produces two bundles in one pass:
-      #   dist/HistorySync/  – full GUI bundle (for all installers)
-      #   dist/hsync/        – standalone CLI bundle (for headless tar.gz)
+      #   dist/HistorySync/   -full GUI bundle (for all installers)
+      #   dist/hsync/         -standalone CLI bundle (for headless tar.gz)
       # After the build we copy the CLI binary into the GUI bundle so every
       # installer ships both HistorySync (GUI) and hsync (CLI).
       - name: Build with PyInstaller
         shell: bash
         run: pyinstaller app.spec --noconfirm
 
-      # ── Embed CLI binary inside the GUI bundle ────────────────────────────
       # All downstream packaging steps operate on dist/HistorySync/ only.
       # Copying hsync[.exe] there means installers get both binaries for free.
       - name: Embed CLI binary into GUI bundle (Windows)
@@ -202,7 +183,7 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item "dist\hsync\hsync.exe" "dist\${{ env.APP_NAME }}\hsync.exe" -Force
-          Write-Host "Embedded: hsync.exe → dist\${{ env.APP_NAME }}\hsync.exe"
+          Write-Host "Embedded: hsync.exe ->dist\${{ env.APP_NAME }}\hsync.exe"
 
       - name: Embed CLI binary into GUI bundle (Linux)
         if: runner.os == 'Linux'
@@ -210,7 +191,7 @@ jobs:
         run: |
           cp "dist/hsync/hsync" "dist/${{ env.APP_NAME }}/hsync"
           chmod +x "dist/${{ env.APP_NAME }}/hsync"
-          echo "Embedded: hsync → dist/${{ env.APP_NAME }}/hsync"
+          echo "Embedded: hsync ->dist/${{ env.APP_NAME }}/hsync"
       
       - name: Embed CLI binary into GUI bundle (macOS)
         if: runner.os == 'macOS'
@@ -218,9 +199,8 @@ jobs:
         run: |
           cp "dist/hsync/hsync" "dist/${{ env.APP_NAME }}.app/Contents/MacOS/hsync"
           chmod +x "dist/${{ env.APP_NAME }}.app/Contents/MacOS/hsync"
-          echo "Embedded: hsync → dist/${{ env.APP_NAME }}.app/Contents/MacOS/hsync"
+          echo "Embedded: hsync ->dist/${{ env.APP_NAME }}.app/Contents/MacOS/hsync"
 
-      # ── Strip translation source files ────────────────────────────────────
       # Covers both the GUI bundle (dist/HistorySync/) and the standalone
       # CLI bundle (dist/hsync/) so neither leaks .po files into a release.
       - name: Strip .po / .pot files (Windows)
@@ -248,28 +228,26 @@ jobs:
             fi
           done
 
-      # ── [Optional] Code signing ───────────────────────────────────────────
       # These steps are no-ops until the corresponding secrets are populated.
       #
       # Windows: add repository secrets
-      #   WINDOWS_CERTIFICATE          – base64-encoded PFX file
-      #   WINDOWS_CERTIFICATE_PASSWORD – PFX passphrase
+      #   WINDOWS_CERTIFICATE           -base64-encoded PFX file
+      #   WINDOWS_CERTIFICATE_PASSWORD  -PFX passphrase
       #
       # macOS: add repository secrets
-      #   APPLE_CERTIFICATE            – base64-encoded .p12 Developer ID cert
-      #   APPLE_CERTIFICATE_PASSWORD   – .p12 passphrase
-      #   APPLE_ID                     – Apple ID email used for notarization
-      #   APPLE_ID_PASSWORD            – app-specific password (not your Apple ID password)
-      #   APPLE_TEAM_ID                – 10-character Apple Team ID
+      #   APPLE_CERTIFICATE             -base64-encoded .p12 Developer ID cert
+      #   APPLE_CERTIFICATE_PASSWORD    -.p12 passphrase
+      #   APPLE_ID                      -Apple ID email used for notarization
+      #   APPLE_ID_PASSWORD             -app-specific password (not your Apple ID password)
+      #   APPLE_TEAM_ID                 -10-character Apple Team ID
 
-      # ── Windows: replace bundled Python runtime ───────────────────────────
       # IMPORTANT: this step must run BEFORE code signing so that the final
       # DLLs (python312.dll, vcruntime140.dll, etc.) are the ones that get
       # signed. Signing first and then overwriting the DLLs would invalidate
       # the signature on those files.
       # Swap out the Python interpreter and vcruntime DLLs that PyInstaller
       # pulled from the build machine with the clean standalone build we
-      # downloaded earlier – ensures a consistent, minimal runtime footprint.
+      # downloaded earlier  -ensures a consistent, minimal runtime footprint.
       - name: Replace Python runtime (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -370,11 +348,6 @@ jobs:
           rm cert.p12 _notarize.zip
           echo "::notice::App bundle signed and notarized."
 
-      # ═════════════════════════════════════════════════════════════════════
-      # Packaging
-      # ═════════════════════════════════════════════════════════════════════
-
-      # ── Windows: portable ZIP ─────────────────────────────────────────────
       - name: Package portable ZIP (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -389,7 +362,6 @@ jobs:
           Remove-Item "dist\${{ env.APP_NAME }}\.portable" -Force
           Write-Host "Created: $out ($('{0:N2}' -f ((Get-Item $out).length / 1MB)) MB)"
 
-      # ── Windows: Inno Setup installer ─────────────────────────────────────
       - name: Generate Inno Setup script
         if: runner.os == 'Windows'
         shell: pwsh
@@ -465,7 +437,6 @@ jobs:
           $exe = "${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}-setup.exe"
           Write-Host "Created: $exe ($('{0:N2}' -f ((Get-Item $exe).length / 1MB)) MB)"
 
-      # ── Windows: hsync portable ZIP ───────────────────────────────────────
       - name: Package hsync portable ZIP (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -476,7 +447,6 @@ jobs:
           Pop-Location
           Write-Host "Created: $out ($('{0:N2}' -f ((Get-Item $out).length / 1MB)) MB)"
 
-      # ── Windows: hsync Inno Setup installer ──────────────────────────────
       - name: Generate hsync Inno Setup script (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -542,7 +512,6 @@ jobs:
           $exe = "hsync-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}-setup.exe"
           Write-Host "Created: $exe ($('{0:N2}' -f ((Get-Item $exe).length / 1MB)) MB)"
 
-      # ── macOS: standalone CLI tar.gz ─────────────────────────────────────
       - name: Build standalone CLI tar.gz (macOS)
         if: runner.os == 'macOS'
         shell: bash
@@ -551,7 +520,6 @@ jobs:
           tar -czf "$CLI_OUT" -C dist/ hsync
           echo "Created: $CLI_OUT ($(du -sh "$CLI_OUT" | cut -f1))"
 
-      # ── macOS: DMG ────────────────────────────────────────────────────────
       - name: Package DMG (macOS)
         if: runner.os == 'macOS'
         shell: bash
@@ -576,7 +544,6 @@ jobs:
             "$OUT"
           echo "Created: $OUT"
 
-      # ── Linux: install packaging tools ────────────────────────────────────
       - name: Install Linux packaging tools
         if: runner.os == 'Linux'
         run: |
@@ -588,7 +555,6 @@ jobs:
           fi
           sudo apt-get install -y "${FUSE_PKG}" fakeroot dpkg-dev rpm
 
-      # ── Linux: AppImage ───────────────────────────────────────────────────
       - name: Build AppImage (Linux)
         if: runner.os == 'Linux'
         shell: bash
@@ -608,13 +574,12 @@ jobs:
             "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${APPIMAGETOOL_ARCH}.AppImage"
           chmod +x "$RUNNER_TEMP/appimagetool"
 
-          # ── AppDir layout ────────────────────────────────────────────────
           # All PyInstaller output lives under usr/lib/historysync; the AppRun
           # launcher script at the root delegates to the real binary there.
           mkdir -p "$APPDIR/usr/lib/${{ env.APP_ID }}"
           cp -r "$DIST"/. "$APPDIR/usr/lib/${{ env.APP_ID }}/"
 
-          # AppRun – executes the bundled binary; PyInstaller's bootloader
+          # AppRun  -executes the bundled binary; PyInstaller's bootloader
           # handles LD_LIBRARY_PATH internally, so no export needed here.
           {
             echo '#!/bin/bash'
@@ -641,11 +606,11 @@ jobs:
             echo 'Categories=Utility;'
           } > "$APPDIR/${{ env.APP_ID }}.desktop"
 
-          # Icon (256×256 PNG preferred by appimagetool)
+          # Icon (256x256 PNG preferred by appimagetool)
           if [ -f "src/resources/icons/app-icon.png" ]; then
             cp "src/resources/icons/app-icon.png" "$APPDIR/${{ env.APP_ID }}.png"
           else
-            # Minimal transparent 1×1 PNG fallback
+            # Minimal transparent 1x1 PNG fallback
             echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" | base64 -d > "$APPDIR/${{ env.APP_ID }}.png"
           fi
 
@@ -655,7 +620,6 @@ jobs:
             "$RUNNER_TEMP/appimagetool" "$APPDIR" "$OUT"
           echo "Created: $OUT"
 
-      # ── Linux: .deb package ───────────────────────────────────────────────
       - name: Build .deb package (Linux)
         if: runner.os == 'Linux'
         shell: bash
@@ -706,7 +670,7 @@ jobs:
             cp "src/resources/icons/app-icon.png" \
               "$DEB/usr/share/icons/hicolor/256x256/apps/${{ env.APP_ID }}.png"
 
-          # DEBIAN/control – Installed-Size is in KiB per policy
+          # DEBIAN/control  -Installed-Size is in KiB per policy
           INSTALLED_KB=$(du -sk "$DEB/usr" | cut -f1)
           {
             echo 'Package: ${{ env.APP_ID }}'
@@ -836,7 +800,6 @@ jobs:
           cp "$RPM_FILE" "$OUT_RPM"
           echo "Created: $OUT_RPM"
 
-      # ── Linux: tar.gz ─────────────────────────────────────────────────────
       - name: Build tar.gz (Linux)
         if: runner.os == 'Linux'
         shell: bash
@@ -845,7 +808,6 @@ jobs:
           tar -czf "$OUT" -C dist/ "${{ env.APP_NAME }}"
           echo "Created: $OUT"
 
-      # ── Linux: standalone CLI tar.gz ──────────────────────────────────────
       - name: Build standalone CLI tar.gz (Linux)
         if: runner.os == 'Linux'
         shell: bash
@@ -855,7 +817,6 @@ jobs:
           CLI_SIZE=$(du -sh "$CLI_OUT" | cut -f1)
           echo "Created: $CLI_OUT (${CLI_SIZE})"
 
-      # ── Upload artifacts ──────────────────────────────────────────────────
       - name: Upload artifacts (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
@@ -887,147 +848,3 @@ jobs:
             ${{ env.APP_ID }}_${{ env.VERSION_NUM }}_${{ matrix.rpm_arch }}.rpm
             ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-linux-${{ matrix.arch_display }}.tar.gz
             hsync-${{ env.VERSION_TAG }}-linux-${{ matrix.arch_display }}.tar.gz
-
-  # ── 3. Release ───────────────────────────────────────────────────────────────
-  # Collects every platform artifact, flattens the directory tree, generates a
-  # SHA256SUMS.txt file, then publishes the GitHub Release with all assets.
-  # ────────────────────────────────────────────────────────────────────────────
-  release:
-    name: Publish GitHub Release
-    needs: [setup, build]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      VERSION_TAG: ${{ needs.setup.outputs.version_tag }}
-    steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: pkg-*
-
-      - name: Flatten artifact tree and generate SHA256SUMS.txt
-        run: |
-          mkdir release_assets
-          # Flatten nested artifact subdirectories into a single directory.
-          # Abort on any filename collision so an accidental duplicate is never
-          # silently overwritten and excluded from the release.
-          find artifacts -type f | sort | while read -r f; do
-            dest="release_assets/$(basename "$f")"
-            if [ -e "$dest" ]; then
-              echo "::error::Filename collision detected: '$(basename "$f")' exists in multiple artifact packages."
-              exit 1
-            fi
-            cp "$f" "$dest"
-          done
-          # Generate SHA256SUMS in GNU coreutils format (sha256sum is already available)
-          cd release_assets
-          sha256sum * | sort > SHA256SUMS.txt
-
-          echo "── Release assets ───────────────────────────────"
-          ls -lh
-          echo ""
-          echo "── SHA256SUMS.txt ───────────────────────────────"
-          cat SHA256SUMS.txt
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2.3.2
-        with:
-          tag_name: ${{ env.VERSION_TAG }}
-          generate_release_notes: true
-          prerelease: ${{ contains(env.VERSION_TAG, 'alpha') || contains(env.VERSION_TAG, 'beta') || contains(env.VERSION_TAG, 'rc') }}
-          files: release_assets/*
-
-  # ── 4. Mirror upload ─────────────────────────────────────────────────────────
-  # Uploads HistorySync release packages to Cloudflare R2 for CN mirror.
-  # Only runs on stable version tags (no alpha/beta/rc).
-  # Requires repository secrets: R2_BUCKET, R2_ENDPOINT, R2_ACCESS_KEY_ID,
-  # R2_SECRET_ACCESS_KEY.
-  # ────────────────────────────────────────────────────────────────────────────
-  mirror-upload:
-    name: Upload to R2 Mirror
-    needs: [setup, release]
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    if: |
-      startsWith(github.ref, 'refs/tags/') &&
-      !contains(needs.setup.outputs.version_tag, 'alpha') &&
-      !contains(needs.setup.outputs.version_tag, 'beta') &&
-      !contains(needs.setup.outputs.version_tag, 'rc')
-    env:
-      VERSION_TAG: ${{ needs.setup.outputs.version_tag }}
-      VERSION_NUM: ${{ needs.setup.outputs.version_num }}
-    steps:
-      - name: Install aws-cli
-        run: |
-          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip -q awscliv2.zip
-          sudo ./aws/install --update
-          aws --version
-
-      - name: Download release artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: pkg-*
-
-      - name: Flatten artifact tree
-        run: |
-          mkdir release_assets
-          find artifacts -type f | sort | while read -r f; do
-            dest="release_assets/$(basename "$f")"
-            [ -e "$dest" ] && echo "::error::Collision: $(basename "$f")" && exit 1
-            cp "$f" "$dest"
-          done
-
-      - name: Upload HistorySync packages to R2
-        env:
-          AWS_ACCESS_KEY_ID:     ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION:    auto
-          R2_ENDPOINT:           ${{ secrets.R2_ENDPOINT }}
-          R2_BUCKET:             ${{ secrets.R2_BUCKET }}
-        run: |
-          TAG="${{ env.VERSION_TAG }}"
-          NUM="${{ env.VERSION_NUM }}"
-          PREFIX="historysync/releases/${TAG}"
-
-          # HistorySync main packages + hsync CLI packages
-          FILES=(
-            "HistorySync-${TAG}-windows-x64-setup.exe"
-            "HistorySync-${TAG}-windows-x64-portable.zip"
-            "hsync-${TAG}-windows-x64-setup.exe"
-            "hsync-${TAG}-windows-x64.zip"
-            "HistorySync-${TAG}-windows-arm64-setup.exe"
-            "HistorySync-${TAG}-windows-arm64-portable.zip"
-            "hsync-${TAG}-windows-arm64-setup.exe"
-            "hsync-${TAG}-windows-arm64.zip"
-            "HistorySync-${TAG}-macos-arm64.dmg"
-            "hsync-${TAG}-macos-arm64.tar.gz"
-            "HistorySync-${TAG}-macos-x64.dmg"
-            "hsync-${TAG}-macos-x64.tar.gz"
-            "HistorySync-${TAG}-linux-x86_64.AppImage"
-            "historysync_${NUM}_amd64.deb"
-            "historysync_${NUM}_x86_64.rpm"
-            "HistorySync-${TAG}-linux-x86_64.tar.gz"
-            "hsync-${TAG}-linux-x86_64.tar.gz"
-            "HistorySync-${TAG}-linux-arm64.AppImage"
-            "historysync_${NUM}_arm64.deb"
-            "historysync_${NUM}_aarch64.rpm"
-            "HistorySync-${TAG}-linux-arm64.tar.gz"
-            "hsync-${TAG}-linux-arm64.tar.gz"
-          )
-
-          for filename in "${FILES[@]}"; do
-            src="release_assets/${filename}"
-            if [ ! -f "$src" ]; then
-              echo "::warning::File not found, skipping: ${filename}"
-              continue
-            fi
-            echo "Uploading: ${filename}"
-            aws s3 cp "$src" "s3://${R2_BUCKET}/${PREFIX}/${filename}" \
-              --endpoint-url "$R2_ENDPOINT" \
-              --no-progress
-            echo "::notice::Uploaded: https://cdn.tarxf.com/${PREFIX}/${filename}"
-          done
