@@ -79,10 +79,12 @@ jobs:
 
   # ── 2. Build ─────────────────────────────────────────────────────────────────
   # Matrix:
-  #   windows-x64  →  setup.exe (Inno Setup)  +  portable .zip
-  #   linux-x64    →  .AppImage  +  .deb  +  .tar.gz
-  #   macos-arm64  →  .dmg  (native Apple Silicon runner)
-  #   macos-x64    →  .dmg  (native Intel runner)
+  #   windows-x64    →  setup.exe (Inno Setup)  +  portable .zip
+  #   windows-arm64  →  setup.exe (Inno Setup)  +  portable .zip
+  #   linux-x64      →  .AppImage  +  .deb  +  .rpm  +  .tar.gz
+  #   linux-arm64    →  .AppImage  +  .deb  +  .rpm  +  .tar.gz
+  #   macos-arm64    →  .dmg  (native Apple Silicon runner)
+  #   macos-x64      →  .dmg  (native Intel runner)
   # ────────────────────────────────────────────────────────────────────────────
   build:
     name: Build · ${{ matrix.platform_name }}
@@ -103,18 +105,37 @@ jobs:
             python_arch: x86_64-pc-windows-msvc
             arch_display: x64
 
+          - platform_name: windows-arm64
+            os_image: windows-11-arm
+            python_arch: aarch64-pc-windows-msvc
+            arch_display: arm64
+
           # ── Linux x64 ──────────────────────────────────────────────────────
           # ubuntu-22.04: older GLIBC (2.35) = wider distro compatibility
           - platform_name: linux-x64
             os_image: ubuntu-22.04
             python_arch: x86_64-unknown-linux-gnu
             arch_display: x86_64
+            deb_arch: amd64
+            rpm_arch: x86_64
+
+          - platform_name: linux-arm64
+            os_image: ubuntu-24.04-arm
+            python_arch: aarch64-unknown-linux-gnu
+            arch_display: arm64
+            deb_arch: arm64
+            rpm_arch: aarch64
 
           # ── macOS ARM64 (Apple Silicon) ────────────────────────────────────
           - platform_name: macos-arm64
             os_image: macos-15           # Apple Silicon native runner
             python_arch: aarch64-apple-darwin
             arch_display: arm64
+
+          - platform_name: macos-x64
+            os_image: macos-15-intel
+            python_arch: x86_64-apple-darwin
+            arch_display: x64
 
     steps:
       - uses: actions/checkout@v4
@@ -279,7 +300,23 @@ jobs:
         run: |
           $certBytes = [System.Convert]::FromBase64String($env:CERT_B64)
           [System.IO.File]::WriteAllBytes("cert.pfx", $certBytes)
-          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe"
+          $signtoolCandidates = @(
+            "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe",
+            "C:\Program Files (x86)\Windows Kits\10\bin\arm64\signtool.exe",
+            "C:\Program Files\Windows Kits\10\bin\arm64\signtool.exe",
+            "C:\Program Files\Windows Kits\10\bin\x64\signtool.exe"
+          )
+          $signtool = $null
+          foreach ($candidate in $signtoolCandidates) {
+            if (Test-Path $candidate) {
+              $signtool = $candidate
+              break
+            }
+          }
+          if (-not $signtool) {
+            $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue)?.Source
+          }
+          if (-not $signtool) { throw "signtool.exe not found. Install Windows SDK." }
           # Sign both the GUI launcher and the CLI binary
           foreach ($target in @(
             "dist\${{ env.APP_NAME }}\${{ env.APP_NAME }}.exe",
@@ -346,7 +383,7 @@ jobs:
         run: |
           # Drop a marker so the app auto-enables portable mode on launch
           New-Item -Path "dist\${{ env.APP_NAME }}\.portable" -ItemType File -Force | Out-Null
-          $out = "${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-x64-portable.zip"
+          $out = "${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}-portable.zip"
           Push-Location "dist\${{ env.APP_NAME }}"
           Compress-Archive -Path * -DestinationPath "..\..\$out"
           Pop-Location
@@ -362,7 +399,8 @@ jobs:
           $appName = "${{ env.APP_NAME }}"
           $ver     = "${{ env.VERSION_NUM }}"
           $repo    = "${{ github.repository }}"
-          $outName = "${appName}-${{ env.VERSION_TAG }}-windows-x64-setup"
+          $outName = "${appName}-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}-setup"
+          $archMode = if ("${{ matrix.arch_display }}" -eq "arm64") { "arm64compatible" } else { "x64compatible" }
 
           @(
             "[Setup]",
@@ -379,7 +417,7 @@ jobs:
             "Compression=lzma2/ultra64",
             "SolidCompression=yes",
             "PrivilegesRequired=lowest",
-            "ArchitecturesInstallIn64BitMode=x64compatible",
+            "ArchitecturesInstallIn64BitMode=${archMode}",
             "WizardStyle=modern",
             "DisableWelcomePage=yes",
             "LicenseFile=LICENSE",
@@ -426,7 +464,7 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed." }
-          $exe = "${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-x64-setup.exe"
+          $exe = "${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}-setup.exe"
           Write-Host "Created: $exe ($('{0:N2}' -f ((Get-Item $exe).length / 1MB)) MB)"
 
       # ── Windows: hsync portable ZIP ───────────────────────────────────────
@@ -434,7 +472,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $out = "hsync-${{ env.VERSION_TAG }}-windows-x64.zip"
+          $out = "hsync-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}.zip"
           Push-Location "dist\hsync"
           Compress-Archive -Path * -DestinationPath "..\..\$out"
           Pop-Location
@@ -447,7 +485,8 @@ jobs:
         run: |
           $ver     = "${{ env.VERSION_NUM }}"
           $repo    = "${{ github.repository }}"
-          $outName = "hsync-${{ env.VERSION_TAG }}-windows-x64-setup"
+          $outName = "hsync-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}-setup"
+          $archMode = if ("${{ matrix.arch_display }}" -eq "arm64") { "arm64compatible" } else { "x64compatible" }
 
           @(
             "[Setup]",
@@ -464,7 +503,7 @@ jobs:
             "Compression=lzma2/ultra64",
             "SolidCompression=yes",
             "PrivilegesRequired=lowest",
-            "ArchitecturesInstallIn64BitMode=x64compatible",
+            "ArchitecturesInstallIn64BitMode=${archMode}",
             "WizardStyle=modern",
             "DisableWelcomePage=yes",
             "LicenseFile=LICENSE",
@@ -502,7 +541,7 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" hsync-installer.iss
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed for hsync." }
-          $exe = "hsync-${{ env.VERSION_TAG }}-windows-x64-setup.exe"
+          $exe = "hsync-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}-setup.exe"
           Write-Host "Created: $exe ($('{0:N2}' -f ((Get-Item $exe).length / 1MB)) MB)"
 
       # ── macOS: standalone CLI tar.gz ─────────────────────────────────────
@@ -544,8 +583,12 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
-          # libfuse2: required to run appimagetool AppImage on Ubuntu 22.04
-          sudo apt-get install -y libfuse2 fakeroot dpkg-dev
+          if apt-cache show libfuse2t64 >/dev/null 2>&1; then
+            FUSE_PKG="libfuse2t64"
+          else
+            FUSE_PKG="libfuse2"
+          fi
+          sudo apt-get install -y "${FUSE_PKG}" fakeroot dpkg-dev rpm
 
       # ── Linux: AppImage ───────────────────────────────────────────────────
       - name: Build AppImage (Linux)
@@ -556,9 +599,15 @@ jobs:
           APPDIR="$RUNNER_TEMP/AppDir"
           OUT="${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-linux-${{ matrix.arch_display }}.AppImage"
 
+          case "${{ matrix.arch_display }}" in
+            x86_64) APPIMAGETOOL_ARCH="x86_64" ;;
+            arm64)  APPIMAGETOOL_ARCH="aarch64" ;;
+            *)      echo "::error::Unknown arch: ${{ matrix.arch_display }}" && exit 1 ;;
+          esac
+
           # Download appimagetool
           curl -fsSL -o "$RUNNER_TEMP/appimagetool" \
-            "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${APPIMAGETOOL_ARCH}.AppImage"
           chmod +x "$RUNNER_TEMP/appimagetool"
 
           # ── AppDir layout ────────────────────────────────────────────────
@@ -604,7 +653,7 @@ jobs:
 
           # APPIMAGE_EXTRACT_AND_RUN=1: run appimagetool without mounting via FUSE
           # (belt-and-suspenders alongside the libfuse2 install above)
-          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 \
+          ARCH="${APPIMAGETOOL_ARCH}" APPIMAGE_EXTRACT_AND_RUN=1 \
             "$RUNNER_TEMP/appimagetool" "$APPDIR" "$OUT"
           echo "Created: $OUT"
 
@@ -615,7 +664,12 @@ jobs:
         run: |
           NUM="${{ env.VERSION_NUM }}"
           DIST="dist/${{ env.APP_NAME }}"
-          DEB="${{ env.APP_ID }}_${NUM}_amd64"      # Debian naming convention: lowercase, underscores
+          case "${{ matrix.arch_display }}" in
+            x86_64) DEB_ARCH="amd64" ;;
+            arm64)  DEB_ARCH="arm64" ;;
+            *)      echo "::error::Unknown arch: ${{ matrix.arch_display }}" && exit 1 ;;
+          esac
+          DEB="${{ env.APP_ID }}_${NUM}_${DEB_ARCH}"      # Debian naming convention: lowercase, underscores
 
           # Directory tree expected by dpkg-deb
           mkdir -p "$DEB/DEBIAN"
@@ -659,7 +713,7 @@ jobs:
           {
             echo 'Package: ${{ env.APP_ID }}'
             echo "Version: ${NUM}"
-            echo 'Architecture: amd64'
+            echo "Architecture: ${DEB_ARCH}"
             echo 'Maintainer: ${{ env.APP_NAME }} Project <noreply@github.com>'
             echo "Installed-Size: ${INSTALLED_KB}"
             echo 'Depends: libgl1, libxcb-cursor0, libxcb-icccm4, libxcb-util1, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libxcb-shape0, libxcb-xkb1, libxkbcommon-x11-0'
@@ -677,8 +731,112 @@ jobs:
           chmod 0755 "$DEB/DEBIAN/postinst" "$DEB/DEBIAN/postrm"
 
           fakeroot dpkg-deb --build "$DEB" \
-            "${{ env.APP_ID }}_${NUM}_amd64.deb"
-          echo "Created: ${{ env.APP_ID }}_${NUM}_amd64.deb"
+            "${{ env.APP_ID }}_${NUM}_${DEB_ARCH}.deb"
+          echo "Created: ${{ env.APP_ID }}_${NUM}_${DEB_ARCH}.deb"
+
+      - name: Build .rpm package (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          NUM="${{ env.VERSION_NUM }}"
+          DIST="dist/${{ env.APP_NAME }}"
+
+          RPM_VERSION="${NUM}"
+          RPM_RELEASE="1"
+          if [[ "${NUM}" =~ ^([0-9]+(\.[0-9]+)*)([-+].+)$ ]]; then
+            RPM_VERSION="${BASH_REMATCH[1]}~${BASH_REMATCH[3]#[-+]}"
+          fi
+          RPM_VERSION="${RPM_VERSION//-/.}"
+          RPM_VERSION="${RPM_VERSION//[^A-Za-z0-9._~+]/.}"
+          RPM_RELEASE="${RPM_RELEASE//[^A-Za-z0-9._~+]/.}"
+
+          case "${{ matrix.arch_display }}" in
+            x86_64) RPM_ARCH="x86_64" ;;
+            arm64)  RPM_ARCH="aarch64" ;;
+            *)      echo "::error::Unknown arch: ${{ matrix.arch_display }}" && exit 1 ;;
+          esac
+
+          RPMBUILD="$RUNNER_TEMP/rpmbuild"
+          BUILDROOT="${RPMBUILD}/BUILDROOT/${{ env.APP_ID }}-${NUM}-1.${RPM_ARCH}"
+          mkdir -p "${RPMBUILD}"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          mkdir -p "${BUILDROOT}/usr/lib/${{ env.APP_ID }}"
+          mkdir -p "${BUILDROOT}/usr/bin"
+          mkdir -p "${BUILDROOT}/usr/share/applications"
+          mkdir -p "${BUILDROOT}/usr/share/icons/hicolor/256x256/apps"
+
+          cp -r "$DIST"/. "${BUILDROOT}/usr/lib/${{ env.APP_ID }}/"
+          ln -s "/usr/lib/${{ env.APP_ID }}/${{ env.APP_NAME }}" "${BUILDROOT}/usr/bin/${{ env.APP_ID }}"
+          ln -s "/usr/lib/${{ env.APP_ID }}/hsync" "${BUILDROOT}/usr/bin/hsync"
+
+          {
+            echo '[Desktop Entry]'
+            echo 'Name=${{ env.APP_NAME }}'
+            echo 'Comment=Browser history synchronization tool'
+            echo 'Exec=/usr/lib/${{ env.APP_ID }}/${{ env.APP_NAME }}'
+            echo 'Icon=${{ env.APP_ID }}'
+            echo 'Type=Application'
+            echo 'Categories=Utility;'
+            echo 'StartupNotify=true'
+          } > "${BUILDROOT}/usr/share/applications/${{ env.APP_ID }}.desktop"
+
+          if [ -f "src/resources/icons/app-icon.png" ]; then
+            cp "src/resources/icons/app-icon.png" \
+              "${BUILDROOT}/usr/share/icons/hicolor/256x256/apps/${{ env.APP_ID }}.png"
+          else
+            echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" \
+              | base64 -d > "${BUILDROOT}/usr/share/icons/hicolor/256x256/apps/${{ env.APP_ID }}.png"
+          fi
+
+          {
+            echo "Name:           ${{ env.APP_ID }}"
+            echo "Version:        ${RPM_VERSION}"
+            echo "Release:        ${RPM_RELEASE}%{?dist}"
+            echo "Summary:        Browser History Sync"
+            echo "License:        Apache-2.0"
+            echo "URL:            https://github.com/${{ github.repository }}"
+            echo "BuildArch:      ${RPM_ARCH}"
+            echo
+            echo "Requires: mesa-libGL"
+            echo "Requires: xcb-util-cursor"
+            echo "Requires: xcb-util-wm"
+            echo "Requires: xcb-util-image"
+            echo "Requires: xcb-util-keysyms"
+            echo "Requires: xcb-util-renderutil"
+            echo "Requires: libxkbcommon-x11"
+            echo
+            echo "%description"
+            echo "A cross-platform browser history synchronization and search tool."
+            echo "Includes the hsync CLI for headless / scripted use."
+            echo
+            echo "%files"
+            echo "/usr/lib/${{ env.APP_ID }}/"
+            echo "/usr/bin/${{ env.APP_ID }}"
+            echo "/usr/bin/hsync"
+            echo "/usr/share/applications/${{ env.APP_ID }}.desktop"
+            echo "/usr/share/icons/hicolor/256x256/apps/${{ env.APP_ID }}.png"
+            echo
+            echo "%post"
+            echo "update-desktop-database /usr/share/applications || true"
+            echo
+            echo "%postun"
+            echo "update-desktop-database /usr/share/applications || true"
+          } > "${RPMBUILD}/SPECS/${{ env.APP_ID }}.spec"
+
+          rpmbuild -bb \
+            --define "_topdir ${RPMBUILD}" \
+            --define "_buildrootdir ${RPMBUILD}/BUILDROOT" \
+            --buildroot "${BUILDROOT}" \
+            --target "${RPM_ARCH}" \
+            "${RPMBUILD}/SPECS/${{ env.APP_ID }}.spec"
+
+          RPM_FILE=$(find "${RPMBUILD}/RPMS" -name "*.rpm" | head -1)
+          if [ -z "${RPM_FILE}" ]; then
+            echo "::error::rpmbuild did not produce an RPM file."
+            exit 1
+          fi
+          OUT_RPM="${{ env.APP_ID }}_${NUM}_${RPM_ARCH}.rpm"
+          cp "$RPM_FILE" "$OUT_RPM"
+          echo "Created: $OUT_RPM"
 
       # ── Linux: tar.gz ─────────────────────────────────────────────────────
       - name: Build tar.gz (Linux)
@@ -704,18 +862,18 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: pkg-windows-x64
+          name: pkg-${{ matrix.platform_name }}
           path: |
-            ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-x64-setup.exe
-            ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-x64-portable.zip
-            hsync-${{ env.VERSION_TAG }}-windows-x64-setup.exe
-            hsync-${{ env.VERSION_TAG }}-windows-x64.zip
+            ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}-setup.exe
+            ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}-portable.zip
+            hsync-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}-setup.exe
+            hsync-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}.zip
 
       - name: Upload artifacts (macOS)
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: pkg-macos-${{ matrix.arch_display }}
+          name: pkg-${{ matrix.platform_name }}
           path: |
             ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-macos-${{ matrix.arch_display }}.dmg
             hsync-${{ env.VERSION_TAG }}-macos-${{ matrix.arch_display }}.tar.gz
@@ -724,10 +882,11 @@ jobs:
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
-          name: pkg-linux-x64
+          name: pkg-${{ matrix.platform_name }}
           path: |
             ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-linux-${{ matrix.arch_display }}.AppImage
-            ${{ env.APP_ID }}_${{ env.VERSION_NUM }}_amd64.deb
+            ${{ env.APP_ID }}_${{ env.VERSION_NUM }}_${{ matrix.deb_arch }}.deb
+            ${{ env.APP_ID }}_${{ env.VERSION_NUM }}_${{ matrix.rpm_arch }}.rpm
             ${{ env.APP_NAME }}-${{ env.VERSION_TAG }}-linux-${{ matrix.arch_display }}.tar.gz
             hsync-${{ env.VERSION_TAG }}-linux-${{ matrix.arch_display }}.tar.gz
 
@@ -840,14 +999,26 @@ jobs:
           FILES=(
             "HistorySync-${TAG}-windows-x64-setup.exe"
             "HistorySync-${TAG}-windows-x64-portable.zip"
-            "HistorySync-${TAG}-macos-arm64.dmg"
-            "HistorySync-${TAG}-linux-x86_64.AppImage"
-            "historysync_${NUM}_amd64.deb"
-            "HistorySync-${TAG}-linux-x86_64.tar.gz"
             "hsync-${TAG}-windows-x64-setup.exe"
             "hsync-${TAG}-windows-x64.zip"
+            "HistorySync-${TAG}-windows-arm64-setup.exe"
+            "HistorySync-${TAG}-windows-arm64-portable.zip"
+            "hsync-${TAG}-windows-arm64-setup.exe"
+            "hsync-${TAG}-windows-arm64.zip"
+            "HistorySync-${TAG}-macos-arm64.dmg"
             "hsync-${TAG}-macos-arm64.tar.gz"
+            "HistorySync-${TAG}-macos-x64.dmg"
+            "hsync-${TAG}-macos-x64.tar.gz"
+            "HistorySync-${TAG}-linux-x86_64.AppImage"
+            "historysync_${NUM}_amd64.deb"
+            "historysync_${NUM}_x86_64.rpm"
+            "HistorySync-${TAG}-linux-x86_64.tar.gz"
             "hsync-${TAG}-linux-x86_64.tar.gz"
+            "HistorySync-${TAG}-linux-arm64.AppImage"
+            "historysync_${NUM}_arm64.deb"
+            "historysync_${NUM}_aarch64.rpm"
+            "HistorySync-${TAG}-linux-arm64.tar.gz"
+            "hsync-${TAG}-linux-arm64.tar.gz"
           )
 
           for filename in "${FILES[@]}"; do
