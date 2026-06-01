@@ -7,21 +7,17 @@
 altgraph==0.17.5
     # via pyinstaller
 argcomplete==3.6.3
-    # via -r requirements.txt
+    # via -r requirements.in
 build==1.4.0
     # via pip-tools
 certifi==2026.2.25
-    # via
-    #   -r requirements.txt
-    #   requests
+    # via requests
 cffi==2.0.0
     # via cryptography
 cfgv==3.5.0
     # via pre-commit
 charset-normalizer==3.4.6
-    # via
-    #   -r requirements.txt
-    #   requests
+    # via requests
 click==8.3.1
     # via pip-tools
 cryptography==48.0.0
@@ -37,36 +33,25 @@ filelock==3.29.0
 identify==2.6.19
     # via pre-commit
 idna==3.11
-    # via
-    #   -r requirements.txt
-    #   requests
+    # via requests
 iniconfig==2.3.0
     # via pytest
 jaraco-classes==3.4.0
-    # via
-    #   -r requirements.txt
-    #   keyring
+    # via keyring
 jaraco-context==6.1.2
-    # via
-    #   -r requirements.txt
-    #   keyring
+    # via keyring
 jaraco-functools==4.4.0
-    # via
-    #   -r requirements.txt
-    #   keyring
+    # via keyring
 jeepney==0.9.0
     # via
     #   keyring
     #   secretstorage
 keyring==25.7.0
-    # via -r requirements.txt
+    # via -r requirements.in
 lxml==6.0.2
-    # via
-    #   -r requirements.txt
-    #   webdavclient3
+    # via webdavclient3
 more-itertools==10.8.0
     # via
-    #   -r requirements.txt
     #   jaraco-classes
     #   jaraco-functools
 nodeenv==1.10.0
@@ -89,7 +74,7 @@ pluggy==1.6.0
 pre-commit==4.6.0
     # via -r requirements-dev.in
 psutil==7.2.2
-    # via -r requirements.txt
+    # via -r requirements.in
 pycparser==3.0
     # via cffi
 pygments==2.19.2
@@ -99,39 +84,32 @@ pyinstaller==6.20.0
 pyinstaller-hooks-contrib==2026.5
     # via pyinstaller
 pynput==1.8.1
-    # via -r requirements.txt
+    # via -r requirements.in
 pyproject-hooks==1.2.0
     # via
     #   build
     #   pip-tools
 pyside6==6.11.0
-    # via -r requirements.txt
+    # via -r requirements.in
 pyside6-addons==6.11.0
-    # via
-    #   -r requirements.txt
-    #   pyside6
+    # via pyside6
 pyside6-essentials==6.11.0
     # via
-    #   -r requirements.txt
     #   pyside6
     #   pyside6-addons
-pytest==9.0.2
+pytest==9.0.3
     # via -r requirements-dev.in
 python-dateutil==2.9.0.post0
-    # via
-    #   -r requirements.txt
-    #   webdavclient3
+    # via webdavclient3
 python-discovery==1.2.2
     # via virtualenv
 python-xlib==0.33
     # via pynput
-pywin32-ctypes==0.2.3
-    # via -r requirements.txt
 pyyaml==6.0.3
     # via pre-commit
 requests==2.32.5
     # via
-    #   -r requirements.txt
+    #   -r requirements.in
     #   webdavclient3
 ruff==0.15.15
     # via -r requirements-dev.in
@@ -139,24 +117,20 @@ secretstorage==3.5.0
     # via keyring
 shiboken6==6.11.0
     # via
-    #   -r requirements.txt
     #   pyside6
     #   pyside6-addons
     #   pyside6-essentials
 six==1.17.0
     # via
-    #   -r requirements.txt
     #   pynput
     #   python-dateutil
     #   python-xlib
 urllib3==2.6.3
-    # via
-    #   -r requirements.txt
-    #   requests
+    # via requests
 virtualenv==21.2.4
     # via pre-commit
 webdavclient3==3.14.7
-    # via -r requirements.txt
+    # via -r requirements.in
 wheel==0.46.3
     # via pip-tools
 
