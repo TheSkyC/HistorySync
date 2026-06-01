@@ -4,7 +4,7 @@
 # ── Application identity ─────────────────────────────────────────────────────
 
 APP_NAME = "HistorySync"
-APP_VERSION = "1.3.2"
+APP_VERSION = "1.4.0"
 ORG_NAME = "HistorySync"
 
 BUNDLE_ID = "com.historysync.app"
