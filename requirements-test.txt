@@ -5,15 +5,19 @@
 #    pip-compile requirements-test.in
 #
 argcomplete==3.6.3
-    # via -r requirements.txt
+    # via -r requirements.in
 certifi==2026.2.25
     # via requests
+cffi==2.0.0
+    # via cryptography
 charset-normalizer==3.4.6
     # via requests
-colorama==0.4.6
-    # via pytest
 coverage[toml]==7.13.5
     # via pytest-cov
+cryptography==48.0.0
+    # via secretstorage
+evdev==1.9.3
+    # via pynput
 idna==3.11
     # via requests
 iniconfig==2.3.0
@@ -24,10 +28,14 @@ jaraco-context==6.1.2
     # via keyring
 jaraco-functools==4.4.0
     # via keyring
+jeepney==0.9.0
+    # via
+    #   keyring
+    #   secretstorage
 keyring==25.7.0
     # via
     #   -r requirements-test.in
-    #   -r requirements.txt
+    #   -r requirements.in
 lxml==6.0.2
     # via webdavclient3
 more-itertools==10.8.0
@@ -41,13 +49,15 @@ pluggy==1.6.0
     #   pytest
     #   pytest-cov
 psutil==7.2.2
-    # via -r requirements.txt
+    # via -r requirements.in
+pycparser==3.0
+    # via cffi
 pygments==2.19.2
     # via pytest
 pynput==1.8.1
-    # via -r requirements.txt
+    # via -r requirements.in
 pyside6==6.11.0
-    # via -r requirements.txt
+    # via -r requirements.in
 pyside6-addons==6.11.0
     # via pyside6
 pyside6-essentials==6.11.0
@@ -62,12 +72,14 @@ pytest-cov==7.1.0
     # via -r requirements-test.in
 python-dateutil==2.9.0.post0
     # via webdavclient3
-pywin32-ctypes==0.2.3
-    # via keyring
-requests==2.32.5
+python-xlib==0.33
+    # via pynput
+requests==2.34.2
     # via
-    #   -r requirements.txt
+    #   -r requirements.in
     #   webdavclient3
+secretstorage==3.5.0
+    # via keyring
 shiboken6==6.11.0
     # via
     #   pyside6
@@ -77,7 +89,8 @@ six==1.17.0
     # via
     #   pynput
     #   python-dateutil
+    #   python-xlib
 urllib3==2.6.3
     # via requests
 webdavclient3==3.14.7
-    # via -r requirements.txt
+    # via -r requirements.in
