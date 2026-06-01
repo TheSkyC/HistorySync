@@ -10,7 +10,7 @@ import subprocess
 import webbrowser
 
 from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QCursor, QPainter, QPixmap
+from PySide6.QtGui import QColor, QCursor, QPainter, QPixmap, QResizeEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -150,12 +150,20 @@ class StatCard(QFrame):
 
         self._label_widget = QLabel(label)
         self._label_widget.setObjectName("stat_label")
+        self._label_widget.setWordWrap(True)
+        self._label_widget.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self._value_widget = QLabel(value)
         self._value_widget.setObjectName("stat_value")
         self._value_widget.setWordWrap(False)
 
+        # Reserve the same vertical space for up to two title lines on every
+        # stat card so longer translations do not make a single card taller.
+        label_metrics = self._label_widget.fontMetrics()
+        self._label_widget.setFixedHeight((label_metrics.lineSpacing() * 2) + 2)
+
         layout.addWidget(self._label_widget)
         layout.addWidget(self._value_widget)
+        self.setMinimumWidth(180)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
     def set_value(self, v: str):
@@ -459,9 +467,10 @@ class BrowserCard(QFrame):
         self._sync_enabled = True
 
         self.setObjectName("browser_card")
-        self.setFixedWidth(168)
+        self.setMinimumWidth(168)
+        self.setMaximumWidth(220)
         self.setMinimumHeight(80)
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
         self.setCursor(QCursor(Qt.PointingHandCursor))
@@ -526,6 +535,7 @@ class BrowserCard(QFrame):
         self._name_label = QLabel(self._display_name)
         self._name_label.setObjectName("browser_card_name")
         self._name_label.setWordWrap(False)
+        self._name_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         top.addWidget(self._icon_label)
         top.addWidget(self._name_label, 1)
@@ -1076,6 +1086,7 @@ class DashboardPage(QWidget):
         self._sync_btn.setObjectName("primary_btn")
         self._sync_btn.setMinimumWidth(120)
         self._sync_btn.setMinimumHeight(36)
+        self._sync_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         self._sync_btn.setIcon(get_icon("refresh"))
         self._sync_btn.clicked.connect(self.sync_requested)
 
@@ -1085,19 +1096,16 @@ class DashboardPage(QWidget):
         root.addWidget(header)
 
         # Stat cards
-        cards_grid = QGridLayout()
-        cards_grid.setSpacing(12)
+        self._cards_grid = QGridLayout()
+        self._cards_grid.setSpacing(12)
 
         self._card_total = StatCard(_("Total Local Records"), "0", accent=True)
         self._card_browsers = StatCard(_("Browsers Detected"), "0")
         self._card_sync = StatCard(_("Last Sync"), _("Never"))
         self._card_webdav = StatCard(_("WebDAV Status"), _("Not enabled"))
 
-        cards_grid.addWidget(self._card_total, 0, 0)
-        cards_grid.addWidget(self._card_browsers, 0, 1)
-        cards_grid.addWidget(self._card_sync, 0, 2)
-        cards_grid.addWidget(self._card_webdav, 0, 3)
-        root.addLayout(cards_grid)
+        root.addLayout(self._cards_grid)
+        self._relayout_stat_cards()
 
         # Browser cards section
         detail_frame = QFrame()
@@ -1146,6 +1154,10 @@ class DashboardPage(QWidget):
 
         root.addWidget(detail_frame)
         root.addStretch()
+
+    def resizeEvent(self, event: QResizeEvent):
+        super().resizeEvent(event)
+        self._relayout_stat_cards()
 
     # ── Public update API ──────────────────────────────────────
 
@@ -1219,6 +1231,34 @@ class DashboardPage(QWidget):
             card.setParent(self._cards_container)
             self._cards_layout.addWidget(card)
             card.show()
+
+    def _relayout_stat_cards(self):
+        while self._cards_grid.count():
+            item = self._cards_grid.takeAt(0)
+            widget = item.widget() if item else None
+            if widget is not None:
+                widget.hide()
+
+        cards = [self._card_total, self._card_browsers, self._card_sync, self._card_webdav]
+        available_width = max(self.width() - 64, 0)
+        min_card_width = max(card.minimumWidth() for card in cards)
+        spacing = self._cards_grid.horizontalSpacing()
+        columns = 1
+
+        for candidate in range(len(cards), 0, -1):
+            required = (candidate * min_card_width) + ((candidate - 1) * spacing)
+            if required <= available_width:
+                columns = candidate
+                break
+
+        for index, card in enumerate(cards):
+            row = index // columns
+            column = index % columns
+            self._cards_grid.addWidget(card, row, column)
+            card.show()
+
+        for column in range(columns):
+            self._cards_grid.setColumnStretch(column, 1)
 
     # ── Per-browser actions ────────────────────────────────────
 

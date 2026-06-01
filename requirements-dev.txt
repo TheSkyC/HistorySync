@@ -32,7 +32,7 @@ filelock==3.29.0
     #   virtualenv
 identify==2.6.19
     # via pre-commit
-idna==3.11
+idna==3.15
     # via requests
 iniconfig==2.3.0
     # via pytest
@@ -125,7 +125,7 @@ six==1.17.0
     #   pynput
     #   python-dateutil
     #   python-xlib
-urllib3==2.6.3
+urllib3==2.7.0
     # via requests
 virtualenv==21.2.4
     # via pre-commit

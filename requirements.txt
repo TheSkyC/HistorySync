@@ -16,7 +16,7 @@ cryptography==48.0.0
     # via secretstorage
 evdev==1.9.3
     # via pynput
-idna==3.11
+idna==3.15
     # via requests
 jaraco-classes==3.4.0
     # via keyring
@@ -70,7 +70,7 @@ six==1.17.0
     #   pynput
     #   python-dateutil
     #   python-xlib
-urllib3==2.6.3
+urllib3==2.7.0
     # via requests
 webdavclient3==3.14.7
     # via -r requirements.in
