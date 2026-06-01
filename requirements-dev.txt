@@ -97,7 +97,7 @@ pyside6-essentials==6.11.0
     # via
     #   pyside6
     #   pyside6-addons
-pytest==9.0.2
+pytest==9.0.3
     # via -r requirements-dev.in
 python-dateutil==2.9.0.post0
     # via webdavclient3
