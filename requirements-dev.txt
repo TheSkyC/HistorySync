@@ -107,7 +107,7 @@ python-xlib==0.33
     # via pynput
 pyyaml==6.0.3
     # via pre-commit
-requests==2.32.5
+requests==2.34.2
     # via
     #   -r requirements.in
     #   webdavclient3
