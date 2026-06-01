@@ -133,7 +133,7 @@ requests==2.32.5
     # via
     #   -r requirements.txt
     #   webdavclient3
-ruff==0.15.7
+ruff==0.15.15
     # via -r requirements-dev.in
 secretstorage==3.5.0
     # via keyring
