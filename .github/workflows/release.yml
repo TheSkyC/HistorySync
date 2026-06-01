@@ -60,7 +60,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-test.txt
+          pip install -r requirements-test.in
 
       # Run with the same flags as test.yml so the release gate has identical
       # rigour to the CI gate. Diverging flags risk a test passing here but
@@ -150,23 +150,23 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          if (Test-Path requirements.txt) { pip install -r requirements.txt }
+          if (Test-Path requirements.in) { pip install -r requirements.in }
 
       - name: Install build dependencies (Unix)
         if: runner.os != 'Windows'
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements.in ]; then pip install -r requirements.in; fi
 
       # ── Standalone Python runtime (Windows only) ──────────────────────────
       # On Linux / macOS PyInstaller bundles a complete runtime on its own.
       # On Windows we replace the bundled vcruntime + Python DLLs with the
       # known-good indygreg standalone build to avoid MSVC dependency issues.
-      - name: Cache standalone Python runtime (Windows)
+      - name: Restore standalone Python runtime cache (Windows)
         if: runner.os == 'Windows'
         id: cache-python-runtime
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: python_minimal
           key: python-standalone-${{ env.PYTHON_STANDALONE_VERSION }}-${{ env.PYTHON_STANDALONE_RELEASE_TAG }}-${{ matrix.python_arch }}
@@ -183,6 +183,13 @@ jobs:
           echo "Fetching: ${URL}"
           curl -fsSL "$URL" -o runtime.tar.gz
           tar -xzf runtime.tar.gz && mv python python_minimal
+
+      - name: Save standalone Python runtime cache (Windows)
+        if: runner.os == 'Windows' && steps.cache-python-runtime.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: python_minimal
+          key: python-standalone-${{ env.PYTHON_STANDALONE_VERSION }}-${{ env.PYTHON_STANDALONE_RELEASE_TAG }}-${{ matrix.python_arch }}
 
       # ── PyInstaller build ─────────────────────────────────────────────────
       # app.spec produces two bundles in one pass:
@@ -747,7 +754,6 @@ jobs:
           RPM_VERSION="${RPM_VERSION//-/.}"
           RPM_VERSION="${RPM_VERSION//[^A-Za-z0-9._~+]/.}"
           RPM_RELEASE="${RPM_RELEASE//[^A-Za-z0-9._~+]/.}"
-
           case "${{ matrix.arch_display }}" in
             x86_64) RPM_ARCH="x86_64" ;;
             arm64)  RPM_ARCH="aarch64" ;;
