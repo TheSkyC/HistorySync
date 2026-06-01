@@ -405,7 +405,8 @@ jobs:
           $ver     = "${{ env.VERSION_NUM }}"
           $repo    = "${{ github.repository }}"
           $outName = "${appName}-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}-setup"
-          $archMode = if ("${{ matrix.arch_display }}" -eq "arm64") { "arm64compatible" } else { "x64compatible" }
+          $archMode = if ("${{ matrix.arch_display }}" -eq "arm64") { "arm64" } else { "x64compatible" }
+          $archAllowed = if ("${{ matrix.arch_display }}" -eq "arm64") { "arm64" } else { "x64compatible and not arm64" }
 
           @(
             "[Setup]",
@@ -422,6 +423,7 @@ jobs:
             "Compression=lzma2/ultra64",
             "SolidCompression=yes",
             "PrivilegesRequired=lowest",
+            "ArchitecturesAllowed=${archAllowed}",
             "ArchitecturesInstallIn64BitMode=${archMode}",
             "WizardStyle=modern",
             "DisableWelcomePage=yes",
@@ -491,7 +493,8 @@ jobs:
           $ver     = "${{ env.VERSION_NUM }}"
           $repo    = "${{ github.repository }}"
           $outName = "hsync-${{ env.VERSION_TAG }}-windows-${{ matrix.arch_display }}-setup"
-          $archMode = if ("${{ matrix.arch_display }}" -eq "arm64") { "arm64compatible" } else { "x64compatible" }
+          $archMode = if ("${{ matrix.arch_display }}" -eq "arm64") { "arm64" } else { "x64compatible" }
+          $archAllowed = if ("${{ matrix.arch_display }}" -eq "arm64") { "arm64" } else { "x64compatible and not arm64" }
 
           @(
             "[Setup]",
@@ -508,6 +511,7 @@ jobs:
             "Compression=lzma2/ultra64",
             "SolidCompression=yes",
             "PrivilegesRequired=lowest",
+            "ArchitecturesAllowed=${archAllowed}",
             "ArchitecturesInstallIn64BitMode=${archMode}",
             "WizardStyle=modern",
             "DisableWelcomePage=yes",
