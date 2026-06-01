@@ -5,10 +5,10 @@
 # Automatically generated, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: HistorySync 1.3.2\n"
+"Project-Id-Version: HistorySync 1.4.0\n"
 "Report-Msgid-Bugs-To: i18n@historysync.app\n"
-"POT-Creation-Date: 2026-05-20 01:07+0000\n"
-"PO-Revision-Date: 2026-05-20 00:44+0000\n"
+"POT-Creation-Date: 2026-06-01 13:30+0000\n"
+"PO-Revision-Date: 2026-06-01 11:15+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
 "Language-Team: zh_CN\n"
@@ -39,35 +39,39 @@ msgstr ""
 "\n"
 "您的原始数据已从备份中恢复。"
 
-#: src/views/import_dialog.py:252
+#: src/views/import_dialog.py:251
 msgid "  ·  Drag & drop files, or click  Add Files"
 msgstr "  ·  拖放文件至此，或点击“添加文件”"
 
-#: src/views/settings/webdav_section.py:118
+#: src/views/settings/webdav_section.py:81
 msgid " files"
 msgstr " 个文件"
 
 #: src/views/first_run_wizard.py:202 src/views/first_run_wizard.py:215
 #: src/views/settings/scheduler_section.py:37
-#: src/views/settings/webdav_section.py:71
+#: src/views/settings/webdav_section.py:277
 msgid " hours"
 msgstr " 小时"
 
-#: src/views/main_window.py:425
+#: src/views/main_window.py:454
 #, python-brace-format
 msgid "'{domain}' blacklisted — {n} record(s) deleted"
 msgstr "'{domain}' 已加入黑名单 — 已删除 {n} 条记录"
 
-#: src/views/main_window.py:415
+#: src/views/main_window.py:444
 #, python-brace-format
 msgid ""
 "'{domain}' hidden ({n} record(s) affected). Manage hidden domains in "
 "Settings → Privacy."
 msgstr "'{domain}' 已隐藏（影响 {n} 条记录）。请在 设置 → 隐私 中管理隐藏的域名。"
 
-#: src/views/settings/webdav_section.py:305
+#: src/views/settings/webdav_section.py:245
 msgid "(no backups found)"
 msgstr "(未找到备份)"
+
+#: src/views/settings/webdav_section.py:563
+msgid "(no username)"
+msgstr "(无用户名)"
 
 #: src/views/settings/devices_section.py:182
 msgid "(this device)"
@@ -78,7 +82,7 @@ msgstr "（此设备）"
 msgid "- {key}: {actions}"
 msgstr "- {key}：{actions}"
 
-#: src/views/history_page.py:2126
+#: src/views/history_page.py:2135
 msgid "0 total"
 msgstr "共 0 条"
 
@@ -149,7 +153,25 @@ msgstr ""
 "\n"
 "留空可跳过此步骤 — 您稍后可在“设置 → 安全”中设置主密码。"
 
-#: src/views/tray_icon.py:264
+#: src/views/settings/webdav_section.py:175
+msgid ""
+"A new password is already staged. Leave this blank to keep that pending "
+"change."
+msgstr "新密码已暂存。留空以保留此待生效的更改。"
+
+#: src/views/settings/webdav_section.py:173
+msgid "A new password is required to recover this WebDAV connection."
+msgstr "需要输入新密码才能恢复此 WebDAV 连接。"
+
+#: src/views/settings/webdav_section.py:547
+msgid "A new password is staged and will be saved with the next Settings save."
+msgstr "新密码已暂存，将在下次保存设置时一并保存。"
+
+#: src/views/dialogs/update_dialog.py:94
+msgid "A new version of HistorySync is available!"
+msgstr "HistorySync 有新版本可用！"
+
+#: src/views/tray_icon.py:263
 #, python-brace-format
 msgid ""
 "A {op} is currently running.\n"
@@ -164,15 +186,15 @@ msgstr ""
 "\n"
 "是否仍要退出？"
 
-#: src/views/settings_page.py:118
+#: src/views/settings_page.py:122
 msgid "AUTO SYNC"
 msgstr "自动同步"
 
-#: src/views/history_page.py:3564
+#: src/views/history_page.py:3573
 msgid "Actions"
 msgstr "操作"
 
-#: src/views/stats_page.py:1777 src/views/stats_page.py:2237
+#: src/views/stats_page.py:1797 src/views/stats_page.py:2257
 msgid "Activity by hour"
 msgstr "每小时活跃度"
 
@@ -189,19 +211,19 @@ msgstr "添加"
 msgid "Add / Edit Note"
 msgstr "添加/编辑备注"
 
-#: src/views/history_page.py:3526
+#: src/views/history_page.py:3535
 msgid "Add Bookmark"
 msgstr "添加书签"
 
-#: src/views/import_dialog.py:322
+#: src/views/import_dialog.py:321
 msgid "Add Files…"
 msgstr "添加文件…"
 
-#: src/views/annotation_dialog.py:26
+#: src/views/annotation_dialog.py:27
 msgid "Add Note"
 msgstr "添加备注"
 
-#: src/views/history_page.py:3538
+#: src/views/history_page.py:3547
 msgid "Add Note…"
 msgstr "添加备注…"
 
@@ -213,7 +235,7 @@ msgstr "添加选中项"
 msgid "Add to Blacklist"
 msgstr "添加到黑名单"
 
-#: src/views/settings_page.py:593
+#: src/views/settings_page.py:658
 #, python-brace-format
 msgid "Added {n} hidden domain(s)"
 msgstr "已添加 {n} 个隐藏域名"
@@ -241,39 +263,39 @@ msgstr ""
 "\n"
 "没有现有记录与此域名匹配。"
 
-#: src/services/webdav_sync.py:316
+#: src/services/webdav_sync.py:349
 msgid "Adding favicon cache to backup..."
 msgstr "正在将网站图标缓存添加到备份中..."
 
 #: src/views/settings/devices_section.py:187
 msgid "Adopt"
-msgstr "继承"
+msgstr "采用"
 
 #: src/views/settings/devices_section.py:238
 msgid "Adopt Device Identity"
-msgstr "继承设备身份"
+msgstr "采用设备身份"
 
 #: src/views/settings/devices_section.py:190
 msgid ""
 "Adopt this device identity: your UUID will be changed to match this "
 "device."
-msgstr "继承此设备身份：您当前设备的 UUID 将被修改为与该设备一致。"
+msgstr "采用此设备身份：您当前设备的 UUID 将被修改为与该设备一致。"
 
 #: src/views/overlay_window.py:364
 msgid "Advanced Settings"
 msgstr "高级设置"
 
-#: src/views/bookmarks_page.py:554 src/views/overlay_window.py:386
+#: src/views/bookmarks_page.py:419 src/views/overlay_window.py:386
 #: src/views/settings/overlay_section.py:75
 msgid "All"
 msgstr "全部"
 
-#: src/views/bookmarks_page.py:695
+#: src/views/bookmarks_page.py:542
 msgid "All Bookmarks"
 msgstr "所有书签"
 
-#: src/services/exporter.py:607 src/views/history_page.py:2156
-#: src/views/history_page.py:3397
+#: src/services/exporter.py:607 src/views/history_page.py:2165
+#: src/views/history_page.py:3406
 msgid "All Browsers"
 msgstr "全部浏览器"
 
@@ -291,7 +313,7 @@ msgstr "所有历史记录、WebDAV 设置、隐私规则和界面偏好都将�
 msgid "All known devices in this database:"
 msgstr "此数据库中所有已知设备："
 
-#: src/views/settings_page.py:579
+#: src/views/settings_page.py:644
 msgid "All records unhidden"
 msgstr "所有记录已取消隐藏"
 
@@ -299,7 +321,7 @@ msgstr "所有记录已取消隐藏"
 msgid "All set!"
 msgstr "一切就绪！"
 
-#: src/views/stats_page.py:1999
+#: src/views/stats_page.py:2019
 msgid "All time"
 msgstr "历史总计"
 
@@ -312,9 +334,17 @@ msgstr ""
 "您的所有数据已成功迁移。\n"
 "{n} 条历史记录保持完整。"
 
-#: src/views/dashboard_page.py:661
+#: src/views/dashboard_page.py:695
 msgid "Also delete all synced history records for this browser"
 msgstr "同时删除此浏览器的所有已同步历史记录"
+
+#: src/views/settings/update_section.py:51
+msgid "Always prefer mirror"
+msgstr "始终优先使用镜像源"
+
+#: src/views/settings/update_section.py:52
+msgid "Always use direct source"
+msgstr "始终使用直连源"
 
 #: src/views/settings/keybinding_section.py:558
 msgid "Apply"
@@ -365,11 +395,16 @@ msgstr ""
 "\n"
 "HistorySync 将使用默认设置。您稍后可以在设置页面中配置所有选项。"
 
+#: src/views/settings/update_section.py:63
+msgid "At most once per week"
+msgstr "每周最多一次"
+
 #: src/views/stats_page.py:77
 msgid "August"
 msgstr "8月"
 
 #: src/views/overlay_window.py:387 src/views/settings/overlay_section.py:76
+#: src/views/settings/update_section.py:50
 msgid "Auto"
 msgstr "自动"
 
@@ -377,21 +412,33 @@ msgstr "自动"
 msgid "Auto (Active / All)"
 msgstr "自动（当前/全部）"
 
-#: src/views/history_page.py:3273
+#: src/views/history_page.py:3282
 msgid "Auto-fit All Columns"
 msgstr "自动调整所有列宽"
 
-#: src/views/history_page.py:3269
+#: src/views/history_page.py:3278
 msgid "Auto-fit This Column"
 msgstr "自动调整此列"
 
-#: src/views/log_viewer_page.py:136
+#: src/views/settings/update_section.py:46
+msgid "Auto-install on quit"
+msgstr "退出应用时自动安装"
+
+#: src/views/log_viewer_page.py:154
 msgid "Auto-scroll"
 msgstr "自动滚动"
 
-#: src/views/settings/webdav_section.py:64
+#: src/views/settings/update_section.py:132
+msgid "Automatic banner reminders:"
+msgstr "自动横幅提醒频率："
+
+#: src/views/settings/webdav_section.py:271
 msgid "Automatically backup to WebDAV after local scan"
 msgstr "本地扫描完成后自动备份到 WebDAV"
+
+#: src/views/settings/update_section.py:89
+msgid "Automatically check for updates"
+msgstr "自动检查更新"
 
 #: src/views/dialogs/hide_domain_dialog.py:110
 msgid "Automatically hide new records from this domain in future syncs"
@@ -405,11 +452,11 @@ msgstr "可用"
 msgid "Back"
 msgstr "返回"
 
-#: src/services/local_db.py:1352
+#: src/services/local_db/maintenance.py:298
 msgid "Back-filling domain_id on history rows…"
 msgstr "正在为历史记录行回填 domain_id…"
 
-#: src/services/local_db.py:1374
+#: src/services/local_db/maintenance.py:320
 #, python-brace-format
 msgid "Back-filling domain_id on history rows… ({n} so far)"
 msgstr "正在回填历史记录的域名 ID…（已处理 {n} 条）"
@@ -419,16 +466,16 @@ msgstr "正在回填历史记录的域名 ID…（已处理 {n} 条）"
 msgid "Backed up {name}"
 msgstr "已备份 {name}"
 
-#: src/views/settings/webdav_section.py:96
+#: src/views/settings/webdav_section.py:300
 msgid "Backs up the favicon database alongside history. Increases backup size."
 msgstr "备份时包含网站图标数据库以及历史记录。会增加备份文件大小。"
 
-#: src/services/webdav_sync.py:399
+#: src/services/webdav_sync.py:432
 #, python-brace-format
 msgid "Backup ZIP uploaded but sync_manifest.json failed: {error}"
 msgstr "已上传备份 ZIP 但 sync_manifest.json 失败：{error}"
 
-#: src/services/webdav_sync.py:561
+#: src/services/webdav_sync.py:594
 msgid "Backup archive missing history.db"
 msgstr "备份存档缺少 history.db"
 
@@ -446,16 +493,16 @@ msgstr "备份间隔："
 msgid "Backup saved to:  {path}"
 msgstr "备份保存到：{path}"
 
-#: src/views/settings/webdav_section.py:167
+#: src/views/settings/webdav_section.py:344
 msgid "Backup to WebDAV"
 msgstr "备份到 WebDAV"
 
-#: src/services/webdav_sync.py:630
+#: src/services/webdav_sync.py:663
 #, python-brace-format
 msgid "Bad zip archive: {error}"
 msgstr "ZIP 压缩包损坏：{error}"
 
-#: src/views/history_page.py:1087
+#: src/views/history_page.py:1090
 msgid "Bar guide"
 msgstr "柱状图例"
 
@@ -479,16 +526,20 @@ msgstr "去年之前"
 msgid "Before today"
 msgstr "今天之前"
 
-#: src/views/history_page.py:3758
-msgid "Blacklist Domain"
-msgstr "拉黑该域名"
+#: src/views/settings/update_section.py:57
+msgid "Beta"
+msgstr "Beta 版"
 
-#: src/views/history_page.py:3650
+#: src/views/history_page.py:3767
+msgid "Blacklist Domain"
+msgstr "屏蔽此域名"
+
+#: src/views/history_page.py:3659
 #, python-brace-format
 msgid "Blacklist Domain: {domain}"
-msgstr "拉黑该域名：{domain}"
+msgstr "屏蔽此域名：{domain}"
 
-#: src/views/settings_page.py:512
+#: src/views/settings_page.py:577
 msgid "Blacklist saved"
 msgstr "黑名单已保存"
 
@@ -504,7 +555,7 @@ msgstr "已列入黑名单的域名："
 msgid "Bookmark"
 msgstr "书签"
 
-#: src/views/history_page.py:3529
+#: src/views/history_page.py:3538
 #, python-brace-format
 msgid "Bookmark All Selected ({n})"
 msgstr "为所有选中项添加书签（{n}）"
@@ -517,15 +568,19 @@ msgstr "已添加书签（点击编辑）"
 msgid "Bookmarked only"
 msgstr "仅书签记录"
 
-#: src/views/bookmarks_page.py:249
+#: src/views/bookmark_delegate.py:541
 #, python-brace-format
 msgid "Bookmarked: {dt}"
 msgstr "已添加书签：{dt}"
 
-#: src/views/main_window.py:99 src/views/settings/keybinding_section.py:110
+#: src/views/main_window.py:111 src/views/settings/keybinding_section.py:110
 #: src/views/settings/keybinding_section.py:743
 msgid "Bookmarks"
 msgstr "书签"
+
+#: src/views/dialogs/update_dialog.py:57
+msgid "Breaking Changes"
+msgstr "重大变更"
 
 #: src/views/settings/custom_paths_section.py:63
 msgid "Browse..."
@@ -533,7 +588,7 @@ msgstr "浏览..."
 
 #: src/services/exporter.py:79 src/services/exporter.py:609
 #: src/viewmodels/history_viewmodel.py:61
-#: src/viewmodels/history_viewmodel.py:415 src/views/import_dialog.py:275
+#: src/viewmodels/history_viewmodel.py:415 src/views/import_dialog.py:274
 #: src/views/search_autocomplete.py:756
 msgid "Browser"
 msgstr "浏览器"
@@ -542,11 +597,11 @@ msgstr "浏览器"
 msgid "Browser & Profile"
 msgstr "浏览器与配置文件"
 
-#: src/views/dashboard_page.py:1034
+#: src/views/dashboard_page.py:1112
 msgid "Browser Detection Status"
 msgstr "浏览器检测状态"
 
-#: src/views/dashboard_page.py:992
+#: src/views/dashboard_page.py:1070
 msgid "Browser History Sync Center"
 msgstr "浏览器历史记录同步中心"
 
@@ -555,19 +610,19 @@ msgstr "浏览器历史记录同步中心"
 msgid "Browser Profile: {profile}"
 msgstr "浏览器配置文件：{profile}"
 
-#: src/views/dashboard_page.py:743 src/views/first_run_wizard.py:346
+#: src/views/dashboard_page.py:818 src/views/first_run_wizard.py:346
 msgid "Browser Sync Selection"
 msgstr "浏览器同步选择"
 
-#: src/views/dashboard_page.py:724 src/views/first_run_wizard.py:178
+#: src/views/dashboard_page.py:799 src/views/first_run_wizard.py:178
 msgid "Browser Sync Settings"
 msgstr "浏览器同步设置"
 
-#: src/views/dashboard_page.py:1042
+#: src/views/dashboard_page.py:1120
 msgid "Browser Sync Settings & Re-detect"
 msgstr "浏览器同步设置与重新检测"
 
-#: src/views/stats_page.py:1771 src/views/stats_page.py:2232
+#: src/views/stats_page.py:1791 src/views/stats_page.py:2252
 msgid "Browser distribution"
 msgstr "浏览器占比"
 
@@ -580,11 +635,11 @@ msgstr "列表中没有你的浏览器？<a href='#scan'>运行一次深度扫�
 msgid "Browser: {b}"
 msgstr "浏览器：{b}"
 
-#: src/views/first_run_wizard.py:982 src/views/stats_page.py:1715
+#: src/views/first_run_wizard.py:982 src/views/stats_page.py:1735
 msgid "Browsers"
 msgstr "浏览器"
 
-#: src/views/dashboard_page.py:1014
+#: src/views/dashboard_page.py:1092
 msgid "Browsers Detected"
 msgstr "已检测浏览器"
 
@@ -592,21 +647,25 @@ msgstr "已检测浏览器"
 msgid "Browse…"
 msgstr "浏览…"
 
-#: src/views/stats_page.py:2174
+#: src/views/stats_page.py:2194
 msgid "Browsing Statistics — All Time"
 msgstr "浏览统计 — 历史总计"
 
-#: src/views/stats_page.py:2177
+#: src/views/stats_page.py:2197
 #, python-brace-format
 msgid "Browsing Statistics — {month} {year}"
 msgstr "浏览统计 — {year}年{month}"
 
-#: src/views/stats_page.py:2179
+#: src/views/stats_page.py:2199
 #, python-brace-format
 msgid "Browsing Statistics — {year}"
 msgstr "浏览统计 — {year}年"
 
-#: src/views/settings_page.py:123
+#: src/views/dialogs/update_dialog.py:53
+msgid "Bug Fixes"
+msgstr "错误修复"
+
+#: src/views/settings_page.py:127
 msgid "CONNECTED DEVICES"
 msgstr "已连接设备"
 
@@ -614,7 +673,7 @@ msgstr "已连接设备"
 msgid "CSV Files (*.csv);;All Files (*)"
 msgstr "CSV 文件 (*.csv);;所有文件 (*)"
 
-#: src/views/settings_page.py:124
+#: src/views/settings_page.py:128
 msgid "CUSTOM BROWSER PATHS"
 msgstr "自定义浏览器路径"
 
@@ -623,7 +682,7 @@ msgid "Calculating…"
 msgstr "正在计算…"
 
 #: src/views/dialogs/browser_scan_dialog.py:135 src/views/export_dialog.py:285
-#: src/views/export_dialog.py:481 src/views/import_dialog.py:328
+#: src/views/export_dialog.py:481 src/views/import_dialog.py:327
 #: src/views/settings/keybinding_section.py:554
 #: src/views/settings/keybinding_section.py:663
 msgid "Cancel"
@@ -632,6 +691,12 @@ msgstr "取消"
 #: src/views/export_dialog.py:528
 msgid "Cancelling…"
 msgstr "正在取消…"
+
+#: src/services/update_service.py:996
+msgid ""
+"Cannot auto-install: the download source did not provide a verified "
+"checksum. Please install manually from the release page."
+msgstr "无法自动安装：下载源未提供可验证的校验和。请前往发布页面手动安装。"
 
 #: src/views/master_password_dialog.py:241
 #: src/views/master_password_dialog.py:264
@@ -643,9 +708,33 @@ msgstr "更改主密码"
 msgid "Change Password"
 msgstr "更改密码"
 
-#: src/services/local_db.py:1095
+#: src/views/settings_page.py:717
+#, python-brace-format
+msgid "Check failed: {msg}"
+msgstr "检查失败：{msg}"
+
+#: src/views/settings/update_section.py:277
+#: src/views/settings/update_section.py:327
+msgid "Check for Updates"
+msgstr "检查更新"
+
+#: src/views/update_banner.py:136
+msgid "Checking For Updates"
+msgstr "正在检查更新"
+
+#: src/views/settings/update_section.py:324 src/views/update_banner.py:140
+msgid "Checking..."
+msgstr "正在检查…"
+
+#: src/services/local_db/maintenance.py:108
 msgid "Checkpointing WAL into main file…"
 msgstr "正在将 WAL 数据同步至主数据库…"
+
+#: src/services/update_service.py:369
+msgid ""
+"Checksum verification failed — the download may be corrupt or tampered "
+"with."
+msgstr "校验和验证失败，下载文件可能已损坏或被篡改。"
 
 #: src/views/export_dialog.py:251
 msgid "Choose output file path…"
@@ -666,15 +755,15 @@ msgstr ""
 "选择 HistorySync 应从哪些浏览器收集历史记录。\n"
 "您随时可以通过在概览页面右键点击浏览器卡片来更改此设置。"
 
-#: src/views/import_dialog.py:48
+#: src/views/import_dialog.py:47
 msgid "Chromium History"
 msgstr "Chromium History"
 
-#: src/services/webdav_sync.py:408
+#: src/services/webdav_sync.py:441
 msgid "Cleaning up old backups..."
 msgstr "正在清理旧备份..."
 
-#: src/viewmodels/main_viewmodel.py:391
+#: src/viewmodels/main_viewmodel.py:513
 msgid "Cleaning up..."
 msgstr "正在清理..."
 
@@ -682,7 +771,7 @@ msgstr "正在清理..."
 msgid "Clear"
 msgstr "清空"
 
-#: src/views/log_viewer_page.py:160
+#: src/views/log_viewer_page.py:178
 msgid "Clear View"
 msgstr "清空视图"
 
@@ -692,21 +781,23 @@ msgstr "清除快捷键"
 
 #: src/views/dialogs/browser_scan_dialog.py:205
 #: src/views/dialogs/browser_scan_dialog.py:223
-#: src/views/dialogs/browser_scan_dialog.py:228 src/views/export_dialog.py:510
-#: src/views/export_dialog.py:520 src/views/import_dialog.py:634
+#: src/views/dialogs/browser_scan_dialog.py:228
+#: src/views/dialogs/update_dialog.py:285
+#: src/views/dialogs/update_dialog.py:291 src/views/export_dialog.py:510
+#: src/views/export_dialog.py:520 src/views/import_dialog.py:633
 #: src/views/migration_wizard.py:895
 msgid "Close"
 msgstr "关闭"
 
-#: src/views/export_dialog.py:224 src/views/history_page.py:3252
+#: src/views/export_dialog.py:224 src/views/history_page.py:3261
 msgid "Columns"
 msgstr "列"
 
-#: src/views/history_page.py:3459
+#: src/views/history_page.py:3468
 msgid "Compact bubble"
 msgstr "紧凑气泡"
 
-#: src/services/webdav_sync.py:284
+#: src/services/webdav_sync.py:317
 msgid "Compressing and packaging backup..."
 msgstr "正在压缩并打包备份..."
 
@@ -714,7 +805,7 @@ msgstr "正在压缩并打包备份..."
 msgid "Config verified"
 msgstr "配置已验证"
 
-#: src/main.py:795
+#: src/main.py:806
 msgid "Configuration Load Error"
 msgstr "配置加载错误"
 
@@ -734,7 +825,7 @@ msgstr "配置字体…"
 msgid "Configure URL Filters…"
 msgstr "配置 URL 过滤…"
 
-#: src/views/settings_page.py:146
+#: src/views/settings_page.py:151
 msgid "Configure sync behavior and browser data sources"
 msgstr "配置同步行为与浏览器数据源"
 
@@ -762,51 +853,69 @@ msgstr "确认密码…"
 msgid "Confirm:"
 msgstr "确认："
 
-#: src/services/webdav_sync.py:245 src/services/webdav_sync.py:470
+#: src/services/webdav_sync.py:278 src/services/webdav_sync.py:503
 msgid "Connecting to WebDAV server..."
 msgstr "正在连接 WebDAV 服务器..."
 
-#: src/viewmodels/main_viewmodel.py:389
+#: src/viewmodels/main_viewmodel.py:511
 msgid "Connecting..."
 msgstr "正在连接..."
 
-#: src/services/webdav_sync.py:216
+#: src/views/settings/webdav_section.py:321
+msgid "Connection Settings..."
+msgstr "连接设置..."
+
+#: src/services/webdav_sync.py:249
 msgid "Connection successful"
 msgstr "连接成功"
 
-#: src/views/history_page.py:3545
+#: src/views/history_page.py:3554
 msgid "Copy"
 msgstr "复制"
 
-#: src/views/history_page.py:3554
+#: src/views/history_page.py:3563
 #, python-brace-format
 msgid "Copy All URLs ({n})"
 msgstr "复制所有 URL ({n})"
 
-#: src/views/dashboard_page.py:578
+#: src/views/dashboard_page.py:622
 msgid "Copy Browser Name"
 msgstr "复制浏览器名称"
 
-#: src/views/history_page.py:3550
+#: src/views/history_page.py:3559
 msgid "Copy Title"
 msgstr "复制标题"
 
-#: src/views/history_page.py:3551 src/views/settings/keybinding_section.py:105
+#: src/views/history_page.py:3560 src/views/settings/keybinding_section.py:105
 msgid "Copy Title + URL"
 msgstr "复制标题 + URL"
 
-#: src/views/bookmarks_page.py:156 src/views/history_page.py:3549
+#: src/views/bookmarks_page.py:687 src/views/history_page.py:3558
 #: src/views/settings/keybinding_section.py:104
 #: src/views/settings/keybinding_section.py:112
 msgid "Copy URL"
 msgstr "复制 URL"
 
-#: src/views/dashboard_page.py:1306
+#: src/services/update_service.py:826
+#, python-brace-format
+msgid "Could not create the download folder: {error}"
+msgstr "无法创建下载文件夹： {error}"
+
+#: src/services/update_service.py:1013
+#, python-brace-format
+msgid "Could not launch the installer: {error}"
+msgstr "无法启动安装程序：{error}"
+
+#: src/views/dashboard_page.py:1397
 #, python-brace-format
 msgid "Could not launch {browser}. Please make sure it is installed."
 msgstr "无法启动 {browser}。请确保已安装该浏览器。"
 
-#: src/views/stats_page.py:2073
+#: src/services/update_service.py:1075
+msgid "Could not open the downloaded update package."
+msgstr "无法打开下载的更新包。"
+
+#: src/views/stats_page.py:2093
 #, python-brace-format
 msgid ""
 "Could not save the image to:\n"
@@ -848,6 +957,11 @@ msgstr "当前密码："
 msgid "Current password…"
 msgstr "当前密码…"
 
+#: src/views/settings/update_section.py:260
+#, python-brace-format
+msgid "Current version: {version}"
+msgstr "当前版本：{version}"
+
 #: src/views/settings/font_section.py:437
 msgid "Custom Fonts"
 msgstr "自定义字体"
@@ -860,19 +974,19 @@ msgstr "自定义应用内快捷键和全局悬浮窗快捷键。"
 msgid "Custom…"
 msgstr "自定义…"
 
-#: src/views/settings_page.py:126
+#: src/views/settings_page.py:130
 msgid "DATABASE MAINTENANCE"
 msgstr "数据库维护"
 
-#: src/views/stats_page.py:1746 src/views/stats_page.py:2224
+#: src/views/stats_page.py:1766 src/views/stats_page.py:2244
 msgid "Daily activity heatmap"
 msgstr "每日活跃度热力图"
 
-#: src/views/stats_page.py:1714
+#: src/views/stats_page.py:1734
 msgid "Daily average"
 msgstr "日均访问量"
 
-#: src/views/history_page.py:1317
+#: src/views/history_page.py:1320
 msgid "Daily visit volume"
 msgstr "每日访问量趋势"
 
@@ -881,11 +995,11 @@ msgstr "每日访问量趋势"
 msgid "Data location:  {path}"
 msgstr "数据位置：{path}"
 
-#: src/views/import_dialog.py:433
+#: src/views/import_dialog.py:432
 msgid "Database Files (History *.sqlite *.db);;All Files (*)"
 msgstr "数据库文件 (历史记录 *.sqlite *.db);;所有文件 (*)"
 
-#: src/services/webdav_sync.py:237
+#: src/services/webdav_sync.py:270
 #, python-brace-format
 msgid "Database file not found: {path}"
 msgstr "未找到数据库文件：{path}"
@@ -906,7 +1020,7 @@ msgstr "日期"
 msgid "Date Range"
 msgstr "日期范围"
 
-#: src/services/exporter.py:608 src/views/history_page.py:2160
+#: src/services/exporter.py:608 src/views/history_page.py:2169
 msgid "Date:"
 msgstr "日期："
 
@@ -923,7 +1037,7 @@ msgstr "深度浏览器扫描"
 msgid "Deep Browser Scan - Complete"
 msgstr "深度浏览器扫描 - 完成"
 
-#: src/views/dashboard_page.py:794
+#: src/views/dashboard_page.py:869
 msgid "Deep Scan for Browsers"
 msgstr "深度扫描浏览器"
 
@@ -936,15 +1050,19 @@ msgstr "默认"
 msgid "Delete"
 msgstr "删除"
 
+#: src/views/settings_page.py:770
+msgid "Delete Custom Path"
+msgstr "删除自定义路径"
+
 #: src/views/settings/devices_section.py:253
 msgid "Delete Device"
 msgstr "删除设备"
 
-#: src/views/log_viewer_page.py:371
+#: src/views/log_viewer_page.py:396
 msgid "Delete Log Files"
 msgstr "删除日志文件"
 
-#: src/views/log_viewer_page.py:168
+#: src/views/log_viewer_page.py:186
 msgid "Delete Logs"
 msgstr "删除日志"
 
@@ -953,7 +1071,7 @@ msgstr "删除日志"
 msgid "Delete Matching Records"
 msgstr "删除匹配记录"
 
-#: src/views/history_page.py:3724
+#: src/views/history_page.py:3733
 msgid "Delete Records"
 msgstr "删除记录"
 
@@ -961,12 +1079,16 @@ msgstr "删除记录"
 msgid "Delete Selected"
 msgstr "删除所选"
 
-#: src/views/history_page.py:3570
+#: src/views/history_page.py:3579
 #, python-brace-format
 msgid "Delete Selected ({n} records)"
 msgstr "删除所选（{n} 条记录）"
 
-#: src/views/history_page.py:3574
+#: src/views/dashboard_page.py:707
+msgid "Delete Synced History?"
+msgstr "删除已同步的历史记录？"
+
+#: src/views/history_page.py:3583
 msgid "Delete This Record"
 msgstr "删除此记录"
 
@@ -988,30 +1110,34 @@ msgid ""
 "the database"
 msgstr "从数据库中删除与任何已配置前缀匹配的现有记录"
 
-#: src/views/history_page.py:3725
+#: src/views/history_page.py:3734
 #, python-brace-format
 msgid "Delete {n} record(s)? This cannot be undone."
 msgstr "删除 {n} 条记录？此操作无法撤销。"
 
-#: src/views/log_viewer_page.py:387
+#: src/views/log_viewer_page.py:412
 #, python-brace-format
 msgid "Deleted {n} log file(s)"
 msgstr "已删除 {n} 个日志文件"
 
-#: src/views/main_window.py:399
+#: src/views/main_window.py:428
 #, python-brace-format
 msgid "Deleted {n} record(s)"
 msgstr "已删除 {n} 条记录"
 
-#: src/views/history_page.py:3652
+#: src/views/history_page.py:3661
 msgid "Deletes all records from this domain and adds it to blacklist"
 msgstr "删除此域名的所有记录并将其加入黑名单"
+
+#: src/views/dialogs/update_dialog.py:59
+msgid "Deprecated"
+msgstr "已弃用"
 
 #: src/viewmodels/history_viewmodel.py:66
 msgid "Description"
 msgstr "描述"
 
-#: src/views/dashboard_page.py:761 src/views/dialogs/browser_scan_dialog.py:111
+#: src/views/dashboard_page.py:836 src/views/dialogs/browser_scan_dialog.py:111
 #: src/views/first_run_wizard.py:371
 msgid "Deselect All"
 msgstr "全不选"
@@ -1020,11 +1146,11 @@ msgstr "全不选"
 msgid "Detected"
 msgstr "已检测到"
 
-#: src/views/dashboard_page.py:856 src/views/dashboard_page.py:895
+#: src/views/dashboard_page.py:931 src/views/dashboard_page.py:968
 msgid "Detected — sync disabled"
 msgstr "已检测到 — 同步已禁用"
 
-#: src/views/dashboard_page.py:853 src/views/dashboard_page.py:892
+#: src/views/dashboard_page.py:928 src/views/dashboard_page.py:965
 msgid "Detected — sync enabled"
 msgstr "已检测到 — 同步已启用"
 
@@ -1036,20 +1162,32 @@ msgstr "设备"
 msgid "Device name:"
 msgstr "设备名称："
 
-#: src/views/dashboard_page.py:567
+#: src/views/dashboard_page.py:611
 msgid "Disable Sync for This Browser"
 msgstr "禁用此浏览器的同步功能"
+
+#: src/views/update_banner.py:73
+msgid "Do Not Remind For This Version"
+msgstr "此版本不再提醒"
+
+#: src/views/update_banner.py:72
+msgid "Do Not Remind This Week"
+msgstr "本周不再提醒"
+
+#: src/views/dialogs/update_dialog.py:58
+msgid "Documentation"
+msgstr "文档"
 
 #: src/services/exporter.py:81 src/viewmodels/history_viewmodel.py:64
 #: src/views/search_autocomplete.py:742
 msgid "Domain"
 msgstr "域名"
 
-#: src/views/settings_page.py:681
+#: src/views/settings_page.py:852
 msgid "Domain normalisation complete"
 msgstr "域名规范化完成"
 
-#: src/services/local_db.py:1376
+#: src/services/local_db/maintenance.py:322
 #, python-brace-format
 msgid "Domain normalisation complete — {n} rows updated."
 msgstr "域名规范化完成 — 已更新 {n} 行。"
@@ -1079,76 +1217,110 @@ msgstr ""
 msgid "Done"
 msgstr "完成"
 
-#: src/views/import_dialog.py:628
+#: src/views/import_dialog.py:627
 #, python-brace-format
 msgid "Done — {ins} new records added, {skip} duplicates skipped."
 msgstr "完成 — 已添加 {ins} 条新记录，跳过 {skip} 条重复记录。"
 
-#: src/services/local_db.py:1146
+#: src/services/local_db/maintenance.py:159
 msgid "Done."
 msgstr "完成。"
 
-#: src/services/local_db.py:1138
+#: src/services/local_db/maintenance.py:151
 #, python-brace-format
 msgid ""
 "Done.  {before:.1f} MB → {after:.1f} MB  (saved {saved:.0f} KB, "
 "{pct:.1f}%)"
 msgstr "完成。  {before:.1f} MB → {after:.1f} MB  （节省 {saved:.0f} KB，{pct:.1f}%）"
 
-#: src/views/history_page.py:2122 src/views/history_page.py:3847
+#: src/views/history_page.py:2131 src/views/history_page.py:3862
 msgid "Double-click any row to open the link in browser"
 msgstr "双击任意行在浏览器中打开该链接"
 
-#: src/services/webdav_sync.py:536
+#: src/views/dialogs/update_dialog.py:296
+msgid "Download"
+msgstr "下载"
+
+#: src/views/settings/update_section.py:45
+msgid "Download and prompt to install"
+msgstr "下载后提示安装"
+
+#: src/views/dialogs/update_dialog.py:269
+msgid "Download complete — ready to install."
+msgstr "下载完成，可立即安装。"
+
+#: src/services/update_service.py:219
+msgid "Download failed."
+msgstr "下载失败。"
+
+#: src/services/webdav_sync.py:569
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "下载失败：{error}"
 
-#: src/services/webdav_sync.py:506
+#: src/views/settings/update_section.py:106
+msgid "Download source:"
+msgstr "下载来源："
+
+#: src/views/update_banner.py:119
+msgid "Downloaded"
+msgstr "已下载"
+
+#: src/services/update_service.py:357
+msgid "Downloaded file is missing."
+msgstr "已下载的文件丢失。"
+
+#: src/services/webdav_sync.py:539
 #, python-brace-format
 msgid "Downloading {filename}..."
 msgstr "正在下载 {filename}..."
 
-#: src/services/webdav_sync.py:517
+#: src/views/dialogs/update_dialog.py:244
+msgid "Downloading..."
+msgstr "正在下载..."
+
+#: src/services/webdav_sync.py:550
 #, python-brace-format
 msgid "Downloading: {percent:.0f}% ({downloaded} / {total} KB)"
 msgstr "正在下载：{percent:.0f}% ({downloaded} / {total} KB)"
 
-#: src/views/import_dialog.py:52
+#: src/views/import_dialog.py:51
 msgid "Edge WebAssistDatabase"
 msgstr "Edge WebAssistDatabase"
 
-#: src/views/annotation_dialog.py:26 src/views/bookmarks_page.py:159
+#: src/views/annotation_dialog.py:27 src/views/bookmarks_page.py:690
 msgid "Edit Note"
 msgstr "编辑备注"
 
-#: src/views/history_page.py:3536
+#: src/views/history_page.py:3545
 msgid "Edit Note…"
 msgstr "编辑备注…"
 
-#: src/views/bookmarks_page.py:158 src/views/bookmarks_page.py:952
+#: src/views/bookmarks_page.py:616 src/views/bookmarks_page.py:689
 msgid "Edit Tags"
 msgstr "编辑标签"
 
-#: src/views/bookmarks_page.py:210
-msgid "Edit note"
-msgstr "编辑备注"
-
-#: src/views/bookmarks_page.py:209
-msgid "Edit tags"
-msgstr "编辑标签"
+#: src/views/settings/webdav_section.py:54
+msgid ""
+"Edit server details here. The password stays out of the main settings "
+"page and is only resolved when WebDAV is actually used."
+msgstr "在此编辑服务器信息。密码不会显示在主设置页中，仅在实际使用 WebDAV 时才会读取。"
 
 #: src/views/export_dialog.py:217
 msgid "Embed favicons"
 msgstr "嵌入网站图标"
 
-#: src/views/dashboard_page.py:570
+#: src/views/dashboard_page.py:614
 msgid "Enable Sync for This Browser"
 msgstr "为此浏览器启用同步"
 
-#: src/views/settings/webdav_section.py:59
+#: src/views/settings/webdav_section.py:267
 msgid "Enable WebDAV Backup"
 msgstr "启用 WebDAV 备份"
+
+#: src/views/settings/webdav_section.py:537
+msgid "Enable WebDAV Backup first."
+msgstr "请先启用 WebDAV 备份。"
 
 #: src/views/first_run_wizard.py:191
 msgid "Enable automatic background sync"
@@ -1162,7 +1334,7 @@ msgstr "启用自定义字体"
 msgid "Enable global hotkey (Ctrl+Shift+H)"
 msgstr "启用全局热键 (Ctrl+Shift+H)"
 
-#: src/views/dashboard_page.py:750
+#: src/views/dashboard_page.py:825
 msgid ""
 "Enable or disable history sync for each browser.\n"
 "Disabled browsers will not be scanned during sync."
@@ -1190,12 +1362,12 @@ msgstr "加密密钥"
 msgid "Enter master password…"
 msgstr "输入主密码…"
 
-#: src/views/dashboard_page.py:614
+#: src/views/dashboard_page.py:663
 #, python-brace-format
 msgid "Enter new name for {}:"
 msgstr "输入 {} 的新名称："
 
-#: src/views/settings_page.py:637
+#: src/views/settings_page.py:801
 msgid "Error"
 msgstr "错误"
 
@@ -1204,8 +1376,12 @@ msgstr "错误"
 msgid "Error: {msg}"
 msgstr "错误：{msg}"
 
-#: src/views/export_dialog.py:280 src/views/log_viewer_page.py:354
-#: src/views/log_viewer_page.py:366
+#: src/views/settings/update_section.py:62
+msgid "Every time"
+msgstr "每次"
+
+#: src/views/export_dialog.py:280 src/views/log_viewer_page.py:379
+#: src/views/log_viewer_page.py:391
 msgid "Export"
 msgstr "导出"
 
@@ -1229,19 +1405,19 @@ msgstr "导出历史"
 msgid "Export History…"
 msgstr "导出历史记录…"
 
-#: src/views/log_viewer_page.py:358
+#: src/views/log_viewer_page.py:383
 msgid "Export Log"
 msgstr "导出日志"
 
-#: src/views/stats_page.py:1702
+#: src/views/stats_page.py:1722
 msgid "Export PNG"
 msgstr "导出 PNG"
 
-#: src/views/history_page.py:2270
+#: src/views/history_page.py:2279
 msgid "Export current filtered results to CSV / JSON / HTML"
 msgstr "将当前筛选结果导出为 CSV / JSON / HTML"
 
-#: src/views/stats_page.py:2072
+#: src/views/stats_page.py:2092
 msgid "Export failed"
 msgstr "导出失败"
 
@@ -1249,11 +1425,11 @@ msgstr "导出失败"
 msgid "Export failed."
 msgstr "导出失败。"
 
-#: src/views/stats_page.py:2051
+#: src/views/stats_page.py:2071
 msgid "Export statistics as image"
 msgstr "将统计图表导出为图像"
 
-#: src/views/stats_page.py:2066
+#: src/views/stats_page.py:2086
 msgid "Export successful"
 msgstr "导出成功"
 
@@ -1265,7 +1441,7 @@ msgstr ""
 "将整个历史数据库导出为 CSV、JSON 或 HTML 格式。\n"
 "您可以按日期范围筛选并选择要包含的列。"
 
-#: src/views/log_viewer_page.py:164
+#: src/views/log_viewer_page.py:182
 msgid "Export..."
 msgstr "导出..."
 
@@ -1282,7 +1458,7 @@ msgstr "正在导出…"
 msgid "Exporting… {c} / {t}"
 msgstr "正在导出… {c} / {t}"
 
-#: src/views/history_page.py:2268 src/views/settings/keybinding_section.py:108
+#: src/views/history_page.py:2277 src/views/settings/keybinding_section.py:108
 msgid "Export…"
 msgstr "导出…"
 
@@ -1294,7 +1470,7 @@ msgstr ""
 "从所有 URL 中提取并索引域名。\n"
 "可加速基于域名的查询并为域名统计提供支持。"
 
-#: src/viewmodels/main_viewmodel.py:555
+#: src/viewmodels/main_viewmodel.py:674
 msgid "Extracting browser history..."
 msgstr "正在提取浏览器历史记录..."
 
@@ -1302,17 +1478,21 @@ msgstr "正在提取浏览器历史记录..."
 msgid "Extracting…"
 msgstr "正在提取…"
 
-#: src/views/settings_page.py:127
+#: src/views/settings_page.py:131
 msgid "FONTS"
 msgstr "字体"
 
-#: src/services/local_db.py:1326
+#: src/services/local_db/fts.py:83
 msgid "FTS index rebuild complete."
 msgstr "全文搜索索引重建完成。"
 
-#: src/views/settings_page.py:682
+#: src/views/settings_page.py:853
 msgid "FTS rebuild complete"
 msgstr "全文检索重建完成"
+
+#: src/views/settings/webdav_section.py:232
+msgid "Failed to load backups"
+msgstr "加载备份失败"
 
 #: src/views/dialogs/browser_scan_dialog.py:229
 #, python-brace-format
@@ -1327,11 +1507,15 @@ msgstr ""
 msgid "Fair"
 msgstr "中等"
 
+#: src/views/dialogs/update_dialog.py:52
+msgid "Features"
+msgstr "功能"
+
 #: src/views/stats_page.py:71
 msgid "February"
 msgstr "2月"
 
-#: src/views/import_dialog.py:275
+#: src/views/import_dialog.py:274
 msgid "File"
 msgstr "文件"
 
@@ -1347,7 +1531,7 @@ msgstr "筛选浏览器"
 msgid "Filter browsers:"
 msgstr "筛选浏览器："
 
-#: src/views/log_viewer_page.py:131
+#: src/views/log_viewer_page.py:149
 msgid "Filter text..."
 msgstr "过滤文本..."
 
@@ -1355,7 +1539,7 @@ msgstr "过滤文本..."
 msgid "Finish"
 msgstr "完成"
 
-#: src/views/import_dialog.py:49
+#: src/views/import_dialog.py:48
 msgid "Firefox places.sqlite"
 msgstr "Firefox places.sqlite"
 
@@ -1376,7 +1560,7 @@ msgstr "定位到搜索框"
 msgid "Font Settings"
 msgstr "字体设置"
 
-#: src/views/settings_page.py:650
+#: src/views/settings_page.py:821
 msgid "Font settings updated — save to persist"
 msgstr "字体设置已更新 — 保存后生效"
 
@@ -1413,7 +1597,7 @@ msgstr ""
 "强制迁移模式：此操作将在您当前的实时数据上运行实际的迁移流程。\n"
 "第一步将创建备份。所有记录都将被保留。"
 
-#: src/views/import_dialog.py:275
+#: src/views/import_dialog.py:274
 msgid "Format"
 msgstr "格式"
 
@@ -1438,7 +1622,7 @@ msgstr "发现 {count} 个快捷键冲突。请在下方查看，或选择“强
 msgid "Found {} browser(s)..."
 msgstr "发现 {} 个浏览器..."
 
-#: src/views/history_page.py:129 src/views/stats_page.py:638
+#: src/views/history_page.py:129 src/views/stats_page.py:658
 msgid "Fri"
 msgstr "周五"
 
@@ -1450,11 +1634,11 @@ msgstr "星期五"
 msgid "From:"
 msgstr "从："
 
-#: src/views/settings/maintenance_section.py:122 src/views/settings_page.py:701
+#: src/views/settings/maintenance_section.py:122 src/views/settings_page.py:872
 msgid "Full Resync"
 msgstr "完全重新同步"
 
-#: src/views/history_page.py:3454
+#: src/views/history_page.py:3463
 msgid "Full bubble"
 msgstr "完整气泡"
 
@@ -1466,7 +1650,7 @@ msgstr "正在执行完全重新同步——重新读取所有浏览器历史记
 msgid "GLOBAL HOTKEY"
 msgstr "全局热键"
 
-#: src/views/stats_page.py:2187
+#: src/views/stats_page.py:2207
 #, python-brace-format
 msgid "Generated {ts}"
 msgstr "生成于 {ts}"
@@ -1515,7 +1699,7 @@ msgstr "好"
 msgid "HTML Files (*.html);;All Files (*)"
 msgstr "HTML 文件 (*.html);;所有文件 (*)"
 
-#: src/views/bookmarks_page.py:561
+#: src/views/bookmarks_page.py:426
 msgid "Has Note"
 msgstr "有备注"
 
@@ -1527,7 +1711,7 @@ msgstr "有备注"
 msgid "Has note (click to edit)"
 msgstr "有备注（点击编辑）"
 
-#: src/services/webdav_sync.py:581
+#: src/services/webdav_sync.py:614
 #, python-brace-format
 msgid "Hash verification FAILED! Expected {exp}, got {act}"
 msgstr "哈希校验失败！预期值：{exp}，实际值：{act}"
@@ -1540,25 +1724,25 @@ msgstr "隐藏域名"
 msgid "Hidden Domains:"
 msgstr "隐藏域名："
 
-#: src/views/history_page.py:3838
+#: src/views/history_page.py:3853
 msgid "Hidden Records"
 msgstr "隐藏记录"
 
-#: src/views/bookmarks_page.py:581
+#: src/views/bookmarks_page.py:442
 msgid "Hidden mode — showing only bookmarks pointing to hidden records"
 msgstr "隐藏模式 — 仅显示指向隐藏记录的书签"
 
-#: src/views/main_window.py:419
+#: src/views/main_window.py:448
 #, python-brace-format
 msgid "Hidden {n} record(s) from '{domain}'."
 msgstr "已隐藏来自“{domain}”的 {n} 条记录。"
 
-#: src/views/history_page.py:3736
+#: src/views/history_page.py:3745
 #, python-brace-format
 msgid "Hidden {n} record(s). Manage in Settings → Privacy."
 msgstr "已隐藏 {n} 条记录。请在“设置 → 隐私”中管理。"
 
-#: src/views/main_window.py:404
+#: src/views/main_window.py:433
 #, python-brace-format
 msgid "Hidden {n} record(s). Unhide anytime in Settings → Privacy."
 msgstr "已隐藏 {n} 条记录。可随时在“设置 → 隐私”中取消隐藏。"
@@ -1572,13 +1756,13 @@ msgstr "隐藏"
 msgid "Hide Domain"
 msgstr "隐藏域名"
 
-#: src/views/history_page.py:3618 src/views/history_page.py:3627
-#: src/views/history_page.py:3638
+#: src/views/history_page.py:3627 src/views/history_page.py:3636
+#: src/views/history_page.py:3647
 #, python-brace-format
 msgid "Hide Domain: {domain}"
 msgstr "隐藏域名：{domain}"
 
-#: src/views/password_edit.py:166
+#: src/views/password_edit.py:180
 msgid "Hide Password"
 msgstr "隐藏密码"
 
@@ -1586,7 +1770,7 @@ msgstr "隐藏密码"
 msgid "Hide Selected"
 msgstr "隐藏所选"
 
-#: src/views/history_page.py:3600
+#: src/views/history_page.py:3609
 #, python-brace-format
 msgid "Hide Selected ({n} records)"
 msgstr "隐藏所选（{n} 条记录）"
@@ -1595,31 +1779,31 @@ msgstr "隐藏所选（{n} 条记录）"
 msgid "Hide Subdomain"
 msgstr "隐藏子域名"
 
-#: src/views/history_page.py:3613
+#: src/views/history_page.py:3622
 #, python-brace-format
 msgid "Hide Subdomain: {domain}"
 msgstr "隐藏子域名：{domain}"
 
-#: src/views/history_page.py:3603
+#: src/views/history_page.py:3612
 msgid "Hide This Record"
 msgstr "隐藏此记录"
 
-#: src/views/history_page.py:3469
+#: src/views/history_page.py:3478
 msgid "Hide bubble"
 msgstr "隐藏气泡"
 
-#: src/views/history_page.py:3615
+#: src/views/history_page.py:3624
 #, python-brace-format
 msgid "Hide only records from {domain}"
 msgstr "仅隐藏来自 {domain} 的记录"
 
-#: src/views/history_page.py:3621 src/views/history_page.py:3630
-#: src/views/history_page.py:3641
+#: src/views/history_page.py:3630 src/views/history_page.py:3639
+#: src/views/history_page.py:3650
 #, python-brace-format
 msgid "Hide records from {domain} and all its subdomains"
 msgstr "隐藏来自 {domain} 及其所有子域名的记录"
 
-#: src/views/history_page.py:3594
+#: src/views/history_page.py:3603
 msgid "Hide…"
 msgstr "隐藏…"
 
@@ -1646,8 +1830,8 @@ msgstr ""
 "\n"
 "没有现有记录与此域名匹配。"
 
-#: src/views/history_page.py:2106 src/views/history_page.py:3846
-#: src/views/main_window.py:98 src/views/settings/keybinding_section.py:101
+#: src/views/history_page.py:2115 src/views/history_page.py:3861
+#: src/views/main_window.py:110 src/views/settings/keybinding_section.py:101
 #: src/views/settings/keybinding_section.py:741
 msgid "History"
 msgstr "历史记录"
@@ -1664,11 +1848,11 @@ msgstr "历史报告"
 msgid "History database file path..."
 msgstr "历史数据库文件路径..."
 
-#: src/views/import_dialog.py:51
+#: src/views/import_dialog.py:50
 msgid "HistorySync Backup"
 msgstr "HistorySync 备份文件"
 
-#: src/main.py:696
+#: src/main.py:707
 #, python-format
 msgid ""
 "HistorySync could not acquire the single-instance lock\n"
@@ -1681,7 +1865,7 @@ msgstr ""
 "\n"
 "请关闭其他正在运行的实例，然后重试。"
 
-#: src/main.py:807
+#: src/main.py:818
 msgid ""
 "HistorySync has been minimized to the system tray and continues running "
 "in the background."
@@ -1711,6 +1895,21 @@ msgstr ""
 "\n"
 "让我们花点时间来配置基本设置。"
 
+#: src/views/update_banner.py:118
+#, python-brace-format
+msgid "HistorySync {version} has been downloaded and is ready to install."
+msgstr "HistorySync {version} 已下载并准备安装。"
+
+#: src/main.py:864
+#, python-brace-format
+msgid "HistorySync {version} is available."
+msgstr "HistorySync {version} 可用。"
+
+#: src/views/update_banner.py:96
+#, python-brace-format
+msgid "HistorySync {version} is available. You are currently running {current}."
+msgstr "HistorySync {version} 可用。您当前运行的是 {current}。"
+
 #: src/views/first_run_wizard.py:807
 msgid "HistorySync — First-Time Setup"
 msgstr "HistorySync — 首次设置"
@@ -1723,7 +1922,7 @@ msgstr "HistorySync — 迁移向导"
 msgid "ID"
 msgstr "ID"
 
-#: src/views/settings_page.py:125
+#: src/views/settings_page.py:129
 msgid "IMPORT HISTORY DATABASE"
 msgstr "导入历史记录数据库"
 
@@ -1735,7 +1934,7 @@ msgstr "应用内快捷键"
 msgid "Identifier (e.g. chrome_portable)"
 msgstr "标识符（例如：chrome_portable）"
 
-#: src/viewmodels/main_viewmodel.py:388
+#: src/viewmodels/main_viewmodel.py:510
 msgid "Idle"
 msgstr "就绪"
 
@@ -1757,15 +1956,15 @@ msgid ""
 "specify the History database path here."
 msgstr "如果您使用便携版或非标准安装路径的浏览器，可在此手动指定历史数据库文件路径。"
 
-#: src/views/import_dialog.py:587
+#: src/views/import_dialog.py:586
 msgid "Import"
 msgstr "导入"
 
-#: src/views/import_dialog.py:224 src/views/import_dialog.py:251
+#: src/views/import_dialog.py:223 src/views/import_dialog.py:250
 msgid "Import Browser History"
 msgstr "导入浏览器历史记录"
 
-#: src/views/import_dialog.py:640
+#: src/views/import_dialog.py:639
 msgid "Import Error"
 msgstr "导入错误"
 
@@ -1782,7 +1981,7 @@ msgstr ""
 "从独立的数据库文件导入浏览器历史记录——例如，手动备份的 Chrome History 文件、Firefox 的 "
 "places.sqlite、Safari 的 History.db，或较旧版本的 HistorySync 备份。"
 
-#: src/views/settings_page.py:640
+#: src/views/settings_page.py:804
 #, python-brace-format
 msgid "Import complete: {n} new records added."
 msgstr "导入完成：已添加 {n} 条新记录。"
@@ -1795,7 +1994,15 @@ msgstr ""
 "从之前的 HistorySync 安装中导入数据。\n"
 "如果您在首次启动时跳过了迁移，此功能将非常有用。"
 
-#: src/views/settings/webdav_section.py:94
+#: src/views/dialogs/update_dialog.py:54
+msgid "Improvements"
+msgstr "改进"
+
+#: src/services/update_service.py:804
+msgid "In-app download is disabled by your update preferences."
+msgstr "应用内下载已被您的更新偏好设置禁用。"
+
+#: src/views/settings/webdav_section.py:298
 msgid "Include favicon cache in backup"
 msgstr "备份时包含网站图标缓存"
 
@@ -1807,9 +2014,13 @@ msgstr "密码错误。请重试。"
 msgid "Initializing scan..."
 msgstr "正在初始化扫描..."
 
-#: src/services/local_db.py:1343
+#: src/services/local_db/maintenance.py:289
 msgid "Inserting new domain entries…"
 msgstr "正在插入新的域名条目…"
+
+#: src/views/dialogs/update_dialog.py:266 src/views/update_banner.py:122
+msgid "Install Now"
+msgstr "立即安装"
 
 #: src/views/first_run_wizard.py:125
 msgid "Instant History Search"
@@ -1822,6 +2033,10 @@ msgstr "界面字体"
 #: src/views/settings/language_section.py:28
 msgid "Interface language:"
 msgstr "界面语言："
+
+#: src/views/dialogs/update_dialog.py:60
+msgid "Internal"
+msgstr "内部"
 
 #: src/views/dialogs/url_prefix_filter_dialog.py:233
 msgid "Invalid Prefix"
@@ -1843,7 +2058,7 @@ msgstr "7月"
 msgid "June"
 msgstr "6月"
 
-#: src/views/settings_page.py:130
+#: src/views/settings_page.py:134
 msgid "KEYBOARD SHORTCUTS"
 msgstr "键盘快捷键"
 
@@ -1856,7 +2071,7 @@ msgstr "快捷键冲突"
 msgid "Keyboard Shortcuts"
 msgstr "键盘快捷键"
 
-#: src/views/settings_page.py:606
+#: src/views/settings_page.py:671
 msgid "Keyboard shortcuts saved"
 msgstr "键盘快捷键已保存"
 
@@ -1865,7 +2080,7 @@ msgstr "键盘快捷键已保存"
 msgid "Keyword: {kw}"
 msgstr "关键词：{kw}"
 
-#: src/views/settings_page.py:117
+#: src/views/settings_page.py:121
 msgid "LANGUAGE"
 msgstr "语言"
 
@@ -1881,16 +2096,35 @@ msgstr "最近 7 天"
 msgid "Last 90 days"
 msgstr "最近 90 天"
 
-#: src/views/dashboard_page.py:1015
+#: src/views/dashboard_page.py:1093
 msgid "Last Sync"
 msgstr "上次同步"
+
+#: src/views/settings/update_section.py:382
+msgid "Last checked: just now"
+msgstr "上次检查：刚刚"
+
+#: src/views/settings/update_section.py:388
+#, python-brace-format
+msgid "Last checked: {n} days ago"
+msgstr "上次检查：{n} 天前"
+
+#: src/views/settings/update_section.py:386
+#, python-brace-format
+msgid "Last checked: {n} hours ago"
+msgstr "上次检查：{n} 小时前"
+
+#: src/views/settings/update_section.py:384
+#, python-brace-format
+msgid "Last checked: {n} min ago"
+msgstr "上次检查：{n} 分钟前"
 
 #: src/views/settings/devices_section.py:173
 #, python-brace-format
 msgid "Last cloud sync: {t}"
 msgstr "上次云端同步：{t}"
 
-#: src/main.py:987
+#: src/main.py:1016
 #, python-brace-format
 msgid "Last sync: {count} new"
 msgstr "上次同步新增 {count} 条"
@@ -1904,7 +2138,7 @@ msgstr "去年"
 msgid "Last {weekday}"
 msgstr "上个{weekday}"
 
-#: src/main.py:694
+#: src/main.py:705
 msgid "Launch Error"
 msgstr "启动错误"
 
@@ -1916,37 +2150,47 @@ msgstr "启动 HistorySync"
 msgid "Launch at system startup (minimized to tray)"
 msgstr "开机自动启动（最小化到托盘）"
 
+#: src/views/settings/webdav_section.py:144
+msgid "Leave blank to keep the pending new password"
+msgstr "留空以保留这次待生效的新密码"
+
+#: src/views/settings/webdav_section.py:146
+msgid "Leave blank unless you want to replace the password"
+msgstr "若不想更换密码，请留空"
+
+#: src/views/settings/webdav_section.py:179
+msgid "Leave this blank to keep the current credential unchanged."
+msgstr "留空以保持当前凭据不变。"
+
+#: src/views/settings/webdav_section.py:177
+msgid "Leave this blank to keep the saved password."
+msgstr "留空以保留已保存的密码。"
+
 #: src/views/migration_wizard.py:217
 msgid "Legacy Data Detected"
 msgstr "检测到旧版数据"
 
-#: src/views/stats_page.py:1835
+#: src/views/stats_page.py:1855
 msgid "Less"
 msgstr "少"
 
-#: src/views/log_viewer_page.py:122
+#: src/views/log_viewer_page.py:140
 msgid "Level:"
 msgstr "级别："
 
-#: src/views/settings/webdav_section.py:149
-msgid "List Remote Backups"
-msgstr "列出远程备份"
-
-#: src/services/webdav_sync.py:477
+#: src/services/webdav_sync.py:510
 msgid "Listing remote backups..."
 msgstr "正在列出远程备份..."
 
-#: src/views/bookmarks_page.py:872
-#, python-brace-format
-msgid "Load {n} more…"
-msgstr "加载更多 ({n})…"
+#: src/views/settings/webdav_section.py:228
+msgid "Loading remote backups..."
+msgstr "正在加载远程备份…"
 
-#: src/views/bookmarks_page.py:652
+#: src/views/bookmarks_page.py:449 src/views/bookmarks_page.py:567
 msgid "Loading…"
 msgstr "加载中…"
 
-#: src/views/bookmarks_page.py:161 src/views/bookmarks_page.py:211
-#: src/views/settings/keybinding_section.py:115
+#: src/views/bookmarks_page.py:692 src/views/settings/keybinding_section.py:115
 msgid "Locate in History"
 msgstr "在历史记录中定位"
 
@@ -1958,15 +2202,15 @@ msgstr "锁定会话"
 msgid "Lock the current session — next protected action will require the password"
 msgstr "锁定当前会话 — 下次受保护操作将需要密码"
 
-#: src/views/log_viewer_page.py:360
+#: src/views/log_viewer_page.py:385
 msgid "Log Files (*.log *.txt);;All Files (*)"
 msgstr "日志文件 (*.log *.txt);;所有文件 (*)"
 
-#: src/views/log_viewer_page.py:102 src/views/main_window.py:101
+#: src/views/log_viewer_page.py:120 src/views/main_window.py:113
 msgid "Log Viewer"
 msgstr "日志查看器"
 
-#: src/views/log_viewer_page.py:366
+#: src/views/log_viewer_page.py:391
 #, python-brace-format
 msgid ""
 "Log exported to:\n"
@@ -1975,12 +2219,12 @@ msgstr ""
 "日志已导出至：\n"
 "{}"
 
-#: src/views/log_viewer_page.py:237
+#: src/views/log_viewer_page.py:255
 #, python-brace-format
 msgid "Log file not found: {}"
 msgstr "日志文件未找到：{}"
 
-#: src/views/log_viewer_page.py:244
+#: src/views/log_viewer_page.py:262
 #, python-brace-format
 msgid "Log file: {}"
 msgstr "日志文件：{}"
@@ -1988,6 +2232,10 @@ msgstr "日志文件：{}"
 #: src/views/search_autocomplete.py:890
 msgid "Logic:"
 msgstr "逻辑："
+
+#: src/views/update_banner.py:137
+msgid "Looking for the latest release information..."
+msgstr "正在查找最新的发布信息..."
 
 #: src/views/settings/privacy_section.py:73
 msgid ""
@@ -2028,15 +2276,15 @@ msgstr "需要主密码"
 msgid "Master password is set"
 msgstr "主密码已设置"
 
-#: src/views/settings_page.py:462
+#: src/views/settings_page.py:527
 msgid "Master password removed"
 msgstr "主密码已移除"
 
-#: src/views/settings_page.py:462
+#: src/views/settings_page.py:527
 msgid "Master password updated"
 msgstr "主密码已更新"
 
-#: src/views/settings/webdav_section.py:141
+#: src/views/settings/webdav_section.py:109
 msgid "Max backups:"
 msgstr "最多保留备份："
 
@@ -2044,7 +2292,7 @@ msgstr "最多保留备份："
 msgid "May"
 msgstr "五月"
 
-#: src/services/local_db.py:1521
+#: src/services/local_db/merge.py:138
 #, python-brace-format
 msgid "Merge complete: {inserted} new records added (of {total} in backup)."
 msgstr "合并完成：已添加 {inserted} 条新记录（备份中共有 {total} 条）。"
@@ -2061,11 +2309,11 @@ msgstr "合并您的配置"
 msgid "Merging configuration…"
 msgstr "正在合并配置…"
 
-#: src/services/local_db.py:1545
+#: src/services/local_db/merge.py:162
 msgid "Merging user data (bookmarks, annotations, hidden records)..."
 msgstr "正在合并用户数据（书签、注释、隐藏记录）..."
 
-#: src/services/local_db.py:1459
+#: src/services/local_db/merge.py:76
 #, python-brace-format
 msgid "Merging {n} records from backup..."
 msgstr "正在从备份合并 {n} 条记录..."
@@ -2137,11 +2385,11 @@ msgstr ""
 "现在关闭可能导致数据处于不一致状态。\n"
 "您确定要退出吗？"
 
-#: src/views/history_page.py:3464
+#: src/views/history_page.py:3473
 msgid "Minimal bubble"
 msgstr "极简气泡"
 
-#: src/views/history_page.py:125 src/views/stats_page.py:638
+#: src/views/history_page.py:125 src/views/stats_page.py:658
 msgid "Mon"
 msgstr "周一"
 
@@ -2153,11 +2401,11 @@ msgstr "星期一"
 msgid "Monospace Font  (log viewer)"
 msgstr "等宽字体（日志查看器）"
 
-#: src/views/stats_page.py:1694
+#: src/views/stats_page.py:1714
 msgid "Month"
 msgstr "月"
 
-#: src/views/stats_page.py:1848
+#: src/views/stats_page.py:1868
 msgid "More"
 msgstr "多"
 
@@ -2173,14 +2421,26 @@ msgstr "上移 — 提高优先级"
 msgid "Navigation"
 msgstr "导航"
 
-#: src/views/dashboard_page.py:163 src/views/dashboard_page.py:171
+#: src/views/dashboard_page.py:172 src/views/dashboard_page.py:181
 msgid "Needs sync"
 msgstr "待同步"
 
-#: src/views/dashboard_page.py:1015 src/views/dashboard_page.py:1326
+#: src/views/dashboard_page.py:1093 src/views/dashboard_page.py:1417
 #: src/views/settings/devices_section.py:30
 msgid "Never"
 msgstr "从未"
+
+#: src/views/settings/update_section.py:378
+msgid "Never checked"
+msgstr "从未检查"
+
+#: src/views/settings/update_section.py:64
+msgid "Never show automatic banners"
+msgstr "永不显示自动横幅"
+
+#: src/views/update_banner.py:100
+msgid "New Version"
+msgstr "新版本"
 
 #: src/views/settings/devices_section.py:228
 msgid "New device name:"
@@ -2208,6 +2468,11 @@ msgstr "两次输入的新密码不一致。"
 msgid "New password…"
 msgstr "新密码…"
 
+#: src/views/settings_page.py:693
+#, python-brace-format
+msgid "New version {v} is available!"
+msgstr "发现新版本 {v}！"
+
 #: src/services/exporter.py:617 src/views/first_run_wizard.py:866
 #: src/views/first_run_wizard.py:927
 msgid "Next"
@@ -2217,23 +2482,27 @@ msgstr "下一步"
 msgid "Next Period"
 msgstr "下一周期"
 
-#: src/views/settings_page.py:374
+#: src/views/settings_page.py:439
 #, python-brace-format
 msgid "Next backup in: {t}"
 msgstr "下次备份剩余：{t}"
 
-#: src/views/settings_page.py:374
+#: src/views/settings_page.py:439
 msgid "Next backup: due soon"
 msgstr "下次备份：即将开始"
 
-#: src/views/settings_page.py:363
+#: src/views/settings_page.py:428
 #, python-brace-format
 msgid "Next sync in: {t}"
 msgstr "下次同步剩余时间：{t}"
 
-#: src/views/settings_page.py:363
+#: src/views/settings_page.py:428
 msgid "Next sync: due soon"
 msgstr "下次同步：即将开始"
+
+#: src/views/settings/update_section.py:58
+msgid "Nightly"
+msgstr "Nightly 版"
 
 #: src/views/export_dialog.py:473
 msgid "No Columns"
@@ -2251,16 +2520,20 @@ msgstr "未找到记录"
 msgid "No Selection"
 msgstr "未选择"
 
-#: src/services/webdav_sync.py:488
+#: src/views/dialogs/update_dialog.py:281
+msgid "No Update Available"
+msgstr "暂无可用更新"
+
+#: src/services/webdav_sync.py:521
 msgid "No backups found on server."
 msgstr "服务器上未找到备份。"
 
-#: src/views/dashboard_page.py:703
+#: src/views/dashboard_page.py:778
 msgid "No browsers detected"
 msgstr "未检测到浏览器"
 
-#: src/views/stats_page.py:984 src/views/stats_page.py:1198
-#: src/views/stats_page.py:1335
+#: src/views/stats_page.py:1004 src/views/stats_page.py:1218
+#: src/views/stats_page.py:1355
 msgid "No data"
 msgstr "暂无数据"
 
@@ -2280,6 +2553,14 @@ msgstr "尚未记录任何设备。"
 msgid "No domains blacklisted — all domains are accepted."
 msgstr "暂无黑名单域名 — 接受所有域名的记录。"
 
+#: src/services/update_service.py:819
+msgid "No download source is available."
+msgstr "没有可用的下载源。"
+
+#: src/services/update_service.py:810
+msgid "No downloadable package is available for your platform."
+msgstr "您的平台没有可下载的软件包。"
+
 #: src/services/exporter.py:615
 msgid "No entries match the current filter."
 msgstr "没有条目与当前筛选条件匹配。"
@@ -2294,7 +2575,7 @@ msgid ""
 "affected."
 msgstr "没有现有记录与此域名匹配 — 仅影响后续新记录。"
 
-#: src/views/import_dialog.py:292
+#: src/views/import_dialog.py:291
 msgid ""
 "No files yet.\n"
 "\n"
@@ -2322,7 +2603,7 @@ msgstr ""
 "\n"
 "无需迁移。"
 
-#: src/views/log_viewer_page.py:354
+#: src/views/log_viewer_page.py:379
 msgid "No log file found."
 msgstr "未找到日志文件。"
 
@@ -2335,7 +2616,11 @@ msgstr "未设置主密码"
 msgid "No new browsers found."
 msgstr "未发现新浏览器。"
 
-#: src/views/import_dialog.py:588
+#: src/services/update_service.py:152
+msgid "No update source was reachable."
+msgstr "所有更新源均无法访问。"
+
+#: src/views/import_dialog.py:587
 msgid ""
 "No valid files to import.\n"
 "Mark at least one file with a known format."
@@ -2361,17 +2646,21 @@ msgstr "不可用"
 msgid "Not available for this browser"
 msgstr "此浏览器不可用"
 
-#: src/views/dashboard_page.py:859 src/views/dashboard_page.py:898
+#: src/views/settings/webdav_section.py:560
+msgid "Not configured yet."
+msgstr "尚未配置。"
+
+#: src/views/dashboard_page.py:934 src/views/dashboard_page.py:971
 #: src/views/first_run_wizard.py:492
 msgid "Not detected"
 msgstr "未检测到"
 
-#: src/viewmodels/main_viewmodel.py:385 src/viewmodels/main_viewmodel.py:394
-#: src/views/dashboard_page.py:1016
+#: src/viewmodels/main_viewmodel.py:507 src/viewmodels/main_viewmodel.py:516
+#: src/views/dashboard_page.py:1094
 msgid "Not enabled"
 msgstr "未启用"
 
-#: src/views/dashboard_page.py:166 src/views/dashboard_page.py:174
+#: src/views/dashboard_page.py:175 src/views/dashboard_page.py:184
 msgid "Not found"
 msgstr "未检测到"
 
@@ -2384,7 +2673,7 @@ msgstr "未检测到"
 msgid "Not set"
 msgstr "未设置"
 
-#: src/views/dashboard_page.py:164 src/views/dashboard_page.py:172
+#: src/views/dashboard_page.py:173 src/views/dashboard_page.py:182
 msgid "Not synced"
 msgstr "未同步"
 
@@ -2392,6 +2681,10 @@ msgstr "未同步"
 #, python-brace-format
 msgid "Note: {note}"
 msgstr "备注：{note}"
+
+#: src/views/settings/update_section.py:44
+msgid "Notify only"
+msgstr "仅通知"
 
 #: src/views/stats_page.py:80
 msgid "November"
@@ -2410,12 +2703,12 @@ msgstr "仅在应用窗口获得焦点时生效。"
 msgid "Only records from the exact subdomain <b>{domain}</b> will be hidden."
 msgstr "仅隐藏来自指定子域名 <b>{domain}</b> 的记录。"
 
-#: src/views/history_page.py:3514
+#: src/views/history_page.py:3523
 #, python-brace-format
 msgid "Open All Selected in Browser ({n})"
 msgstr "在浏览器中打开选中项 ({n})"
 
-#: src/views/dashboard_page.py:575
+#: src/views/dashboard_page.py:619
 msgid "Open Browser"
 msgstr "打开浏览器"
 
@@ -2423,19 +2716,19 @@ msgstr "打开浏览器"
 msgid "Open Folder"
 msgstr "打开文件夹"
 
-#: src/views/tray_icon.py:211
+#: src/views/tray_icon.py:210
 msgid "Open Main Window"
 msgstr "打开主窗口"
 
-#: src/views/bookmarks_page.py:155 src/views/history_page.py:3510
+#: src/views/bookmarks_page.py:686 src/views/history_page.py:3519
 #: src/views/settings/keybinding_section.py:103
 #: src/views/settings/keybinding_section.py:111
 msgid "Open in Browser"
 msgstr "在浏览器中打开"
 
-#: src/views/bookmarks_page.py:208
-msgid "Open in browser"
-msgstr "在浏览器中打开"
+#: src/views/settings/webdav_section.py:213
+msgid "Open this window to load the latest remote backup list."
+msgstr "打开此窗口后将加载最新的远程备份列表。"
 
 #: src/views/overlay_window.py:354
 msgid "Open with"
@@ -2445,15 +2738,15 @@ msgstr "打开方式"
 msgid "Open with:"
 msgstr "打开方式："
 
-#: src/services/local_db.py:1427
+#: src/services/local_db/merge.py:44
 msgid "Opening backup database for merge..."
 msgstr "正在打开备份数据库以进行合并..."
 
-#: src/views/settings_page.py:684
+#: src/views/settings_page.py:855
 msgid "Operation complete"
 msgstr "操作完成"
 
-#: src/views/tray_icon.py:262
+#: src/views/tray_icon.py:261
 msgid "Operation in Progress"
 msgstr "操作进行中"
 
@@ -2472,12 +2765,12 @@ msgid ""
 " first font, the next one is tried automatically."
 msgstr "覆盖内置 UI 字体和日志查看器的等宽字体。可添加多个字体作为备选——若某字符在首选字体中不存在，将自动使用下一个字体。"
 
-#: src/views/dashboard_page.py:990 src/views/main_window.py:97
-#: src/views/stats_page.py:1692
+#: src/views/dashboard_page.py:1068 src/views/main_window.py:109
+#: src/views/stats_page.py:1712
 msgid "Overview"
 msgstr "概览"
 
-#: src/views/settings_page.py:121
+#: src/views/settings_page.py:125
 msgid "PRIVACY & BLACKLIST"
 msgstr "隐私与黑名单"
 
@@ -2493,16 +2786,18 @@ msgstr "分页"
 msgid "Password cannot be empty."
 msgstr "密码不能为空。"
 
-#: src/views/settings/webdav_section.py:135
-msgid "Password could not be decrypted. Please re-enter it."
-msgstr "密码解密失败，请重新输入。"
+#: src/views/settings/webdav_section.py:312
+msgid ""
+"Password could not be decrypted. Open Connection Settings and enter it "
+"again."
+msgstr "无法解密已保存的密码。请打开连接设置并重新输入。"
 
 #: src/views/first_run_wizard.py:715 src/views/master_password_dialog.py:215
 msgid "Password must be at least 4 characters."
 msgstr "密码必须至少包含 4 个字符。"
 
 #: src/views/master_password_dialog.py:93
-#: src/views/settings/webdav_section.py:133
+#: src/views/settings/webdav_section.py:105
 msgid "Password:"
 msgstr "密码："
 
@@ -2510,13 +2805,22 @@ msgstr "密码："
 msgid "Passwords do not match."
 msgstr "密码不匹配。"
 
-#: src/views/log_viewer_page.py:151 src/views/log_viewer_page.py:345
+#: src/views/log_viewer_page.py:76 src/views/log_viewer_page.py:169
+#: src/views/log_viewer_page.py:370
 msgid "Pause"
 msgstr "暂停"
 
-#: src/views/stats_page.py:1713
+#: src/views/stats_page.py:1733
 msgid "Peak day"
 msgstr "最活跃日"
+
+#: src/views/dialogs/update_dialog.py:55
+msgid "Performance"
+msgstr "性能"
+
+#: src/views/update_banner.py:138
+msgid "Please Wait"
+msgstr "请稍候"
 
 #: src/views/migration_wizard.py:393
 msgid ""
@@ -2536,11 +2840,15 @@ msgstr "请至少选择一个浏览器添加。"
 msgid "Please select at least one column to export."
 msgstr "请至少选择一列进行导出。"
 
-#: src/views/settings_page.py:144
+#: src/views/settings_page.py:149
 msgid "Preferences"
 msgstr "偏好设置"
 
-#: src/services/webdav_sync.py:258
+#: src/views/settings/update_section.py:265
+msgid "Preferences…"
+msgstr "首选项…"
+
+#: src/services/webdav_sync.py:291
 msgid "Preparing database for upload (stripping FTS index)..."
 msgstr "正在准备数据库以上传（移除全文检索索引）..."
 
@@ -2566,16 +2874,16 @@ msgid "Previous Period"
 msgstr "上一周期"
 
 #: src/services/exporter.py:80 src/viewmodels/history_viewmodel.py:65
-#: src/views/import_dialog.py:275
+#: src/views/import_dialog.py:274
 msgid "Profile"
 msgstr "用户配置"
 
-#: src/services/local_db.py:1131
+#: src/services/local_db/maintenance.py:144
 #, python-brace-format
 msgid "Pruned {n} expired tombstone rows (>90 days old)."
 msgstr "已清理 {n} 条过期的删除标记（>90 天）。"
 
-#: src/views/settings_page.py:128
+#: src/views/settings_page.py:132
 msgid "QUICK ACCESS OVERLAY"
 msgstr "快捷搜索悬浮窗"
 
@@ -2588,13 +2896,17 @@ msgstr "快速访问"
 msgid "Quick Access Overlay"
 msgstr "快速访问悬浮窗"
 
-#: src/views/tray_icon.py:226
+#: src/views/tray_icon.py:225
 msgid "Quit HistorySync"
 msgstr "退出 HistorySync"
 
-#: src/views/dashboard_page.py:787
+#: src/views/dashboard_page.py:862
 msgid "Re-detect Browsers Now"
 msgstr "立即重新检测浏览器"
+
+#: src/views/settings/webdav_section.py:142
+msgid "Re-enter password"
+msgstr "重新输入密码"
 
 #: src/views/settings/maintenance_section.py:126
 msgid ""
@@ -2609,18 +2921,22 @@ msgstr ""
 "现有记录绝不会被删除——仅进行更新。\n"
 "对于大型历史记录，此过程可能需要一些时间。"
 
-#: src/viewmodels/main_viewmodel.py:616
+#: src/viewmodels/main_viewmodel.py:735
 #, python-brace-format
 msgid "Reading {browser} history..."
 msgstr "正在读取 {browser} 历史记录..."
 
-#: src/views/history_page.py:2263 src/views/import_dialog.py:490
-#: src/views/import_dialog.py:512 src/views/main_window.py:81
-#: src/views/tray_icon.py:221
+#: src/views/history_page.py:2272 src/views/import_dialog.py:489
+#: src/views/import_dialog.py:511 src/views/main_window.py:93
+#: src/views/tray_icon.py:220
 msgid "Ready"
 msgstr "就绪"
 
-#: src/views/log_viewer_page.py:104
+#: src/views/update_banner.py:117
+msgid "Ready To Install"
+msgstr "可立即安装"
+
+#: src/views/log_viewer_page.py:122
 msgid "Real-time application log — auto-refreshes every 2 seconds"
 msgstr "实时运行日志 — 每 2 秒自动刷新"
 
@@ -2636,7 +2952,7 @@ msgstr ""
 "彻底重建全文检索索引。\n"
 "如果搜索结果看起来不完整或不正确，请运行此操作。"
 
-#: src/services/local_db.py:1323
+#: src/services/local_db/fts.py:80
 msgid "Rebuilding full-text search index…"
 msgstr "正在重建全文搜索索引…"
 
@@ -2658,7 +2974,7 @@ msgstr ""
 "回收浪费的空间、整理页面碎片并更新查询优化器统计信息。\n"
 "需要约当前数据库大小 2 倍的可用磁盘空间。"
 
-#: src/views/history_page.py:1319
+#: src/views/history_page.py:1322
 msgid "Record rank within the day"
 msgstr "日内记录排名"
 
@@ -2675,6 +2991,10 @@ msgstr "已删除记录"
 msgid "Records from <b>{domain}</b> and all its subdomains will be hidden."
 msgstr "来自 <b>{domain}</b> 及其所有子域名的记录将被隐藏。"
 
+#: src/views/settings/webdav_section.py:207
+msgid "Refresh"
+msgstr "刷新"
+
 #: src/views/search_autocomplete.py:1345
 msgid "Regex Mode"
 msgstr "正则表达式模式"
@@ -2683,19 +3003,52 @@ msgstr "正则表达式模式"
 msgid "Regex: e.g. github\\.com.*release"
 msgstr "正则表达式：例如 github\\.com.*release"
 
-#: src/views/log_viewer_page.py:156
+#: src/views/log_viewer_page.py:174
 msgid "Reload"
 msgstr "重新加载"
 
-#: src/views/settings/webdav_section.py:140
+#: src/views/update_banner.py:104 src/views/update_banner.py:123
+msgid "Remind Later"
+msgstr "稍后提醒"
+
+#: src/views/dialogs/update_dialog.py:169
+msgid "Remind Me Later"
+msgstr "稍后提醒我"
+
+#: src/views/settings/update_section.py:143
+#: src/views/settings/update_section.py:169
+msgid "Remind me again for skipped versions"
+msgstr "再次提醒我已跳过的版本"
+
+#: src/views/update_banner.py:74
+msgid "Reminder Settings..."
+msgstr "提醒设置..."
+
+#: src/views/settings/webdav_section.py:192
+msgid "Remote Backups"
+msgstr "远程备份"
+
+#: src/views/settings/webdav_section.py:340
+msgid "Remote Backups..."
+msgstr "远程备份…"
+
+#: src/views/settings/webdav_section.py:108
 msgid "Remote Path:"
 msgstr "远端路径："
 
-#: src/services/webdav_sync.py:481
+#: src/views/settings/webdav_section.py:232
+msgid "Remote backup list updated"
+msgstr "远程备份列表已更新"
+
+#: src/views/settings/webdav_section.py:202
+msgid "Remote backups"
+msgstr "远程备份"
+
+#: src/services/webdav_sync.py:514
 msgid "Remote directory not found."
 msgstr "远端目录未找到。"
 
-#: src/views/dashboard_page.py:667
+#: src/views/dashboard_page.py:738
 #: src/views/dialogs/blacklist_domain_dialog.py:172
 #: src/views/dialogs/hidden_domains_manager_dialog.py:211
 #: src/views/dialogs/url_prefix_filter_dialog.py:203
@@ -2703,7 +3056,7 @@ msgstr "远端目录未找到。"
 msgid "Remove"
 msgstr "移除"
 
-#: src/views/dashboard_page.py:651
+#: src/views/dashboard_page.py:685
 #, python-brace-format
 msgid "Remove <b>{}</b> from config?"
 msgstr "从配置中移除 <b>{}</b>？"
@@ -2712,12 +3065,12 @@ msgstr "从配置中移除 <b>{}</b>？"
 msgid "Remove All"
 msgstr "全部移除"
 
-#: src/views/bookmarks_page.py:163 src/views/bookmarks_page.py:1010
-#: src/views/history_page.py:3524 src/views/settings/keybinding_section.py:113
+#: src/views/bookmarks_page.py:656 src/views/bookmarks_page.py:694
+#: src/views/history_page.py:3533 src/views/settings/keybinding_section.py:113
 msgid "Remove Bookmark"
 msgstr "移除书签"
 
-#: src/views/dashboard_page.py:643
+#: src/views/dashboard_page.py:677
 msgid "Remove Browser"
 msgstr "移除浏览器"
 
@@ -2733,11 +3086,7 @@ msgstr "移除密码"
 msgid "Remove all hidden-domain entries (records become visible again)"
 msgstr "移除所有隐藏域名条目（记录将重新可见）"
 
-#: src/views/bookmarks_page.py:212
-msgid "Remove bookmark"
-msgstr "移除书签"
-
-#: src/views/bookmarks_page.py:1011
+#: src/views/bookmarks_page.py:657
 #, python-brace-format
 msgid ""
 "Remove bookmark for:\n"
@@ -2746,9 +3095,21 @@ msgstr ""
 "移除书签：\n"
 "{title}"
 
-#: src/views/dashboard_page.py:586
+#: src/views/dashboard_page.py:630
 msgid "Remove from Config"
 msgstr "从配置中移除"
+
+#: src/views/settings_page.py:772
+#, python-brace-format
+msgid ""
+"Remove the custom history path for “{browser}” from settings?\n"
+"\n"
+"This only removes the path override. No synced history records will be "
+"deleted."
+msgstr ""
+"要从设置中移除“{browser}”的自定义历史记录路径吗？\n"
+"\n"
+"这只会移除该路径覆盖，不会删除任何已同步的历史记录。"
 
 #: src/views/settings/devices_section.py:206
 msgid "Remove this device and all its history records from the database."
@@ -2758,7 +3119,7 @@ msgstr "从数据库中移除此设备及其所有历史记录。"
 msgid "Rename"
 msgstr "重命名"
 
-#: src/views/dashboard_page.py:583 src/views/dashboard_page.py:614
+#: src/views/dashboard_page.py:627 src/views/dashboard_page.py:663
 msgid "Rename Browser"
 msgstr "重命名浏览器"
 
@@ -2770,7 +3131,7 @@ msgstr "重命名设备"
 msgid "Rename…"
 msgstr "重命名…"
 
-#: src/views/history_page.py:2180
+#: src/views/history_page.py:2189
 msgid "Reset"
 msgstr "重置"
 
@@ -2796,20 +3157,20 @@ msgstr "恢复默认快捷键"
 msgid "Restart required to apply language changes."
 msgstr "需要重启应用以使语言更改生效。"
 
-#: src/views/settings_page.py:418
+#: src/views/settings_page.py:483
 msgid "Restore Database"
 msgstr "恢复数据库"
 
-#: src/views/history_page.py:3278
+#: src/views/history_page.py:3287
 msgid "Restore Default View"
 msgstr "恢复默认视图"
 
-#: src/services/webdav_sync.py:653
+#: src/services/webdav_sync.py:686
 #, python-brace-format
 msgid "Restore failed: {error}"
 msgstr "恢复失败：{error}"
 
-#: src/views/settings/webdav_section.py:171
+#: src/views/settings/webdav_section.py:348
 msgid "Restore from WebDAV"
 msgstr "从 WebDAV 恢复"
 
@@ -2817,33 +3178,37 @@ msgstr "从 WebDAV 恢复"
 msgid "Restore the built-in default URL prefix list"
 msgstr "恢复内置的默认 URL 前缀列表"
 
-#: src/services/webdav_sync.py:645
+#: src/services/webdav_sync.py:678
 #, python-brace-format
 msgid "Restored from {filename}"
 msgstr "已从 {filename} 恢复"
 
-#: src/views/history_page.py:3742 src/views/main_window.py:409
+#: src/views/history_page.py:3751 src/views/main_window.py:438
 #, python-brace-format
 msgid "Restored {n} record(s)."
 msgstr "已恢复 {n} 条记录。"
 
-#: src/services/local_db.py:1117
+#: src/services/local_db/maintenance.py:130
 msgid "Restoring WAL mode and updating statistics…"
 msgstr "正在恢复 WAL 模式并更新统计信息…"
 
-#: src/services/webdav_sync.py:592
+#: src/services/webdav_sync.py:625
 msgid "Restoring favicon cache..."
 msgstr "正在恢复网站图标缓存..."
 
-#: src/views/log_viewer_page.py:77 src/views/log_viewer_page.py:341
+#: src/views/log_viewer_page.py:364
 msgid "Resume"
 msgstr "继续"
 
-#: src/views/history_page.py:3841
+#: src/views/dialogs/update_dialog.py:273
+msgid "Retry"
+msgstr "重试"
+
+#: src/views/history_page.py:3856
 msgid "Return to normal view"
 msgstr "返回正常视图"
 
-#: src/views/history_page.py:1320
+#: src/views/history_page.py:1323
 msgid "Right-click scrollbar to change settings"
 msgstr "右键滚动条以更改设置"
 
@@ -2855,7 +3220,7 @@ msgstr "行"
 msgid "Run initial sync now"
 msgstr "立即运行初始同步"
 
-#: src/services/local_db.py:1110
+#: src/services/local_db/maintenance.py:123
 msgid "Running VACUUM — rewriting database file…"
 msgstr "正在执行 VACUUM — 重写数据库文件…"
 
@@ -2863,27 +3228,31 @@ msgstr "正在执行 VACUUM — 重写数据库文件…"
 msgid "Running schema migration…"
 msgstr "正在执行架构迁移…"
 
-#: src/views/settings_page.py:129
+#: src/views/settings_page.py:133
 msgid "SEARCH ENGINE"
 msgstr "搜索引擎"
 
-#: src/views/settings_page.py:122
+#: src/views/settings_page.py:126
 msgid "SECURITY"
 msgstr "安全"
 
-#: src/views/settings/webdav_section.py:288
+#: src/views/settings/webdav_section.py:480
 msgid "SHA-256 Hashes:"
 msgstr "SHA-256 哈希值："
+
+#: src/views/settings_page.py:135
+msgid "SOFTWARE UPDATES"
+msgstr "软件更新"
 
 #: src/views/settings/custom_paths_section.py:110
 msgid "SQLite Database (History *.sqlite *.db);;All Files (*)"
 msgstr "SQLite 数据库 (History *.sqlite *.db);;所有文件 (*)"
 
-#: src/views/settings_page.py:119
+#: src/views/settings_page.py:123
 msgid "STARTUP SETTINGS"
 msgstr "启动设置"
 
-#: src/views/import_dialog.py:50
+#: src/views/import_dialog.py:49
 msgid "Safari History.db"
 msgstr "Safari History.db"
 
@@ -2895,11 +3264,19 @@ msgstr "周六"
 msgid "Saturday"
 msgstr "星期六"
 
-#: src/views/settings/keybinding_section.py:120 src/views/settings_page.py:151
+#: src/views/settings/keybinding_section.py:120 src/views/settings_page.py:156
 msgid "Save Settings"
 msgstr "保存设置"
 
-#: src/viewmodels/main_viewmodel.py:617
+#: src/views/settings/webdav_section.py:549
+msgid "Saved password needs attention."
+msgstr "已保存的密码需要处理。"
+
+#: src/views/settings/webdav_section.py:171
+msgid "Saving will stage a new password for the next Settings save."
+msgstr "此次输入会先暂存为新密码，并在下次保存设置时一并保存。"
+
+#: src/viewmodels/main_viewmodel.py:736
 #, python-brace-format
 msgid "Saving {browser} ({count} records)..."
 msgstr "正在保存 {browser}（{count} 条）..."
@@ -2928,7 +3305,7 @@ msgstr "扫描失败：{}"
 msgid "Scanning for browsers..."
 msgstr "正在扫描浏览器..."
 
-#: src/services/local_db.py:1339
+#: src/services/local_db/maintenance.py:285
 msgid "Scanning for un-normalised URLs…"
 msgstr "正在扫描未规范化的 URL…"
 
@@ -2937,7 +3314,7 @@ msgstr "正在扫描未规范化的 URL…"
 msgid "Scanning... ({} directories)"
 msgstr "正在扫描... ({} 个目录)"
 
-#: src/views/settings/webdav_section.py:68
+#: src/views/settings/webdav_section.py:274
 msgid "Scheduled automatic backup every"
 msgstr "计划每"
 
@@ -2971,7 +3348,7 @@ msgstr "搜索帮助"
 msgid "Search Syntax Help"
 msgstr "搜索语法帮助"
 
-#: src/views/bookmarks_page.py:549
+#: src/views/bookmarks_page.py:414
 msgid "Search bookmarks… (tag:work, after:2024-01-01, has:note)"
 msgstr "搜索书签… (tag:work, after:2024-01-01, has:note)"
 
@@ -3000,21 +3377,21 @@ msgstr "搜索标题、URL 或域名..."
 msgid "Search {query}"
 msgstr "搜索 {query}"
 
-#: src/views/history_page.py:3662
+#: src/views/history_page.py:3671
 #, python-brace-format
 msgid "Search: {domain}"
 msgstr "搜索：{domain}"
 
-#: src/views/first_run_wizard.py:983
+#: src/views/dialogs/update_dialog.py:56 src/views/first_run_wizard.py:983
 msgid "Security"
 msgstr "安全"
 
-#: src/views/dashboard_page.py:759 src/views/dialogs/browser_scan_dialog.py:106
+#: src/views/dashboard_page.py:834 src/views/dialogs/browser_scan_dialog.py:106
 #: src/views/export_dialog.py:229 src/views/first_run_wizard.py:369
 msgid "Select All"
 msgstr "全选"
 
-#: src/views/import_dialog.py:431
+#: src/views/import_dialog.py:430
 msgid "Select Browser History Database Files"
 msgstr "选择浏览器历史数据库文件"
 
@@ -3026,7 +3403,7 @@ msgstr "选择历史数据库文件"
 msgid "Select None"
 msgstr "全不选"
 
-#: src/services/webdav_sync.py:496
+#: src/services/webdav_sync.py:529
 #, python-brace-format
 msgid "Selected backup not found on server: {filename}"
 msgstr "服务器上未找到所选备份：{filename}"
@@ -3035,11 +3412,11 @@ msgstr "服务器上未找到所选备份：{filename}"
 msgid "September"
 msgstr "9月"
 
-#: src/views/settings/webdav_section.py:131
+#: src/views/settings/webdav_section.py:103
 msgid "Server URL:"
 msgstr "服务器地址："
 
-#: src/views/settings_page.py:476
+#: src/views/settings_page.py:541
 msgid "Session locked"
 msgstr "会话已锁定"
 
@@ -3064,17 +3441,17 @@ msgstr "设置密码"
 msgid "Set a Master Password"
 msgstr "设置主密码"
 
-#: src/views/main_window.py:100 src/views/overlay_window.py:333
+#: src/views/main_window.py:112 src/views/overlay_window.py:333
 #: src/views/settings/keybinding_section.py:119
 #: src/views/settings/keybinding_section.py:747
 msgid "Settings"
 msgstr "设置"
 
-#: src/views/main_window.py:390
+#: src/views/main_window.py:414
 msgid "Settings saved"
 msgstr "设置已保存"
 
-#: src/views/password_edit.py:146 src/views/password_edit.py:169
+#: src/views/password_edit.py:147 src/views/password_edit.py:183
 msgid "Show Password"
 msgstr "显示密码"
 
@@ -3082,13 +3459,18 @@ msgstr "显示密码"
 msgid "Showing"
 msgstr "显示中"
 
-#: src/views/history_page.py:3839
+#: src/views/history_page.py:3854
 msgid "Showing only hidden records."
 msgstr "仅显示隐藏记录。"
 
 #: src/views/migration_wizard.py:262
 msgid "Site Icon Cache"
 msgstr "站点图标缓存"
+
+#: src/services/update_service.py:360
+#, python-brace-format
+msgid "Size mismatch (expected {expected}, got {actual})."
+msgstr "大小不匹配（预期 {expected}，实际 {actual}）。"
 
 #: src/views/settings/font_section.py:161
 msgid "Size:"
@@ -3106,11 +3488,23 @@ msgstr "跳过设置"
 msgid "Skip Setup?"
 msgstr "跳过设置？"
 
+#: src/views/dialogs/update_dialog.py:165
+msgid "Skip This Version"
+msgstr "跳过此版本"
+
 #: src/views/migration_wizard.py:754
 msgid "Skip — Start Fresh"
 msgstr "跳过 — 重新开始"
 
-#: src/views/import_dialog.py:332
+#: src/views/settings/update_section.py:197
+msgid "Skipped-version reminder will be restored"
+msgstr "将恢复对此跳过版本的提醒"
+
+#: src/views/settings/update_section.py:56
+msgid "Stable"
+msgstr "稳定"
+
+#: src/views/import_dialog.py:331
 msgid "Start Import"
 msgstr "开始导入"
 
@@ -3122,24 +3516,24 @@ msgstr "开始迁移"
 msgid "Start minimized to tray when opening the app"
 msgstr "打开应用时最小化至系统托盘"
 
-#: src/views/import_dialog.py:598
+#: src/views/import_dialog.py:597
 msgid "Starting import…"
 msgstr "开始导入…"
 
-#: src/views/settings_page.py:432
+#: src/views/settings_page.py:497
 msgid "Starting..."
 msgstr "开始..."
 
-#: src/views/main_window.py:345
+#: src/views/main_window.py:369
 msgid "Starting…"
-msgstr "开始..."
+msgstr "开始…"
 
-#: src/views/main_window.py:102 src/views/settings/keybinding_section.py:116
-#: src/views/settings/keybinding_section.py:745 src/views/stats_page.py:1676
+#: src/views/main_window.py:114 src/views/settings/keybinding_section.py:116
+#: src/views/settings/keybinding_section.py:745 src/views/stats_page.py:1696
 msgid "Statistics"
 msgstr "统计"
 
-#: src/views/stats_page.py:2067
+#: src/views/stats_page.py:2087
 #, python-brace-format
 msgid ""
 "Statistics image saved to:\n"
@@ -3148,7 +3542,7 @@ msgstr ""
 "统计图像已保存至：\n"
 "{path}"
 
-#: src/views/import_dialog.py:275
+#: src/views/import_dialog.py:274
 msgid "Status"
 msgstr "状态"
 
@@ -3178,7 +3572,7 @@ msgstr "周日"
 msgid "Sunday"
 msgstr "星期日"
 
-#: src/views/import_dialog.py:266
+#: src/views/import_dialog.py:265
 msgid ""
 "Supported: Chrome/Edge/Brave History  ·  Firefox places.sqlite  ·  Safari"
 " History.db  ·  HistorySync history.db"
@@ -3190,42 +3584,43 @@ msgstr ""
 msgid "Sync"
 msgstr "同步"
 
-#: src/main.py:990
+#: src/main.py:1019
 msgid "Sync Complete"
 msgstr "同步完成"
 
-#: src/main.py:1002
+#: src/main.py:1031
 msgid "Sync Failed"
 msgstr "同步失败"
 
-#: src/views/dashboard_page.py:997 src/views/dashboard_page.py:1317
-#: src/views/dashboard_page.py:1321 src/views/tray_icon.py:190
-#: src/views/tray_icon.py:216
+#: src/views/dashboard_page.py:1075 src/views/dashboard_page.py:1408
+#: src/views/dashboard_page.py:1412 src/views/tray_icon.py:189
+#: src/views/tray_icon.py:215
 msgid "Sync Now"
 msgstr "立即同步"
 
-#: src/views/dashboard_page.py:556
+#: src/views/dashboard_page.py:600
 msgid "Sync This Browser"
 msgstr "同步此浏览器"
 
-#: src/views/main_window.py:359
+#: src/views/main_window.py:383
 #, python-brace-format
 msgid "Sync complete — {count} new records added"
 msgstr "同步完成，本次新增 {count} 条记录"
 
-#: src/views/dashboard_page.py:528
+#: src/views/dashboard_page.py:176 src/views/dashboard_page.py:185
+#: src/views/dashboard_page.py:571
 msgid "Sync disabled"
 msgstr "同步已禁用"
 
-#: src/main.py:1001 src/viewmodels/main_viewmodel.py:393
+#: src/main.py:1030 src/viewmodels/main_viewmodel.py:515
 msgid "Sync error"
 msgstr "同步失败"
 
-#: src/viewmodels/main_viewmodel.py:571
+#: src/viewmodels/main_viewmodel.py:690
 msgid "Sync failed: all browser extractions encountered errors"
 msgstr "同步失败：所有浏览器数据读取均发生错误"
 
-#: src/views/main_window.py:370
+#: src/views/main_window.py:394
 #, python-brace-format
 msgid "Sync failed: {error}"
 msgstr "同步失败：{error}"
@@ -3234,20 +3629,20 @@ msgstr "同步失败：{error}"
 msgid "Sync interval:"
 msgstr "同步间隔："
 
-#: src/views/history_page.py:2713
+#: src/views/history_page.py:2722
 msgid "Sync triggered..."
 msgstr "已触发同步..."
 
-#: src/viewmodels/main_viewmodel.py:392
+#: src/viewmodels/main_viewmodel.py:514
 msgid "Synced"
 msgstr "已同步"
 
-#: src/views/main_window.py:344
+#: src/views/main_window.py:368
 msgid "Syncing browser history…"
 msgstr "正在同步浏览器历史记录…"
 
-#: src/views/dashboard_page.py:165 src/views/dashboard_page.py:173
-#: src/views/dashboard_page.py:1313 src/views/tray_icon.py:186
+#: src/views/dashboard_page.py:174 src/views/dashboard_page.py:183
+#: src/views/dashboard_page.py:1404 src/views/tray_icon.py:185
 msgid "Syncing..."
 msgstr "同步中..."
 
@@ -3256,19 +3651,19 @@ msgstr "同步中..."
 msgid "Tag: {tag}"
 msgstr "标签：{tag}"
 
-#: src/views/bookmarks_page.py:529
+#: src/views/bookmarks_page.py:391
 msgid "Tags"
 msgstr "标签"
 
-#: src/views/bookmarks_page.py:953
+#: src/views/bookmarks_page.py:617
 msgid "Tags (comma-separated):"
 msgstr "标签（以逗号分隔）："
 
-#: src/views/settings/webdav_section.py:163
+#: src/views/settings/webdav_section.py:336
 msgid "Test Connection"
 msgstr "测试连接"
 
-#: src/main.py:789
+#: src/main.py:800
 msgid ""
 "The configuration file was corrupt or unreadable and could not be loaded."
 "\n"
@@ -3285,7 +3680,7 @@ msgstr ""
 "\n"
 "损坏文件的备份也失败了。请检查您的配置目录。"
 
-#: src/main.py:782
+#: src/main.py:793
 #, python-brace-format
 msgid ""
 "The configuration file was corrupt or unreadable and could not be loaded."
@@ -3304,6 +3699,10 @@ msgstr ""
 "损坏的文件已备份至：\n"
 "{bak_path}"
 
+#: src/services/update_service.py:985
+msgid "The downloaded installer could not be found."
+msgstr "找不到下载的安装程序。"
+
 #: src/views/migration_wizard.py:234
 msgid "The following items will be processed:"
 msgstr "以下项目将被处理："
@@ -3318,6 +3717,14 @@ msgid ""
 " config, privacy rules). You will be asked to enter it before any "
 "protected action."
 msgstr "主密码用于保护敏感设置（WebDAV 凭据、同步配置、隐私规则）。在执行任何受保护的操作前，系统将要求您输入该密码。"
+
+#: src/views/settings/webdav_section.py:92
+msgid "The saved password could not be loaded. Enter a new one to replace it."
+msgstr "无法加载已保存的密码。请输入一个新密码来替换它。"
+
+#: src/services/update_service.py:145
+msgid "The update check was cancelled."
+msgstr "更新检查已取消。"
 
 #: src/views/nav_widgets.py:16
 msgid "Theme: Auto"
@@ -3335,11 +3742,31 @@ msgstr "主题：浅色模式"
 msgid "This action is protected by a master password."
 msgstr "此操作受主密码保护。"
 
-#: src/views/dashboard_page.py:656
+#: src/views/dashboard_page.py:709
+#, python-brace-format
 msgid ""
-"This browser was added via deep scan. Removing it will stop HistorySync "
+"This browser is a built-in browser with a custom path override.\n"
+"\n"
+"Deleting synced history here will remove all local history records for "
+"“{browser}”, not just records imported from the custom path.\n"
+"\n"
+"Estimated records to delete: {count}\n"
+"\n"
+"Do you want to continue?"
+msgstr ""
+"此浏览器是一个带有自定义路径覆盖的内置浏览器。\n"
+"\n"
+"在此处删除同步历史记录将移除所有“{browser}”的本地历史记录，而不仅仅是从自定义路径导入的记录。\n"
+"\n"
+"预计要删除的记录数：{count}\n"
+"\n"
+"是否继续？"
+
+#: src/views/dashboard_page.py:690
+msgid ""
+"This browser was added by the user. Removing it will stop HistorySync "
 "from syncing it."
-msgstr "此浏览器是通过深度扫描添加的。移除它将导致 HistorySync 停止同步该浏览器。"
+msgstr "此浏览器是由用户添加的。移除它将导致 HistorySync 停止同步该浏览器。"
 
 #: src/views/settings/devices_section.py:124
 #, python-brace-format
@@ -3350,6 +3777,10 @@ msgstr "此设备：{name}  ({platform})"
 #: src/views/settings/devices_section.py:129
 msgid "This device: —"
 msgstr "此设备：—"
+
+#: src/services/update_service.py:807
+msgid "This installation can only update via the release page."
+msgstr "当前安装方式只能通过发布页面更新。"
 
 #: src/views/settings/devices_section.py:240
 #, python-brace-format
@@ -3371,7 +3802,7 @@ msgstr ""
 msgid "This will make all individually hidden records visible again. Continue?"
 msgstr "这将使所有单独隐藏的记录重新可见。是否继续？"
 
-#: src/views/settings_page.py:420
+#: src/views/settings_page.py:485
 msgid ""
 "This will merge the WebDAV backup into your current local history "
 "database. Existing records will be kept and new records from the backup "
@@ -3390,11 +3821,11 @@ msgstr ""
 "\n"
 "此操作无法撤销。是否继续？"
 
-#: src/views/log_viewer_page.py:372
+#: src/views/log_viewer_page.py:397
 msgid "This will permanently delete all log files. Continue?"
 msgstr "这将永久删除所有日志文件。继续吗？"
 
-#: src/views/settings_page.py:703
+#: src/views/settings_page.py:874
 msgid ""
 "This will re-read the complete history from all browser databases\n"
 "and upsert every record, back-filling any fields that were missing\n"
@@ -3414,7 +3845,7 @@ msgstr ""
 "\n"
 "是否继续？"
 
-#: src/views/history_page.py:3759
+#: src/views/history_page.py:3768
 #, python-brace-format
 msgid ""
 "This will:\n"
@@ -3442,7 +3873,7 @@ msgstr "星期四"
 msgid "Time on page: {s:.1f} seconds"
 msgstr "页面停留时间：{s:.1f} 秒"
 
-#: src/views/history_page.py:1318
+#: src/views/history_page.py:1321
 msgid "Time position within the day"
 msgstr "日内时间分布"
 
@@ -3470,7 +3901,7 @@ msgstr "切换书签"
 msgid "Toggle Theme"
 msgstr "切换主题"
 
-#: src/views/stats_page.py:1786 src/views/stats_page.py:2245
+#: src/views/stats_page.py:1806 src/views/stats_page.py:2265
 msgid "Top 10 domains"
 msgstr "Top 10 访问域名"
 
@@ -3478,11 +3909,11 @@ msgstr "Top 10 访问域名"
 msgid "Total Items"
 msgstr "总项目数"
 
-#: src/views/dashboard_page.py:1013
+#: src/views/dashboard_page.py:1091
 msgid "Total Local Records"
 msgstr "本地记录总数"
 
-#: src/views/stats_page.py:1712
+#: src/views/stats_page.py:1732
 msgid "Total visits"
 msgstr "总访问量"
 
@@ -3523,11 +3954,11 @@ msgstr "URL 前缀过滤"
 msgid "URL Prefix Filters:"
 msgstr "URL 前缀过滤："
 
-#: src/views/settings_page.py:559
+#: src/views/settings_page.py:624
 msgid "URL prefix filters saved"
 msgstr "URL 前缀过滤规则已保存"
 
-#: src/views/settings_page.py:555
+#: src/views/settings_page.py:620
 #, python-brace-format
 msgid "URL prefix filters saved, {n} records deleted"
 msgstr "URL 前缀过滤规则已保存，已删除 {n} 条记录"
@@ -3546,7 +3977,11 @@ msgstr ""
 "地址以以下任何前缀开头的 URL 在提取时将被静默丢弃，永远不会存入数据库。这对于过滤浏览器内部页面（例如 "
 "<b>chrome://</b>、<b>about:</b>）和协议处理程序（例如 <b>data:</b>）非常有用。"
 
-#: src/views/settings_page.py:591
+#: src/views/settings/webdav_section.py:326
+msgid "Undo Password Change"
+msgstr "撤销密码更改"
+
+#: src/views/settings_page.py:656
 #, python-brace-format
 msgid "Unhid {n} domain(s)"
 msgstr "已取消隐藏 {n} 个域名"
@@ -3556,12 +3991,12 @@ msgstr "已取消隐藏 {n} 个域名"
 msgid "Unhide All Records"
 msgstr "取消隐藏所有记录"
 
-#: src/views/history_page.py:3588
+#: src/views/history_page.py:3597
 #, python-brace-format
 msgid "Unhide Selected ({n} records)"
 msgstr "取消隐藏所选（{n} 条记录）"
 
-#: src/views/history_page.py:3591
+#: src/views/history_page.py:3600
 msgid "Unhide This Record"
 msgstr "取消隐藏此记录"
 
@@ -3577,11 +4012,11 @@ msgstr "取消对此域名的隐藏 — 其记录将再次可见"
 msgid "Unique domains"
 msgstr "唯一域名"
 
-#: src/viewmodels/main_viewmodel.py:396
+#: src/viewmodels/main_viewmodel.py:518
 msgid "Unknown"
 msgstr "未知"
 
-#: src/views/import_dialog.py:53
+#: src/views/import_dialog.py:52
 msgid "Unknown (Skip)"
 msgstr "未知（跳过）"
 
@@ -3589,14 +4024,39 @@ msgstr "未知（跳过）"
 msgid "Unlock"
 msgstr "解锁"
 
-#: src/services/webdav_sync.py:493 src/services/webdav_sync.py:502
+#: src/services/webdav_sync.py:526 src/services/webdav_sync.py:535
 #, python-brace-format
 msgid "Unsafe backup filename rejected: {filename}"
 msgstr "不安全的备份文件名已被拒绝：{filename}"
 
-#: src/views/dashboard_page.py:162 src/views/dashboard_page.py:170
+#: src/views/dashboard_page.py:171 src/views/dashboard_page.py:180
 msgid "Up to date"
 msgstr "已同步"
+
+#: src/main.py:863 src/views/dialogs/update_dialog.py:77
+#: src/views/update_banner.py:95
+msgid "Update Available"
+msgstr "发现可用更新"
+
+#: src/views/dialogs/update_dialog.py:295
+msgid "Update Now"
+msgstr "立即更新"
+
+#: src/views/settings/update_section.py:78
+msgid "Update Preferences"
+msgstr "更新首选项已保存"
+
+#: src/views/settings/update_section.py:119
+msgid "Update channel:"
+msgstr "更新通道："
+
+#: src/views/settings_page.py:386
+msgid "Update preferences saved"
+msgstr "更新偏好已保存"
+
+#: src/views/settings_page.py:680
+msgid "Update system is not available in this mode."
+msgstr "更新系统在此模式下不可用。"
 
 #: src/views/migration_wizard.py:409
 msgid "Upgrade database schema"
@@ -3610,26 +4070,26 @@ msgstr "升级数据库架构"
 msgid "Upgrading database schema…"
 msgstr "正在升级数据库架构…"
 
-#: src/services/webdav_sync.py:371 src/services/webdav_sync.py:436
+#: src/services/webdav_sync.py:404 src/services/webdav_sync.py:469
 #, python-brace-format
 msgid "Upload failed: {error}"
 msgstr "上传失败：{error}"
 
-#: src/services/webdav_sync.py:417
+#: src/services/webdav_sync.py:450
 #, python-brace-format
 msgid "Upload successful: {filename} ({size} KB) — SHA-256 verified"
 msgstr "上传成功：{filename}（{size} KB）— SHA-256 已验证"
 
-#: src/services/webdav_sync.py:351
+#: src/services/webdav_sync.py:384
 #, python-brace-format
 msgid "Uploading backup ({size} KB)..."
 msgstr "正在上传备份（{size} KB）..."
 
-#: src/viewmodels/main_viewmodel.py:390
+#: src/viewmodels/main_viewmodel.py:512
 msgid "Uploading..."
 msgstr "正在上传..."
 
-#: src/services/webdav_sync.py:356
+#: src/services/webdav_sync.py:389
 #, python-brace-format
 msgid "Uploading: {percent:.0f}% ({uploaded} / {total} KB)"
 msgstr "正在上传：{percent:.0f}% ({uploaded} / {total} KB)"
@@ -3647,12 +4107,15 @@ msgstr ""
 msgid "Used to identify this machine in multi-device history views."
 msgstr "用于在多设备历史记录视图中识别此设备。"
 
-#: src/services/local_db.py:1731
+#: src/services/local_db/merge.py:348
 msgid "User data merge complete."
 msgstr "用户数据合并完成。"
 
-#: src/views/settings/webdav_section.py:109
-#: src/views/settings/webdav_section.py:132
+#: src/views/settings/webdav_section.py:70
+msgid "Username"
+msgstr "用户名"
+
+#: src/views/settings/webdav_section.py:104
 msgid "Username:"
 msgstr "用户名："
 
@@ -3664,7 +4127,7 @@ msgstr "使用内置默认值"
 msgid "Vacuum && Optimize"
 msgstr "压缩与优化"
 
-#: src/views/settings_page.py:680
+#: src/views/settings_page.py:851
 msgid "Vacuum complete"
 msgstr "压缩优化完成"
 
@@ -3673,7 +4136,7 @@ msgstr "压缩优化完成"
 msgid "Verification passed — {n} records intact"
 msgstr "验证通过 — {n} 条记录完好无损"
 
-#: src/views/settings/webdav_section.py:121
+#: src/views/settings/webdav_section.py:84
 msgid "Verify SSL certificate"
 msgstr "验证 SSL 证书"
 
@@ -3685,7 +4148,7 @@ msgstr "验证结果"
 msgid "Verify the migration result"
 msgstr "验证迁移结果"
 
-#: src/services/webdav_sync.py:541
+#: src/services/webdav_sync.py:574
 msgid "Verifying backup integrity (SHA-256)..."
 msgstr "正在验证备份完整性 (SHA-256)..."
 
@@ -3693,19 +4156,37 @@ msgstr "正在验证备份完整性 (SHA-256)..."
 msgid "Verifying migration…"
 msgstr "正在验证迁移…"
 
+#: src/views/settings_page.py:703
+#, python-brace-format
+msgid "Version {v} is available but currently skipped."
+msgstr "版本 {v} 已可用，但当前被设为跳过。"
+
+#: src/views/settings_page.py:706
+#, python-brace-format
+msgid "Version {v} is available but not being surfaced automatically."
+msgstr "版本 {v} 已可用，但当前不会自动提示。"
+
 #: src/views/first_run_wizard.py:555
 msgid "Very weak"
 msgstr "极弱"
 
-#: src/views/dashboard_page.py:560
+#: src/views/update_banner.py:103
+msgid "View Details"
+msgstr "查看详情"
+
+#: src/views/dashboard_page.py:604
 msgid "View History"
 msgstr "查看历史"
 
-#: src/views/history_page.py:2112 src/views/history_page.py:3849
+#: src/views/dialogs/update_dialog.py:157
+msgid "View Release"
+msgstr "查看发布"
+
+#: src/views/history_page.py:2121 src/views/history_page.py:3864
 msgid "View hidden records"
 msgstr "查看已隐藏的记录"
 
-#: src/views/stats_page.py:757
+#: src/views/stats_page.py:777
 #, python-brace-format
 msgid "View records for {date}"
 msgstr "查看 {date} 的记录"
@@ -3732,11 +4213,11 @@ msgstr "访问时间"
 msgid "Visited {count} times"
 msgstr "已访问 {count} 次"
 
-#: src/views/stats_page.py:1678
+#: src/views/stats_page.py:1698
 msgid "Visualize your browsing activity"
 msgstr "浏览活动数据可视化"
 
-#: src/views/settings_page.py:120
+#: src/views/settings_page.py:124
 msgid "WEBDAV CLOUD BACKUP"
 msgstr "WebDAV 云端备份"
 
@@ -3747,6 +4228,12 @@ msgstr "想要阻止记录特定域名？"
 #: src/views/first_run_wizard.py:268
 msgid "Want to exclude internal browser URLs?"
 msgstr "想要排除浏览器内部 URL？"
+
+#: src/views/settings/webdav_section.py:98
+msgid ""
+"Warning: disabling SSL verification exposes WebDAV traffic to man-in-the-"
+"middle attacks."
+msgstr "警告：禁用 SSL 验证会使 WebDAV 流量面临中间人攻击的风险。"
 
 #: src/views/settings/maintenance_section.py:66
 msgid "Wasted space"
@@ -3764,7 +4251,11 @@ msgstr ""
 msgid "Weak"
 msgstr "低"
 
-#: src/views/dashboard_page.py:1016
+#: src/views/settings/webdav_section.py:43
+msgid "WebDAV Connection"
+msgstr "WebDAV 连接"
+
+#: src/views/dashboard_page.py:1094
 msgid "WebDAV Status"
 msgstr "WebDAV 状态"
 
@@ -3772,15 +4263,15 @@ msgstr "WebDAV 状态"
 msgid "WebDAV Sync Configuration"
 msgstr "WebDAV 同步配置"
 
-#: src/services/webdav_sync.py:207
+#: src/services/webdav_sync.py:240
 msgid "WebDAV not configured"
 msgstr "WebDAV 未配置"
 
-#: src/services/webdav_sync.py:235 src/services/webdav_sync.py:462
+#: src/services/webdav_sync.py:268 src/services/webdav_sync.py:495
 msgid "WebDAV not configured or disabled"
 msgstr "WebDAV 未配置或未启用"
 
-#: src/views/history_page.py:127 src/views/stats_page.py:638
+#: src/views/history_page.py:127 src/views/stats_page.py:658
 msgid "Wed"
 msgstr "周三"
 
@@ -3795,6 +4286,10 @@ msgstr "欢迎"
 #: src/views/first_run_wizard.py:86
 msgid "Welcome to HistorySync"
 msgstr "欢迎使用 HistorySync"
+
+#: src/views/settings/update_section.py:94
+msgid "When an update is available:"
+msgstr "当更新可用时："
 
 #: src/views/settings/startup_section.py:40
 msgid ""
@@ -3822,7 +4317,7 @@ msgstr "启用后，主窗口不会在启动时显示——HistorySync 将在系
 msgid "Works system-wide even when the app window is not focused."
 msgstr "即使应用未获得焦点，也能在全局生效。"
 
-#: src/views/annotation_dialog.py:60
+#: src/views/annotation_dialog.py:61
 msgid "Write anything you want to remember about this page…"
 msgstr "写下您想记住的关于此页面的任何内容…"
 
@@ -3830,17 +4325,21 @@ msgstr "写下您想记住的关于此页面的任何内容…"
 msgid "Writing updated config.json…"
 msgstr "正在更新 config.json…"
 
-#: src/views/stats_page.py:1693
+#: src/views/stats_page.py:1713
 msgid "Year"
 msgstr "年"
 
-#: src/views/stats_page.py:1734 src/views/stats_page.py:2004
+#: src/views/stats_page.py:1754 src/views/stats_page.py:2024
 msgid "Year at a glance"
 msgstr "年度概览"
 
 #: src/views/history_page.py:182
 msgid "Yesterday"
 msgstr "昨天"
+
+#: src/views/settings_page.py:709
+msgid "You are running the latest version."
+msgstr "您正在运行最新版本。"
 
 #: src/views/first_run_wizard.py:251
 msgid "You can enable 'Launch on startup' in Settings → Startup later."
@@ -3850,7 +4349,7 @@ msgstr "您稍后可以在“设置”→“启动”中启用“开机启动”
 msgid "You can unhide domains anytime in <i>Settings → Privacy</i>."
 msgstr "您随时可以在<i>设置 → 隐私</i>中取消隐藏域名。"
 
-#: src/views/annotation_dialog.py:57
+#: src/views/annotation_dialog.py:58
 msgid "Your note:"
 msgstr "您的备注："
 
@@ -3871,11 +4370,11 @@ msgstr ""
 "HistorySync 将以全新配置启动。\n"
 "您随时可以通过“设置”→“维护”→“从旧版数据迁移”来运行迁移。"
 
-#: src/views/main_window.py:51
+#: src/views/main_window.py:52
 msgid "[Fresh Mode]"
 msgstr "[纯净模式]"
 
-#: src/views/tray_icon.py:259
+#: src/views/tray_icon.py:258
 msgid "backup"
 msgstr "备份"
 
@@ -3908,7 +4407,7 @@ msgstr "例如：example.com"
 msgid "e.g.  moz-extension://  or  chrome://"
 msgstr "例如：moz-extension:// 或 chrome://"
 
-#: src/views/import_dialog.py:482
+#: src/views/import_dialog.py:481
 msgid "e.g. Default"
 msgstr "例如：Default"
 
@@ -3946,11 +4445,11 @@ msgstr "页面"
 msgid "subdomain only"
 msgstr "仅限子域名"
 
-#: src/views/tray_icon.py:259
+#: src/views/tray_icon.py:258
 msgid "sync"
 msgstr "同步"
 
-#: src/views/tray_icon.py:259
+#: src/views/tray_icon.py:258
 msgid "sync and backup"
 msgstr "同步与备份"
 
@@ -3958,15 +4457,15 @@ msgstr "同步与备份"
 msgid "unknown"
 msgstr "未知"
 
-#: src/views/stats_page.py:1048
+#: src/views/stats_page.py:1068
 msgid "visits"
 msgstr "次访问"
 
-#: src/services/webdav_sync.py:232 src/services/webdav_sync.py:459
+#: src/services/webdav_sync.py:265 src/services/webdav_sync.py:492
 msgid "webdavclient3 is not installed."
 msgstr "未安装 webdavclient3。"
 
-#: src/services/webdav_sync.py:205
+#: src/services/webdav_sync.py:238
 msgid "webdavclient3 is not installed. Run: pip install webdavclient3"
 msgstr "未安装 webdavclient3，请运行：pip install webdavclient3"
 
@@ -3975,17 +4474,17 @@ msgstr "未安装 webdavclient3，请运行：pip install webdavclient3"
 msgid "{action} [{scope}]"
 msgstr "{action} [{scope}]"
 
-#: src/viewmodels/main_viewmodel.py:618
+#: src/viewmodels/main_viewmodel.py:737
 #, python-brace-format
 msgid "{browser} done — {count} new records"
 msgstr "{browser} 完成，新增 {count} 条"
 
-#: src/viewmodels/main_viewmodel.py:619
+#: src/viewmodels/main_viewmodel.py:738
 #, python-brace-format
 msgid "{browser} extraction failed"
 msgstr "{browser} 提取失败"
 
-#: src/main.py:991
+#: src/main.py:1020
 #, python-brace-format
 msgid "{count} new history records added"
 msgstr "本次新增 {count} 条历史记录"
@@ -3996,11 +4495,16 @@ msgid "{count} records will be exported"
 msgstr "将导出 {count} 条记录"
 
 #: src/views/history_page.py:336 src/views/search_autocomplete.py:591
-#: src/views/stats_page.py:1143 src/views/stats_page.py:1278
-#: src/views/stats_page.py:1433
+#: src/views/stats_page.py:1163 src/views/stats_page.py:1298
+#: src/views/stats_page.py:1453
 #, python-brace-format
 msgid "{count} visits"
 msgstr "{count} 次访问"
+
+#: src/views/dialogs/update_dialog.py:98
+#, python-brace-format
+msgid "{current} → {new}"
+msgstr "{current} → {new}"
 
 #: src/views/settings/countdown.py:33
 #, python-brace-format
@@ -4027,7 +4531,7 @@ msgstr "{m}分 {s}秒"
 msgid "{n} backup(s) found"
 msgstr "找到 {n} 个备份"
 
-#: src/views/bookmarks_page.py:815 src/views/bookmarks_page.py:1041
+#: src/views/bookmarks_page.py:578
 #, python-brace-format
 msgid "{n} bookmarks"
 msgstr "{n} 个书签"
@@ -4043,12 +4547,12 @@ msgstr "{n} 个域名"
 msgid "{n} icons"
 msgstr "{n} 个图标"
 
-#: src/views/log_viewer_page.py:331
+#: src/views/log_viewer_page.py:353
 #, python-brace-format
 msgid "{n} lines displayed"
 msgstr "显示 {n} 行"
 
-#: src/views/history_page.py:1209
+#: src/views/history_page.py:1212
 #, python-brace-format
 msgid "{n} more drag(s) to close"
 msgstr "再拖拽 {n} 次即可关闭"
@@ -4063,30 +4567,30 @@ msgstr "{n} 个前缀"
 msgid "{n} records"
 msgstr "{n} 条记录"
 
-#: src/views/history_page.py:3324
+#: src/views/history_page.py:3333
 #, python-brace-format
 msgid "{n} rows selected"
 msgstr "已选择 {n} 行"
 
 # | msgid "{pct}% of peak hour"
-#: src/views/stats_page.py:1279
+#: src/views/stats_page.py:1299
 #, python-brace-format
 msgid "{pct}% of peak hour"
 msgstr "占峰值小时的 {pct}%"
 
 # | msgid "{pct}% of top domain"
-#: src/views/stats_page.py:1434
+#: src/views/stats_page.py:1454
 #, python-brace-format
 msgid "{pct}% of top domain"
 msgstr "占最高域名的 {pct}%"
 
 # | msgid "{pct}% of total"
-#: src/views/stats_page.py:1144
+#: src/views/stats_page.py:1164
 #, python-brace-format
 msgid "{pct}% of total"
 msgstr "占总计的 {pct}%"
 
-#: src/views/stats_page.py:1277
+#: src/views/stats_page.py:1297
 #, python-brace-format
 msgid "{start}:00 - {end}:00"
 msgstr "{start}:00 - {end}:00"
@@ -4096,20 +4600,25 @@ msgstr "{start}:00 - {end}:00"
 msgid "{s}s"
 msgstr "{s}秒"
 
-#: src/views/history_page.py:3391
+#: src/views/history_page.py:3400
 #, python-brace-format
 msgid "{total} records"
 msgstr "{total} 条记录"
 
-#: src/main.py:843
+#: src/main.py:857
 #, python-brace-format
 msgid "{total} records in total"
 msgstr "共 {total} 条记录"
 
-#: src/views/history_page.py:3389
+#: src/views/history_page.py:3398
 #, python-brace-format
 msgid "{total}+ records"
 msgstr "{total}+ 条记录"
+
+#: src/views/settings/webdav_section.py:565
+#, python-brace-format
+msgid "{user} @ {host} | {path}"
+msgstr "{user} @ {host} | {path}"
 
 #: src/views/history_page.py:184
 #, python-brace-format
@@ -4121,24 +4630,24 @@ msgstr "{weekday}"
 msgid "{year}/{month}/{day}  {weekday}"
 msgstr "{year}年{month}月{day}日 {weekday}"
 
-#: src/views/import_dialog.py:608
+#: src/views/import_dialog.py:607
 msgid "⏳ Importing…"
 msgstr "⏳ 正在导入…"
 
-#: src/services/webdav_sync.py:422
+#: src/services/webdav_sync.py:455
 #, python-brace-format
 msgid "⚠ Could not delete {n} old backup(s): {files}"
 msgstr "⚠ 无法删除 {n} 个旧备份：{files}"
 
-#: src/views/settings_page.py:319
+#: src/views/settings_page.py:348
 msgid "⚠ Failed to configure startup"
 msgstr "⚠ 开机自启设置失败"
 
-#: src/views/settings_page.py:316
+#: src/views/settings_page.py:345
 msgid "⚠ Failed to configure startup — check permissions"
 msgstr "⚠ 开机自启设置失败 — 请检查权限"
 
-#: src/views/import_dialog.py:509
+#: src/views/import_dialog.py:508
 msgid "⚠ Skip"
 msgstr "⚠ 跳过"
 
@@ -4146,35 +4655,29 @@ msgstr "⚠ 跳过"
 msgid "⚠ The selected range extends beyond the original filter range."
 msgstr "⚠ 所选范围超出原始筛选范围。"
 
-#: src/views/import_dialog.py:490
+#: src/views/import_dialog.py:489
 msgid "⚠ Unknown"
 msgstr "⚠ 未知"
 
-#: src/services/local_db.py:1101
+#: src/services/local_db/maintenance.py:114
 msgid ""
 "⚠ WAL checkpoint partially blocked by active readers; VACUUM will handle "
 "remaining pages…"
 msgstr "⚠ WAL 检查点被活动读取器部分阻塞；VACUUM 将处理剩余页面…"
 
-#: src/views/settings/webdav_section.py:124
-msgid ""
-"⚠️ Warning: Disabling SSL verification exposes your backup to man-in-the-"
-"middle attacks."
-msgstr "⚠️ 警告：禁用 SSL 验证会使您的备份面临中间人攻击的风险。"
-
-#: src/views/settings_page.py:791
+#: src/views/settings_page.py:962
 msgid "✓ Device deleted"
 msgstr "✓ 设备已删除"
 
-#: src/views/settings_page.py:781
+#: src/views/settings_page.py:952
 msgid "✓ Device identity adopted"
-msgstr "✓ 已继承设备身份"
+msgstr "✓ 已采用设备身份"
 
-#: src/views/settings_page.py:761
+#: src/views/settings_page.py:932
 msgid "✓ Device renamed"
 msgstr "✓ 设备已重命名"
 
-#: src/views/settings_page.py:729
+#: src/views/settings_page.py:900
 #, python-brace-format
 msgid "✓ Full resync complete — {n} new records upserted"
 msgstr "✓ 完整重新同步完成 — 已写入 {n} 条新记录"
@@ -4184,36 +4687,36 @@ msgstr "✓ 完整重新同步完成 — 已写入 {n} 条新记录"
 msgid "✓ Full resync complete — {n} new records upserted."
 msgstr "✓ 完整重新同步完成 — 已写入 {n} 条新记录。"
 
-#: src/services/webdav_sync.py:588
+#: src/services/webdav_sync.py:621
 #, python-brace-format
 msgid "✓ Hash verified: {hash}..."
 msgstr "✓ 哈希验证通过：{hash}..."
 
-#: src/views/settings_page.py:645
+#: src/views/settings_page.py:812
 msgid "✓ Saved"
 msgstr "✓ 已保存"
 
-#: src/views/settings_page.py:309
+#: src/views/settings_page.py:338
 msgid "✓ Startup disabled"
 msgstr "✓ 启动已禁用"
 
-#: src/views/settings_page.py:309
+#: src/views/settings_page.py:338
 msgid "✓ Startup enabled"
 msgstr "✓ 启动已启用"
 
-#: src/views/settings_page.py:784
+#: src/views/settings_page.py:955
 msgid "✗ Failed to adopt device identity"
-msgstr "✗ 继承设备身份失败"
+msgstr "✗ 采用设备身份失败"
 
-#: src/views/settings_page.py:794
+#: src/views/settings_page.py:965
 msgid "✗ Failed to delete device"
 msgstr "✗ 删除设备失败"
 
-#: src/views/settings_page.py:764
+#: src/views/settings_page.py:935
 msgid "✗ Failed to rename device"
 msgstr "✗ 重命名设备失败"
 
-#: src/views/settings_page.py:739
+#: src/views/settings_page.py:910
 msgid "✗ Full resync failed — check log"
 msgstr "✗ 完全重新同步失败 — 检查日志"
 
@@ -4222,11 +4725,11 @@ msgstr "✗ 完全重新同步失败 — 检查日志"
 msgid "✗ Full resync failed: {msg}"
 msgstr "✗ 完全重新同步失败：{msg}"
 
-#: src/views/settings_page.py:691
+#: src/views/settings_page.py:862
 msgid "✗ Maintenance failed — check log"
 msgstr "✗ 维护失败 — 检查日志"
 
-#: src/views/settings_page.py:653
+#: src/views/settings_page.py:824
 #, python-brace-format
 msgid "✗ Save failed: {msg}"
 msgstr "✗ 保存失败：{msg}"
