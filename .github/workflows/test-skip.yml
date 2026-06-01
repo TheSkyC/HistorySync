@@ -1,0 +1,20 @@
+name: Tests (skip)
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'src/**'
+      - 'tests/**'
+      - 'requirements*.txt'
+      - 'requirements*.in'
+      - 'pytest.ini'
+      - 'ruff.toml'
+      - '.github/workflows/test.yml'
+      - '.github/workflows/test-skip.yml'
+
+jobs:
+  all-tests-pass:
+    name: All tests passed
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No code or test changes — CI skipped"'

@@ -159,8 +159,14 @@ class StyledComboBox(QWidget):
         """Show the popup list programmatically."""
         self._show_popup()
 
-    def showPopupAt(self, pos: QPoint, width: int | None = None) -> None:
-        """Show the popup list at an explicit global position."""
+    def showPopupAt(self, pos: QPoint, width: int | None = None, max_height: int | None = None) -> None:
+        """Show the popup list at an explicit global position.
+
+        Args:
+            pos: Global position for the top-left corner of the popup.
+            width: Fixed width of the popup; defaults to the combo's width.
+            max_height: Maximum allowed height in pixels; constrains visible items.
+        """
         if not self._items:
             return
 
@@ -168,9 +174,36 @@ class StyledComboBox(QWidget):
             self._popup = _ComboPopup(self)
             self._popup.item_clicked.connect(self._on_item_clicked)
 
-        self._popup.set_items(self._items, self._current_index)
+        popup_width = width or self.width()
+
+        # Apply screen-edge safety for externally provided positions
+        from PySide6.QtWidgets import QApplication
+
+        screen = QApplication.screenAt(pos)
+        if screen is None:
+            screen = QApplication.primaryScreen()
+        if screen is not None:
+            screen_geom = screen.availableGeometry()
+            margin = 4
+            # Adjust horizontal overflow
+            if pos.x() + popup_width > screen_geom.right():
+                pos.setX(max(screen_geom.left(), screen_geom.right() - popup_width - margin))
+            if pos.x() < screen_geom.left():
+                pos.setX(screen_geom.left() + margin)
+            # Adjust vertical overflow
+            if max_height is None:
+                visible_items = min(len(self._items), 10)
+                estimated_height = visible_items * 30 + 8
+            else:
+                estimated_height = min(max_height, min(len(self._items), 10) * 30 + 8)
+            if pos.y() + estimated_height > screen_geom.bottom():
+                pos.setY(max(screen_geom.top(), screen_geom.bottom() - estimated_height - margin))
+            if pos.y() < screen_geom.top():
+                pos.setY(screen_geom.top() + margin)
+
+        self._popup.set_items(self._items, self._current_index, max_height)
         self._popup.move(pos)
-        self._popup.setFixedWidth(width or self.width())
+        self._popup.setFixedWidth(popup_width)
         self._popup.show()
 
     def hidePopup(self) -> None:
@@ -267,8 +300,64 @@ class StyledComboBox(QWidget):
         painter.drawLine(cx, cy + 2, cx + 4, cy - 2)
 
     def _show_popup(self):
-        """Show the popup menu."""
-        self.showPopupAt(self.mapToGlobal(QPoint(0, self.height() + 2)), self.width())
+        """Show the popup menu, auto-detecting direction based on available screen space."""
+        if not self._items:
+            return
+
+        from PySide6.QtWidgets import QApplication
+
+        # Detect which screen contains this widget
+        widget_center = self.mapToGlobal(self.rect().center())
+        screen = QApplication.screenAt(widget_center)
+        if screen is None:
+            screen = QApplication.primaryScreen()
+        if screen is None:
+            # Ultimate fallback: just show below
+            self.showPopupAt(self.mapToGlobal(QPoint(0, self.height() + 2)), self.width())
+            return
+        screen_geom = screen.availableGeometry()
+
+        # Popup dimensions (same calculation as _ComboPopup.set_items)
+        visible_items = min(len(self._items), 10)
+        popup_height = visible_items * 30 + 8  # _item_height=30, padding=8
+        popup_width = self.width()
+
+        # Widget bounds in global coordinates
+        widget_top = self.mapToGlobal(QPoint(0, 0))
+        widget_bottom = self.mapToGlobal(QPoint(0, self.height()))
+
+        # Available space above and below
+        space_below = screen_geom.bottom() - widget_bottom.y()
+        space_above = widget_top.y() - screen_geom.top()
+
+        margin = 4
+
+        # Choose direction: prefer below, fall back to above
+        if space_below >= popup_height + margin or space_below >= space_above:
+            # Open downward
+            y = widget_bottom.y() + 2
+            max_height = space_below - margin
+        else:
+            # Open upward
+            y = widget_top.y() - popup_height - 2
+            max_height = space_above - margin
+
+        # Horizontal positioning: align with widget left edge
+        x = widget_top.x()
+
+        # Clamp horizontally within screen bounds
+        if x + popup_width > screen_geom.right():
+            x = max(screen_geom.left(), screen_geom.right() - popup_width - margin)
+        if x < screen_geom.left():
+            x = screen_geom.left() + margin
+
+        # Clamp vertically within screen bounds (safety net)
+        if y + popup_height > screen_geom.bottom():
+            y = screen_geom.bottom() - popup_height - margin
+        if y < screen_geom.top():
+            y = screen_geom.top() + margin
+
+        self.showPopupAt(QPoint(x, y), popup_width, max_height)
 
     def _on_item_clicked(self, index: int):
         """Handle item selection."""
@@ -309,14 +398,24 @@ class _ComboPopup(QWidget):
         self._fade_animation.setEndValue(1.0)
         self._fade_animation.setEasingCurve(QEasingCurve.OutCubic)
 
-    def set_items(self, items: list, current_index: int):
-        """Set items to display."""
+    def set_items(self, items: list, current_index: int, max_height: int | None = None):
+        """Set items to display.
+
+        Args:
+            items: List of (text, data, icon, enabled) tuples.
+            current_index: Index of the currently selected item.
+            max_height: Optional maximum height in pixels; constrains visible items.
+        """
         self._items = items
         self._current_index = current_index
         self._hovered_index = current_index  # Start with current item hovered
 
-        # Calculate height - no limit, show all items with scrolling if needed
-        visible_items = min(len(items), 10)  # Show max 10 items at once
+        # Calculate how many items can be visible
+        max_visible = 10
+        if max_height is not None:
+            max_visible = max(1, (max_height - 8) // self._item_height)
+
+        visible_items = min(len(items), max_visible)
         height = visible_items * self._item_height + 8
         self.setFixedHeight(height)
         self._total_height = len(items) * self._item_height + 8
@@ -373,7 +472,8 @@ class _ComboPopup(QWidget):
 
     def wheelEvent(self, event):
         """Handle mouse wheel scrolling."""
-        if len(self._items) <= 10:
+        max_visible = max(1, (self.height() - 8) // self._item_height)
+        if len(self._items) <= max_visible:
             return  # No scrolling needed
 
         delta = event.angleDelta().y()
@@ -407,7 +507,8 @@ class _ComboPopup(QWidget):
 
     def _ensure_visible(self, index: int):
         """Ensure the given index is visible by scrolling if needed."""
-        if len(self._items) <= 10:
+        max_visible = max(1, (self.height() - 8) // self._item_height)
+        if len(self._items) <= max_visible:
             return
 
         item_top = index * self._item_height
