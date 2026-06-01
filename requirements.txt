@@ -8,8 +8,14 @@ argcomplete==3.6.3
     # via -r requirements.in
 certifi==2026.2.25
     # via requests
+cffi==2.0.0
+    # via cryptography
 charset-normalizer==3.4.6
     # via requests
+cryptography==48.0.0
+    # via secretstorage
+evdev==1.9.3
+    # via pynput
 idna==3.11
     # via requests
 jaraco-classes==3.4.0
@@ -18,6 +24,10 @@ jaraco-context==6.1.2
     # via keyring
 jaraco-functools==4.4.0
     # via keyring
+jeepney==0.9.0
+    # via
+    #   keyring
+    #   secretstorage
 keyring==25.7.0
     # via -r requirements.in
 lxml==6.0.2
@@ -28,23 +38,29 @@ more-itertools==10.8.0
     #   jaraco-functools
 psutil==7.2.2
     # via -r requirements.in
+pycparser==3.0
+    # via cffi
 pynput==1.8.1
     # via -r requirements.in
-pyside6==6.11.0
+pyside6==6.11.1
     # via -r requirements.in
-pyside6-addons==6.11.0
+pyside6-addons==6.11.1
     # via pyside6
-pyside6-essentials==6.11.0
+pyside6-essentials==6.11.1
     # via
     #   pyside6
     #   pyside6-addons
 python-dateutil==2.9.0.post0
     # via webdavclient3
-pywin32-ctypes==0.2.3
-    # via keyring
+python-xlib==0.33
+    # via pynput
 requests==2.32.5
-    # via webdavclient3
-shiboken6==6.11.0
+    # via
+    #   -r requirements.in
+    #   webdavclient3
+secretstorage==3.5.0
+    # via keyring
+shiboken6==6.11.1
     # via
     #   pyside6
     #   pyside6-addons
@@ -53,6 +69,7 @@ six==1.17.0
     # via
     #   pynput
     #   python-dateutil
+    #   python-xlib
 urllib3==2.6.3
     # via requests
 webdavclient3==3.14.7

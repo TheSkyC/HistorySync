@@ -15,7 +15,9 @@ certifi==2026.2.25
     #   -r requirements.txt
     #   requests
 cffi==2.0.0
-    # via cryptography
+    # via
+    #   -r requirements.txt
+    #   cryptography
 cfgv==3.5.0
     # via pre-commit
 charset-normalizer==3.4.6
@@ -25,11 +27,15 @@ charset-normalizer==3.4.6
 click==8.3.1
     # via pip-tools
 cryptography==48.0.0
-    # via secretstorage
+    # via
+    #   -r requirements.txt
+    #   secretstorage
 distlib==0.4.0
     # via virtualenv
 evdev==1.9.3
-    # via pynput
+    # via
+    #   -r requirements.txt
+    #   pynput
 filelock==3.29.0
     # via
     #   python-discovery
@@ -56,6 +62,7 @@ jaraco-functools==4.4.0
     #   keyring
 jeepney==0.9.0
     # via
+    #   -r requirements.txt
     #   keyring
     #   secretstorage
 keyring==25.7.0
@@ -91,7 +98,9 @@ pre-commit==4.6.0
 psutil==7.2.2
     # via -r requirements.txt
 pycparser==3.0
-    # via cffi
+    # via
+    #   -r requirements.txt
+    #   cffi
 pygments==2.19.2
     # via pytest
 pyinstaller==6.20.0
@@ -104,13 +113,13 @@ pyproject-hooks==1.2.0
     # via
     #   build
     #   pip-tools
-pyside6==6.11.0
+pyside6==6.11.1
     # via -r requirements.txt
-pyside6-addons==6.11.0
+pyside6-addons==6.11.1
     # via
     #   -r requirements.txt
     #   pyside6
-pyside6-essentials==6.11.0
+pyside6-essentials==6.11.1
     # via
     #   -r requirements.txt
     #   pyside6
@@ -124,9 +133,9 @@ python-dateutil==2.9.0.post0
 python-discovery==1.2.2
     # via virtualenv
 python-xlib==0.33
-    # via pynput
-pywin32-ctypes==0.2.3
-    # via -r requirements.txt
+    # via
+    #   -r requirements.txt
+    #   pynput
 pyyaml==6.0.3
     # via pre-commit
 requests==2.32.5
@@ -136,8 +145,10 @@ requests==2.32.5
 ruff==0.15.7
     # via -r requirements-dev.in
 secretstorage==3.5.0
-    # via keyring
-shiboken6==6.11.0
+    # via
+    #   -r requirements.txt
+    #   keyring
+shiboken6==6.11.1
     # via
     #   -r requirements.txt
     #   pyside6
