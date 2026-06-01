@@ -9,17 +9,19 @@ charset-normalizer==3.4.7
 click==8.3.3
     # via mkdocs
 colorama==0.4.6
-    # via
-    #   click
-    #   mkdocs
-    #   mkdocs-material
+    # via mkdocs-material
 ghp-import==2.1.0
     # via mkdocs
+hjson==3.1.0
+    # via
+    #   mkdocs-macros-plugin
+    #   super-collections
 idna==3.13
     # via requests
 jinja2==3.1.6
     # via
     #   mkdocs
+    #   mkdocs-macros-plugin
     #   mkdocs-material
 markdown==3.10.2
     # via
@@ -37,6 +39,7 @@ mergedeep==1.3.4
 mkdocs==1.6.1
     # via
     #   -r requirements-docs.in
+    #   mkdocs-macros-plugin
     #   mkdocs-material
     #   mkdocs-static-i18n
 mkdocs-get-deps==0.2.2
@@ -50,33 +53,46 @@ mkdocs-material-extensions==1.3.1
 mkdocs-static-i18n==1.3.1
     # via -r requirements-docs.in
 packaging==26.2
-    # via mkdocs
+    # via
+    #   mkdocs
+    #   mkdocs-macros-plugin
 paginate==0.5.7
     # via mkdocs-material
 pathspec==1.1.1
-    # via mkdocs
+    # via
+    #   mkdocs
+    #   mkdocs-macros-plugin
 platformdirs==4.9.6
     # via mkdocs-get-deps
 pygments==2.20.0
     # via mkdocs-material
-pymdown-extensions==10.21.2
+pymdown-extensions==10.21.3
     # via
     #   -r requirements-docs.in
     #   mkdocs-material
 python-dateutil==2.9.0.post0
-    # via ghp-import
+    # via
+    #   ghp-import
+    #   mkdocs-macros-plugin
 pyyaml==6.0.3
     # via
     #   mkdocs
     #   mkdocs-get-deps
+    #   mkdocs-macros-plugin
     #   pymdown-extensions
     #   pyyaml-env-tag
 pyyaml-env-tag==1.1
     # via mkdocs
 requests==2.33.1
-    # via mkdocs-material
+    # via
+    #   mkdocs-macros-plugin
+    #   mkdocs-material
 six==1.17.0
     # via python-dateutil
+super-collections==0.6.2
+    # via mkdocs-macros-plugin
+termcolor==3.3.0
+    # via mkdocs-macros-plugin
 urllib3==2.7.0
     # via requests
 watchdog==6.0.0

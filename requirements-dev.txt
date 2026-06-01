@@ -94,9 +94,9 @@ pycparser==3.0
     # via cffi
 pygments==2.19.2
     # via pytest
-pyinstaller==6.19.0
+pyinstaller==6.20.0
     # via -r requirements-dev.in
-pyinstaller-hooks-contrib==2026.3
+pyinstaller-hooks-contrib==2026.5
     # via pyinstaller
 pynput==1.8.1
     # via -r requirements.txt
