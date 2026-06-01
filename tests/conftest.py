@@ -46,6 +46,14 @@ def _no_session_end_flag() -> None:
     app_config._session_state["ending"] = False
 
 
+@pytest.fixture(autouse=True)
+def _reset_update_fetch_throttle() -> None:
+    """Keep the update-fetch GitHub throttle from leaking across tests."""
+    from src.services import update_fetch
+
+    update_fetch.reset_github_throttle()
+
+
 # ══════════════════════════════════════════════════════════════
 # Temporary directory / file fixtures
 # ══════════════════════════════════════════════════════════════
