@@ -10,6 +10,9 @@ import time
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
+from src.services import update_fetch
 from src.services.update_fetch import (
     SOURCE_DL,
     SOURCE_GITHUB,
@@ -18,10 +21,8 @@ from src.services.update_fetch import (
     TOKEN_MIRROR,
     build_download_candidates,
     download_token_order,
-    fetch_github,
     metadata_source_order,
     prefers_mirror,
-    reset_github_throttle,
 )
 from src.services.update_models import ReleaseInfo, UpdateAsset, UpdateInfo
 from src.utils.constants import UPDATE_SOURCE_MEMORY_TTL_SEC
@@ -59,6 +60,16 @@ def _make_ctx() -> InstallContext:
         can_self_update=True,
         apply_strategy="run_installer",
     )
+
+
+def _set_monotonic_clock(monkeypatch: pytest.MonkeyPatch, *values: float) -> None:
+    iterator = iter(values)
+    monkeypatch.setattr(update_fetch.time, "monotonic", lambda: next(iterator))
+
+
+def _allow_github_call(monkeypatch: pytest.MonkeyPatch, now: float = 1_000.0) -> None:
+    monkeypatch.setitem(update_fetch._github_state, "last_call_ts", 0.0)
+    _set_monotonic_clock(monkeypatch, now)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -232,11 +243,8 @@ def _make_update_info(
 
 
 class TestFetchGithub:
-    def setup_method(self):
-        """Reset the GitHub API throttle so consecutive tests never sleep."""
-        reset_github_throttle()
-
-    def test_stable_channel_uses_latest_endpoint(self):
+    def test_stable_channel_uses_latest_endpoint(self, monkeypatch: pytest.MonkeyPatch):
+        _allow_github_call(monkeypatch)
         payload = {
             "tag_name": "v1.4.0",
             "prerelease": False,
@@ -245,12 +253,13 @@ class TestFetchGithub:
             ],
         }
         with patch("src.services.update_fetch.http_get_json", return_value=payload) as http_get_json:
-            info = fetch_github(_make_ctx(), "stable", "1.3.2")
+            info = update_fetch.fetch_github(_make_ctx(), "stable", "1.3.2")
         assert info is not None
         assert info.release.version == "1.4.0"
         assert http_get_json.call_args.args[0].endswith("/releases/latest")
 
-    def test_beta_channel_prefers_prerelease_from_releases_list(self):
+    def test_beta_channel_prefers_prerelease_from_releases_list(self, monkeypatch: pytest.MonkeyPatch):
+        _allow_github_call(monkeypatch)
         payload = [
             {"tag_name": "v1.5.0", "prerelease": False, "assets": []},
             {
@@ -266,31 +275,82 @@ class TestFetchGithub:
             },
         ]
         with patch("src.services.update_fetch.http_get_json", return_value=payload) as http_get_json:
-            info = fetch_github(_make_ctx(), "beta", "1.3.2")
+            info = update_fetch.fetch_github(_make_ctx(), "beta", "1.3.2")
         assert info is not None
         assert info.release.version == "1.6.0-beta.1"
         assert http_get_json.call_args.args[0].endswith("/releases")
         assert http_get_json.call_args.kwargs["params"] == {"per_page": 20}
 
-    def test_beta_channel_falls_back_to_newer_stable_when_no_beta_exists(self):
+    def test_beta_channel_falls_back_to_newer_stable_when_no_beta_exists(self, monkeypatch: pytest.MonkeyPatch):
+        _allow_github_call(monkeypatch)
         payload = [
             {"tag_name": "v1.7.0", "prerelease": False, "assets": []},
             {"tag_name": "v1.6.0-beta.1", "prerelease": True, "assets": []},
         ]
         with patch("src.services.update_fetch.http_get_json", return_value=payload):
-            info = fetch_github(_make_ctx(), "beta", "1.3.2")
+            info = update_fetch.fetch_github(_make_ctx(), "beta", "1.3.2")
         assert info is not None
         assert info.release.version == "1.7.0"
 
-    def test_nightly_channel_accepts_dev_tags(self):
+    def test_nightly_channel_accepts_dev_tags(self, monkeypatch: pytest.MonkeyPatch):
+        _allow_github_call(monkeypatch)
         payload = [
             {"tag_name": "v1.8.0-beta.2", "prerelease": True, "assets": []},
             {"tag_name": "v1.8.0-dev.5", "prerelease": True, "assets": []},
         ]
         with patch("src.services.update_fetch.http_get_json", return_value=payload):
-            info = fetch_github(_make_ctx(), "nightly", "1.3.2")
+            info = update_fetch.fetch_github(_make_ctx(), "nightly", "1.3.2")
         assert info is not None
         assert info.release.version == "1.8.0-dev.5"
+
+    def test_second_call_raises_throttle_without_sleeping(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setitem(update_fetch._github_state, "last_call_ts", 0.0)
+        _set_monotonic_clock(monkeypatch, 1_000.0, 1_000.0)
+        payload = {
+            "tag_name": "v1.4.0",
+            "prerelease": False,
+            "assets": [
+                {"name": "HistorySync-v1.4.0-windows-x64-setup.exe", "browser_download_url": "http://dl", "size": 1}
+            ],
+        }
+        with (
+            patch("src.services.update_fetch.http_get_json", return_value=payload),
+            patch("src.services.update_fetch.time.sleep", side_effect=AssertionError("sleep should not be called")),
+        ):
+            first = update_fetch.fetch_github(_make_ctx(), "stable", "1.3.2")
+            assert first is not None
+            with pytest.raises(update_fetch.GitHubThrottleError, match="retry in"):
+                update_fetch.fetch_github(_make_ctx(), "stable", "1.3.2")
+
+    def test_fetch_latest_falls_back_to_dl_when_github_is_throttled(self):
+        expected = _make_update_info(source="dl")
+        with (
+            patch("src.services.update_fetch.fetch_github", side_effect=update_fetch.GitHubThrottleError(120)),
+            patch("src.services.update_fetch.fetch_dl", return_value=expected),
+        ):
+            info, source, error = update_fetch.fetch_latest(
+                _make_ctx(),
+                "stable",
+                "en_US",
+                "1.3.2",
+                [SOURCE_GITHUB, SOURCE_DL],
+            )
+        assert info == expected
+        assert source == SOURCE_DL
+        assert error == ""
+
+    def test_fetch_latest_returns_throttle_error_when_no_fallback_succeeds(self):
+        with patch("src.services.update_fetch.fetch_github", side_effect=update_fetch.GitHubThrottleError(42)):
+            info, source, error = update_fetch.fetch_latest(
+                _make_ctx(),
+                "stable",
+                "en_US",
+                "1.3.2",
+                [SOURCE_GITHUB],
+            )
+        assert info is None
+        assert source == ""
+        assert "retry in 42 s" in error
 
 
 class TestBuildDownloadCandidates:

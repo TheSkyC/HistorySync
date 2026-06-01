@@ -10,6 +10,7 @@ and the headless ``hsync update`` CLI command (which must not drag in PySide6).
 
 from __future__ import annotations
 
+import math
 import time
 from urllib.parse import quote
 
@@ -51,6 +52,15 @@ _DEFAULT_TIMEOUT = (UPDATE_HTTP_CONNECT_TIMEOUT, UPDATE_HTTP_READ_TIMEOUT)
 # clicks "Check for Updates" from exhausting it inside a single session.
 _GITHUB_MIN_INTERVAL_SEC = 300
 _github_state: dict[str, float] = {"last_call_ts": 0.0}
+
+
+class GitHubThrottleError(RuntimeError):
+    """Raised when the client-side GitHub throttle suppresses a request."""
+
+    def __init__(self, retry_after_sec: float):
+        self.retry_after_sec = max(0.0, retry_after_sec)
+        retry_after_display = max(1, math.ceil(self.retry_after_sec))
+        super().__init__(f"GitHub API throttled; retry in {retry_after_display} s")
 
 
 def reset_github_throttle() -> None:
@@ -174,9 +184,13 @@ def fetch_github(
     elapsed = now - _github_state["last_call_ts"]
     if elapsed < _GITHUB_MIN_INTERVAL_SEC:
         remaining = _GITHUB_MIN_INTERVAL_SEC - elapsed
-        log.debug("GitHub API call throttled: %.1f s since last call (floor=%d s)", elapsed, _GITHUB_MIN_INTERVAL_SEC)
-        time.sleep(remaining)
-    _github_state["last_call_ts"] = time.monotonic()
+        log.info(
+            "Skipping GitHub API call due to client-side throttle: %.1f s remaining (floor=%d s)",
+            remaining,
+            _GITHUB_MIN_INTERVAL_SEC,
+        )
+        raise GitHubThrottleError(remaining)
+    _github_state["last_call_ts"] = now
 
     desired = _normalize_channel(channel)
     if desired == "stable":
@@ -222,7 +236,10 @@ def fetch_latest(
             last_err = f"{source}: empty/unrecognised response"
         except Exception as exc:  # network, HTTP, JSON — all non-fatal, try next
             last_err = f"{source}: {exc}"
-            log.warning("Update metadata fetch via %s failed: %s", source, exc)
+            if isinstance(exc, GitHubThrottleError):
+                log.info("Update metadata fetch via %s skipped: %s", source, exc)
+            else:
+                log.warning("Update metadata fetch via %s failed: %s", source, exc)
     return None, "", last_err
 
 
