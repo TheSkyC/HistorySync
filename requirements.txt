@@ -30,7 +30,7 @@ jeepney==0.9.0
     #   secretstorage
 keyring==25.7.0
     # via -r requirements.in
-lxml==6.0.2
+lxml==6.1.0
     # via webdavclient3
 more-itertools==10.8.0
     # via
