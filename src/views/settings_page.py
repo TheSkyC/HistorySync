@@ -807,6 +807,7 @@ class SettingsPage(QWidget):
 
     def _on_saved(self):
         cfg = self._vm.get_config()
+        self._sec_webdav.load(cfg)
         self._sec_paths.refresh_paths(cfg.extractor.get_custom_path_map())
         self._set_status(_("✓ Saved"), "success")
         self.saved.emit()
