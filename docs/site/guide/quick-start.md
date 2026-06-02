@@ -85,7 +85,20 @@ See the [WebDAV Setup guide](webdav-setup.md) for a list of compatible providers
 
 ---
 
-## Step 6 — Tray Mode (Background Operation)
+## Step 6 — Enable Update Checks
+
+Go to **Settings → Updates** and decide how you want HistorySync to handle new releases:
+
+1. Leave **Automatically check for updates** enabled if you want passive update reminders.
+2. Choose a release channel such as **Stable** or **Beta**.
+3. Pick a reminder policy, for example once per week instead of every launch.
+4. Use **Check for Updates** any time you want an on-demand check.
+
+When a newer build is available, HistorySync can show a banner, open a detailed release dialog, and remember "remind me later" or "skip this version" decisions.
+
+---
+
+## Step 7 — Tray Mode (Background Operation)
 
 Once configured, close the main window. HistorySync minimises to the **system tray** and continues syncing and backing up silently.
 
@@ -103,6 +116,7 @@ Right-click the tray icon to:
 | What you want to do | Where to go |
 |---|---|
 | Automate syncs from the terminal | [CLI Reference](cli-reference.md) |
+| Check for new releases from the terminal | [CLI Reference](cli-reference.md#update-check-for-updates) |
 | Configure a specific WebDAV provider | [WebDAV Setup](webdav-setup.md) |
 | Customise keyboard shortcuts | [Keyboard Shortcuts](keyboard-shortcuts.md) |
 | Export your history to CSV / JSON / HTML | [CLI Reference — Export History](cli-reference.md#export) |

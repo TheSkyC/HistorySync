@@ -139,6 +139,23 @@ hsync --version
 
 Replace the existing binary with the new one from the Releases page. HistorySync stores its configuration and database separately from the application binary, so upgrading never touches your data.
 
+As of 1.4.0, packaged desktop builds also include an **in-app update system**:
+
+- **Windows installer builds** can hand off to the installer directly.
+- **macOS `.dmg` builds** can download and open the disk image for you.
+- **Portable, AppImage, and archive-style installs** download the verified artifact and reveal it so you can replace the running binary safely.
+- **System-managed installs** such as `.deb` packages still defer to your package manager or the Releases page.
+
+You can trigger this from **Settings → Updates → Check for Updates** or from the update banner when a newer release is detected.
+
+If you prefer the terminal, run:
+
+```bash
+hsync update
+hsync update --json
+hsync update --channel beta
+```
+
 Default data locations:
 
 | Platform | Directory |
@@ -148,6 +165,9 @@ Default data locations:
 | Linux | `~/.config/HistorySync/` |
 
 You can override this with `--config-dir` or use `--portable` mode to keep all data next to the executable.
+
+!!! tip "Portable installs"
+    Portable installs and `.portable` marker-based setups keep config and databases alongside the executable. The updater preserves that model and selects portable-style release assets when possible.
 
 ---
 

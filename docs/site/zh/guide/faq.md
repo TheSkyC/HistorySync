@@ -31,6 +31,10 @@ HistorySync 原生支持 **30+ 款浏览器**，包括：
 
 可以！在每台设备上安装 HistorySync，配置相同的 WebDAV 服务器，并启用自动同步。恢复时（或 HistorySync 自动从云端合并时），来自所有设备的记录将根据浏览器类型、URL 和访问时间戳**智能去重**。
 
+### 如果 HistorySync 没有自动识别出我的浏览器怎么办？
+
+可以。使用 **设置 → 浏览器 → 添加自定义路径** 手动注册浏览器。1.4.0 起，自定义浏览器与深度扫描发现的浏览器共享统一运行时模型，因此保存设置后无需重启，也能立即参与同步、状态监控和启停控制。
+
 ---
 
 ## 同步与提取
@@ -104,6 +108,16 @@ python -m src.main --resync
 3. 测试连通性：`curl -u user:pass https://your-server/dav/`。
 4. 如使用自签名证书，设置 `hsync config set webdav.verify_ssl false`。
 
+### 新的更新系统在不同安装方式下如何工作？
+
+HistorySync 会检测你当前是安装版、便携版、AppImage、`.dmg` 还是系统包管理安装。
+
+- 安装版通常可以直接把升级流程交给平台安装器。
+- 便携版、AppImage 和归档版会下载正确的文件，并在文件管理器中定位，方便你手动安全替换。
+- 通过包管理器安装的版本，例如 `.deb`，会继续建议使用系统包管理器升级，而不是在应用内直接替换文件。
+
+你可以在 **设置 → 更新** 中手动检查，也可以在终端运行 `hsync update`。
+
 ---
 
 ## 性能
@@ -136,6 +150,16 @@ hsync -s --config-dir /data/config -q
 ```
 
 如果 Qt 报错提示没有显示器，设置 `QT_QPA_PLATFORM=offscreen`。
+
+### 可以在脚本里检查新版本吗？
+
+可以，使用：
+
+```bash
+hsync update --json
+```
+
+它会返回适合自动化处理的结构化元数据。也可以通过 `--channel beta` 或 `--channel nightly` 临时指定检查通道。
 
 ---
 

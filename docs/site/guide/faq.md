@@ -31,6 +31,10 @@ If your browser is not listed, use **Settings → Browsers → Add Custom Path**
 
 Yes! Install HistorySync on each machine, configure the same WebDAV server on all of them, and enable auto-sync. When you restore (or when HistorySync auto-merges from the cloud), records from all devices are **intelligently deduplicated** based on browser type, URL, and visit timestamp.
 
+### Can I add browsers that HistorySync does not detect automatically?
+
+Yes. Use **Settings → Browsers → Add Custom Path** to register a browser manually. In 1.4.0, custom browsers use the same runtime model as built-in and deep-scanned browsers, so they participate in sync, status monitoring, and enable/disable controls without requiring an app restart after saving settings.
+
 ---
 
 ## Sync & Extraction
@@ -104,6 +108,16 @@ By default, **10 backups** are retained on the server. Older ones are pruned aut
 3. Test connectivity: `curl -u user:pass https://your-server/dav/`.
 4. If using a self-signed certificate, set `hsync config set webdav.verify_ssl false`.
 
+### How does the new update system behave on different install types?
+
+HistorySync detects whether you are running an installer build, a portable build, an AppImage, a `.dmg`, or a system-managed package.
+
+- Installer-style builds can usually hand off directly to the platform installer.
+- Portable/AppImage/archive-style installs download the correct artifact and reveal it for a safe manual replacement.
+- Package-manager installs such as `.deb` keep using the package manager instead of replacing files in-place.
+
+You can always do a manual check in **Settings → Updates**, or run `hsync update` from the terminal.
+
 ---
 
 ## Performance
@@ -160,6 +174,16 @@ hsync -s --config-dir /data/config -q
 ```
 
 Set `QT_QPA_PLATFORM=offscreen` if Qt complains about a missing display.
+
+### Can I check for releases from scripts?
+
+Yes. Use:
+
+```bash
+hsync update --json
+```
+
+That returns structured metadata suitable for automation. You can also override the release channel per invocation with `--channel beta` or `--channel nightly`.
 
 ---
 

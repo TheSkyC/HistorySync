@@ -15,6 +15,43 @@ Tous les changements notables sont documentés ici. Le format est basé sur [Kee
 
 ---
 
+## [1.4.0] - 2026-06-01
+
+### Ajouté
+- Système de mise à jour en ligne intégré pour l'application desktop, avec sélection du bon paquet selon la plateforme et le type d'installation, prise en charge des canaux de publication et repli vers les releases GitHub lorsque l'API principale de mise à jour est indisponible.
+- Bannières de mise à jour, boîtes de dialogue détaillant les releases, préférences de rappel, et une section dédiée dans les paramètres pour la politique de mise à jour, la préférence de source et le choix du canal.
+- `hsync update` pour vérifier les mises à jour en mode headless, avec sortie lisible par un humain, sortie JSON et remplacement ponctuel du canal.
+- Modèle d'exécution unifié pour les navigateurs personnalisés afin que les navigateurs ajoutés manuellement et ceux trouvés par analyse approfondie se comportent comme des intégrations natives dans la synchronisation, la surveillance et l'interface.
+- Suivi automatique des journaux dans le visualiseur de logs, avec pause lorsque la page est masquée ou que la fenêtre est minimisée.
+
+### Modifié
+- Les paramètres WebDAV ont été simplifiés dans un flux de configuration plus propre et moins sujet aux erreurs.
+- Le rendu des favoris a été virtualisé, ce qui améliore nettement le passage à l'échelle sur de grands ensembles de données.
+
+### Corrigé
+- L'état du moniteur de navigateurs ne bascule plus à tort vers `NEEDS_SYNC` ; la fraîcheur de la synchronisation est désormais comparée avec le mtime de la base de données capturé pendant l'extraction.
+- L'accès aux identifiants WebDAV est maintenant différé et dédupliqué, ce qui réduit les accès inutiles au trousseau et évite des demandes de déverrouillage répétées sur certains systèmes.
+- Les imports WebDAV optionnels ne sont désormais chargés qu'au moment où un transfert démarre réellement, améliorant la robustesse au démarrage dans les environnements partiellement provisionnés.
+- Les navigateurs ajoutés via un chemin personnalisé sont maintenant enregistrés au démarrage et immédiatement après la sauvegarde des paramètres, afin de participer à la synchronisation et au suivi d'état sans redémarrage.
+- Les filtres de recherche `browser:` sont désormais insensibles à la casse, et la correspondance des domaines échappe correctement les jokers SQL `LIKE` afin d'éviter les fausses correspondances et les excès involontaires.
+- Les navigateurs désactivés apparaissent explicitement comme `DISABLED` sur le tableau de bord au lieu de disparaître de la vue d'état.
+- La bulle de défilement de l'historique privilégie maintenant le bord droit et bascule vers la gauche à l'approche des limites de l'écran.
+- Le nettoyage de l'analyse approfondie dans le tableau de bord ne libère plus deux fois le widget de zone de défilement.
+- La suppression des navigateurs personnalisés à risque demande désormais une confirmation avant toute action destructive.
+- Les libellés des mois dans les statistiques ne dépendent plus de la locale système et utilisent maintenant de manière cohérente les noms de mois i18n de l'application.
+- Le comportement de la zone de notification est plus cohérent : l'ouverture en simple clic fonctionne sur toutes les plateformes et l'indicateur de synchronisation en thème clair est plus visible.
+- Les boîtes de dialogue centrées et les popups de StyledComboBox sont maintenant contraintes aux limites de l'écran, améliorant le comportement sur les configurations multi-écrans et en bord d'écran.
+- Les cartes de statistiques du tableau de bord sont maintenant responsives et conservent une hauteur stable selon la taille de la fenêtre.
+- Les vérifications de mise à jour n'entraînent plus de blocage en cas de limitation côté GitHub.
+
+### Build
+- Les workflows de packaging et de validation des releases ont été étendus et renforcés sur toutes les plateformes, notamment avec la validation des installateurs, la correction des indicateurs d'installateur ARM64 et le durcissement de l'installation des dépendances en CI.
+
+### Documentation
+- Le site de documentation a été rafraîchi pour la version 1.4.0 afin de couvrir les mises à jour en ligne, les rappels de mise à jour, les vérifications de mise à jour via CLI, et le flux révisé d'installation et de montée de version.
+
+---
+
 ## [1.3.2] - 2026-05-25
 
 ### Ajouté
@@ -250,7 +287,8 @@ Version stable initiale.
 - Chiffrement par mot de passe maître pour les identifiants WebDAV via HKDF-SHA256 et intégration au trousseau système.
 - Paquets Windows et macOS.
 
-[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.2...HEAD
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/TheSkyC/HistorySync/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0

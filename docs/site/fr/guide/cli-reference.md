@@ -332,6 +332,42 @@ hsync config set language fr_FR
 
 ---
 
+<a id="update-check-for-updates"></a>
+
+### `update` — Vérifier les Mises à Jour
+
+Vérifiez si une nouvelle version de HistorySync est disponible pour la plateforme et le type d'installation actuels.
+
+```bash
+# Sortie lisible par un humain
+hsync update
+
+# Sortie JSON lisible par une machine
+hsync update --json
+
+# Vérifier un canal de publication non par défaut
+hsync update --channel beta
+hsync update --channel nightly
+```
+
+**Options :**
+
+| Drapeau | Description |
+|---|---|
+| `--json` | Émettre les métadonnées de mise à jour en JSON pour les scripts et la CI |
+| `--channel CH` | Remplacer le canal configuré pour cette vérification : `stable` \| `beta` \| `nightly` |
+
+**Ce que fait la commande :**
+
+- Utilise les mêmes métadonnées de mise à jour dépendantes de la plateforme que l'application desktop.
+- Se rabat sur les métadonnées des releases GitHub si l'API de mise à jour principale est indisponible.
+- Respecte votre forme d'installation actuelle lors du choix des artefacts, comme un installateur, une archive ZIP portable, une AppImage ou un `.dmg`.
+
+!!! note "Les vérifications CLI ne font que vérifier"
+    `hsync update` indique la disponibilité et les métadonnées. Le véritable flux guidé de téléchargement et d'installation se trouve dans **Paramètres → Mises à jour** de l'application desktop.
+
+---
+
 ## Complétion du Shell
 
 `hsync` prend en charge la complétion du shell via `argcomplete`.

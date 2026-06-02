@@ -31,6 +31,10 @@ Si votre navigateur n'est pas listé, utilisez **Paramètres → Navigateurs →
 
 Oui ! Installez HistorySync sur chaque machine, configurez le même serveur WebDAV sur toutes, et activez la synchronisation automatique. Lorsque vous restaurez (ou lorsque HistorySync fusionne automatiquement depuis le cloud), les enregistrements de tous les appareils sont **dédupliqués intelligemment** en fonction du type de navigateur, de l'URL et de l'horodatage de visite.
 
+### Puis-je ajouter des navigateurs que HistorySync ne détecte pas automatiquement ?
+
+Oui. Utilisez **Paramètres → Navigateurs → Ajouter un chemin personnalisé** pour enregistrer manuellement un navigateur. À partir de la version 1.4.0, les navigateurs personnalisés utilisent le même modèle d'exécution que les navigateurs intégrés et ceux détectés par analyse approfondie, donc ils participent à la synchronisation, au suivi d'état et aux commandes d'activation/désactivation sans nécessiter de redémarrage après l'enregistrement.
+
 ---
 
 ## Synchronisation et Extraction
@@ -104,6 +108,16 @@ Par défaut, **10 sauvegardes** sont conservées sur le serveur. Les plus ancien
 3. Testez la connectivité : `curl -u user:pass https://your-server/dav/`.
 4. Si vous utilisez un certificat auto-signé, définissez `hsync config set webdav.verify_ssl false`.
 
+### Comment fonctionne le nouveau système de mise à jour selon le type d'installation ?
+
+HistorySync détecte si vous utilisez une version installée, portable, AppImage, `.dmg` ou un paquet géré par le système.
+
+- Les builds de type installateur peuvent généralement déléguer directement au programme d'installation de la plateforme.
+- Les installations portables, AppImage et par archive téléchargent le bon artefact et le révèlent pour un remplacement manuel sûr.
+- Les installations via gestionnaire de paquets, comme les paquets `.deb`, continuent d'utiliser le gestionnaire de paquets au lieu de remplacer les fichiers sur place.
+
+Vous pouvez toujours lancer une vérification manuelle dans **Paramètres → Mises à jour**, ou exécuter `hsync update` depuis le terminal.
+
 ---
 
 ## Performances
@@ -160,6 +174,16 @@ hsync -s --config-dir /data/config -q
 ```
 
 Définissez `QT_QPA_PLATFORM=offscreen` si Qt se plaint d'un affichage manquant.
+
+### Puis-je vérifier les nouvelles versions depuis des scripts ?
+
+Oui. Utilisez :
+
+```bash
+hsync update --json
+```
+
+Cela renvoie des métadonnées structurées adaptées à l'automatisation. Vous pouvez aussi remplacer le canal par invocation avec `--channel beta` ou `--channel nightly`.
 
 ---
 

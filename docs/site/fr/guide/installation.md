@@ -139,6 +139,23 @@ hsync --version
 
 Remplacez le binaire existant par le nouveau depuis la page Releases. HistorySync stocke sa configuration et sa base de données séparément du binaire de l'application, donc la mise à jour ne touche jamais vos données.
 
+À partir de la version 1.4.0, les builds desktop packagés incluent aussi un **système de mise à jour intégré** :
+
+- Les **builds installateur Windows** peuvent généralement déléguer directement le processus au programme d'installation.
+- Les **builds macOS `.dmg`** peuvent télécharger et ouvrir l'image disque pour vous.
+- Les **installations portables, AppImage et par archive** téléchargent l'artefact vérifié correspondant et l'affichent afin que vous puissiez remplacer le binaire en toute sécurité.
+- Les **installations gérées par le système** comme les paquets `.deb` continuent de s'appuyer sur votre gestionnaire de paquets ou sur la page Releases.
+
+Vous pouvez lancer cela depuis **Paramètres → Mises à jour → Vérifier les mises à jour**, ou depuis la bannière de mise à jour lorsqu'une nouvelle version est détectée.
+
+Si vous préférez le terminal, utilisez :
+
+```bash
+hsync update
+hsync update --json
+hsync update --channel beta
+```
+
 Emplacements par défaut des données :
 
 | Plateforme | Répertoire |
@@ -148,6 +165,9 @@ Emplacements par défaut des données :
 | Linux | `~/.config/HistorySync/` |
 
 Vous pouvez remplacer cela avec `--config-dir` ou utiliser le mode `--portable` pour conserver toutes les données à côté de l'exécutable.
+
+!!! tip "Installations portables"
+    Les installations portables et les configurations basées sur un marqueur `.portable` conservent la configuration et les bases de données à côté de l'exécutable. Le système de mise à jour préserve ce modèle et choisit si possible des artefacts de publication au format portable.
 
 ---
 

@@ -85,7 +85,20 @@ Consultez le [guide de configuration WebDAV](webdav-setup.md) pour une liste de 
 
 ---
 
-## Étape 6 — Mode Barre des Tâches (Fonctionnement en Arrière-plan)
+## Étape 6 — Activer la Vérification des Mises à Jour
+
+Allez dans **Paramètres → Mises à jour** et choisissez comment vous voulez que HistorySync gère les nouvelles versions :
+
+1. Laissez **Vérifier automatiquement les mises à jour** activé si vous souhaitez recevoir des rappels passifs.
+2. Choisissez un canal de publication comme **Stable** ou **Bêta**.
+3. Définissez une politique de rappel, par exemple une fois par semaine au lieu de chaque lancement.
+4. Utilisez **Vérifier les mises à jour** à tout moment pour lancer une vérification à la demande.
+
+Lorsqu'une version plus récente est disponible, HistorySync peut afficher une bannière, ouvrir une boîte de dialogue détaillée sur la version, et mémoriser vos choix comme « me le rappeler plus tard » ou « ignorer cette version ».
+
+---
+
+## Étape 7 — Mode Barre des Tâches (Fonctionnement en Arrière-plan)
 
 Une fois configuré, fermez la fenêtre principale. HistorySync se réduit dans la **barre des tâches système** et continue de synchroniser et de sauvegarder silencieusement.
 
@@ -103,6 +116,7 @@ Faites un clic droit sur l'icône de la barre des tâches pour :
 | Ce que vous voulez faire | Où aller |
 |---|---|
 | Automatiser les synchronisations depuis le terminal | [Référence CLI](cli-reference.md) |
+| Vérifier les nouvelles versions depuis le terminal | [Référence CLI](cli-reference.md#update-check-for-updates) |
 | Configurer un fournisseur WebDAV spécifique | [Configuration WebDAV](webdav-setup.md) |
 | Personnaliser les raccourcis clavier | [Raccourcis Clavier](keyboard-shortcuts.md) |
 | Exporter votre historique en CSV / JSON / HTML | [Référence CLI — Exporter l'Historique](cli-reference.md#export) |

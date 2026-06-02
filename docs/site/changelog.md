@@ -15,6 +15,43 @@ All notable changes are documented here. The format is based on [Keep a Changelo
 
 ---
 
+## [1.4.0] - 2026-06-01
+
+### Added
+- Built-in online update support for the desktop app, including platform-aware package selection, release-channel support, and a GitHub fallback when the primary update API is unavailable.
+- Update banners, release-detail dialogs, reminder preferences, and a dedicated Settings section for update policy, source preference, and channel selection.
+- `hsync update` for headless update checks, with both human-readable and JSON output and optional channel override.
+- A unified custom-browser runtime model so manually added browsers and deep-scan discoveries behave like first-class browser integrations across sync, monitoring, and UI surfaces.
+- Automatic log tailing in the log viewer, with pause behaviour when the page is hidden or the window is minimised.
+
+### Changed
+- WebDAV settings were streamlined into a cleaner, less error-prone configuration flow.
+- Bookmark rendering was virtualised, making the bookmarks page scale much better on large datasets.
+
+### Fixed
+- Browser-monitor state no longer flips to `NEEDS_SYNC` spuriously; sync freshness now compares against the database mtime captured during extraction.
+- WebDAV credential access is now deferred and deduplicated, reducing unnecessary keyring traffic and avoiding repeated unlock prompts on some systems.
+- Optional WebDAV imports now load only when a transfer actually starts, improving startup robustness on partially provisioned environments.
+- Browsers added through custom paths are now registered at startup and immediately after saving settings, so they participate in sync and status monitoring without restart.
+- `browser:` search filters are now case-insensitive, and domain matching now escapes SQL `LIKE` wildcards correctly to prevent false matches and accidental overreach.
+- Disabled browsers are shown explicitly as `DISABLED` on the dashboard instead of disappearing from the status view.
+- The history scroll bubble now prefers the right edge and falls back left near screen boundaries.
+- Dashboard deep-scan cleanup no longer double-frees the scroll-area widget.
+- Risky custom-browser removals now require confirmation before destructive actions.
+- Statistics month labels no longer depend on the system locale and now use the app's i18n month names consistently.
+- Tray behaviour is more consistent: single-click open works across platforms and the light-theme sync spinner is easier to see.
+- Centered dialogs and StyledComboBox popups now clamp to screen bounds, improving behaviour on multi-monitor and edge-of-screen layouts.
+- Dashboard stat cards are now responsive and keep a stable height across window sizes.
+- Update checks now avoid blocking on GitHub throttling.
+
+### Build
+- Release packaging and validation workflows were expanded and hardened across platforms, including installer validation, ARM64 installer flag fixes, and dependency-install hardening in CI.
+
+### Docs
+- The documentation site was refreshed for 1.4.0 to cover online updates, update reminders, CLI update checks, and the revised install and upgrade flow.
+
+---
+
 ## [1.3.2] - 2026-05-25
 
 ### Added
@@ -250,7 +287,8 @@ Initial stable release.
 - Master password encryption for WebDAV credentials via HKDF-SHA256 and system keyring integration.
 - Windows and macOS packages.
 
-[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.3.2...HEAD
+[Unreleased]: https://github.com/TheSkyC/HistorySync/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/TheSkyC/HistorySync/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/TheSkyC/HistorySync/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/TheSkyC/HistorySync/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/TheSkyC/HistorySync/compare/v1.2.2...v1.3.0

@@ -332,6 +332,42 @@ hsync config set language ja_JP
 
 ---
 
+<a id="update-check-for-updates"></a>
+
+### `update` — アップデートを確認
+
+現在のプラットフォームとインストール形態で、新しい HistorySync リリースが利用可能かどうかを確認します。
+
+```bash
+# 人間向けの出力
+hsync update
+
+# 機械向けの JSON 出力
+hsync update --json
+
+# 既定以外のリリースチャネルを確認
+hsync update --channel beta
+hsync update --channel nightly
+```
+
+**オプション:**
+
+| フラグ | 説明 |
+|---|---|
+| `--json` | スクリプトや CI 向けに更新メタデータを JSON で出力 |
+| `--channel CH` | 今回の確認に使うチャネルを上書き: `stable` \| `beta` \| `nightly` |
+
+**動作:**
+
+- desktop アプリと同じ、プラットフォーム依存の更新メタデータを使用します。
+- 主要な更新 API が利用できない場合は GitHub Releases のメタデータにフォールバックします。
+- インストーラ、ポータブル ZIP、AppImage、`.dmg` など、現在のインストール形態に合ったアーティファクトを選びます。
+
+!!! note "CLI は確認のみ"
+    `hsync update` は更新の有無とメタデータを報告するだけです。実際のガイド付きダウンロードとインストールは、desktop アプリの **設定 → 更新** から行います。
+
+---
+
 ## シェル補完
 
 `hsync` は `argcomplete` によるシェル補完をサポートしています。

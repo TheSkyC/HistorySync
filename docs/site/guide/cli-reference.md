@@ -332,6 +332,42 @@ hsync config set language zh_CN
 
 ---
 
+<a id="update-check-for-updates"></a>
+
+### `update` — Check for Updates
+
+Check whether a newer HistorySync release is available for the current platform and install type.
+
+```bash
+# Human-readable output
+hsync update
+
+# Machine-readable JSON
+hsync update --json
+
+# Check a non-default release channel
+hsync update --channel beta
+hsync update --channel nightly
+```
+
+**Options:**
+
+| Flag | Description |
+|---|---|
+| `--json` | Emit update metadata as JSON for scripts and CI |
+| `--channel CH` | Override the configured channel for this check: `stable` \| `beta` \| `nightly` |
+
+**What it does:**
+
+- Uses the same platform-aware update metadata as the desktop app.
+- Falls back to GitHub release metadata if the primary update API is unavailable.
+- Respects your current install form when choosing assets, such as installer, portable ZIP, AppImage, or `.dmg`.
+
+!!! note "CLI checks only"
+    `hsync update` reports availability and metadata. The actual guided download and install flow lives in the desktop app's **Settings → Updates** surface.
+
+---
+
 ## Shell Completion
 
 `hsync` supports shell completion via `argcomplete`.

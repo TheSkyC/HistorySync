@@ -332,6 +332,42 @@ hsync config set language ko_KR
 
 ---
 
+<a id="update-check-for-updates"></a>
+
+### `update` — 업데이트 확인
+
+현재 플랫폼과 설치 형태에서 더 새로운 HistorySync 릴리스가 있는지 확인합니다.
+
+```bash
+# 사람이 읽기 좋은 출력
+hsync update
+
+# 기계가 읽기 좋은 JSON 출력
+hsync update --json
+
+# 기본이 아닌 릴리스 채널 확인
+hsync update --channel beta
+hsync update --channel nightly
+```
+
+**옵션:**
+
+| 플래그 | 설명 |
+|---|---|
+| `--json` | 스크립트와 CI를 위해 업데이트 메타데이터를 JSON으로 출력 |
+| `--channel CH` | 이번 확인에 사용할 채널을 덮어쓰기: `stable` \| `beta` \| `nightly` |
+
+**동작 방식:**
+
+- desktop 앱과 동일한 플랫폼 인식 업데이트 메타데이터를 사용합니다.
+- 기본 업데이트 API를 사용할 수 없으면 GitHub Releases 메타데이터로 대체합니다.
+- 설치 프로그램, 포터블 ZIP, AppImage, `.dmg` 등 현재 설치 형태에 맞는 아티팩트를 선택합니다.
+
+!!! note "CLI는 확인만 수행"
+    `hsync update`는 업데이트 가능 여부와 메타데이터만 보고합니다. 실제 안내형 다운로드 및 설치 흐름은 desktop 앱의 **설정 → 업데이트**에 있습니다.
+
+---
+
 ## 셸 자동 완성
 
 `hsync`는 `argcomplete`를 통한 셸 자동 완성을 지원합니다.

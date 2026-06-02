@@ -307,6 +307,42 @@ hsync config set language zh_CN
 
 ---
 
+<a id="update-check-for-updates"></a>
+
+### `update` — 检查更新
+
+检查当前平台和安装形态是否有可用的新版本 HistorySync。
+
+```bash
+# 人类可读输出
+hsync update
+
+# 机器可读 JSON 输出
+hsync update --json
+
+# 检查非默认发布通道
+hsync update --channel beta
+hsync update --channel nightly
+```
+
+**选项：**
+
+| 标志 | 说明 |
+|---|---|
+| `--json` | 以 JSON 输出更新元数据，方便脚本和 CI 使用 |
+| `--channel CH` | 临时覆盖本次检查使用的通道：`stable` \| `beta` \| `nightly` |
+
+**行为说明：**
+
+- 使用与桌面版相同的按平台选择的更新元数据。
+- 当主更新 API 不可用时，会回退到 GitHub Releases 元数据。
+- 会结合当前安装形态选择对应产物，例如 installer、portable ZIP、AppImage 或 `.dmg`。
+
+!!! note "CLI 只负责检查"
+    `hsync update` 负责报告是否有可用更新和相关元数据。真正的引导下载和安装流程位于桌面版的 **设置 → 更新** 中。
+
+---
+
 ## Shell 自动补全
 
 `hsync` 通过 `argcomplete` 支持 Shell 自动补全。

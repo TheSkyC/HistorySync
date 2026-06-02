@@ -307,6 +307,42 @@ hsync config set language zh_TW
 
 ---
 
+<a id="update-check-for-updates"></a>
+
+### `update` — 檢查更新
+
+檢查目前平台與安裝形態是否有可用的新版本 HistorySync。
+
+```bash
+# 人類可讀輸出
+hsync update
+
+# 機器可讀 JSON 輸出
+hsync update --json
+
+# 檢查非預設發布通道
+hsync update --channel beta
+hsync update --channel nightly
+```
+
+**選項：**
+
+| 旗標 | 說明 |
+|---|---|
+| `--json` | 以 JSON 輸出更新中繼資料，方便腳本與 CI 使用 |
+| `--channel CH` | 臨時覆寫本次檢查使用的通道：`stable` \| `beta` \| `nightly` |
+
+**行為說明：**
+
+- 使用與桌面版相同、依平台選擇的更新中繼資料。
+- 當主要更新 API 無法使用時，會回退到 GitHub Releases 中繼資料。
+- 會依目前安裝形態選擇對應產物，例如 installer、portable ZIP、AppImage 或 `.dmg`。
+
+!!! note "CLI 只負責檢查"
+    `hsync update` 負責回報是否有可用更新與相關中繼資料。真正的引導下載與安裝流程位於桌面版的 **設定 → 更新** 中。
+
+---
+
 ## Shell 自動補全
 
 `hsync` 透過 `argcomplete` 支援 Shell 自動補全。
