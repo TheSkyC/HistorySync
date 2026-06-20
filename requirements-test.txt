@@ -14,7 +14,7 @@ charset-normalizer==3.4.6
     # via requests
 coverage[toml]==7.13.5
     # via pytest-cov
-cryptography==48.0.0
+cryptography==48.0.1
     # via secretstorage
 evdev==1.9.3
     # via pynput
