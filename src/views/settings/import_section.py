@@ -17,6 +17,7 @@ class ImportSection(QWidget):
         import_requested()  - user clicked the import button
     """
 
+    backup_requested = Signal()
     import_requested = Signal()
 
     def __init__(self, parent=None):
@@ -46,5 +47,8 @@ class ImportSection(QWidget):
         )
         import_btn.clicked.connect(self.import_requested)
         btn_row.addWidget(import_btn)
+        backups = QPushButton(_("Portable backups…"))
+        backups.clicked.connect(self.backup_requested)
+        btn_row.addWidget(backups)
         btn_row.addStretch()
         layout.addLayout(btn_row)

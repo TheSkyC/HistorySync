@@ -224,6 +224,7 @@ class SettingsPage(QWidget):
         self._sec_paths.remove_path_requested.connect(self._on_remove_custom_path)
 
         # Import
+        self._sec_import.backup_requested.connect(self._open_backup_dialog)
         self._sec_import.import_requested.connect(self._open_import_dialog)
 
         # Maintenance section
@@ -782,6 +783,17 @@ class SettingsPage(QWidget):
         self._sec_paths.refresh_paths(cfg.extractor.get_custom_path_map())
 
     # ── Import handler ────────────────────────────────────────
+
+    def _open_backup_dialog(self):
+        from src.views.dialogs.backup_dialog import BackupDialog
+
+        dialog = BackupDialog(self._vm._main_vm._db, self)
+        dialog.merged.connect(self._vm._main_vm.history_vm.refresh)
+        dialog.merged.connect(self._vm._main_vm._emit_stats)
+        try:
+            exec_centered(dialog, self)
+        finally:
+            dialog.deleteLater()
 
     def _open_import_dialog(self):
         try:

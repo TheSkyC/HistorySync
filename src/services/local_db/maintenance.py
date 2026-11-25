@@ -216,6 +216,8 @@ class _MaintenanceMixin:
         # independent connection.  SQLite's own file-level locking prevents
         # concurrent writers from corrupting the source while we read it.
         with self._lock:  # type: ignore[attr-defined]
+            # A fresh installation may not have opened its lazily initialized database yet.
+            self._ensure_conn()  # type: ignore[attr-defined]
             self._reset_conn()  # type: ignore[attr-defined]
 
         try:
