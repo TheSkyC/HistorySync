@@ -124,6 +124,12 @@ HistorySync offers flexible working modes. You can use it as a background servic
 2.  **Knowledge Base**: Bookmark important pages and add notes for future reference.
 3.  **Privacy**: Select unwanted records and delete them, or choose "Blacklist Domain" to wipe a site's traces permanently.
 
+### Portable backups
+
+Open **Settings → Import History Database → Portable backups** to export a ZIP or merge one from another computer. The archive contains browsing history, bookmarks, annotations and hidden records. It does not contain app credentials or the favicon cache. Import also accepts ZIP archives made by the WebDAV backup feature.
+
+For GitHub, enter an existing **private** repository as `owner/name` and a fine-grained token scoped to that repository. Grant **Contents: Read and write** for uploads, or **Read-only** for restore. **Upload backup** writes `HistorySync/history.zip` on the default branch. **Download and merge** restores the latest copy. Each upload creates a Git commit, so older backups remain in repository history. The token is held only while the dialog is open. Use local ZIP for archives larger than 100 MiB.
+
 ## 🌐 Supported Languages
 This tool supports the following UI languages:
 *   **English** (`en_US`)

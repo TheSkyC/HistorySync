@@ -23,10 +23,10 @@ if TYPE_CHECKING:
     from src.services.webdav_resumable import ResumableTransfer
 
 from src.models.app_config import WebDavConfig
+from src.services.backup_archive import sha256_file, write_archive
 from src.utils.constants import (
     DB_FILENAME,
     FAVICON_DB_FILENAME,
-    SNAPSHOT_INFO_FILENAME,
     WEBDAV_BACKUP_NAME_PREFIX,
     WEBDAV_MANIFEST_FILENAME,
 )
@@ -89,13 +89,7 @@ class SyncResult:
         return f"<SyncResult {status}: {self.message}>"
 
 
-def _sha256_file(path: str | Path) -> str:
-    """Compute SHA-256 hex digest of a file."""
-    h = hashlib.sha256()
-    with Path(path).open("rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+_sha256_file = sha256_file
 
 
 def _webdav_retry(fn: Callable, attempts: int = 3, base_delay: float = 1.0) -> None:
@@ -321,53 +315,10 @@ class WebDavSyncService:
             except OSError:
                 pass
 
-            hash_manifest: dict[str, str] = {}
-
-            # Gather snapshot counts from the clean DB
-            import sqlite3 as _sqlite3
-
-            _snap_conn = _sqlite3.connect(str(clean_db_path), timeout=10)
-            try:
-                history_count = _snap_conn.execute("SELECT COUNT(*) FROM history").fetchone()[0]
-                bookmark_count = _snap_conn.execute("SELECT COUNT(*) FROM bookmarks").fetchone()[0]
-                annotation_count = _snap_conn.execute("SELECT COUNT(*) FROM annotations").fetchone()[0]
-                hidden_count = _snap_conn.execute("SELECT COUNT(*) FROM hidden_records").fetchone()[0]
-            except Exception:
-                history_count = bookmark_count = annotation_count = hidden_count = 0
-            finally:
-                _snap_conn.close()
-
-            with zipfile.ZipFile(tmp_zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-                # Add FTS-free DB (stored as DB_FILENAME for restore compatibility)
-                db_hash = _sha256_file(clean_db_path)
-                zf.write(clean_db_path, arcname=DB_FILENAME)
-                hash_manifest[DB_FILENAME] = db_hash
-                log.info("DB hash: %s", db_hash)
-
-                # Optionally add favicon cache
-                if self._config.backup_favicons and favicon_cache_dir and favicon_cache_dir.exists():
-                    _cb(_("Adding favicon cache to backup..."))
-                    favicon_db = favicon_cache_dir / FAVICON_DB_FILENAME
-                    if favicon_db.exists():
-                        fav_hash = _sha256_file(favicon_db)
-                        zf.write(favicon_db, arcname=FAVICON_DB_FILENAME)
-                        hash_manifest[FAVICON_DB_FILENAME] = fav_hash
-
-                # Write hash manifest
-                manifest_json = json.dumps(hash_manifest, indent=2, ensure_ascii=False).encode("utf-8")
-                zf.writestr("manifest.sha256.json", manifest_json)
-
-                # Write snapshot_info.json inside the ZIP
-                snapshot_info = {
-                    "schema_version": 1,
-                    "created_at": int(time.time()),
-                    "history_count": history_count,
-                    "bookmark_count": bookmark_count,
-                    "annotation_count": annotation_count,
-                    "hidden_record_count": hidden_count,
-                    "db_sha256": db_hash,
-                }
-                zf.writestr(SNAPSHOT_INFO_FILENAME, json.dumps(snapshot_info, indent=2, ensure_ascii=False))
+            favicon_db = None
+            if self._config.backup_favicons and favicon_cache_dir:
+                favicon_db = favicon_cache_dir / FAVICON_DB_FILENAME
+            hash_manifest, snapshot = write_archive(Path(tmp_zip_path), clean_db_path, favicon_db)
 
             zip_size = Path(tmp_zip_path).stat().st_size
             ratio = (1 - zip_size / original_size) * 100 if original_size > 0 else 0
@@ -408,14 +359,9 @@ class WebDavSyncService:
             # between cleanup and manifest upload cannot leave the manifest
             # pointing at a file that was just deleted.
             sync_manifest = {
-                "schema_version": 1,
+                **snapshot,
                 "latest_backup": remote_filename,
                 "latest_backup_ts": _backup_timestamp(remote_filename),
-                "history_count": history_count,
-                "bookmark_count": bookmark_count,
-                "annotation_count": annotation_count,
-                "hidden_record_count": hidden_count,
-                "db_sha256": db_hash,
             }
             manifest_bytes = json.dumps(sync_manifest, indent=2, ensure_ascii=False).encode("utf-8")
             remote_manifest = f"{remote_dir.rstrip('/')}/{WEBDAV_MANIFEST_FILENAME}"
